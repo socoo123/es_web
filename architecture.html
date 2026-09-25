@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>架构总览 — ES 源码精读站</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="index.html">课程</a>
+      <a href="architecture.html" class="here">架构</a>
+      <a href="console.html">控制台</a>
+      <a href="cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>ES 9.4.0 架构总览</h1>
+      <p class="sub">一张图放下 30 课:纵向跟一次请求走过入口层、写入路/搜索路、集群平面;横向是六篇的组织。点击任意方块直达那一课;图下面还有四条走读路线和一份源码地图。</p>
+      <div class="badges">
+        <span class="pill">30 课 · 一张图</span>
+        <span class="pill">每块可点击</span>
+        <span class="pill">锚定 9.4.0</span>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>全景图:一次请求的旅程</h2>
+      <p class="module-sub">从客户端进来,先过第二篇的入口层,然后按目的分流:写一篇文档走左路(第三篇),搜一次走右路(第四篇);两条路都汇到 Lucene 的 segment 上。集群平面(第五篇)在底下托着;地基(第一篇)与横切能力(第六篇)各占一行。</p>
+      <figure class="fig fig-wide">
+        <div class="fig-canvas">
+          <svg viewBox="0 0 1000 780" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="archm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0L10,5L0,10z" fill="rgb(var(--fig-arrow))"/>
+              </marker>
+            </defs>
+
+            <!-- 客户端 -->
+            <rect x="310" y="6" width="380" height="40" rx="8" class="fig-box"/>
+            <text x="500" y="32" text-anchor="middle" class="fig-name">客户端:curl / Kibana / 本站控制台</text>
+            <line x1="500" y1="46" x2="500" y2="68" class="fig-arrow" marker-end="url(#archm)"/>
+
+            <!-- 第二篇 · 请求处理 -->
+            <text x="20" y="66" class="fig-key">第二篇 · 请求处理(节点内入口层)</text>
+            <a href="chapters/ch06.html">
+              <rect x="20" y="74" width="222" height="70" rx="10" class="fig-box"/>
+              <text x="131" y="98" text-anchor="middle" class="fig-name">L06 · REST 入口</text>
+              <text x="131" y="118" text-anchor="middle" class="fig-sub">Netty 收包,RestController</text>
+              <text x="131" y="135" text-anchor="middle" class="fig-sub">一条 URL 被谁认领</text>
+            </a>
+            <line x1="242" y1="109" x2="266" y2="109" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch07.html">
+              <rect x="266" y="74" width="222" height="70" rx="10" class="fig-box"/>
+              <text x="377" y="98" text-anchor="middle" class="fig-name">L07 · 动作框架</text>
+              <text x="377" y="118" text-anchor="middle" class="fig-sub">rest ↔ transport 两套名</text>
+              <text x="377" y="135" text-anchor="middle" class="fig-sub">过滤器链 + 监听器</text>
+            </a>
+            <line x1="488" y1="109" x2="512" y2="109" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch08.html">
+              <rect x="512" y="74" width="222" height="70" rx="10" class="fig-box"/>
+              <text x="623" y="98" text-anchor="middle" class="fig-name">L08 · 线程池与异步</text>
+              <text x="623" y="118" text-anchor="middle" class="fig-sub">等待不占线程,回调只响一次</text>
+              <text x="623" y="135" text-anchor="middle" class="fig-sub">池满 → 429</text>
+            </a>
+            <line x1="734" y1="109" x2="758" y2="109" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch09.html">
+              <rect x="758" y="74" width="222" height="70" rx="10" class="fig-box"/>
+              <text x="869" y="98" text-anchor="middle" class="fig-name">L09 · 传输层</text>
+              <text x="869" y="118" text-anchor="middle" class="fig-sub">节点间二进制协议</text>
+              <text x="869" y="135" text-anchor="middle" class="fig-sub">本机回环不走这里</text>
+            </a>
+            <line x1="350" y1="144" x2="133" y2="188" class="fig-arrow" marker-end="url(#archm)"/>
+            <line x1="650" y1="144" x2="867" y2="188" class="fig-arrow" marker-end="url(#archm)"/>
+
+            <!-- 第三篇 · 写入路(左) -->
+            <text x="20" y="188" class="fig-key">第三篇 · 数据写入路</text>
+            <a href="chapters/ch13.html">
+              <rect x="20" y="194" width="226" height="54" rx="10" class="fig-box"/>
+              <text x="133" y="216" text-anchor="middle" class="fig-name">L13 · 批量写入</text>
+              <text x="133" y="238" text-anchor="middle" class="fig-sub">两行一组,条自成败</text>
+            </a>
+            <line x1="133" y1="248" x2="133" y2="266" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch15.html">
+              <rect x="20" y="266" width="226" height="54" rx="10" class="fig-box"/>
+              <text x="133" y="288" text-anchor="middle" class="fig-name">L15 · 选分片</text>
+              <text x="133" y="310" text-anchor="middle" class="fig-sub">shard = hash(routing) % N</text>
+            </a>
+            <line x1="133" y1="320" x2="133" y2="338" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch12.html">
+              <rect x="20" y="338" width="226" height="54" rx="10" class="fig-box"/>
+              <text x="133" y="360" text-anchor="middle" class="fig-name">L12 · 摄取管道</text>
+              <text x="133" y="382" text-anchor="middle" class="fig-sub">先改 JSON,再落 shard</text>
+            </a>
+            <line x1="133" y1="392" x2="133" y2="410" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch11.html">
+              <rect x="20" y="410" width="226" height="54" rx="10" class="fig-box"/>
+              <text x="133" y="432" text-anchor="middle" class="fig-name">L11 · 映射系统</text>
+              <text x="133" y="454" text-anchor="middle" class="fig-sub">首篇文档定 schema</text>
+            </a>
+            <line x1="133" y1="464" x2="133" y2="478" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch14.html">
+              <rect x="20" y="478" width="226" height="58" rx="10" class="fig-box-hot"/>
+              <text x="133" y="500" text-anchor="middle" class="fig-name">L14 · 存储引擎</text>
+              <text x="133" y="518" text-anchor="middle" class="fig-sub">buffer → refresh → segment</text>
+              <text x="133" y="532" text-anchor="middle" class="fig-sub">+ translog 兜底</text>
+            </a>
+
+            <!-- 中部说明 + Lucene 底座 -->
+            <text x="500" y="214" text-anchor="middle" class="fig-key">同一个入口,两条下坡</text>
+            <text x="500" y="238" text-anchor="middle" class="fig-sub">刚写的文档:GET 立刻读得到</text>
+            <text x="500" y="258" text-anchor="middle" class="fig-sub">要等 refresh 才搜得到</text>
+            <text x="500" y="290" text-anchor="middle" class="fig-sub">两条路在底部汇合:</text>
+            <text x="500" y="310" text-anchor="middle" class="fig-sub">写入产出 segment,搜索消费</text>
+            <rect x="270" y="436" width="460" height="62" rx="10" class="fig-box-hot"/>
+            <text x="500" y="462" text-anchor="middle" class="fig-name">Lucene 10.4.0 底座</text>
+            <text x="500" y="484" text-anchor="middle" class="fig-sub">segment 不可变 · IndexWriter · Directory</text>
+            <line x1="246" y1="505" x2="268" y2="498" class="fig-arrow" marker-end="url(#archm)"/>
+            <line x1="754" y1="505" x2="732" y2="498" class="fig-arrow" marker-end="url(#archm)"/>
+
+            <!-- 第四篇 · 搜索路(右) -->
+            <text x="754" y="188" class="fig-key">第四篇 · 搜索路</text>
+            <a href="chapters/ch10.html">
+              <rect x="754" y="194" width="226" height="54" rx="10" class="fig-box"/>
+              <text x="867" y="216" text-anchor="middle" class="fig-name">L10 · 实时 GET</text>
+              <text x="867" y="238" text-anchor="middle" class="fig-sub">_id 直读,不等 refresh</text>
+            </a>
+            <line x1="867" y1="248" x2="867" y2="266" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch16.html">
+              <rect x="754" y="266" width="226" height="54" rx="10" class="fig-box-hot"/>
+              <text x="867" y="288" text-anchor="middle" class="fig-name">L16 · 两阶段搜索</text>
+              <text x="867" y="310" text-anchor="middle" class="fig-sub">Query 定名次,Fetch 搬正文</text>
+            </a>
+            <line x1="867" y1="320" x2="867" y2="338" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch17.html">
+              <rect x="754" y="338" width="226" height="54" rx="10" class="fig-box"/>
+              <text x="867" y="360" text-anchor="middle" class="fig-name">L17 · 搜索上下文</text>
+              <text x="867" y="382" text-anchor="middle" class="fig-sub">一次搜索活一趟</text>
+            </a>
+            <line x1="867" y1="392" x2="867" y2="410" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch18.html">
+              <rect x="754" y="410" width="226" height="54" rx="10" class="fig-box"/>
+              <text x="867" y="432" text-anchor="middle" class="fig-name">L18 · 查询语法</text>
+              <text x="867" y="454" text-anchor="middle" class="fig-sub">DSL 翻译成 token 查询</text>
+            </a>
+            <line x1="867" y1="464" x2="867" y2="478" class="fig-arrow" marker-end="url(#archm)"/>
+            <a href="chapters/ch19.html">
+              <rect x="754" y="478" width="226" height="58" rx="10" class="fig-box"/>
+              <text x="867" y="500" text-anchor="middle" class="fig-name">L19/L20 · 聚合与打分</text>
+              <text x="867" y="518" text-anchor="middle" class="fig-sub">先局部再全局 · BM25</text>
+              <text x="867" y="532" text-anchor="middle" class="fig-sub">名次在 Query 阶段已定</text>
+            </a>
+
+            <line x1="500" y1="536" x2="500" y2="558" class="fig-arrow" marker-end="url(#archm)"/>
+
+            <!-- 第五篇 · 集群平面 -->
+            <text x="20" y="566" class="fig-key">第五篇 · 分布式机制(集群平面)</text>
+            <a href="chapters/ch21.html">
+              <rect x="10" y="574" width="182" height="64" rx="10" class="fig-box"/>
+              <text x="101" y="598" text-anchor="middle" class="fig-name">L21 · 集群状态</text>
+              <text x="101" y="620" text-anchor="middle" class="fig-sub">快照替换,版本号 +1</text>
+            </a>
+            <a href="chapters/ch22.html">
+              <rect x="209" y="574" width="182" height="64" rx="10" class="fig-box"/>
+              <text x="300" y="598" text-anchor="middle" class="fig-name">L22 · 选举与共识</text>
+              <text x="300" y="620" text-anchor="middle" class="fig-sub">term 抬升,voting config</text>
+            </a>
+            <a href="chapters/ch23.html">
+              <rect x="408" y="574" width="182" height="64" rx="10" class="fig-box"/>
+              <text x="499" y="598" text-anchor="middle" class="fig-name">L23 · 分片分配</text>
+              <text x="499" y="620" text-anchor="middle" class="fig-sub">decider 先投 NO</text>
+            </a>
+            <a href="chapters/ch24.html">
+              <rect x="607" y="574" width="182" height="64" rx="10" class="fig-box"/>
+              <text x="698" y="598" text-anchor="middle" class="fig-name">L24 · 恢复与快照</text>
+              <text x="698" y="620" text-anchor="middle" class="fig-sub">拷 reuse,补 translog 缝</text>
+            </a>
+            <a href="chapters/ch25.html">
+              <rect x="806" y="574" width="182" height="64" rx="10" class="fig-box"/>
+              <text x="897" y="598" text-anchor="middle" class="fig-name">L25 · 熔断与背压</text>
+              <text x="897" y="620" text-anchor="middle" class="fig-sub">先记账,超限 429</text>
+            </a>
+
+            <!-- 第一篇 · 地基 -->
+            <text x="20" y="656" class="fig-key">第一篇 · 全局认知(地基)</text>
+            <a href="chapters/ch01.html">
+              <rect x="10" y="664" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="101" y="691" text-anchor="middle" class="fig-name">L01 · 是什么</text>
+            </a>
+            <a href="chapters/ch02.html">
+              <rect x="209" y="664" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="300" y="691" text-anchor="middle" class="fig-name">L02 · 代码库全景</text>
+            </a>
+            <a href="chapters/ch03.html">
+              <rect x="408" y="664" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="499" y="691" text-anchor="middle" class="fig-name">L03 · 节点启动</text>
+            </a>
+            <a href="chapters/ch04.html">
+              <rect x="607" y="664" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="698" y="691" text-anchor="middle" class="fig-name">L04 · 插件体系</text>
+            </a>
+            <a href="chapters/ch05.html">
+              <rect x="806" y="664" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="897" y="691" text-anchor="middle" class="fig-name">L05 · 配置框架</text>
+            </a>
+
+            <!-- 第六篇 · 横切能力 -->
+            <text x="20" y="724" class="fig-key">第六篇 · 高级专题(横切能力)</text>
+            <a href="chapters/ch26.html">
+              <rect x="10" y="732" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="101" y="759" text-anchor="middle" class="fig-name">L26 · 脚本引擎</text>
+            </a>
+            <a href="chapters/ch27.html">
+              <rect x="209" y="732" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="300" y="759" text-anchor="middle" class="fig-name">L27 · ES|QL 查询</text>
+            </a>
+            <a href="chapters/ch28.html">
+              <rect x="408" y="732" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="499" y="759" text-anchor="middle" class="fig-name">L28 · 生命周期</text>
+            </a>
+            <a href="chapters/ch29.html">
+              <rect x="607" y="732" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="698" y="759" text-anchor="middle" class="fig-name">L29 · 安全机制</text>
+            </a>
+            <a href="chapters/ch30.html">
+              <rect x="806" y="732" width="182" height="44" rx="10" class="fig-box"/>
+              <text x="897" y="759" text-anchor="middle" class="fig-name">L30 · 全景回顾</text>
+            </a>
+          </svg>
+        </div>
+        <figcaption>图 1 · 30 课全景。纵向是数据的流向(入口 → 写入/搜索 → Lucene → 集群托底),横向是六篇的组织;点击任意方块直达该课。注意写作路自己的顺序:bulk 分组(L13)和选分片(L15)发生在协调端,真正的管道(L12)与映射定型(L11)在目标节点。</figcaption>
+      </figure>
+    </section>
+
+    <section class="module">
+      <h2>四条走读路线</h2>
+      <p class="module-sub">不必按课号线性读。挑一条你想回答的问题,顺着箭头走;每一站就是一课。</p>
+
+      <h3>路线 A · 写一篇文档,它经历了什么?</h3>
+      <p>
+        <a href="chapters/ch06.html"><code>L06</code> REST 入口</a> →
+        <a href="chapters/ch07.html"><code>L07</code> 动作框架</a> →
+        <a href="chapters/ch08.html"><code>L08</code> write 线程池</a> →
+        <a href="chapters/ch13.html"><code>L13</code> bulk 按条分组</a> →
+        <a href="chapters/ch15.html"><code>L15</code> 选目标分片</a> →
+        <a href="chapters/ch12.html"><code>L12</code> 摄取管道改 JSON</a> →
+        <a href="chapters/ch11.html"><code>L11</code> 映射定型</a> →
+        <a href="chapters/ch14.html"><code>L14</code> 进 buffer + translog</a> →
+        <a href="chapters/ch10.html"><code>L10</code> 立刻 GET 验证</a>
+      </p>
+      <p>为什么这样排:bulk 在协调端就按 routing 把每条文档分好组(<code>L13</code>→<code>L15</code>);真正的预处理与映射定型发生在目标节点(<code>L12</code>、<code>L11</code>);写进引擎后 <code>GET</code> 立刻可读,但要等 refresh 才可搜(<code>L10</code> 收尾正好验证这件事)。跨节点转发才走传输层(<code>L09</code>)。</p>
+
+      <h3>路线 B · 搜一次 _search,发生了什么?</h3>
+      <p>
+        <a href="chapters/ch06.html"><code>L06</code> REST 入口</a> →
+        <a href="chapters/ch07.html"><code>L07</code> TransportSearchAction</a> →
+        <a href="chapters/ch08.html"><code>L08</code> search 线程池</a> →
+        <a href="chapters/ch16.html"><code>L16</code> Query Then Fetch 两阶段</a> →
+        <a href="chapters/ch17.html"><code>L17</code> 搜索上下文</a> →
+        <a href="chapters/ch18.html"><code>L18</code> DSL → token 查询</a> →
+        <a href="chapters/ch20.html"><code>L20</code> BM25 打分</a> →
+        <a href="chapters/ch19.html"><code>L19</code> 聚合归并</a> →
+        <a href="chapters/ch27.html"><code>L27</code> 换一门语言:ES|QL</a>
+      </p>
+      <p>名次在 Query 阶段就定死了(<code>L20</code>),Fetch 只是搬正文;聚合走「本地先算一层,协调端再归并」(<code>L19</code>);读到的永远是已 refresh 的 EXTERNAL 快照——与路线 A 的结尾呼应。</p>
+
+      <h3>路线 C · 一个节点挂了,集群怎么自愈?</h3>
+      <p>
+        <a href="chapters/ch21.html"><code>L21</code> 集群状态快照</a> →
+        <a href="chapters/ch22.html"><code>L22</code> 重新选主</a> →
+        <a href="chapters/ch23.html"><code>L23</code> 重算分片分配</a> →
+        <a href="chapters/ch24.html"><code>L24</code> 副本恢复/快照找回</a> →
+        <a href="chapters/ch25.html"><code>L25</code> 期间别把集群打爆:熔断</a>
+      </p>
+      <p>真理之源只有一份集群状态(<code>L21</code>);谁能写它由选举决定(<code>L22</code>);分片去哪儿由 decider 链投票(<code>L23</code>);数据搬家靠 peer recovery,对账能 reuse 的 segment、只补缺失的 ops(<code>L24</code>)。</p>
+
+      <h3>路线 D · 这个系统怎么搭起来的?</h3>
+      <p>
+        <a href="chapters/ch03.html"><code>L03</code> 节点启动</a> →
+        <a href="chapters/ch04.html"><code>L04</code> 插件体系</a> →
+        <a href="chapters/ch05.html"><code>L05</code> 配置框架</a> →
+        <a href="chapters/ch09.html"><code>L09</code> 传输层</a> →
+        <a href="chapters/ch26.html"><code>L26</code> 脚本引擎</a> →
+        <a href="chapters/ch29.html"><code>L29</code> 安全机制</a> →
+        <a href="chapters/ch30.html"><code>L30</code> 全链回放收官</a>
+      </p>
+      <p>从 <code>main()</code> 到 ready(<code>L03</code>),一切都是插件(<code>L04</code>)、一切都有类型安全的配置(<code>L05</code>);之后按需补横切能力。<code>L30</code> 把 29 课串到一次 <code>POST _search</code> 上,是全站的收官动画。</p>
+
+      <div class="callout tip"><span class="co-title">💡 用法建议:</span>先 <code>bash docker/start.sh</code> 把本地 9.4.0 跑起来,再挑一条路线开走;每课的实验都能在<a href="console.html">控制台</a>直接执行,预测→操作→对照。读完任何一条路线,回<a href="index.html">课程总览</a>看下一组。</div>
+    </section>
+
+    <section class="module">
+      <h2>源码地图:每层住在 es-src 哪里</h2>
+      <p class="module-sub">目录全部对照本地 v9.4.0 tag 校验过。前缀省略为 <code>server/src/main/java/org/elasticsearch/</code>;x-pack 系写完整路径。</p>
+      <table class="ktable">
+        <tr><th>关注点</th><th>源码目录</th><th>入口 / 关键类</th><th>课</th></tr>
+        <tr><td>REST 入口</td><td><code>rest/</code> · <code>http/</code></td><td><code>RestController</code></td><td><a href="chapters/ch06.html">L06</a></td></tr>
+        <tr><td>动作框架</td><td><code>action/</code></td><td><code>ActionModule</code> · <code>TransportAction</code></td><td><a href="chapters/ch07.html">L07</a></td></tr>
+        <tr><td>线程池与异步</td><td><code>threadpool/</code></td><td><code>ThreadPool</code> · <code>DefaultBuiltInExecutorBuilders</code></td><td><a href="chapters/ch08.html">L08</a></td></tr>
+        <tr><td>传输层</td><td><code>transport/</code></td><td><code>TransportService</code></td><td><a href="chapters/ch09.html">L09</a></td></tr>
+        <tr><td>实时 GET</td><td><code>index/get/</code></td><td><code>ShardGetService</code></td><td><a href="chapters/ch10.html">L10</a></td></tr>
+        <tr><td>映射</td><td><code>index/mapper/</code></td><td><code>MapperService</code></td><td><a href="chapters/ch11.html">L11</a></td></tr>
+        <tr><td>摄取管道</td><td><code>ingest/</code></td><td><code>IngestService</code></td><td><a href="chapters/ch12.html">L12</a></td></tr>
+        <tr><td>批量写入</td><td><code>action/bulk/</code></td><td><code>TransportBulkAction</code></td><td><a href="chapters/ch13.html">L13</a></td></tr>
+        <tr><td>存储引擎</td><td><code>index/engine/</code> · <code>index/shard/</code></td><td><code>InternalEngine</code> · <code>IndexShard</code></td><td><a href="chapters/ch14.html">L14</a></td></tr>
+        <tr><td>分片路由</td><td><code>cluster/routing/</code></td><td><code>OperationRouting</code></td><td><a href="chapters/ch15.html">L15</a></td></tr>
+        <tr><td>搜索</td><td><code>search/</code> · <code>action/search/</code></td><td><code>SearchService</code></td><td><a href="chapters/ch16.html">L16</a>–<a href="chapters/ch20.html">L20</a></td></tr>
+        <tr><td>集群状态</td><td><code>cluster/</code> · <code>cluster/service/</code></td><td><code>ClusterState</code> · <code>MasterService</code></td><td><a href="chapters/ch21.html">L21</a></td></tr>
+        <tr><td>选举共识</td><td><code>cluster/coordination/</code></td><td><code>Coordinator</code></td><td><a href="chapters/ch22.html">L22</a></td></tr>
+        <tr><td>分配与恢复</td><td><code>cluster/routing/allocation/</code> · <code>index/recovery/</code></td><td><code>AllocationService</code></td><td><a href="chapters/ch23.html">L23</a>/<a href="chapters/ch24.html">L24</a></td></tr>
+        <tr><td>熔断器</td><td><code>common/breaker/</code></td><td><code>CircuitBreaker</code></td><td><a href="chapters/ch25.html">L25</a></td></tr>
+        <tr><td>脚本引擎</td><td><code>script/</code></td><td><code>ScriptService</code></td><td><a href="chapters/ch26.html">L26</a></td></tr>
+        <tr><td>ES|QL</td><td><code>x-pack/plugin/esql*</code>(多模块)</td><td>ANTLR 解析 → <code>AstBuilder</code></td><td><a href="chapters/ch27.html">L27</a></td></tr>
+        <tr><td>索引生命周期</td><td><code>x-pack/plugin/ilm/</code></td><td><code>IndexLifecycleRunner</code></td><td><a href="chapters/ch28.html">L28</a></td></tr>
+        <tr><td>安全</td><td><code>x-pack/plugin/security/</code></td><td><code>Security</code></td><td><a href="chapters/ch29.html">L29</a></td></tr>
+      </table>
+      <div class="callout warn"><span class="co-title">⚠ es-src/ 不在本仓库:</span>按仓库约定,453MB 的源码参考库不入库。需要自己下载一份 v9.4.0(README 给了命令),配合本表与各课的「关键源码文件表」走读。</div>
+    </section>
+
+    <footer class="site-footer">
+      ES 源码精读站 · 架构总览 · 目录名与入口类均对照本地 v9.4.0 tag 校验 ·
+      实验跑在 docker/start.sh 拉起的本机 ES 上
+    </footer>
+  </main>
+
+  <script src="assets/js/nav.js"></script>
+</body>
+</html>
