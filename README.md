@@ -1,5 +1,8 @@
 # ES 源码精读站
 
+> **🚀 在线阅读**:https://socoo123.github.io/es_web/
+> (实验需配合本机 docker 里的 ES,见下文「部署到 GitHub Pages」)
+
 30 课读完 **Elasticsearch 9.4.0** 的骨架与血肉:请求链路、Lucene 存储、搜索聚合、分布式共识。纯静态、零构建、零依赖——双击 `index.html` 即用;实验跑在你本机 docker 拉起的真实 ES 上。
 
 - **30 课 · 六篇**,每课:架构图(SVG)+ 机制动画 + 动手实验(预测 → 操作 → 对照)
@@ -68,7 +71,7 @@ bash docker/start-secure.sh                 # 安全节点 @ 127.0.0.1:9201(ch29
 本站纯静态、零构建,可直接托管:
 
 1. 仓库 **Settings → Pages**,Source 选 **Deploy from a branch**,分支 `main`、目录 `/(root)`,Save
-2. 约 1 分钟后访问:**https://socoo123.github.io/es_web/**
+2. 访问:**https://socoo123.github.io/es_web/**(本仓库已上线,push 到 main 自动重新部署)
 
 阅读与实验要分清:
 
