@@ -56,6 +56,11 @@
 
 ## 会话日志
 
+### 2026-09-25(GitHub Pages 上线 ✅)
+- 本机装了 gh CLI 2.95.0(brew),用户已 `gh auth login`(socoo123)。API 查 Pages 已开通(用户网页端点过):main /(root),status=**built**。
+- 线上核验:**https://socoo123.github.io/es_web/** —— 11 个关键路径(首页/架构/控制台/速查表/章节/样式/脚本/实验注册表/compose/README)全 200;headless Chrome 打开线上 architecture.html 渲染与本地一致(子路径下相对链接全部正常)。
+- 提醒:线上跑实验需重建 docker 容器使新 CORS 白名单生效 + 浏览器本地网络授权;阅读不受影响。
+
 ### 2026-09-25(GitHub Pages 部署准备)
 - 可部署性结论:纯静态零构建,Pages 完整托管阅读体验;实验连本机 9200 受两层管控——① CORS 白名单需含 Pages 域,② 浏览器本地网络权限(实测 ES 9.4.0 `CorsHandler` 不回 `Access-Control-Allow-Private-Network` 头,严格模式浏览器会拦)。
 - 改动:两份 compose 的 `http.cors.allow-origin` 加入 `https://socoo123.github.io`(需 `docker compose up -d` 重建容器生效,尚未在跑容器上应用);根目录加 `.nojekyll`;README 增「部署到 GitHub Pages」章节(开关步骤 + 实验限制 + 本地兜底)。
