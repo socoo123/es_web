@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 3 课:节点启动全流程 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch03" data-ch="ch03">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 03 · 第一篇 · 全局认知</div>
+        <h1>节点启动全流程</h1>
+        <div class="ch-meta-line">从 main() 到 ready · 约 14 分钟 · 前置:第 2 课 · 2 个实验 · 1 个动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>说出启动四站(加载插件 → 锁数据目录 → 加入集群 → 打开 HTTP)各自对世界做了什么。</li>
+          <li>解释为什么 <code>HttpServerTransport</code> 必须是 <code>Node.start()</code> 里最后启动的服务。</li>
+          <li>说出两个进程指向同一 <code>path.data</code> 时,谁在哪个阶段失败、为什么走不到绑端口。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:四站,不是一张类名网</h2>
+        <p>类名是车站,要记的是每站<strong>对世界做了什么</strong>。客户端能打到 9200 时,插件已加载、<code>node.lock</code> 已拿到、节点已在加入(或组成)集群——HTTP 是最后一扇门,不是第一扇。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 160" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah03a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="35" width="160" height="78" rx="9" class="fig-box-hot"/>
+              <text x="90" y="56" text-anchor="middle" class="fig-name">① 加载插件</text>
+              <text x="90" y="78" text-anchor="middle" class="fig-sub">PluginsLoader</text>
+              <text x="90" y="97" text-anchor="middle" class="fig-sub">(Phase 2)</text>
+              <line x1="170" y1="74" x2="198" y2="74" class="fig-arrow" marker-end="url(#ah03a)"/>
+              <rect x="202" y="35" width="160" height="78" rx="9" class="fig-box-hot"/>
+              <text x="282" y="56" text-anchor="middle" class="fig-name">② 锁数据目录</text>
+              <text x="282" y="78" text-anchor="middle" class="fig-sub">NodeEnvironment</text>
+              <text x="282" y="97" text-anchor="middle" class="fig-sub">拿到 node.lock</text>
+              <line x1="362" y1="74" x2="390" y2="74" class="fig-arrow" marker-end="url(#ah03a)"/>
+              <rect x="394" y="35" width="160" height="78" rx="9" class="fig-box-hot"/>
+              <text x="474" y="56" text-anchor="middle" class="fig-name">③ 加入集群</text>
+              <text x="474" y="78" text-anchor="middle" class="fig-sub">Coordinator</text>
+              <text x="474" y="97" text-anchor="middle" class="fig-sub">startInitialJoin()</text>
+              <line x1="554" y1="74" x2="582" y2="74" class="fig-arrow" marker-end="url(#ah03a)"/>
+              <rect x="586" y="35" width="164" height="78" rx="9" class="fig-box"/>
+              <text x="668" y="56" text-anchor="middle" class="fig-name">④ 打开 HTTP</text>
+              <text x="668" y="78" text-anchor="middle" class="fig-sub">HttpServerTransport</text>
+              <text x="668" y="97" text-anchor="middle" class="fig-sub">.start() 绑 9200</text>
+              <text x="380" y="140" text-anchor="middle" class="fig-sub">四站对应的关键类:Bootstrap(袋子)/ NodeEnvironment / Node.start() 里的调用顺序</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 启动 = 四个副作用。注意 <code>Bootstrap</code> 不是阶段执行器,是装着 ServerArgs、Environment、已加载 PluginsLoader 的临时袋子。</figcaption>
+        </figure>
+
+        <h2>2. 真正的 main:argv 是空的,参数在 stdin</h2>
+        <p>JVM 入口是 <code>org.elasticsearch.bootstrap.Elasticsearch</code>。<code>main</code> 很短,分三个阶段:</p>
+        <pre class="code-block"><code>public static void main(final String[] args) {
+    Bootstrap bootstrap = initPhase1();
+    try {
+        initPhase2(bootstrap);
+        initPhase3(bootstrap);
+    } catch (NodeValidationException e) { bootstrap.exitWithNodeValidationException(e); }
+    catch (Throwable t) { bootstrap.exitWithUnknownException(t); }
+}</code></pre>
+        <p><code>String[] args</code> 几乎用不上:脚本/<code>server-cli</code> 先解析 <code>-E</code>、配置路径、keystore,再 fork 服务器进程,把解析好的 <code>ServerArgs</code> 写进子进程的 <strong>stdin</strong>。IDE 里搜 main 别被 <code>CliToolLauncher</code>、<code>JarHell</code>、<code>Version</code> 这些工具入口带走。</p>
+        <table class="ktable">
+          <tr><th>阶段</th><th>约束</th><th>原因</th></tr>
+          <tr><td>Phase 1</td><td>不能用 logger</td><td>日志系统未 configure,失败只能打 stderr;日志必须是本阶段<strong>最后一步</strong></td></tr>
+          <tr><td>Phase 2</td><td>不能 new Node</td><td>沙箱、JarHell、插件层未就绪;这里加载 modules/plugins、禁 root、试 mlockall</td></tr>
+          <tr><td>Phase 3</td><td>可以构造并启动</td><td>checkLucene → new Node → start() → 给 CLI 发 READY</td></tr>
+        </table>
+        <div class="callout tip"><span class="co-title">Settings 谁覆盖谁:</span><code>InternalSettingsPreparer</code> 先读 <code>elasticsearch.yml</code>(顺手做 <code>${ENV}</code> 替换),后放命令行覆盖,最后放进程传入的 Settings——<strong>后写的赢</strong>。优先级:进程传入 &gt; 命令行 &gt; yml &gt; 代码默认值。</div>
+
+        <h2>3. Node 构造:先锁盘子,再装配服务</h2>
+        <p>构造函数立刻把活交给 <code>NodeConstruction.prepareConstruction()</code>:创建线程池、脚本、分析器、集群服务,用 Guice 装配上百个组件——<code>start()</code> 里那一串 <code>injector.getInstance(Xxx.class).start()</code> 就是按这张装配图往外拉。对磁盘的副作用很早:</p>
+        <pre class="code-block"><code>nodeEnvironment = new NodeEnvironment(envSettings, environment);
+// 每个 path.data 上:locks[dirIndex] = luceneDir.obtainLock(NODE_LOCK_FILENAME);</code></pre>
+        <p>拿不到锁直接启动失败,异常文案:「failed to obtain node locks … maybe these locations are not writable or multiple nodes were started on the same data path?」这就是「一块数据目录只能跑一个进程」的不变量:<strong>第二个进程在构造阶段就死,走不到 start(),更不会去绑 9201</strong>。</p>
+        <pre class="code-block"><code>${path.data}/
+├── _state/                 # 节点级元数据(节点 ID)
+├── indices/
+│   └── &lt;index-uuid&gt;/
+│       ├── _state/         # 索引元数据
+│       └── 0/              # shard 0:Lucene + translog(第 14 课进去)
+└── node.lock               # 进程锁,在根上</code></pre>
+
+        <h2>4. Node.start():HTTP 是最后一扇门</h2>
+        <p>构造完成时服务对象都在,但<strong>没有对外端口</strong>。<code>start()</code> 按依赖点亮它们:</p>
+        <div class="fp-slot" data-flow="ch03-boot"></div>
+        <p>源码用一行注释把这扇门焊死:</p>
+        <pre class="code-block"><code>// ------- DO NOT ADD NEW START CALLS BELOW HERE -------
+injector.getInstance(HttpServerTransport.class).start();</code></pre>
+        <table class="ktable">
+          <tr><th>必须先</th><th>才能后</th><th>否则</th></tr>
+          <tr><td><code>TransportService.start()</code></td><td>Coordinator 选主/入群</td><td>没有节点间通信</td></tr>
+          <tr><td><code>GatewayMetaState.start()</code></td><td>Bootstrap Checks</td><td>Checks 看不到盘上的元数据</td></tr>
+          <tr><td><code>Coordinator.startInitialJoin()</code></td><td><code>HttpServerTransport</code></td><td>客户端打到尚未入群的节点</td></tr>
+        </table>
+        <p><code>GatewayMetaState</code> 在 Checks <strong>之前</strong>,源码自己说了:先把磁盘上上次的集群元数据读出来(<em>to pass it to the bootstrap checks</em>),Checks 和插件才能按「这个节点以前管过什么」做前置判断。HTTP 打开后,initPhase3 才给 CLI 发 READY——对外 ready 和内部 ready 是同一时刻的两面。</p>
+
+        <h3>Bootstrap Checks:绑定非 loopback 才强制</h3>
+        <p>三条同时成立(绑定地址不都是 loopback、非 snapshot 构建、<code>discovery.type</code> 非 <code>single-node</code>)→ 检查失败就<strong>拒绝启动</strong>;开发时绑 127.0.0.1 同一批检查只打 WARN。<code>network.host: 0.0.0.0</code> 会让节点离开 loopback 进入强制模式。常见检查:堆 <code>Xms==Xmx</code>、文件描述符(≥65535)、mlockall 是否真锁上、<code>vm.max_map_count</code>、系统调用沙箱(seccomp,8.0 起不可关)。</p>
+
+        <h2>5. 生命周期:三态就够</h2>
+        <p>源码枚举是 <code>INITIALIZED → STARTED → STOPPED → CLOSED</code>,对外记三条:构造完、在服务、资源已还。<code>close()</code> 若发现还在 STARTED 会先 <code>stop()</code>——所以别从 STARTED 直接画到 CLOSED。关闭顺序与启动<strong>相反</strong>:HTTP 最先停(不接新请求),<code>IndicesService</code> 最后停(让进行中的搜索/恢复跑完);<code>node.lock</code> 要到 CLOSED 才还——这就是「杀不干净的旧进程会挡住新进程」的原因。</p>
+        <table class="ktable">
+          <tr><th></th><th>启动后半</th><th>关闭前半</th></tr>
+          <tr><td>HTTP</td><td>最后打开</td><td>最先关闭</td></tr>
+          <tr><td>集群</td><td>先入群再对外</td><td>先对外关门再退群</td></tr>
+          <tr><td>索引</td><td>很早就 <code>IndicesService.start()</code></td><td>最后 <code>IndicesService.stop()</code></td></tr>
+        </table>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>原课的「找 main」「双开抢盘」两个仓库实验改编成了思考题;HTTP 侧做两面镜子。</p>
+
+        <h3>实验 1:curl 得通 = 最后一扇门已开</h3>
+        <div class="exp-slot" data-exp="ch03-01-nodes"></div>
+
+        <h3>实验 2:看进程号与 mlockall</h3>
+        <div class="exp-slot" data-exp="ch03-02-process"></div>
+
+        <h2>思考题(= 原课的仓库实验)</h2>
+        <details>
+          <summary>1. 服务器进程的 main 是哪个?ServerArgs 从哪来?</summary>
+          <div class="answer">
+            <p><code>Elasticsearch.java</code> 的 <code>main</code>(三阶段)。<code>ServerArgs</code> 从 <strong>System.in</strong> 反序列化——CLI 进程先解析参数再 fork,把结果写进子进程 stdin。以为「main 里读 argv / 直接读 elasticsearch.yml」的错觉,来自把 CLI 进程和服务器进程当成同一个。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 两个进程指向同一 path.data(HTTP 端口改成 9201),谁失败?在哪一步?</summary>
+          <div class="answer">
+            <p>第二个进程在 <strong>new Node → NodeConstruction → new NodeEnvironment</strong> 就失败(Lucene <code>LockObtainFailedException</code>,文案提到 multiple nodes on the same data path),走不到 <code>start()</code>。「端口冲突才失败」的错觉来自把 HTTP 绑定当唯一互斥;真正的互斥是数据目录锁。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. yml 里写 network.host: 0.0.0.0、文件描述符只有 1024,能启动吗?</summary>
+          <div class="answer">
+            <p>大概率失败。<code>0.0.0.0</code> 非 loopback → <code>enforceLimits</code> 为 true(除非 snapshot 或 single-node),fd 检查不过就 <code>NodeValidationException</code>。绑 127.0.0.1 同一检查只 WARN——「开发模式 vs 生产模式」的分界是绑定地址,没有 <code>production: true</code> 这种开关。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 「能 curl 通 = 还没做检查」:</span>反了。HTTP 是最后一扇门,curl 得通说明 Transport、读盘、Checks、入群都已做完。</div>
+        <div class="callout warn"><span class="co-title">🕳 双开失败 ≠ 端口冲突:</span>同一 <code>path.data</code> 的 <code>node.lock</code> 才是第一道互斥,死在构造阶段,连端口都不会去绑。</div>
+        <div class="callout warn"><span class="co-title">🕳 grep main 找到好几个:</span><code>CliToolLauncher</code>/<code>JarHell</code>/<code>Version</code> 是工具入口;数据节点的 main 只在 <code>bootstrap/Elasticsearch.java</code>。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>四站</td><td>加载插件 → 锁数据目录 → 加入集群 → 打开 HTTP</td></tr>
+          <tr><td>入口</td><td>Elasticsearch.main 三阶段;参数在 stdin 的 ServerArgs</td></tr>
+          <tr><td>互斥</td><td>node.lock:一块 path.data 一个进程,构造期就死</td></tr>
+          <tr><td>顺序</td><td>HTTP 最后开、最先关;注释禁止再往下加 start()</td></tr>
+          <tr><td>Checks</td><td>非 loopback 且非 single-node 才强制;localhost 只 WARN</td></tr>
+          <tr><td>生命周期</td><td>INITIALIZED → STARTED → CLOSED(close 先 stop)</td></tr>
+        </table>
+        <p><strong>心法:对外服务之前,内部必须已经自洽——启动顺序和关闭顺序都是这句话的展开。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch02.html">← 第 2 课:项目结构全景</a>
+          <a href="ch04.html">第 4 课:插件体系 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch03.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

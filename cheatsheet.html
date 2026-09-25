@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>速查表 — ES 源码精读站</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="index.html">课程</a>
+      <a href="console.html">控制台</a>
+      <a href="cheatsheet.html" class="here">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="cheatsheet" data-ch="apxa">
+      <header class="ch-header">
+        <div class="ch-kicker">APPENDIX A</div>
+        <h1>速查表</h1>
+        <div class="ch-meta-line">随课程推进持续扩充 · 数字均以 9.4.0 实测为准</div>
+      </header>
+
+      <section class="lesson">
+        <h2>集群体检(_cat 家族)</h2>
+        <table class="ktable">
+          <tr><th>命令</th><th>看什么</th><th>关联课程</th></tr>
+          <tr><td><code>GET /</code></td><td>版本、集群名、节点名——确认你连的是谁。角色不在根响应里,看 <code>GET /_nodes</code> 或 <code>GET /_cat/nodes</code></td><td><a href="chapters/ch01.html">01</a> · <a href="chapters/ch02.html">02</a></td></tr>
+          <tr><td><code>GET /_cluster/health</code></td><td>green/yellow/red 的真实含义(主分片 vs 副本)</td><td><a href="chapters/ch21.html">21</a></td></tr>
+          <tr><td><code>GET /_cat/indices?v</code></td><td>每个索引的分片数、文档数、大小</td><td><a href="chapters/ch15.html">15</a></td></tr>
+          <tr><td><code>GET /_cat/nodes?v</code></td><td>节点角色(master/data/ingest…)、堆、CPU</td><td><a href="chapters/ch03.html">03</a></td></tr>
+          <tr><td><code>GET /_cat/thread_pool?v&amp;h=name,size,queue,rejected</code></td><td>线程池水位与拒绝数(背压的第一现场)</td><td><a href="chapters/ch08.html">08</a></td></tr>
+          <tr><td><code>GET /_cat/shards?v</code></td><td>每个分片在哪个节点、STARTED 还是 UNASSIGNED</td><td><a href="chapters/ch23.html">23</a></td></tr>
+        </table>
+
+        <h2>线程池默认值(9.4.0,别背旧文档)</h2>
+        <div class="callout warn"><span class="co-title">注意:</span>8.x 老文档里「search 队列固定 1000」的说法在 9.x 已过时,以下数字来自 <code>DefaultBuiltInExecutorBuilders</code>,N = 分配的核数。</div>
+        <table class="ktable">
+          <tr><th>池</th><th>线程数</th><th>队列</th><th>职责</th></tr>
+          <tr><td><code>search</code></td><td><code>((N*3)/2)+1</code></td><td>线程数 × 1000</td><td>数据节点上的查询执行(Lucene CPU)</td></tr>
+          <tr><td><code>search_coordination</code></td><td><code>(N+1)/2</code></td><td>1000</td><td>协调端:rewrite、合并分片结果</td></tr>
+          <tr><td><code>write</code></td><td><code>N</code></td><td><code>max(N*750, 10000)</code></td><td>索引写入落 Lucene</td></tr>
+          <tr><td><code>get</code></td><td>同 search</td><td>1000</td><td>realtime GET</td></tr>
+          <tr><td><code>cluster_coordination</code></td><td>1</td><td>无界(<code>-1</code>)</td><td>集群任务宁排队不丢弃</td></tr>
+        </table>
+
+        <h2>文档与搜索</h2>
+        <table class="ktable">
+          <tr><th>命令</th><th>要点</th><th>关联课程</th></tr>
+          <tr><td><code>PUT /idx/_doc/1?refresh=true</code></td><td><code>refresh=true</code> 让文档立刻可见(代价:强制生成 segment)</td><td><a href="chapters/ch14.html">14</a></td></tr>
+          <tr><td><code>GET /idx/_doc/1</code></td><td>realtime GET:不走 segment,直接查 translog,所以不用等 refresh</td><td><a href="chapters/ch10.html">10</a></td></tr>
+          <tr><td><code>POST /idx/_analyze</code></td><td>看分词器怎么切文本——理解倒排表的第一步</td><td><a href="chapters/ch11.html">11</a></td></tr>
+          <tr><td><code>POST /idx/_search</code> + <code>"explain": true</code></td><td>逐项看 BM25 打分,TF/IDF 怎么来的</td><td><a href="chapters/ch20.html">20</a></td></tr>
+          <tr><td><code>GET /idx/_mapping</code></td><td>动态映射推断的结果(field caps 决策树)</td><td><a href="chapters/ch11.html">11</a></td></tr>
+          <tr><td><code>POST /_bulk</code></td><td>NDJSON 格式,action 行 + source 行交替</td><td><a href="chapters/ch13.html">13</a></td></tr>
+        </table>
+
+        <h2>写入可见性与持久化(最容易混的三件事)</h2>
+        <table class="ktable">
+          <tr><th>动作</th><th>做什么</th><th>影响</th></tr>
+          <tr><td><code>refresh</code></td><td>内存 buffer → 生成新 segment,可被搜索</td><td>不落盘。未改 <code>index.refresh_interval</code> 时默认 1s;分片进入 search idle 后不再按这个间隔后台 refresh,下一次搜索可能触发</td></tr>
+          <tr><td><code>flush / commit</code></td><td>segment 落盘 + 写 commit point + 清 translog</td><td>重启后不需要重放 translog</td></tr>
+          <tr><td><code>translog</code></td><td>每次写操作先追加日志</td><td>崩溃恢复的依据;GET 的 realtime 来源</td></tr>
+        </table>
+
+        <div class="callout tip"><span class="co-title">用法:</span>以上命令都可以在<a href="console.html">控制台</a>里直接点出来跑。</div>
+      </section>
+    </article>
+  </main>
+
+  <script src="assets/js/nav.js"></script>
+</body>
+</html>

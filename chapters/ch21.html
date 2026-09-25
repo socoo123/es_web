@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 21 课:集群状态 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch21" data-ch="ch21">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 21 · 第五篇 · 分布式机制</div>
+        <h1>集群状态</h1>
+        <div class="ch-meta-line">一份不可变快照,集群的「真理之源」 · 约 15 分钟 · 前置:第 5、16 课 · 16 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>用 <code>GET /_cluster/state/metadata,routing_table</code> 指认 Metadata 里的分片设置与 RoutingTable 里的分片放置;并解释为什么 <code>filter_path</code> 里写了 <code>version</code>,顶层 <code>version</code> 还是不会出现。</li>
+          <li>列出 <code>ClusterState</code> 真正的 <code>private final</code> 字段;说出 <code>term()</code> 不是字段、Java 字段 <code>routingTable</code> 的类型是 <code>GlobalRoutingTable</code>。</li>
+          <li>用一次建索引对照顶层 <code>version</code> 从 N 到 N+1、<code>state_uuid</code> 换成新串;再写出 <code>MasterService</code> 与 <code>ClusterApplierService</code> 各自怎么把更新钉成单线程。</li>
+        </ul>
+      </header>
+
+      <section class="lesson">
+        <h2>1. 心智模型:更新 = 换一份快照,不是在黑板上改字</h2>
+        <p>每个节点内存里都躺着一份当前的 <code>ClusterState</code>,而搜索线程、写入线程、Master 任务线程会<strong>同时</strong>读它:这个请求该打哪个 shard(第 16 课的路由表)、这个索引还在不在、集群是不是只读(第 5 课的动态设置)。要是这份对象可以原地改字段,读的一方就得加锁,否则随时看见半新半旧的状态。ES 的选择是相反的方向:<strong>旧对象永远不改</strong>。Master 基于 version N 算出一份全新的 N+1,发布、提交,各节点把引用换成新快照;还攥着 N 的线程继续安全地读——那份快照在被造出来的瞬间就冻结了。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 205" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch21f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="20" width="222" height="110" rx="10" class="fig-box"/>
+              <text x="126" y="46" text-anchor="middle" class="fig-name">version 42 快照</text>
+              <text x="126" y="74" text-anchor="middle" class="fig-sub">被算出的那一刻已冻结</text>
+              <text x="126" y="98" text-anchor="middle" class="fig-sub">线程 A 手里的引用不变</text>
+              <text x="126" y="120" text-anchor="middle" class="fig-sub">继续读 42,读侧无锁</text>
+              <rect x="269" y="20" width="222" height="110" rx="10" class="fig-box"/>
+              <text x="380" y="46" text-anchor="middle" class="fig-name">基于 42 构造新对象</text>
+              <text x="380" y="74" text-anchor="middle" class="fig-sub">Builder 复制旧值再改</text>
+              <text x="380" y="98" text-anchor="middle" class="fig-sub">patchVersions 补版本号</text>
+              <text x="380" y="120" text-anchor="middle" class="fig-sub">旧对象一个字段都不动</text>
+              <rect x="523" y="20" width="222" height="110" rx="10" class="fig-box-hot"/>
+              <text x="634" y="46" text-anchor="middle" class="fig-name">version 43 + 新 UUID</text>
+              <text x="634" y="74" text-anchor="middle" class="fig-sub">发布 → 多数提交 → apply</text>
+              <text x="634" y="98" text-anchor="middle" class="fig-sub">state.set 换引用</text>
+              <text x="634" y="120" text-anchor="middle" class="fig-sub">新请求从这份上读</text>
+              <line x1="237" y1="75" x2="263" y2="75" class="fig-arrow" marker-end="url(#ch21f1-arrow)"/>
+              <line x1="491" y1="75" x2="517" y2="75" class="fig-arrow" marker-end="url(#ch21f1-arrow)"/>
+              <rect x="15" y="150" width="730" height="42" rx="9" class="fig-box-hot"/>
+              <text x="380" y="168" text-anchor="middle" class="fig-sub">更新换的是整份快照:没有「半新半旧」这个状态,代价是 42→43 必须严格串行(§6)</text>
+              <text x="380" y="186" text-anchor="middle" class="fig-sub">两个任务各拿 42 当输入各算一份 43,后写的会把先写的那半变更丢掉</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 不可变快照链:每次更新产生新对象、新 version、新 stateUUID;旧引用继续安全地读旧世界。</figcaption>
+        </figure>
+
+        <p>一份快照里,读者这课先记住四块——后文 §4 会把每一块钉到能在 REST JSON 里指认的位置:</p>
+        <table class="ktable">
+          <tr><th>组成</th><th>管什么</th><th>重启还在吗</th></tr>
+          <tr><td><strong>Metadata</strong></td><td>索引定义、Mapping、Settings、cluster UUID、选举用的 term</td><td>每次更新落盘;全集群重启后仍在</td></tr>
+          <tr><td><strong>RoutingTable</strong></td><td>每个分片现在在哪个节点、是 primary 还是 replica</td><td>只在内存;全重启按 Metadata 重建</td></tr>
+          <tr><td><strong>Nodes</strong>(<code>DiscoveryNodes</code>)</td><td>集群有哪些节点、谁是 Master、本节点是谁</td><td>只在内存;滚动重启靠节点间复制保住</td></tr>
+          <tr><td><strong>Blocks</strong>(<code>ClusterBlocks</code>)</td><td>集群级 / 索引级阻断(只读、恢复中)</td><td>随状态走;部分由 Metadata 里的设置推导</td></tr>
+        </table>
+        <p>本课实验用索引 <code>tut-l21-docs</code>(1 主 0 副本),不依赖前面各课留下的索引。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>cluster/ClusterState.java</code></td><td>不可变字段清单;<code>incrementVersion</code>;Diff 按 <code>stateUUID</code> 粘到上一份</td></tr>
+          <tr><td><code>cluster/service/MasterService.java</code></td><td>Master 上算下一份状态:线程池 <code>max=1</code>;<code>patchVersions</code> 才给 N→N+1</td></tr>
+          <tr><td><code>cluster/service/ClusterApplierService.java</code></td><td>每个节点应用已提交的状态:<code>newSinglePrioritizing</code>;Applier 先于 <code>state()</code>,Listener 在后</td></tr>
+          <tr><td><code>cluster/service/ClusterService.java</code></td><td>门面:<code>state()</code> 来自 Applier;<code>createTaskQueue</code> 交给 MasterService</td></tr>
+          <tr><td><code>cluster/metadata/Metadata.java</code></td><td>四块里唯一落盘的那块;<code>term</code> 住在这里的 <code>CoordinationMetadata</code></td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>ClusterStatePublisher</code>(发布 Diff → 多数 accept → commit → Master 最后 apply)、<code>ClusterStateApplier</code> / <code>ClusterStateListener</code>(先后顺序写在 javadoc)、<code>RestClusterStateAction</code>(<code>GET /_cluster/state/{metric}</code>)、<code>RoutingTable</code>、<code>DiscoveryNodes</code>、<code>ClusterBlocks</code>、<code>ProjectMetadata</code>(索引 Map 实际挂在这里)。</p>
+
+        <h2>3. 真正的字段:别背旧图,打开文件核对</h2>
+        <p><code>ClusterState</code> 类注释把不变量写在最前:概念上不可变;Metadata 落盘、其余内存;更新都提交给 MasterService;同一 <code>ClusterStateTaskExecutor</code> 的任务打成一批,每批产出<strong>一份新</strong> ClusterState;发布通常走 Diff。实例字段是这些——除按需缓存的 <code>routingNodes</code> 和派生的 <code>minVersions</code>,全部 <code>private final</code>:</p>
+        <pre class="code-block"><code>// cluster/ClusterState.java(节选)
+private final long version;
+private final String stateUUID;
+private final GlobalRoutingTable routingTable;   // 不是 RoutingTable
+private final DiscoveryNodes nodes;
+private final Metadata metadata;
+private final ClusterBlocks blocks;
+private final Map&lt;String, Custom&gt; customs;
+private final ClusterName clusterName;
+private final boolean wasReadFromDiff;
+// built on demand —— 唯二的非 final
+private volatile RoutingNodes routingNodes;</code></pre>
+        <p>网上流传的旧 classDiagram 有三处常被记错,对照 9.4.0 源码钉死:</p>
+        <table class="ktable">
+          <tr><th>旧印象</th><th>9.4.0 源码</th></tr>
+          <tr><td><code>term</code> 是 ClusterState 的字段</td><td><strong>不是。</strong><code>term()</code> 只是转调 <code>coordinationMetadata().term()</code>,term 住在 Metadata 里的 <code>CoordinationMetadata</code></td></tr>
+          <tr><td>字段类型是 <code>RoutingTable</code></td><td>字段是 <strong><code>GlobalRoutingTable</code></strong>(按 project 包一层);<code>routingTable()</code> 仍返回默认 project 的表,但已 <code>@Deprecated(forRemoval=true)</code>;REST 输出仍是熟悉的 <code>routing_table.indices.&lt;index&gt;.shards</code></td></tr>
+          <tr><td>Metadata 自己持有 <code>Map indices</code></td><td>索引 Map 在 <strong><code>ProjectMetadata.indices</code></strong>;单 project 时 REST 仍扁平输出到 <code>metadata.indices</code></td></tr>
+        </table>
+        <p>两条身份要分开:<code>version</code> 单调递增,唯一标识<strong>已提交</strong>的状态(偶尔会造一份不提交的状态,比如挂 no-master block,不走这条主路径);<code>stateUUID</code> 标识<strong>每一份</strong>状态,每次 <code>incrementVersion</code> 都把 UUID 打回 <code>"_na_"</code>,<code>build()</code> 时再随机生成新的。Diff 靠它确认「我要贴的上一份,正好是你手里那份」。</p>
+
+        <h2>4. 四块逐个钉到 JSON</h2>
+        <p><strong>Metadata。</strong>四块里唯一落盘的(XContent 持久化,GATEWAY 上下文必须忠实还原)。集群级字段有 <code>clusterUUID</code>、<code>coordinationMetadata</code>(term、投票配置)、<code>persistentSettings</code> / <code>transientSettings</code>(第 5 课的动态设置就写在这);索引、模板、别名在 <code>ProjectMetadata</code> 里。单 project 的 <code>GET /_cluster/state/metadata</code> 输出:<code>metadata.cluster_uuid</code>、<code>metadata.cluster_coordination.term</code>、<code>metadata.indices.&lt;index&gt;.settings.index.number_of_shards</code>、<code>metadata.indices.&lt;index&gt;.mappings</code>。第 5 课的动态更新在节点侧的挂点也在这:应用时看到 <code>metadataChanged()</code> 才跑 <code>clusterSettings.applySettings</code>,而「变了没有」比的是<strong>对象身份</strong>(<code>state.metadata() != previousState.metadata()</code>),不是逐字段 equals——「改就换新对象」的后果渗到了每一处判断。</p>
+        <p><strong>RoutingTable。</strong>一张图:<code>ImmutableOpenMap&lt;String, IndexRoutingTable&gt;</code>。JSON 是 <code>routing_table.indices.&lt;index&gt;.shards["0"][]</code>,数组元素带 <code>state</code>(STARTED)、<code>primary</code>、<code>node</code>、<code>relocating_node</code>。第 16 课 SEARCH 扇出之前协调节点问的就是它。不落盘:全集群同时断电后,Master 从 Metadata 的索引定义重新分配(第 23 课)。</p>
+        <p><strong>Nodes。</strong><code>DiscoveryNodes</code> 持有节点 map、<code>masterNodeId</code> / <code>localNodeId</code> 和按角色切好的视图;REST 上 <code>nodes</code> metric 还附带 <code>nodes_versions</code>、<code>nodes_features</code>。<code>master_node</code> 是单独 metric——路径里写它,就只回 Master 的 node id,不必拖整份 nodes map。</p>
+        <p><strong>Blocks。</strong>一份集群级 <code>Set&lt;ClusterBlock&gt;</code> 加按 project 的索引级 block。只读集群(<code>cluster.blocks.read_only</code>)、恢复未完成都走这里。健康空闲的集群上 <code>GET /_cluster/state/blocks</code> 多半是 <code>{}</code>——空也是证据:没有全局阻断。四块之外还有 <code>customs</code>(插件挂的集群级扩展)和按需构建的 <code>RoutingNodes</code>(「按节点看分片」的派生视图,贵,所以惰性)。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="15" width="355" height="88" rx="10" class="fig-box-hot"/>
+              <text x="192" y="40" text-anchor="middle" class="fig-name">Metadata · 落盘</text>
+              <text x="192" y="66" text-anchor="middle" class="fig-sub">索引/Mapping/Settings/term/persistent</text>
+              <text x="192" y="88" text-anchor="middle" class="fig-sub">唯一每次更新都写盘的一块</text>
+              <rect x="390" y="15" width="355" height="88" rx="10" class="fig-box"/>
+              <text x="567" y="40" text-anchor="middle" class="fig-name">RoutingTable · 内存</text>
+              <text x="567" y="66" text-anchor="middle" class="fig-sub">分片在哪个节点/主还是副/relocating</text>
+              <text x="567" y="88" text-anchor="middle" class="fig-sub">全重启按 Metadata 重建</text>
+              <rect x="15" y="118" width="355" height="88" rx="10" class="fig-box"/>
+              <text x="192" y="143" text-anchor="middle" class="fig-name">Nodes · 内存</text>
+              <text x="192" y="169" text-anchor="middle" class="fig-sub">谁在集群/谁是 Master/本节点是谁</text>
+              <text x="192" y="191" text-anchor="middle" class="fig-sub">滚动重启靠节点间复制保住</text>
+              <rect x="390" y="118" width="355" height="88" rx="10" class="fig-box"/>
+              <text x="567" y="143" text-anchor="middle" class="fig-name">Blocks · 随状态走</text>
+              <text x="567" y="169" text-anchor="middle" class="fig-sub">集群级/索引级阻断:只读/恢复中</text>
+              <text x="567" y="191" text-anchor="middle" class="fig-sub">健康集群上常常是空对象</text>
+              <text x="380" y="232" text-anchor="middle" class="fig-sub">四块之外:customs(插件扩展)+ RoutingNodes(按节点看分片,按需派生)</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 四块组成:只有 Metadata 落盘——全集群重启后,其余三块都从 Metadata + 节点间复制恢复。</figcaption>
+        </figure>
+
+        <h2>5. version 从 N 到 N+1:只有 Master 能加一</h2>
+        <p>任务自己算出的对象,版本号还是旧的;真正加一发生在 <code>MasterService.patchVersions</code>——状态对象变了才 <code>incrementVersion</code>;若 Metadata 的对象身份也变了,再给 Metadata 自己的 version 加一。两套计数器别混:</p>
+        <pre class="code-block"><code>// cluster/service/MasterService.java(节选)
+private ClusterState patchVersions(ClusterState prev, ClusterState next) {
+    if (prev != next) {                       // 对象没换 = 没有更新,不发布
+        Builder builder = incrementVersion(next);  // version+1,UUID 打回 "_na_"
+        if (prev.metadata() != next.metadata()) {  // 身份比较,不是 equals
+            builder.metadata(next.metadata().withIncrementedVersion());
+        }
+        next = builder.build();               // build() 时生成全新 stateUUID
+    }
+    return next;
+}</code></pre>
+        <table class="ktable">
+          <tr><th>计数器</th><th>谁加一</th><th>REST 上哪里看见</th></tr>
+          <tr><td><code>ClusterState.version</code></td><td>Master 的 <code>incrementVersion</code></td><td>顶层 <code>version</code>(metric 必须包含 <code>version</code>)</td></tr>
+          <tr><td><code>Metadata.version</code></td><td><code>metadata.withIncrementedVersion()</code></td><td><code>metadata</code> 段里;<code>wait_for_metadata_version</code> 等的是它</td></tr>
+        </table>
+        <p>节点侧换成新引用,靠 <code>ClusterApplierService</code> 里那条 <code>AtomicReference&lt;ClusterState&gt;</code>;<code>ClusterService.state()</code> 只是转调。读到的永远是<strong>已经应用完</strong>的那一份——不是 Master 正在算、还没 commit 的那份。所以一次成功的建索引:顶层 <code>version</code> 加一、<code>state_uuid</code> 换成另一个字符串(不是旧串改字符);攥着旧引用的线程毫无感觉——旧对象的 <code>version</code> 字段是 final 的 42,没有人能改它。</p>
+
+        <h2>6. 更新必须单线程:Master 上一条线程算,每个节点一条线程应用</h2>
+        <p>「单线程」不是口号,是两个线程池都把并发度钉成 1,外加一条「算完一批必须等发布结束才接下一批」。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch21f3-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <text x="380" y="18" text-anchor="middle" class="fig-name">Master 节点 · masterService#updateTask(max=1)</text>
+              <rect x="15" y="30" width="222" height="86" rx="10" class="fig-box"/>
+              <text x="126" y="54" text-anchor="middle" class="fig-sub">任务入优先级队列</text>
+              <text x="126" y="76" text-anchor="middle" class="fig-sub">同一 executor 的任务</text>
+              <text x="126" y="98" text-anchor="middle" class="fig-sub">打成一批算一份</text>
+              <rect x="269" y="30" width="222" height="86" rx="10" class="fig-box-hot"/>
+              <text x="380" y="54" text-anchor="middle" class="fig-sub">单线程:基于 N 算 N+1</text>
+              <text x="380" y="76" text-anchor="middle" class="fig-sub">patchVersions 补版本号</text>
+              <text x="380" y="98" text-anchor="middle" class="fig-sub">发布期间线程空转等待</text>
+              <rect x="523" y="30" width="222" height="86" rx="10" class="fig-box"/>
+              <text x="634" y="54" text-anchor="middle" class="fig-sub">发布:Diff → 多数 accept</text>
+              <text x="634" y="76" text-anchor="middle" class="fig-sub">→ commit(新节点全量)</text>
+              <text x="634" y="98" text-anchor="middle" class="fig-sub">回调 fork 回同一线程</text>
+              <line x1="237" y1="73" x2="263" y2="73" class="fig-arrow" marker-end="url(#ch21f3-arrow)"/>
+              <line x1="491" y1="73" x2="517" y2="73" class="fig-arrow" marker-end="url(#ch21f3-arrow)"/>
+              <line x1="634" y1="116" x2="634" y2="152" class="fig-arrow" marker-end="url(#ch21f3-arrow)"/>
+              <text x="380" y="140" text-anchor="middle" class="fig-sub">已提交的状态按序送到每个节点(含 Master 自己,最后 apply)</text>
+              <text x="380" y="192" text-anchor="middle" class="fig-name">每个节点 · clusterApplierService#updateTask(core=1, max=1)</text>
+              <rect x="15" y="204" width="222" height="86" rx="10" class="fig-box"/>
+              <text x="126" y="228" text-anchor="middle" class="fig-sub">收到已提交状态</text>
+              <text x="126" y="250" text-anchor="middle" class="fig-sub">按序排队应用</text>
+              <text x="126" y="272" text-anchor="middle" class="fig-sub">Metadata 变了才 applySettings</text>
+              <rect x="269" y="204" width="222" height="86" rx="10" class="fig-box-hot"/>
+              <text x="380" y="228" text-anchor="middle" class="fig-sub">Applier → state.set → Listener</text>
+              <text x="380" y="250" text-anchor="middle" class="fig-sub">state.set 之前内部结构</text>
+              <text x="380" y="272" text-anchor="middle" class="fig-sub">必须已跟上(禁抛异常)</text>
+              <rect x="523" y="204" width="222" height="86" rx="10" class="fig-box"/>
+              <text x="634" y="228" text-anchor="middle" class="fig-sub">state() 从此返回 N+1</text>
+              <text x="634" y="250" text-anchor="middle" class="fig-sub">Listener 此时才被叫</text>
+              <text x="634" y="272" text-anchor="middle" class="fig-sub">可以慢,不挡 state.set</text>
+              <line x1="237" y1="247" x2="263" y2="247" class="fig-arrow" marker-end="url(#ch21f3-arrow)"/>
+              <line x1="491" y1="247" x2="517" y2="247" class="fig-arrow" marker-end="url(#ch21f3-arrow)"/>
+              <text x="380" y="316" text-anchor="middle" class="fig-sub">两条池子都钉成 1:后一份状态必须是前一份的函数——没有「并行算两份再 merge」这条路</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 双单线程舞台:Master 上 MasterService 算出下一份;每个节点上(含 Master 自己)ClusterApplierService 按序应用。</figcaption>
+        </figure>
+
+        <p><strong>Master 这边。</strong>更新线程名 <code>masterService#updateTask</code>,线程池是 scaling 但 <strong>max=1</strong>;队列从 0 变 1 时才 fork 处理器,然后一直抽到抽干。一批的入口 <code>executeAndPublishBatch</code>:读当前 <code>state()</code> 当输入,跑 executor,再 <code>patchVersions</code>;对象身份没变就不发布,变了就交给 <code>ClusterStatePublisher.publish</code>。发布完成的 listener 被 fork 回<strong>同一条</strong> Master 线程——发布期间这条线程闲着,下一批必须等这一批 commit(或失败)才开始。同一 executor 上 Master 忙时涌进来的任务会并成一批、只产出一份新状态:这是吞吐阀门,不是并行授权。类注释自己都承认:cluster state updates run in sequence, one-by-one, so they can be a performance bottleneck——单线程不是因为更新高频要抢 CPU(它相对搜索/写入是低频的),是因为<strong>必须全局有序</strong>。优先级队列允许紧急任务插队,但洪水般的 HIGH 会饿死 NORMAL,注释劝生产代码尽量用 NORMAL。<code>GET /_cluster/pending_tasks</code> 看的就是这支还没算的队列,空闲集群上是 <code>[]</code>,不是坏了。提交任务的现代入口是 <code>ClusterService.createTaskQueue</code>,别再用已废弃的 <code>submitUnbatchedStateUpdateTask</code>。</p>
+        <p><strong>节点这边。</strong><code>ClusterApplierService</code> 更直接:<code>EsExecutors.newSinglePrioritizing</code>,core=1、max=1。应用顺序写在 <code>applyChanges</code> 里:</p>
+        <pre class="code-block"><code>// cluster/service/ClusterApplierService.applyChanges(节选)
+callClusterStateAppliers(clusterChangedEvent, stopWatch);
+nodeConnectionsService.disconnectFromNodesExcept(newClusterState.nodes());
+logger.debug("set locally applied cluster state to version {}", newClusterState.version());
+state.set(newClusterState);
+callClusterStateListeners(clusterChangedEvent, stopWatch);</code></pre>
+        <p>第 5 课的 <code>applySettings</code> 嵌在 Applier 之前(Metadata 变了才跑)、<code>state.set</code> 之前。Applier 与 Listener 的分工是源码级事实,不是风格建议:</p>
+        <table class="ktable">
+          <tr><th></th><th><code>ClusterStateApplier</code></th><th><code>ClusterStateListener</code></th></tr>
+          <tr><td>调用点</td><td><code>state.set</code> <strong>之前</strong></td><td><strong>之后</strong>(此时 <code>state()</code> 已是新快照)</td></tr>
+          <tr><td>接口方法</td><td><code>applyClusterState</code></td><td><code>clusterChanged</code></td></tr>
+          <tr><td>用途</td><td>内部结构先跟上(如 IndicesService 为新索引建服务)</td><td>已可见之后的反应(日志、轻量触发)</td></tr>
+          <tr><td>抛异常</td><td><strong>非常坏</strong>:拦住后面的 Applier,节点可能反复应用同一份状态直到被踢出集群</td><td>被 catch 后 WARN 一条,不回滚已 set 的快照</td></tr>
+        </table>
+        <p>发布协议收成四步:发给所有节点(通常是 Diff)→ 等足够多有 Master 资格的节点 <strong>accept</strong>(写入持久存储)→ 通知大家 <strong>commit</strong> 并 <code>applyClusterState</code> → <strong>最后</strong> Master 自己 apply。所以 Master 上跑着两个单线程角色:「算出下一份」和「应用到本节点」;非 Master 节点只跑后者。若两个线程同时从 42 算出两份 43,后发布的那份会覆盖先发布的,先那份里的索引或 setting 直接丢失;接收节点的 Diff 也对不上 <code>fromUuid</code>。这就是本课的核心不变量:<strong>后一份必须是前一份的函数,所以算和应用都只能一条队列。</strong></p>
+
+        <h3>Diff:已有节点只收变化</h3>
+        <p>发布通常不传整份 N+1。<code>ClusterState</code> 实现 <code>Diffable</code>,<code>ClusterStateDiff.apply</code> 第一件事就是核对 UUID:</p>
+        <pre class="code-block"><code>// cluster/ClusterState.java · ClusterStateDiff.apply(节选)
+if (toUuid.equals(state.stateUUID)) { return state; }   // 没变,原样奉还
+if (fromUuid.equals(state.stateUUID) == false) {
+    throw new IncompatibleClusterStateVersionException(...);  // 对不上 → 全量重发
+}</code></pre>
+        <p>不变量:<strong>Diff 只能贴在 fromUuid 那一份上。</strong>新节点、或中间丢过一份状态的节点对不上 UUID,发布方退回全量——类注释原话:fall back to sending the full state if the receiving node is new or it has missed out on an intermediate state。<code>stateUUID</code> 因此不是装饰品:它让「只传变化」变得安全。<code>wasReadFromDiff</code> 标记这份是不是 Diff 拼出来的,排障时在 <code>toString()</code> 里能看到 <code>from_diff: true</code>。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>一条主线:先建 <code>tut-l21-docs</code>,用 <code>_cluster/state</code> 的 metric 过滤看清四块;再盯着 <code>version</code> / <code>state_uuid</code> 走一次「建索引 +1 / 写文档不动 / 改设置又 +1」,最后看两套计数器并排。</p>
+
+        <h3>实验 0:建场</h3>
+        <div class="exp-slot" data-exp="ch21-00-setup"></div>
+
+        <h3>实验 1-6:metric 决定序列化什么</h3>
+        <div class="exp-slot" data-exp="ch21-01-metrics-no-version"></div>
+        <div class="exp-slot" data-exp="ch21-02-metrics-with-version"></div>
+        <div class="exp-slot" data-exp="ch21-03-master-node"></div>
+        <div class="exp-slot" data-exp="ch21-04-blocks-empty"></div>
+        <div class="exp-slot" data-exp="ch21-05-term-in-metadata"></div>
+        <div class="exp-slot" data-exp="ch21-06-pending-tasks"></div>
+
+        <h3>实验 7-11:version 从 N 到 N+1(记下三个读数)</h3>
+        <div class="exp-slot" data-exp="ch21-07-v1"></div>
+        <div class="exp-slot" data-exp="ch21-08-create-index"></div>
+        <div class="exp-slot" data-exp="ch21-09-v2"></div>
+        <div class="exp-slot" data-exp="ch21-10-write-doc"></div>
+        <div class="exp-slot" data-exp="ch21-11-v3"></div>
+
+        <h3>实验 12-13:两套计数器并排</h3>
+        <div class="exp-slot" data-exp="ch21-12-settings"></div>
+        <div class="exp-slot" data-exp="ch21-13-two-counters"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch21-14-cleanup-docs"></div>
+        <div class="exp-slot" data-exp="ch21-15-cleanup-ver"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. GET /_cluster/state/metadata,routing_table?filter_path=version 的响应里会有 version 字段吗?同一请求改成 filter_path=metadata.cluster_coordination,term 能看到吗?PUT 一篇 mapping 已声明的文档后再看 version metric,数字涨吗?</summary>
+          <div class="answer">
+            <p><strong>不会出现 version。</strong>metric 只有 metadata、routing_table 时 <code>toXContentChunked</code> 根本不写顶层 version 段;<code>filter_path=version</code> 裁的是不存在的字段,变不出东西——它只是 REST 层对已写出 JSON 的裁剪。term 可以看到:它住在 <code>metadata.cluster_coordination.term</code>,是 Metadata 的内容,不是 ClusterState 的顶层字段。写文档不涨:文档走 Engine/Translog 的数据平面(第 10、14 课),不提交 ClusterState;若数字真的动了,是别的集群任务在同一窗口发生了——看 <code>state_uuid</code> 是不是也换过,换了才算一次状态更新。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 若 Master 用 8 个线程并行从同一份 version 42 算更新,哪条不变量先破——「读不用锁」、「N+1 是 N 的函数」,还是 Diff 的 fromUuid?</summary>
+          <div class="answer">
+            <p>破的是后两条,「读不用锁」反而安然无恙。两个任务一个建索引、一个改 max_shards_per_node,都拿 42 当输入、各产出一份 43:后写入的 43 会丢掉前一份里的变更——「每一份已提交状态都是上一份的函数」没了。同时接收节点无法对两份 Diff 都满足 <code>fromUuid == 当前 stateUUID</code>,第二条 Diff 直接 IncompatibleClusterStateVersionException。不可变只让<strong>读者</strong>免锁,从不授权并行<strong>写</strong>:MasterService 和 ClusterApplierService 把池子钉成 1,守的就是这条合成顺序。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 已有节点传 Diff、新节点传全量:永远传全量破什么?允许「尽力 merge 对不上 UUID 的 Diff」又破什么?把同步逻辑放进 Applier(失败即挡后续应用)而不是 Listener,换来什么、付出什么?</summary>
+          <div class="answer">
+            <p>永远全量:正确,但每次改个副本数都要序列化并搬运整份 Metadata + 路由表,大集群的带宽和 CPU 顶不住。乱 merge 对不上 UUID 的 Diff:可能在缺了中间版本的节点上拼出一份 Master 从未提交过的混合状态——共识碎了,这比慢严重得多。放 Applier:换来「对外可见的那份快照,内部结构一定已经跟上」——搜索不会打到一个 IndicesService 还不认识的索引;付出的是 Applier 成了单线程瓶颈,实现必须短、必须消化任何状态且禁止抛异常,慢了就卡住整条应用队列。Listener 允许慢、允许抛,因为它已经不挡 state.set。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 把 filter_path 当 metric 选择器:</span>它只能裁剪已经序列化出来的 JSON。metric 不含 version,filter_path 写了也变不出 version;想看就得把 version 写进 URL 的 metric 列表。</div>
+        <div class="callout warn"><span class="co-title">🕳 拿旧 classDiagram 背字段:</span>9.4.0 里 term 不是 ClusterState 字段(住在 Metadata 的 CoordinationMetadata);routingTable 字段类型是 GlobalRoutingTable;索引 Map 在 ProjectMetadata.indices——REST 扁平输出只是单 project 的兼容视图。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为写文档会涨 version:</span>文档写入走 Engine/Translog 的数据平面,不提交 ClusterState。看到 +1 时先看 state_uuid 换没换——换了才是又一次状态更新(可能是 ILM、健康检查等后台任务)。</div>
+        <div class="callout warn"><span class="co-title">🕳 不可变 = 可以并行算再 merge:</span>没有三路 merge 这回事。合成函数是 f: State_N → State_{N+1},单线程守的是写的顺序;不可变只让读免锁。两个 max=1 的线程池不是巧合,是协议的一部分。</div>
+        <div class="callout warn"><span class="co-title">🕳 在 ClusterStateApplier 里抛异常:</span>会拦住后面的 Applier,节点可能反复应用同一份状态直到被踢出集群。重活放 Listener——它晚于 state.set,慢一点、抛一下都不影响新快照生效。</div>
+        <div class="callout warn"><span class="co-title">🕳 pending_tasks 返回 [] 以为出事了:</span>它列的是 Master 队列里还没算的批,空闲集群就是空数组。真正要警惕的反而是它持续非空——那是状态更新堵了。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>ClusterState 是不可变快照:更新 = 基于 N 构造 N+1 换引用,旧引用继续安全地读旧世界</td></tr>
+          <tr><td>双身份</td><td>version 标识已提交状态(单调 +1);stateUUID 标识每一份,Diff 的粘贴锚点,每次更新换新串</td></tr>
+          <tr><td>四块</td><td>Metadata(落盘:索引/Settings/term)/ RoutingTable(分片在哪)/ Nodes(谁是 Master)/ Blocks(拦什么)</td></tr>
+          <tr><td>metric vs filter_path</td><td>metric 决定序列化哪些段;filter_path 只裁已写出的 JSON——只要 metadata,routing_table 就没有顶层 version</td></tr>
+          <tr><td>两套计数器</td><td>ClusterState.version(Master 的 incrementVersion)vs Metadata.version(withIncrementedVersion);wait_for_metadata_version 等后者</td></tr>
+          <tr><td>单线程 ×2</td><td>MasterService max=1,一批一份新状态,发布完才接下一批;ClusterApplierService core=max=1:Applier → state.set → Listener</td></tr>
+          <tr><td>Diff</td><td>只能贴在 fromUuid 那份上;UUID 对不上抛异常、退全量;wasReadFromDiff 排障可见</td></tr>
+        </table>
+        <p><strong>心法:集群状态是换快照不是改黑板——version 只在 Master 手里加一,算和应用各一条队列,Diff 靠 stateUUID 找对上一份。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch20.html">← 第 20 课:评分与排序</a>
+          <a href="ch22.html">第 22 课:主节点选举与共识 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch21.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

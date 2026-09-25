@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 18 课:查询语法 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch18" data-ch="ch18">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 18 · 第四篇 · 搜索查询</div>
+        <h1>查询语法</h1>
+        <div class="ch-meta-line">JSON 怎样变成 Lucene Query · 约 15 分钟 · 前置:第 11、17 课 · 19 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>对同一个 <code>text</code> 字段发出 <code>match: "quick brown"</code> 和 <code>term: "quick brown"</code>,先预测 hits 差异,再用 <code>_analyze</code> 对照词典里到底躺着哪些 token。</li>
+          <li>打开 <code>MatchQueryBuilder.doToQuery</code> 与 <code>MatchQueryParser.parse</code>,说出默认 <code>operator</code> 如何把两个 token 收成 Boolean <strong>SHOULD</strong>;再用 <code>_explain</code> 在响应里指认这两条 should。</li>
+          <li>打开 <code>BoolQueryBuilder.doToQuery</code>,对照 <code>Occur.MUST</code> 与 <code>Occur.FILTER</code>:filter 不算 BM25、命中集合可收成 bitset;must 要带 TF 的分数,同一份 bitset 替代不了。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:DSL 不是 Lucene 能跑的东西</h2>
+        <p>客户端写出的是 JSON。第 16 课协调节点扇出的 <code>ShardSearchRequest</code> 里,这份 JSON 已经是 <code>SearchSourceBuilder.query()</code> 指向的某个 <code>QueryBuilder</code>;第 17 课 <code>parseSource</code> 在分片上调 <code>searchExecutionContext.toQuery(query)</code>,结果塞进 <code>SearchContext.originalQuery</code>。<strong>本课就是 toQuery 这一跳</strong>:Query DSL 的工作是「分析 + 组装 Lucene Query」,不是搜文档——搜文档是第 16 课 Query 阶段的事。</p>
+        <p>两套容易混的 <code>rewrite</code>,先钉死:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="20" width="355" height="120" rx="10" class="fig-box"/>
+              <text x="192" y="44" text-anchor="middle" class="fig-name">QueryBuilder.rewrite</text>
+              <text x="192" y="68" text-anchor="middle" class="fig-key">QueryBuilder → QueryBuilder</text>
+              <text x="192" y="90" text-anchor="middle" class="fig-sub">缺字段 → match_none</text>
+              <text x="192" y="112" text-anchor="middle" class="fig-sub">keyword 的 match → TermQueryBuilder</text>
+              <rect x="390" y="20" width="355" height="120" rx="10" class="fig-box-hot"/>
+              <text x="567" y="44" text-anchor="middle" class="fig-name">IndexSearcher.rewrite</text>
+              <text x="567" y="68" text-anchor="middle" class="fig-key">Lucene Query → 可执行 Query</text>
+              <text x="567" y="90" text-anchor="middle" class="fig-sub">布尔展开、常量折叠</text>
+              <text x="567" y="112" text-anchor="middle" class="fig-sub">rewrittenQuery() 用它(第 17 课)</text>
+              <text x="380" y="158" text-anchor="middle" class="fig-sub">切词不发生在这两步的任何一步——它发生在 doToQuery 里的 analyzer.tokenStream</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · Builder 级 rewrite 在 <code>toQuery</code> 里先跑(化简),Lucene rewrite 在 <code>rewrittenQuery()</code> 后跑(展开)。本课主讲两者之间的 <code>doToQuery</code>。</figcaption>
+        </figure>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>index/query/AbstractQueryBuilder.java</code></td><td>模板方法:<code>toQuery</code> 调 <code>doToQuery</code>,再套 <code>boost</code> / <code>_name</code>;rewrite 是 Builder → Builder</td></tr>
+          <tr><td><code>index/query/MatchQueryBuilder.java</code></td><td><code>match</code> 的 <code>doToQuery</code>:造 <code>MatchQueryParser</code>,默认 <code>operator</code> 映射成 <code>Occur.SHOULD</code></td></tr>
+          <tr><td><code>index/search/MatchQueryParser.java</code></td><td><strong>分析器切词</strong>,多 token 走 <code>createBooleanQuery</code> → <code>analyzeMultiBoolean</code></td></tr>
+          <tr><td><code>index/query/TermQueryBuilder.java</code></td><td><code>term</code> 的 <code>doToQuery</code>:直接 <code>MappedFieldType.termQuery</code>,<strong>不</strong>跑 <code>tokenStream</code></td></tr>
+          <tr><td><code>index/query/BoolQueryBuilder.java</code></td><td><code>must</code> → <code>Occur.MUST</code>(算分);<code>filter</code> → <code>Occur.FILTER</code>(不算分)</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>TermBasedFieldType</code>(<code>termQuery</code> = <code>new TermQuery(indexedValueForSearch(value))</code>)、<code>KeywordFieldMapper</code>(有 normalizer 时 <code>normalize</code>,仍不是切词)、<code>SearchExecutionContext.toQuery</code>、<code>XLRUQueryCache</code>(filter 命中集合收成 bitset)、<code>RestExplainAction</code>。</p>
+
+        <h2>3. match:"quick brown" 怎样变成 SHOULD</h2>
+        <p>REST 把 <code>{"match":{"title":"quick brown"}}</code> 解析成 <code>MatchQueryBuilder("title", "quick brown")</code>。真正造 Lucene Query 的是:</p>
+        <pre class="code-block"><code>// MatchQueryBuilder.doToQuery(节选)
+MatchQueryParser queryParser = new MatchQueryParser(context);
+queryParser.setOccur(operator.toBooleanClauseOccur());   // 默认 OR → SHOULD
+Query query = queryParser.parse(MatchQueryParser.Type.BOOLEAN, fieldName, value);
+return Queries.maybeApplyMinimumShouldMatch(query, minimumShouldMatch);</code></pre>
+        <p><code>Operator</code> 的映射只有两行,不要画菱形分叉:</p>
+        <pre class="code-block"><code>// Operator.toBooleanClauseOccur
+case OR  -&gt; BooleanClause.Occur.SHOULD;
+case AND -&gt; BooleanClause.Occur.MUST;</code></pre>
+        <p>名字碰撞提醒:ES 的 <code>index.query.MatchQueryBuilder</code> 是 DSL Builder;<code>MatchQueryParser</code> <strong>内部</strong>还有一个同名内部类(继承 Lucene 的 <code>util.QueryBuilder</code>),真正调 <code>analyzer.tokenStream</code>——读源码看 package,别当成同一个类。</p>
+
+        <h3>分析器从哪来;keyword 会短路</h3>
+        <p>未指定 <code>analyzer</code> 参数时,match 用字段的 <strong>search analyzer</strong>(<code>text</code> 默认 standard)。<code>parse</code> 里有一条短路:分析器是 <code>KEYWORD_ANALYZER</code> 且不是 PHRASE_PREFIX 时,直接 <code>TermQuery(整串)</code> 返回——所以<strong>对 keyword 字段发 match 不会切词</strong>(实验 15 验证)。<code>text</code> 字段继续 <code>createBooleanQuery</code>:</p>
+        <table class="ktable">
+          <tr><th>token 情况</th><th>建成什么</th></tr>
+          <tr><td>0 个(停用词滤光)</td><td><code>null</code>,按 <code>zero_terms_query</code>(默认 <code>none</code> → 不匹配)</td></tr>
+          <tr><td>1 个</td><td>单个 <code>TermQuery</code>(「单词 match 优化」就在这里,不是另一次 rewrite)</td></tr>
+          <tr><td>多个、跨多个 position("quick brown" 就是)</td><td><code>analyzeMultiBoolean</code>:每个 position 一个子句,occur 是 SHOULD/MUST</td></tr>
+        </table>
+        <pre class="code-block"><code>// MatchQueryParser 内部类 analyzeMultiBoolean(节选)
+BooleanQuery.Builder q = newBooleanQuery();
+while (stream.incrementToken()) {
+    if (posIncrAtt.getPositionIncrement() != 0) {
+        add(q, field, currentQuery, operator, false);   // operator = SHOULD(默认)
+        currentQuery.clear();
+    }
+    currentQuery.add(new Term(field, termAtt.getBytesRef()));
+}
+// 产出: BooleanQuery(SHOULD: TermQuery("title","quick"), SHOULD: TermQuery("title","brown"))</code></pre>
+        <p>它将成为第 17 课 <code>originalQuery.query()</code> 的那一份(还没加 alias FILTER,也还没 <code>searcher.rewrite</code>)。<code>operator: and</code> 只改 occur 为 MUST:两个词都要在,<strong>不是变成 phrase</strong>——短语要位置相邻,那是 <code>match_phrase → Type.PHRASE → PhraseQuery</code>(实验 16、17 用三档严格度对照)。</p>
+        <table class="ktable">
+          <tr><th>match 参数</th><th>默认</th><th>记住</th></tr>
+          <tr><td><code>operator</code></td><td><code>or</code></td><td>多 token 之间 SHOULD 还是 MUST</td></tr>
+          <tr><td><code>analyzer</code></td><td>字段 search analyzer</td><td>覆盖字段默认;写错名字 <code>QueryShardException</code></td></tr>
+          <tr><td><code>minimum_should_match</code></td><td>无</td><td>套在布尔上(至少中几个)</td></tr>
+          <tr><td><code>zero_terms_query</code></td><td><code>none</code></td><td>分析后 0 token:不匹配或 <code>all</code></td></tr>
+          <tr><td><code>fuzziness</code></td><td>无</td><td>有它时 Builder rewrite <strong>拒绝</strong>收成 TermQueryBuilder</td></tr>
+        </table>
+        <p>把这条翻译链连起来看:</p>
+        <div class="fp-slot" data-flow="ch18-match-to-should"></div>
+
+        <h2>4. term 不切词:和 match 对同一字段会怎样</h2>
+        <p>第 11 课用 <code>_analyze</code> 看过索引侧:<code>text</code> 词典里是 token,<code>keyword</code> 词典里是整串。查询侧的对称命题:<strong>term 不会再跑 tokenStream</strong>。</p>
+        <pre class="code-block"><code>// TermQueryBuilder.doToQuery(节选)
+return mapper.termQuery(value, context);      // caseInsensitive 是另一分支
+
+// TermBasedFieldType.termQuery —— 父类没有分析器
+failIfNotIndexed();
+return new TermQuery(new Term(name(), indexedValueForSearch(value)));
+// indexedValueForSearch: BytesRefs.toBytesRef(value) —— 原样转,不 tokenStream</code></pre>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 180" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="20" width="355" height="130" rx="10" class="fig-box-hot"/>
+              <text x="192" y="46" text-anchor="middle" class="fig-name">match:切词</text>
+              <text x="192" y="74" text-anchor="middle" class="fig-key">"quick brown"</text>
+              <text x="192" y="98" text-anchor="middle" class="fig-sub">token: quick / brown</text>
+              <text x="192" y="122" text-anchor="middle" class="fig-sub">两个 key 进词典,SHOULD 组布尔</text>
+              <rect x="390" y="20" width="355" height="130" rx="10" class="fig-box"/>
+              <text x="567" y="46" text-anchor="middle" class="fig-name">term:整串</text>
+              <text x="567" y="74" text-anchor="middle" class="fig-key">"quick brown" 原样</text>
+              <text x="567" y="98" text-anchor="middle" class="fig-sub">一个 key:quick brown</text>
+              <text x="567" y="122" text-anchor="middle" class="fig-sub">text 词典里没有这个 key → 0 hits</text>
+              <text x="380" y="168" text-anchor="middle" class="fig-sub">差别不在名字,在进倒排之前变没变;列间无箭头——match 失败不会改走 term</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 左列会变成两个 key;右列拿整串当一个 key 去找。对文档 "The quick brown fox"(text 字段):</figcaption>
+        </figure>
+
+        <table class="ktable">
+          <tr><th>查询(text 字段)</th><th>去词典找的 key</th><th>文档索引后的 key</th><th>命中?</th></tr>
+          <tr><td><code>match: "quick brown"</code></td><td><code>quick</code>、<code>brown</code>(SHOULD)</td><td><code>the/quick/brown/fox</code></td><td>是</td></tr>
+          <tr><td><code>term: "quick brown"</code></td><td>整串 <code>quick brown</code></td><td>没有这个 term</td><td><strong>否</strong></td></tr>
+          <tr><td><code>term: "quick"</code></td><td><code>quick</code></td><td>有</td><td>是(碰巧已是 token)</td></tr>
+          <tr><td><code>term: "Quick"</code></td><td><code>Quick</code>(保留大写)</td><td>只有小写</td><td><strong>否</strong></td></tr>
+        </table>
+        <p><strong>term 在 text 上仍然跳过分析</strong>:整串、大小写不对,都会 0 hits。keyword 上的 term 对整串(天作之合);配了 normalizer 只 <code>normalize</code> 出<strong>恰好一个</strong> token——不是 match 那种切多词,"Quick Brown" 经 lowercase normalizer 只是变成带空格的 <code>quick brown</code> 一整串。</p>
+
+        <h2>5. bool:must 算分,filter 不算分、才谈得上缓存</h2>
+        <table class="ktable">
+          <tr><th>子句</th><th>必须命中?</th><th>参与 BM25?</th><th>Lucene Occur</th><th>与缓存</th></tr>
+          <tr><td><code>must</code></td><td>是</td><td>是</td><td><code>MUST</code></td><td>要 TF/IDF,bitset 替代不了打分</td></tr>
+          <tr><td><code>filter</code></td><td>是</td><td><strong>否</strong></td><td><code>FILTER</code></td><td>只要在不在:可收成 <code>BitDocIdSet</code> / <code>RoaringDocIdSet</code></td></tr>
+          <tr><td><code>should</code></td><td>默认否;无 must/filter 时至少中一</td><td>是</td><td><code>SHOULD</code></td><td>可选加分;<code>minimum_should_match</code> 可收紧</td></tr>
+          <tr><td><code>must_not</code></td><td>必须<strong>不</strong>中</td><td>否</td><td><code>MUST_NOT</code></td><td>同 filter,不算分</td></tr>
+        </table>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="20" width="355" height="120" rx="10" class="fig-box"/>
+              <text x="192" y="44" text-anchor="middle" class="fig-name">must · Occur.MUST</text>
+              <text x="192" y="72" text-anchor="middle" class="fig-sub">必须命中</text>
+              <text x="192" y="94" text-anchor="middle" class="fig-sub">参与 BM25:要 TF</text>
+              <text x="192" y="116" text-anchor="middle" class="fig-sub">同一份 bitset 换不来分数</text>
+              <rect x="390" y="20" width="355" height="120" rx="10" class="fig-box-hot"/>
+              <text x="567" y="44" text-anchor="middle" class="fig-name">filter · Occur.FILTER</text>
+              <text x="567" y="72" text-anchor="middle" class="fig-sub">必须命中</text>
+              <text x="567" y="94" text-anchor="middle" class="fig-sub">不算分:只要在不在</text>
+              <text x="567" y="116" text-anchor="middle" class="fig-sub">可收成 Bit/Roaring DocIdSet</text>
+              <text x="380" y="158" text-anchor="middle" class="fig-sub">同样「必须命中」,代价差在打分;filter 能缓存,是因为 FILTER 子句的 Weight 按无分模式建</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · filter 相对 must 能缓存,不是因为「这两个字比较快」,而是无分命中集合就是一份 DocIdSet,下次同一 filter 直接回放。</figcaption>
+        </figure>
+
+        <pre class="code-block"><code>// BoolQueryBuilder.doToQuery(节选)
+BooleanQuery.Builder builder = new BooleanQuery.Builder();
+addBooleanClauses(context, builder, mustClauses,     BooleanClause.Occur.MUST);
+addBooleanClauses(context, builder, mustNotClauses,  BooleanClause.Occur.MUST_NOT);
+addBooleanClauses(context, builder, shouldClauses,   BooleanClause.Occur.SHOULD);
+addBooleanClauses(context, builder, filterClauses,   BooleanClause.Occur.FILTER);
+if (builder.build().clauses().isEmpty()) return Queries.ALL_DOCS_INSTANCE;  // 空 bool ≡ match_all</code></pre>
+        <p>缓存的真名字要拆开记:① <code>Occur.FILTER</code> 是布尔子句类型,子 Weight 的 ScoreMode 不需要分数(缓存命中后 <code>ConstantScoreScorerSupplier(..., COMPLETE_NO_SCORES)</code>);② 节点级 <code>IndicesQueryCache → XLRUQueryCache</code> 把「这个 Query 在这个 segment 命中哪些 doc」收成 DocIdSet——稠密(≥1%)进 <code>FixedBitSet</code>,稀疏进 <code>RoaringDocIdSet</code>;③ <code>BitsetFilterCache</code> 是<strong>另一份</strong>缓存,给 nested / join 这类必须一直物化 BitSet 的组件用,别把它说成 bool.filter 的实现。还有一条泼冷水:默认 <code>UsageTrackingQueryCachingPolicy</code> 会跳过太便宜的查询(单个 TermQuery 常不进缓存),所以「连打两次 term filter,hit_count 必 +1」不成立——选 filter 的第一理由是<strong>语义(不算分)</strong>,缓存是有启发式的附加收益。</p>
+        <p>最后,<code>post_filter</code> 不是第五种子句:它是 <code>SearchSourceBuilder</code> 上另一份 QueryBuilder,在 hits 已按 <code>query</code> 排完、聚合也按 <code>query</code> 的文档集算完之后,再滤一层 hits——聚合桶不受它影响(实验 14)。侧边栏 facet 用它,不要和 <code>bool.filter</code> 混成一个开关。</p>
+
+        <h2>6. 接到第 17 课:三层字段从这里填上</h2>
+        <p><code>toQuery</code> 不是 SearchContext 的方法,分片上的链是:<code>SearchSourceBuilder.query</code> → <code>SearchExecutionContext.toQuery</code>(Builder rewrite + <code>doToQuery</code>,收成 <code>ParsedQuery</code>)→ 写入 originalQuery → <code>preProcess</code> 加 alias FILTER → <code>rewrittenQuery()</code> 交给 QueryPhase。本课的 <code>doToQuery</code> 填第一层:</p>
+        <pre class="code-block"><code>// SearchExecutionContext.toQuery(节选)
+Query query = Rewriteable.rewrite(queryBuilder, this, true).toQuery(this);
+if (query == null) query = Queries.newMatchNoDocsQuery("No query left after rewrite.");
+return new ParsedQuery(query, copyNamedQueries());
+
+// AbstractQueryBuilder.toQuery 是模板方法:子类 doToQuery 出 Lucene Query,
+// 基类再套 boost(BoostQuery)与 _name(named queries → matched_queries)</code></pre>
+        <p>第 16 课 Query 阶段每个 shard 回的 <code>_score</code>,就是这份查询(经后两层加工)在该 shard 的 EXTERNAL searcher 上跑出来的分数。</p>
+
+        <h2>7. 其余查询:一张 8 行表够用</h2>
+        <p><code>doToQuery</code> 的模式都一样:看 <code>MappedFieldType</code>,让字段类型决定 Lucene Query。</p>
+        <table class="ktable">
+          <tr><th>DSL</th><th>用途</th><th>典型 Lucene Query</th></tr>
+          <tr><td><code>match</code></td><td>全文,先分析</td><td>多 token:<code>BooleanQuery(SHOULD/MUST)</code>;单 token:<code>TermQuery</code></td></tr>
+          <tr><td><code>match_phrase</code></td><td>短语(要位置)</td><td><code>PhraseQuery</code>(<code>Type.PHRASE</code>)</td></tr>
+          <tr><td><code>term</code></td><td>精确,不分析</td><td><code>TermQuery</code></td></tr>
+          <tr><td><code>terms</code></td><td>多值精确</td><td><code>TermInSetQuery</code></td></tr>
+          <tr><td><code>range</code></td><td>数值/日期范围</td><td>多是 <code>PointRangeQuery</code>;两端都空改写成 exists</td></tr>
+          <tr><td><code>bool</code></td><td>复合</td><td><code>BooleanQuery</code>(MUST/FILTER/SHOULD/MUST_NOT)</td></tr>
+          <tr><td><code>exists</code></td><td>字段有值</td><td><code>FieldExistsQuery</code></td></tr>
+          <tr><td><code>match_all</code></td><td>全部文档</td><td><code>MatchAllDocsQuery</code></td></tr>
+        </table>
+        <p><code>prefix</code> / <code>wildcard</code> / <code>regexp</code> / <code>fuzzy</code> / <code>ids</code> / <code>multi_match</code> 模式相同,需要时再开对应 Builder。<code>SearchSourceBuilder</code> 是搜索 body 的顶层,不是一种 Query:<code>query</code> 走本课,<code>post_filter</code> 滤 hits 不动聚合,<code>sort</code>/<code>aggs</code>/<code>highlight</code> 归第 19、20 课和 Fetch 子阶段,<code>timeout</code> 是第 17 课的 <code>SearchContext.timeout</code>。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>一个索引 <code>tut-l18-dsl</code>(title text / status keyword / price / date)打全场:先 <code>_analyze</code> 看词典,再 match vs term 四连对照,然后 <code>_explain</code> 指认两个 SHOULD,bool 的 must/filter 分数对照、post_filter 的聚合对照,最后 match_phrase 三档严格度收尾。</p>
+
+        <h3>实验 0-2:建索引、看词典</h3>
+        <div class="exp-slot" data-exp="ch18-00-setup"></div>
+        <div class="exp-slot" data-exp="ch18-01-bulk"></div>
+        <div class="exp-slot" data-exp="ch18-02-analyze"></div>
+
+        <h3>实验 3-8:match vs term,同一 text 字段</h3>
+        <div class="exp-slot" data-exp="ch18-03-match"></div>
+        <div class="exp-slot" data-exp="ch18-04-term-whole"></div>
+        <div class="exp-slot" data-exp="ch18-05-term-quick"></div>
+        <div class="exp-slot" data-exp="ch18-06-term-Quick"></div>
+        <div class="exp-slot" data-exp="ch18-07-term-status"></div>
+        <div class="exp-slot" data-exp="ch18-08-match-and"></div>
+
+        <h3>实验 9-11:_explain 指认两个 SHOULD</h3>
+        <div class="exp-slot" data-exp="ch18-09-explain-1"></div>
+        <div class="exp-slot" data-exp="ch18-10-explain-3"></div>
+        <div class="exp-slot" data-exp="ch18-11-explain-in-search"></div>
+
+        <h3>实验 12-14:must/filter 分家与 post_filter</h3>
+        <div class="exp-slot" data-exp="ch18-12-bool-filter"></div>
+        <div class="exp-slot" data-exp="ch18-13-bool-must"></div>
+        <div class="exp-slot" data-exp="ch18-14-post-filter"></div>
+
+        <h3>实验 15-17:两头的边界</h3>
+        <div class="exp-slot" data-exp="ch18-15-match-keyword"></div>
+        <div class="exp-slot" data-exp="ch18-16-phrase-right"></div>
+        <div class="exp-slot" data-exp="ch18-17-phrase-wrong"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch18-18-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 只有一篇文档 title 为 "Elasticsearch in Action"(text)。A:term "elasticsearch";B:match "Elasticsearch Action";C:term "Elasticsearch in Action"。各几 hits?把 title 改成 keyword 再发 B、C 呢?</summary>
+          <div class="answer">
+            <p>A:<strong>1 hit</strong>(查询串碰巧等于索引 token)。B:match 分析成 elasticsearch/action,SHOULD 都中 → <strong>1 hit</strong>。C:整串 key 不在词典 → <strong>0 hits</strong>。改成 keyword:B 的 match 走 KEYWORD_ANALYZER 短路成整串 "Elasticsearch Action" ≠ 存进去的整串 → <strong>0 hits</strong>;C 整串精确相等 → <strong>1 hit</strong>。同一套 JSON,字段类型一换,match/term 胜负对调。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 若 MatchQueryBuilder.doToQuery 直接把 alias FILTER 包进用户查询、只留一份查询,highlight / _explain 哪条不变量破?若执行时跳过 preProcess 的 buildFilteredQuery 又怎样?QueryBuilder.rewrite 能代替 searcher.rewrite 吗?</summary>
+          <div class="answer">
+            <p>提前包进 doToQuery:_explain / highlight 会多出用户没写的 FILTER,对着「用户没写的查询」说话。跳过 buildFilteredQuery:别名过滤丢失,alias 索引会搜到不该看见的文档。都不能。QueryBuilder.rewrite 只在 Builder 上化简(缺字段→match_none、keyword match→TermQueryBuilder),它不跑分析器、也不做布尔展开——切词在 doToQuery,展开在 searcher.rewrite,三步各管一段。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. status: published 和 date >= 2024-01-01 放 must 还是 filter?什么时候值得用 post_filter?query cache 不会无条件收下每个 Term filter,这怎么影响选择?</summary>
+          <div class="answer">
+            <p>不参与「谁更相关」的条件放 filter:分数不被状态/日期拉动,FILTER 的无分 Weight 才允许 query cache 用 bitset 回放。post_filter 换的是「聚合看 query 那批文档、hits 再瘦身」——facet 场景;它不是更快的 filter,也吃不到 Query 阶段的缓存收益。单个 TermQuery 常被 <code>UsageTrackingQueryCachingPolicy</code> 当成太便宜而不缓存——所以选 filter 的第一理由是语义,缓存是附加的、有启发式的,别为了「一定命中 query_cache」把条件写复杂。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 对 text 用整串 term:</span>词典里只有切开的小写 token,整串、大写全 miss——0 hits 不是 bug,是查询 key 和索引 key 不是同一种东西。<code>_source</code> 里看得见 ≠ 倒排里找得到。</div>
+        <div class="callout warn"><span class="co-title">🕳 把 operator: and 当成短语:</span>AND 只改 occur(SHOULD→MUST),要求「都在」,不要求「相邻」;要相邻用 match_phrase(slop=0)。三档严格度:SHOULD &lt; MUST &lt; PHRASE。</div>
+        <div class="callout warn"><span class="co-title">🕳 「filter 更快,所以全写 filter」:</span>filter 不算分是语义差异,不只是性能差异——放 must 的条件会拉动 _score(实验 12 vs 13)。反过来,「filter 一定命中 query_cache」也不成立:便宜的单 TermQuery 常被策略跳过。</div>
+        <div class="callout warn"><span class="co-title">🕳 match 不是「永远切词」:</span>它用字段的 search analyzer:keyword 字段上 match 走 KEYWORD_ANALYZER 短路、整串不切(实验 15)。切不切由 mapping 决定,不由查询名决定。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>toQuery 这一跳:JSON → QueryBuilder → Lucene Query → 写进 originalQuery</td></tr>
+          <tr><td>match</td><td>search analyzer 切词;多 token = BooleanQuery SHOULD(默认);单 token 收成 TermQuery</td></tr>
+          <tr><td>term</td><td>BytesRef 整串当 key,从不切词;text 上大小写/整串全 miss;keyword 上天作之合</td></tr>
+          <tr><td>keyword 短路</td><td>KEYWORD_ANALYZER → match 直接 TermQuery 整串;normalizer 只归一化单 token</td></tr>
+          <tr><td>bool 四子句</td><td>must 算分 / filter 不算可缓存 / should 加分 / must_not 排除</td></tr>
+          <tr><td>两套 rewrite</td><td>QueryBuilder.rewrite 化简;searcher.rewrite 展开;切词在中间的 doToQuery</td></tr>
+        </table>
+        <p><strong>心法:进倒排之前变没变——match 变(token 是钥匙),term 不变(整串是钥匙);算不算分,是 must 和 filter 的分界线。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch17.html">← 第 17 课:搜索服务与搜索上下文</a>
+          <a href="ch19.html">第 19 课:聚合框架 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch18.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

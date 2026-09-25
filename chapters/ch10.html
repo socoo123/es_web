@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 10 课:跟踪一次文档读取 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch10" data-ch="ch10">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 10 · 第二篇 · 请求处理 · 收官</div>
+        <h1>跟踪一次文档读取</h1>
+        <div class="ch-meta-line">Realtime GET 的三层拆解 · 约 16 分钟 · 前置:第 6-9 课 · 19 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>从 <code>RestGetAction.routes()</code> 一路指到 <code>TransportGetAction.shardOperation</code>,说出 REST 层的全部产出:一个填好参数的 <code>GetRequest</code>,外加一句 <code>client.get()</code>——没有一行 Lucene。</li>
+          <li>关掉 <code>refresh_interval</code> 后实测三连:默认 GET <code>found:true</code>、立刻 SEARCH 0 hits、<code>?realtime=false</code> 返回 404,并分别指出三条结果各自读的是哪份快照(VersionMap/translog 还是 EXTERNAL searcher)。</li>
+          <li>带 <code>routing</code> 写入、不带 <code>routing</code> 去读,预测 <code>found:false</code>;用 <code>_search_shards</code> 展示两把有效键落在不同分片,并说出 GET 只打一个 shard、失败只在副本间换。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:一次 GET 只换三次身份</h2>
+        <p>第 6 到 9 课把 REST 路由、Action 表、异步框架、传输层一件件拆开看过。这一课把它们装回一次真实的 <span class="mth mth-get">GET</span> <code>/tut-l10-nrt/_doc/1</code>:请求在集群里只换三次身份——HTTP 报文变成类型安全的 <code>GetRequest</code>;Action 层按 <code>_id</code> 算出<strong>一个</strong>分片并把动作名换成 <code>get[s]</code>;最后 Engine 在那个分片上按 <code>_id</code> 取出 <code>_source</code>。Netty、PathTrie、Filter、Lucene 都是零件,不是今天的图。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 132" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah10b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="18" width="166" height="96" rx="10" class="fig-box"/>
+              <text x="93" y="42" text-anchor="middle" class="fig-sub">① HTTP</text>
+              <text x="93" y="64" text-anchor="middle" class="fig-name">GET /idx/_doc/1</text>
+              <text x="93" y="86" text-anchor="middle" class="fig-sub">还没进 ES</text>
+              <line x1="180" y1="66" x2="197" y2="66" class="fig-arrow" marker-end="url(#ah10b)"/>
+              <rect x="202" y="18" width="166" height="96" rx="10" class="fig-box"/>
+              <text x="285" y="42" text-anchor="middle" class="fig-sub">② REST 层</text>
+              <text x="285" y="64" text-anchor="middle" class="fig-key">RestGetAction</text>
+              <text x="285" y="86" text-anchor="middle" class="fig-sub">只造 GetRequest</text>
+              <line x1="372" y1="66" x2="389" y2="66" class="fig-arrow" marker-end="url(#ah10b)"/>
+              <rect x="394" y="18" width="166" height="96" rx="10" class="fig-box"/>
+              <text x="477" y="42" text-anchor="middle" class="fig-sub">③ Action 层</text>
+              <text x="477" y="64" text-anchor="middle" class="fig-key">TransportGetAction</text>
+              <text x="477" y="86" text-anchor="middle" class="fig-sub">按 _id 选出 1 个 shard</text>
+              <line x1="564" y1="66" x2="581" y2="66" class="fig-arrow" marker-end="url(#ah10b)"/>
+              <rect x="586" y="18" width="166" height="96" rx="10" class="fig-box-hot"/>
+              <text x="669" y="42" text-anchor="middle" class="fig-sub">④ Engine 层</text>
+              <text x="669" y="64" text-anchor="middle" class="fig-key">InternalEngine</text>
+              <text x="669" y="86" text-anchor="middle" class="fig-sub">取出这篇 _source</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 三层各答一个问题:REST 答「参数收齐没有」,Action 答「去哪个分片」,Engine 答「这篇文档现在到底在哪、怎么取」。读源码时也按这三问切,不要铺开 30 个节点的调用墙。</figcaption>
+        </figure>
+
+        <p>这一课同时是第二篇的收官:前四课的每个零件都要在这次 GET 里被点到名。哪一层对不上,回哪一课补。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>rest/action/document/RestGetAction.java</code></td><td><code>routes()</code> 只有 GET/HEAD <code>/{index}/_doc/{id}</code>;<code>prepareRequest</code> 末尾一句 <code>client.get()</code></td></tr>
+          <tr><td><code>action/get/TransportGetAction.java</code></td><td><code>TYPE = "indices:data/read/get"</code>;<code>shards()</code> 按 id/routing 选副本;<code>shardOperation</code> 交给 <code>ShardGetService</code></td></tr>
+          <tr><td><code>action/support/single/shard/TransportSingleShardAction.java</code></td><td>单分片读骨架:<code>doExecute → AsyncSingleAction</code>;shard 级动作名加 <code>[s]</code>;失败换下一副本</td></tr>
+          <tr><td><code>index/get/ShardGetService.java</code></td><td>组装 <code>Engine.Get(realtime, realtime, id)</code>;命中后 <code>innerGetFetch</code> 加载 <code>_source</code></td></tr>
+          <tr><td><code>index/engine/InternalEngine.java</code></td><td>realtime 分支 <code>realtimeGetUnderLock</code>:VersionMap → translog;非 realtime 只读 EXTERNAL searcher</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>GetRequest</code>(<code>realtime</code> 默认 <code>true</code>)、<code>GetResponse.isExists()</code>(决定 200/404)、<code>LiveVersionMap</code>(VersionMap 的实现)、<code>IndexRouting.shardId</code>(路由公式)。</p>
+
+        <h2>3. REST 入口:到 client.get() 为止</h2>
+        <p>第 6 课的 PathTrie 在这里兑现:<code>/{index}/_doc/{id}</code> 命中 <code>RestGetAction</code>,路径里抽出 <code>index</code> 和 <code>id</code> 两个参数。9.4.0 的这个类不到百行,路由只登记两条——GET 与 HEAD 共用同一套逻辑,存在性判断和 realtime、routing 语义必须一致:</p>
+        <pre class="code-block"><code>// RestGetAction.java
+@Override
+public List&lt;Route&gt; routes() {
+    return List.of(new Route(GET, "/{index}/_doc/{id}"),
+                   new Route(HEAD, "/{index}/_doc/{id}"));
+}</code></pre>
+        <p><code>prepareRequest</code> 把路径参数和查询串写进同一个 <code>GetRequest</code>,然后返回一个 lambda——真正离开 REST 层的就是这一句:</p>
+        <pre class="code-block"><code>GetRequest getRequest = new GetRequest(request.param("index"), request.param("id"));
+getRequest.refresh(request.paramAsBoolean("refresh", getRequest.refresh()));    // 默认 false
+getRequest.routing(request.param("routing"));
+getRequest.realtime(request.paramAsBoolean("realtime", getRequest.realtime())); // 默认 true
+return channel -&gt; client.get(getRequest,
+    new RestToXContentListener&lt;&gt;(channel, r -&gt; r.isExists() ? OK : NOT_FOUND));</code></pre>
+        <p>注意最后一行的三元:HTTP 状态码在这里二选一,<code>found:false</code> 时 JSON 正文照样由 <code>GetResult.toXContent</code> 写出 <code>_index</code>、<code>_id</code>,只是没有 <code>_version</code> 和 <code>_source</code>。别把两种「错」混淆:<strong>路径配不上任何 Route 是 400(第 6 课),文档不存在才是 404</strong>。另外 <code>getName()</code> 返回的 <code>"document_get_action"</code> 只出现在 <code>_nodes/usage</code> 的 rest_actions 统计里;<code>_tasks</code> 里看到的是 <code>"indices:data/read/get"</code>——两套名字空间,第 7 课对照过。</p>
+
+        <table class="ktable">
+          <tr><th>查询参数</th><th>默认</th><th>谁在消费</th></tr>
+          <tr><td><code>realtime</code></td><td><code>true</code></td><td><code>InternalEngine.get</code>:要不要走 VersionMap/translog</td></tr>
+          <tr><td><code>refresh</code></td><td><code>false</code></td><td><strong>仅当 realtime=false</strong> 时才可能触发 externalRefresh(第 4 节)</td></tr>
+          <tr><td><code>routing</code></td><td>无</td><td><code>IndexRouting.shardId</code> 的有效键;忘带可能找错分片</td></tr>
+          <tr><td><code>preference</code></td><td>无</td><td>同一 shard 的多个副本里优先哪个</td></tr>
+          <tr><td><code>_source_includes</code> 等</td><td>返回全量</td><td><code>ShardGetService.innerGetFetch</code> 的 SourceFilter</td></tr>
+          <tr><td><code>stored_fields</code></td><td>无</td><td>另加载 stored fields;旧参数 <code>fields</code> 直接抛异常</td></tr>
+        </table>
+
+        <h2>4. Action 层:选出一个 shard,再把名字换成 [s]</h2>
+        <p><code>TransportGetAction</code> <strong>没有</strong>覆盖 <code>doExecute</code>——执行模式写死在基类 <code>TransportSingleShardAction</code> 里:<code>new AsyncSingleAction(request, listener).start()</code>。过滤器、校验、Task 登记都在更外层的 <code>TransportAction.execute</code>(第 7 课)做完了。<code>AsyncSingleAction</code> 从 ClusterState 解析出具体索引、检查 READ block,然后调用子类的 <code>shards()</code>:</p>
+        <pre class="code-block"><code>// TransportGetAction.java — 先算出一个 shard,再排它的可搜索副本
+ShardIterator iterator = clusterService.operationRouting()
+    .getShards(project, request.concreteIndex(),
+               request.request().id(),       // hash 键之一
+               request.request().routing(),   // 有它就替换上面的键
+               request.request().preference());
+return ShardIterator.allSearchableShards(iterator);</code></pre>
+        <p><code>OperationRouting.getShards</code> 内部用 <code>IndexRouting.getShard(id, routing)</code> 得到<strong>一个</strong> shard 号,再按 <code>preference</code> 把该 shard 的可搜索副本排成迭代器。SEARCH 打全部 shard;GET 只打这一个。推论很重要:routing 错了不是「换个 shard 再找」,而是在<strong>错误的那份拷贝</strong>上得到 <code>found:false</code>——第 6 节实验会撞这堵墙。</p>
+        <p>构造函数里登记了两个 Transport handler 名,对应两种到达姿势:</p>
+        <table class="ktable">
+          <tr><th>动作名</th><th>谁处理</th><th>做什么</th></tr>
+          <tr><td><code>indices:data/read/get</code></td><td>TransportHandler</td><td>协调入口:再跑一遍 AsyncSingleAction 选 shard</td></tr>
+          <tr><td><code>indices:data/read/get[s]</code></td><td>ShardTransportHandler</td><td>已带 shardId,直接 <code>asyncShardOperation</code></td></tr>
+        </table>
+        <p>即使目标就是本节点,也走 <code>TransportService</code> 的本地连接——源码里没有「if 本地就跳过框架」的旁路。失败路径一句话:某副本连接失败或超时,<code>onFailure</code> 让 <code>perform</code> 取 <code>shardIt.nextOrNull()</code> 换下一个<strong>副本</strong>;迭代器耗尽仍不成功,包成 <code>NoShardAvailableActionException</code> 或把最后一个异常交给 listener。不存在「读一半」的降级。这套请求跑在 <code>get</code> 线程池上,和 SEARCH 的 <code>search</code> 池分开(第 8 课)——by-id 读不会被重查询拖死,反过来也一样。</p>
+        <p>数据节点上真正读文档的是 <code>shardOperation</code>,而<strong>何时</strong>调它由 <code>asyncShardOperation</code> 决定:<code>realtime=true</code> 直接 <code>asyncGet</code>(不绑定 refresh 周期);<code>realtime=false</code> 先 <code>ensureShardSearchActive</code>。还有一个容易想当然的分支:<code>asyncGet</code> 里只有 <strong>realtime=false 且 refresh=true</strong> 才会先 <code>externalRefresh</code> 再读——默认 realtime 下,单加 <code>?refresh=true</code> 什么都不会刷新(实验 1 第 5-6 步专门验证它)。至于构造函数里那个 <code>TransportGetFromTranslogAction</code>(内部动作 <code>get_from_translog</code>),是 GET 落到不可提升为主分片的 search shard(serverless 形态)时向可写主分片「借」realtime 结果的接力;本课实验的分片可提升为主,不走它,别画进主路径。</p>
+        <table class="ktable">
+          <tr><th>preference</th><th>效果</th></tr>
+          <tr><td>缺省</td><td>可搜索副本上做自适应副本选择</td></tr>
+          <tr><td><code>_local</code></td><td>优先本节点持有的副本</td></tr>
+          <tr><td><code>_primary</code> / <code>_replica</code></td><td>按副本角色过滤</td></tr>
+          <tr><td>任意字符串</td><td>同字符串的多次读粘住同一副本</td></tr>
+        </table>
+
+        <h2>5. Engine 层:未 refresh 的文档,凭什么立刻读得到</h2>
+        <p>第 1 课实验 3 留过一个悬念:关掉自动 refresh、刚写完一篇,立刻 GET 拿得到、立刻 SEARCH 扑空,当时只说「机制在第 10 课拆」。现在拆。先看动画,再对源码:</p>
+        <div class="fp-slot" data-flow="ch10-realtime-get"></div>
+        <p>数据节点上,<code>ShardGetService.doGet</code> 先造一个 Engine 侧的查询对象——构造参数是 <code>(realtime, readFromTranslog, id)</code>,HTTP 传进来的 <code>realtime</code> 同时填了前两个布尔:要实时,就也允许从 translog 读:</p>
+        <pre class="code-block"><code>// ShardGetService.java — 两个布尔都来自同一个 realtime
+var engineGet = new Engine.Get(realtime, realtime, id)
+    .version(version).versionType(versionType);
+try (Engine.GetResult get = engineGetOperator.apply(engineGet)) {
+    // exists == false → found:false;否则 innerGetFetch 加载字段与 _source
+}</code></pre>
+        <p>往下 <code>IndexShard.get → InternalEngine.get</code>,分支只有两个:</p>
+        <pre class="code-block"><code>// InternalEngine.java
+if (get.realtime()) {
+    return realtimeGetUnderLock(get, mappingLookup, documentParser, searcherWrapper, true);
+} else {
+    // 只读「已经 refresh、对外可见」的快照 —— 与 SEARCH 同源
+    return getFromSearcher(get, acquireSearcher("get", SearcherScope.EXTERNAL, searcherWrapper), false);
+}</code></pre>
+        <p>非 realtime 就是那一行:只读 <strong>EXTERNAL</strong> searcher——refresh 之后才换的那份 segment 快照。刚写入未 refresh 的文档在这条路上不存在,<code>found:false</code>。realtime 分支则分三站:</p>
+        <ul>
+          <li><strong>VersionMap 是第一站。</strong>堆里的 <code>LiveVersionMap</code>,按 uid 记录「这篇最近写过没有、删没删、写在 translog 哪个位置」,查找顺序写死:current → old → tombstones → archive。删除是 tombstone,realtime GET 直接 <code>NOT_EXISTS</code>;refresh 之后 <code>afterRefresh</code> 会把 searcher 已能看见的条目清掉。</li>
+          <li><strong>translog 是有 location 时的主路径。</strong><code>translog.readOperation(location)</code> 按 generation 读出 <code>Translog.Index</code> 操作,再在内存里为这一条建临时 DirectoryReader,走与 segment 完全相同的 <code>getFromSearcher</code> 取回文档。</li>
+          <li><strong>INTERNAL searcher 是后备。</strong>location 不是天生就有的:<code>trackTranslogLocation</code> 默认 false,写入时只有它在跟踪才会把 translog 位置挂进 VersionMap。第一次 realtime GET 撞上「命中但 location 为空」,会打开跟踪并 <code>refreshIfNeeded</code>(一次<strong>内部</strong> refresh,让 INTERNAL searcher 追上这条 seqNo)后从 INTERNAL 读;之后的写入才带 location,后续 GET 稳定走 translog。注意 INTERNAL 是引擎内部快照,EXTERNAL 才是 SEARCH 用的对外那份——两个名字别混。</li>
+        </ul>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 182" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah10c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="15" y="15" width="200" height="62" rx="9" class="fig-box"/>
+              <text x="115" y="39" text-anchor="middle" class="fig-name">GET(按 _id)</text>
+              <text x="115" y="59" text-anchor="middle" class="fig-sub">realtime=true(默认)</text>
+              <line x1="219" y1="46" x2="246" y2="46" class="fig-arrow" marker-end="url(#ah10c)"/>
+              <rect x="255" y="15" width="230" height="62" rx="9" class="fig-box"/>
+              <text x="370" y="39" text-anchor="middle" class="fig-key">VersionMap → translog</text>
+              <text x="370" y="59" text-anchor="middle" class="fig-sub">不碰倒排表</text>
+              <line x1="489" y1="46" x2="516" y2="46" class="fig-arrow" marker-end="url(#ah10c)"/>
+              <rect x="525" y="15" width="220" height="62" rx="9" class="fig-box-hot"/>
+              <text x="635" y="39" text-anchor="middle" class="fig-name">立刻 found: true</text>
+              <text x="635" y="59" text-anchor="middle" class="fig-sub">HTTP 200</text>
+              <rect x="15" y="105" width="200" height="62" rx="9" class="fig-box"/>
+              <text x="115" y="129" text-anchor="middle" class="fig-name">SEARCH(按词)</text>
+              <text x="115" y="149" text-anchor="middle" class="fig-sub">走倒排表</text>
+              <line x1="219" y1="136" x2="246" y2="136" class="fig-arrow" marker-end="url(#ah10c)"/>
+              <rect x="255" y="105" width="230" height="62" rx="9" class="fig-box"/>
+              <text x="370" y="129" text-anchor="middle" class="fig-key">EXTERNAL searcher</text>
+              <text x="370" y="149" text-anchor="middle" class="fig-sub">refresh 后的那份快照</text>
+              <line x1="489" y1="136" x2="516" y2="136" class="fig-arrow" marker-end="url(#ah10c)"/>
+              <rect x="525" y="105" width="220" height="62" rx="9" class="fig-box"/>
+              <text x="635" y="129" text-anchor="middle" class="fig-name">hits 可能是 0</text>
+              <text x="635" y="149" text-anchor="middle" class="fig-sub">写入成功 ≠ 可搜索</text>
+              <text x="380" y="176" text-anchor="middle" class="fig-sub">近实时是 SEARCH 的属性;GET 的实时由 VersionMap + translog 另行保证</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 同一篇刚写入的文档,两种读法看两份「世界」:GET 问 VersionMap/translog「这篇最近写没写」,SEARCH 问倒排表「哪个词在哪篇」——词表还没更新,自然扑空。</figcaption>
+        </figure>
+
+        <p>两条路最后都汇进 <code>ShardGetService.innerGetFetch</code>:translog 路径并不把 JSON 字节直接吐给 HTTP,而是先变成可被同一套 <code>SourceLoader</code> 阅读的内存索引,再按 <code>DocIdAndVersion</code> 取 <code>_source</code>;<code>_source_includes</code>/<code>_source_excludes</code> 只影响这一段的 SourceFilter,不另开 Engine 路径。这也是「从 translog 读比从 segment 读更贵」的根:多一次操作解析加一个临时 reader,而 segment 路径的 stored fields 早就躺在磁盘映射里。命中时响应带全 <code>_version</code>、<code>_seq_no</code>、<code>_primary_term</code>;再 PUT 同一 <code>_id</code>,version 变 2、seq_no 递增——VersionMap 里那条 <code>IndexVersionValue</code> 整个换成新值。带 <code>version</code>/<code>if_seq_no</code> 的冲突检查在 VersionMap 命中和 searcher 命中处各做一次,失败抛 <code>VersionConflictEngineException</code>。</p>
+
+        <h2>6. routing:hash 的键必须与写入时相同</h2>
+        <p>选 shard 的公式在 <code>IndexRouting</code>(普通非分区索引)里就一行三元:</p>
+        <pre class="code-block"><code>// IndexRouting.java — 有 routing 就完全替换 _id,不混入
+protected int shardId(String id, @Nullable String routing) {
+    return hashToShardId(effectiveRoutingToHash(routing == null ? id : routing));
+    // 9.x 新索引:Math.floorMod(Murmur3HashFunction.hash(有效键), numberOfShards)
+}</code></pre>
+        <p>写入 <code>PUT /idx/_doc/3?routing=user123</code> 时有效键是 <code>"user123"</code>;GET 不带 routing 时有效键退回 <code>"3"</code>。两把键各自取模,经常不是同一个 shard——而 GET 只打一个 shard,打错了就 404,看起来和「文档不存在」一模一样。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 186" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah10d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="15" y="15" width="215" height="62" rx="9" class="fig-box"/>
+              <text x="122" y="39" text-anchor="middle" class="fig-name">写入:带 routing</text>
+              <text x="122" y="59" text-anchor="middle" class="fig-key">PUT ?routing=user123</text>
+              <line x1="234" y1="46" x2="261" y2="46" class="fig-arrow" marker-end="url(#ah10d)"/>
+              <rect x="265" y="15" width="215" height="62" rx="9" class="fig-box"/>
+              <text x="372" y="39" text-anchor="middle" class="fig-sub">有效键只剩 routing</text>
+              <text x="372" y="59" text-anchor="middle" class="fig-key">murmur3 → shard A</text>
+              <line x1="484" y1="46" x2="511" y2="46" class="fig-arrow" marker-end="url(#ah10d)"/>
+              <rect x="515" y="15" width="230" height="62" rx="9" class="fig-box-hot"/>
+              <text x="630" y="39" text-anchor="middle" class="fig-name">落进 shard A</text>
+              <text x="630" y="59" text-anchor="middle" class="fig-sub">文档真实所在</text>
+              <text x="380" y="95" text-anchor="middle" class="fig-key">shardId = murmur3(有效键) % 主分片数 · 有效键 = routing != null ? routing : _id</text>
+              <rect x="15" y="112" width="215" height="62" rx="9" class="fig-box"/>
+              <text x="122" y="136" text-anchor="middle" class="fig-name">读取:忘带 routing</text>
+              <text x="122" y="156" text-anchor="middle" class="fig-key">GET _doc/3</text>
+              <line x1="234" y1="143" x2="261" y2="143" class="fig-arrow" marker-end="url(#ah10d)"/>
+              <rect x="265" y="112" width="215" height="62" rx="9" class="fig-box"/>
+              <text x="372" y="136" text-anchor="middle" class="fig-sub">有效键退回 _id</text>
+              <text x="372" y="156" text-anchor="middle" class="fig-key">murmur3 → shard B</text>
+              <line x1="484" y1="143" x2="511" y2="143" class="fig-arrow" marker-end="url(#ah10d)"/>
+              <rect x="515" y="112" width="230" height="62" rx="9" class="fig-box"/>
+              <text x="630" y="136" text-anchor="middle" class="fig-name">算出 shard B</text>
+              <text x="630" y="156" text-anchor="middle" class="fig-key" style="fill: rgb(var(--warn))">404 · found: false</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · routing 不是「额外提示」,是替换 hash 输入。A 与 B 大概率不同;就算碰巧相同,也只是取模撞车,不推翻「键必须一致」这条不变量。</figcaption>
+        </figure>
+
+        <p>SEARCH 默认扇出全部 shard,不带 routing 也能找到这篇(代价是收窄不了);GET 严谨一击,键不一致就静默 404。想让这种错误显式化,得在 mapping 里声明 <code>_routing: {required: true}</code>——缺 routing 会直接抛 <code>routing_missing_exception</code>(HTTP 400),而不是假装文档不存在。想肉眼核对某把键的落点,用 <code>GET /idx/_search_shards?routing=键</code>:不带 routing 时它返回全部 shard,所以要「模拟不带自定义 routing 的 GET」,应查 <code>?routing=3</code>(id 字符串恰好是那时的有效键)。别背任何 hash 数字,以 <code>_search_shards</code> 的真实返回为准。<code>GetRequest.routing()</code> 的 javadoc 只有一句话,说的就是这件事:<em>Using this value to hash the shard and not the id.</em></p>
+
+        <h2>7. 阅读法:下一条请求照此跟踪</h2>
+        <p>这一课的方法比结论值钱。以后读 Search、Bulk、Cluster 操作,同一条路线走一遍,不要先画全景:</p>
+        <table class="ktable">
+          <tr><th>步</th><th>锚点</th><th>GET 上的实例</th></tr>
+          <tr><td>1</td><td>REST 入口:URL 搜路由,或直接搜 <code>RestXxxAction</code></td><td><code>/{index}/_doc/{id}</code> → <code>RestGetAction</code></td></tr>
+          <tr><td>2</td><td><code>prepareRequest</code> 末尾的 <code>client.xxx(...)</code> 填的 ActionType</td><td><code>indices:data/read/get</code></td></tr>
+          <tr><td>3</td><td>Action 表取出 TransportAction,看它 extends 谁</td><td><code>TransportSingleShardAction</code> → 单 shard、失败换副本</td></tr>
+          <tr><td>4</td><td>shard 级动作名与执行时序</td><td><code>get[s]</code>;realtime 决定绑不绑 refresh 周期</td></tr>
+          <tr><td>5</td><td>shardOperation:数据节点上的业务</td><td><code>ShardGetService.get</code></td></tr>
+          <tr><td>6</td><td>Engine:存储语义所在层</td><td><code>InternalEngine.get</code> / <code>realtimeGetUnderLock</code></td></tr>
+        </table>
+        <table class="ktable">
+          <tr><th>命名模式</th><th>含义</th><th>GET 上的实例</th></tr>
+          <tr><td><code>RestXxxAction</code></td><td>HTTP 入口</td><td><code>RestGetAction</code></td></tr>
+          <tr><td><code>TransportXxxAction</code></td><td>内部执行</td><td><code>TransportGetAction</code></td></tr>
+          <tr><td><code>XxxRequest</code> / <code>XxxResponse</code></td><td>跨层跨节点的对象</td><td><code>GetRequest</code> / <code>GetResponse</code></td></tr>
+          <tr><td><code>ActionType.TYPE</code></td><td>全局唯一动作名</td><td><code>indices:data/read/get</code></td></tr>
+          <tr><td><code>action[s]</code></td><td>已选定 shard 的子动作</td><td><code>indices:data/read/get[s]</code></td></tr>
+          <tr><td>REST <code>getName()</code></td><td>usage 统计专用</td><td><code>document_get_action</code></td></tr>
+        </table>
+        <p>读的时候永远带着一份具体输入——索引名、<code>_id</code>、是否 refresh、是否带 routing——在每个方法里只问一句:数据现在变成什么了?</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>两条主线:实验 1 关掉自动 refresh,把「GET 立刻可见 / SEARCH 扑空」钉在源码路径上,顺路踩 <code>refresh=true</code> 的坑;实验 2 用 5 分片索引复现「带 routing 写、忘带读」的假 404。全部可在单节点 9.4.0 上跑。</p>
+
+        <h3>实验 1:关 refresh 后对照 Realtime GET(对应动画与图 2)</h3>
+        <div class="exp-slot" data-exp="ch10-00-setup"></div>
+        <div class="exp-slot" data-exp="ch10-01-put"></div>
+        <div class="exp-slot" data-exp="ch10-02-get"></div>
+        <div class="exp-slot" data-exp="ch10-03-search-miss"></div>
+        <div class="exp-slot" data-exp="ch10-04-nonrealtime"></div>
+        <div class="exp-slot" data-exp="ch10-05-refresh-flag"></div>
+        <div class="exp-slot" data-exp="ch10-06-search-still-miss"></div>
+        <div class="exp-slot" data-exp="ch10-07-refresh-nonrealtime"></div>
+        <div class="exp-slot" data-exp="ch10-08-search-hit"></div>
+        <div class="exp-slot" data-exp="ch10-09-source-filter"></div>
+
+        <h3>实验 2:带 routing 写入、不带 routing 去 GET(对应图 3)</h3>
+        <div class="exp-slot" data-exp="ch10-10-routing-setup"></div>
+        <div class="exp-slot" data-exp="ch10-11-routing-put"></div>
+        <div class="exp-slot" data-exp="ch10-12-shards-key-id"></div>
+        <div class="exp-slot" data-exp="ch10-13-shards-key-routing"></div>
+        <div class="exp-slot" data-exp="ch10-14-get-no-routing"></div>
+        <div class="exp-slot" data-exp="ch10-15-get-with-routing"></div>
+        <div class="exp-slot" data-exp="ch10-16-search-fanout"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch10-17-cleanup"></div>
+        <div class="exp-slot" data-exp="ch10-18-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 实验 2 那篇 <code>routing=user123</code> 的 <code>_id=3</code> 已在索引里。<code>GET ?routing=user456</code> 会怎样?SEARCH 呢?把 mapping 改成 <code>_routing.required: true</code> 再不带 routing,错误还是 <code>found:false</code> 吗?</summary>
+          <div class="answer">
+            <p>user456 是第三把键:既不是写入时的 user123,也不是 _id 的 "3"。<code>hash(user456) % 5</code> 落到哪算哪,GET 只打那一个 shard,不改去试 user123 的 shard、也不广播——几乎总是 <code>found:false</code>(HTTP 404)。SEARCH <code>q=_id:3</code> 照样命中,因为搜索扇出全部 shard,routing 只是可选收窄。<code>required: true</code> 之后,缺 routing 在路由检查处就抛 <code>routing_missing_exception</code>(HTTP 400)——请求根本进不到「错误 shard 上的 found:false」,和静默 404 不是同一种错(实测两种请求都返回 400)。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么 realtime GET 必须先查 VersionMap,而不是「每次 GET 都 refresh 一遍再读 EXTERNAL」?拆掉 VersionMap 只扫 translog,或永不跟踪 location,分别破坏什么?</summary>
+          <div class="answer">
+            <p>refresh 要开新 searcher,是 SEARCH 可见性的成本,摊到每个 by-id 读上等于把「写后即读」变成「写后停顿」。VersionMap 是「这篇 uid 最近写过没有、写在哪、删没删」的 O(1) 索引;只扫 translog 没有 uid 索引,找一篇要顺 generation 翻,translog 越长越慢,删除墓碑的精确判断也没了。永不跟踪 location 则每个未 refresh 的 GET 都可能触发一次 <code>refreshIfNeeded</code>(INTERNAL 后备),正确但贵——location 是给「确实有 realtime 负载的 shard」省钱的优化,所以 <code>trackTranslogLocation</code> 默认 false、首次需要才打开。SEARCH 更不能默认 realtime:它要的是倒排表上的词 → 文档,translog 里没有可用的倒排,硬做等于每条查询先 refresh。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 一个高 QPS、只按 <code>_id</code> 读、能接受「最多 1 秒旧」的服务,要不要把默认 GET 改成 <code>realtime=false</code>?改了之后,「写入确认」接口还能用默认 GET 吗?</summary>
+          <div class="answer">
+            <p>可以改,但要明白换的是什么:realtime=false 读的是 EXTERNAL 快照,行为变成「读已 refresh 的世界」,省掉 VersionMap 锁竞争和 translog 解析,对缓存式 by-id 读更稳。代价是刚 PUT 立刻 GET 会在 refresh 前 404——和第 1 课实验正好相反。「写完确认」类接口必须保持 realtime(或写入时 <code>refresh=wait_for</code>,把成本算进写入侧)。两种负载别共用一个默认值;translog 路径贵在 readOperation 还原操作 + 临时 reader + 仍走一套 fetch,segment 路径的 stored fields 是现成的。</p>
+          </div>
+        </details>
+        <details>
+          <summary>4. GET 用 <code>get</code> 线程池、SEARCH 用 <code>search</code> 池(第 8 课)。如果把 by-id 读塞进 search 池,什么场景会先出事?</summary>
+          <div class="answer">
+            <p>重查询把 search 池队列打满时,再轻的 by-id GET 也排队甚至被拒——「确认接口」「详情页」这种低延迟场景被不相干的搜索拖死。分池就是分背压:by-id 读是 O(1) 定位、耗时可控,值得独立的队列上限;search 池的拒流策略按重查询的水位设计。第 8 课的线程池表在这里落地:知道一个动作跑在哪个池,才知道它会跟谁互相排队。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 「GET 带 ?refresh=true 就会刷新索引」:</span>默认 realtime=true 时不会。源码条件是 realtime=false 且 refresh=true 才 externalRefresh——单加 refresh=true 之后 SEARCH 依旧扑空。要「先 refresh 再按搜索可见性读」,写 <code>?refresh=true&amp;realtime=false</code>,或干脆先调一次 <code>_refresh</code>。</div>
+        <div class="callout warn"><span class="co-title">🕳 带 routing 写入、忘带 routing 读取:</span>得到的是一份「看起来文档不存在」的 404——不是 bug,是有效键换了(<code>hash(routing ?? id)</code>),GET 只打一个 shard 且失败只换副本不换 shard 号。普通索引没有保护;要显式报错就设 <code>_routing.required: true</code>(400 routing_missing_exception)。排障用 <code>_search_shards?routing=键</code> 对落点。</div>
+        <div class="callout warn"><span class="co-title">🕳 把「近实时」套到 GET 上:</span>「写完要等 1 秒才可见」只对 SEARCH 成立。GET 的实时由 VersionMap/translog 保证,且不是免费的:translog 路径多一次解析加临时 reader,首次 realtime GET 还可能触发一次内部 refresh。高 QPS 纯缓存式 by-id 读,认真考虑 <code>realtime=false</code>。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>三层身份</td><td>REST 造 GetRequest → Action 选 1 个 shard → Engine 取 _source</td></tr>
+          <tr><td>名字</td><td>document_get_action(usage)/ indices:data/read/get(动作)/ get[s](已选 shard)</td></tr>
+          <tr><td>失败</td><td>perform 换下一副本;耗尽 NoShardAvailableActionException;不降级读一半</td></tr>
+          <tr><td>realtime=true</td><td>VersionMap 命中 → 有 location 读 translog;无则跟踪 + refreshIfNeeded + INTERNAL</td></tr>
+          <tr><td>realtime=false</td><td>只读 EXTERNAL,与 SEARCH 同源;此时 refresh=true 才触发 externalRefresh</td></tr>
+          <tr><td>routing</td><td>替换 hash 键:floorMod(murmur3(routing ?? id), 主分片数);忘带 = 静默 404</td></tr>
+          <tr><td>线程池</td><td>get 池,与 search 池互不排队</td></tr>
+          <tr><td>阅读法</td><td>routes → client.xxx 的 ActionType → 基类执行模式 → shardOperation → Engine</td></tr>
+        </table>
+        <p><strong>心法:GET 按 _id 直取一篇,不等 refresh;SEARCH 扫倒排表,才有近实时——读定一篇,搜扫一片,两套时钟别混。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch09.html">← 第 9 课:传输层</a>
+          <a href="ch11.html">第 11 课:映射系统 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch10.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

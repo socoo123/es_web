@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 7 课:动作框架 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch07" data-ch="ch07">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 07 · 第二篇 · 请求处理</div>
+        <h1>动作框架</h1>
+        <div class="ch-meta-line">从 REST 到内部执行 · 约 15 分钟 · 前置:第 6 课 · 9 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>做一次 GET 后,在 <code>_nodes/usage</code> 里找到它的 REST 名 <code>document_get_action</code>,在 <code>_tasks</code> 里认出 Action 名 <code>indices:data/read/get</code> 的样子,并说清这两个名字空间为什么互不通用。</li>
+          <li>默写 <code>TransportAction.execute</code> 的骨架顺序——校验 → 引用计数 → 过滤器链 → 按需 fork → <code>doExecute</code>——并说出过滤器忘记 <code>chain.proceed()</code> 的后果。</li>
+          <li>对三种「名字不在表里」各给对预测:未知 REST 路径的 <code>no handler found</code>、<code>_tasks?actions=</code> 配假名字的空列表、内部 <code>execute</code> 未登记 ActionType 的 <code>IllegalStateException</code>。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:名字是接头</h2>
+        <p>第 6 课的终点是 <code>RestGetAction.prepareRequest</code> 里那句 <code>client.get(getRequest, listener)</code>。REST 层就此交棒:它不查 Lucene、不碰 Engine,手里只有一个装着索引名和文档 id 的 <code>GetRequest</code>。本课回答:这之后,请求凭什么落到 <code>TransportGetAction</code> 头上?</p>
+        <p>答案不是 <code>new</code>。连接两层的是一串<strong>全局唯一的操作名</strong>:<code>TransportGetAction.TYPE</code> 的 <code>name()</code> 恰好是 <code>indices:data/read/get</code>。节点启动时 <code>ActionModule.setupActions()</code> 把「名字 → 哪个 TransportAction」登记成一张表,<code>NodeClient</code> 拿着这张表;<code>client.get()</code> 只是便捷方法,内部把 TYPE 填进统一入口 <code>execute</code>,按名字查表执行。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah07a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="35" width="168" height="64" rx="9" class="fig-box"/>
+              <text x="94" y="58" text-anchor="middle" class="fig-name">HTTP 入口</text>
+              <text x="94" y="78" text-anchor="middle" class="fig-key">GET /{index}/_doc/{id}</text>
+              <text x="94" y="96" text-anchor="middle" class="fig-sub">第 6 课 PathTrie 的辖区</text>
+              <line x1="178" y1="67" x2="204" y2="67" class="fig-arrow" marker-end="url(#ah07a)"/>
+              <rect x="208" y="35" width="190" height="64" rx="9" class="fig-box-hot"/>
+              <text x="303" y="58" text-anchor="middle" class="fig-name">查表键</text>
+              <text x="303" y="78" text-anchor="middle" class="fig-key">indices:data/read/get</text>
+              <text x="303" y="96" text-anchor="middle" class="fig-sub">ActionType.name(),全局唯一</text>
+              <line x1="398" y1="67" x2="424" y2="67" class="fig-arrow" marker-end="url(#ah07a)"/>
+              <rect x="428" y="35" width="168" height="64" rx="9" class="fig-box"/>
+              <text x="512" y="58" text-anchor="middle" class="fig-name">表命中</text>
+              <text x="512" y="78" text-anchor="middle" class="fig-key">TransportGetAction</text>
+              <text x="512" y="96" text-anchor="middle" class="fig-sub">Guice 单例,Map 的 value</text>
+              <line x1="596" y1="67" x2="622" y2="67" class="fig-arrow" marker-end="url(#ah07a)"/>
+              <rect x="626" y="35" width="124" height="64" rx="9" class="fig-box-hot"/>
+              <text x="688" y="58" text-anchor="middle" class="fig-name">GetResponse</text>
+              <text x="688" y="78" text-anchor="middle" class="fig-sub">isExists→200/404</text>
+              <text x="380" y="128" text-anchor="middle" class="fig-sub">本节点查表认这串名字;发给别的节点、Security 授权、_tasks 过滤,认的也是同一串</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · REST 和 Transport 靠 ActionType 的名字接头,不靠类名硬编码,也不靠 HTTP 路径——路径出了第 6 课就没人再提。</figcaption>
+        </figure>
+
+        <p>这串名字的辖区远不止查表:请求转发给持有分片的节点时用它,Security 授权用它,<code>_tasks</code> 过滤用它,第 9 课 Transport 帧头里的 <code>action</code> 字段还是它。<code>ActionListener</code>(<code>onResponse</code> / <code>onFailure</code>)是这条链的回调插口,本课只当「执行完了通知谁」,异步语义留给第 8 课。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件(server/src/main/java/org/elasticsearch/…)</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>action/ActionType.java</code></td><td>操作的身份证:name 全局唯一,equals/hashCode 只看它;Response 泛型只服务编译期</td></tr>
+          <tr><td><code>action/ActionModule.java</code></td><td><code>setupActions()</code> 建表,重名启动即炸;<code>configure()</code> 用 MapBinder 把表接进 NodeClient</td></tr>
+          <tr><td><code>action/get/TransportGetAction.java</code></td><td>贯穿例子:<code>TYPE = new ActionType&lt;&gt;("indices:data/read/get")</code></td></tr>
+          <tr><td><code>client/internal/node/NodeClient.java</code></td><td>查表 + <code>TaskManager.registerAndExecute</code>;查不到抛 <code>IllegalStateException</code></td></tr>
+          <tr><td><code>action/support/TransportAction.java</code></td><td><code>execute</code> → 校验 / 引用计数 / 过滤器链 → 子类 <code>doExecute</code></td></tr>
+        </table>
+        <p>对照时顺手打开、不必进表:<code>RestGetAction</code>(第 6 课出口)、<code>ActionPlugin</code>(插件怎么贡献操作)、<code>ActionFilter</code>(过滤器接口)、<code>TaskManager</code>(Task 注册)。</p>
+
+        <h2>3. ActionType:操作的身份证</h2>
+        <p><code>ActionType&lt;Response&gt;</code> 几乎没有行为,一个 name 字符串就是全部身份:</p>
+        <pre class="code-block"><code>public class ActionType&lt;Response extends ActionResponse&gt; {
+    private final String name;
+    public String name() { return this.name; }
+    @Override public boolean equals(Object o) {
+        return o instanceof ActionType&lt;?&gt; a &amp;&amp; name.equals(a.name);   // 相等只看名字
+    }
+    @Override public int hashCode() { return name.hashCode(); }
+}
+
+// TransportGetAction.java
+public static final ActionType&lt;GetResponse&gt; TYPE = new ActionType&lt;&gt;("indices:data/read/get");</code></pre>
+        <p>两个立刻用得上的事实。其一,<strong>相等看名字不看对象</strong>:查表结构是 <code>Map&lt;ActionType, TransportAction&gt;</code>,所以 <code>new ActionType&lt;&gt;("indices:data/read/get")</code> 这个新实例照样命中 <code>TransportGetAction.TYPE</code> 那一格——大小写不同才是另一个 key。其二,<strong>泛型 Response 运行时擦除</strong>:它存在的意义是编译期把 <code>execute(getType, request, searchListener)</code> 这种 listener 类型不匹配拦在编译器里,没有它,这类错会拖到运行时的 <code>ClassCastException</code>。</p>
+
+        <h3>命名规范:category:scope/action</h3>
+        <table class="ktable">
+          <tr><th>段</th><th>常见取值</th><th>含义</th></tr>
+          <tr><td>类别</td><td><code>indices</code> / <code>cluster</code> / <code>internal</code></td><td>索引数据、集群协调、节点内部协议</td></tr>
+          <tr><td>范围</td><td><code>data/read</code>、<code>data/write</code>、<code>admin</code>、<code>monitor</code></td><td>读文档、写文档、管理变更、监控</td></tr>
+          <tr><td>操作</td><td><code>get</code>、<code>search</code>、<code>bulk</code>、<code>health</code>…</td><td>具体动词</td></tr>
+        </table>
+        <p>名字不是随手起的:特权系统、审计、<code>_tasks</code> 过滤都按这串做<strong>前缀匹配</strong>。<code>indices:data/read/*</code> 和 <code>cluster:admin/*</code> 走的授权模型不同——依据是这串字符串,不是 Java 包名。<code>internal:</code> 前缀留给节点内部协议(recovery、副本复制的内部动作),第 9 课 Transport 帧里会再见到它。</p>
+        <table class="ktable">
+          <tr><th>常量</th><th>name()</th><th>一句话</th></tr>
+          <tr><td><code>TransportGetAction.TYPE</code></td><td>indices:data/read/get</td><td>取一篇文档</td></tr>
+          <tr><td><code>TransportSearchAction.TYPE</code></td><td>indices:data/read/search</td><td>搜索</td></tr>
+          <tr><td><code>TransportBulkAction.TYPE</code></td><td>indices:data/write/bulk</td><td>批量写入</td></tr>
+          <tr><td><code>TransportIndexAction.TYPE</code></td><td>indices:data/write/index</td><td>单条写入(内部已委托 bulk)</td></tr>
+          <tr><td><code>TransportCreateIndexAction.TYPE</code></td><td>indices:admin/create</td><td>建索引</td></tr>
+          <tr><td><code>FlushAction.NAME</code></td><td>indices:admin/flush</td><td>刷盘</td></tr>
+          <tr><td><code>TransportClusterHealthAction.TYPE</code></td><td>cluster:monitor/health</td><td>集群健康</td></tr>
+          <tr><td><code>ClusterUpdateSettingsAction.NAME</code></td><td>cluster:admin/settings/update</td><td>改集群设置(第 5 课)</td></tr>
+          <tr><td><code>TransportNodesStatsAction.TYPE</code></td><td>cluster:monitor/nodes/stats</td><td>节点统计</td></tr>
+        </table>
+        <p>声明方式有两代。主流是上面的 <code>TYPE = new ActionType&lt;&gt;(name)</code>;遗留写法让 Action 自己继承 <code>ActionType</code>、常量叫 <code>INSTANCE</code>——第 5 课改过的 <code>ClusterUpdateSettingsAction</code> 就是这种,javadoc 明说这是 legacy、有点浪费。查表时两种都能用,<code>ActionModule</code> 一律 <code>actions.register(某个 ActionType, 某个 TransportAction 类)</code>。</p>
+
+        <h2>4. ActionModule:启动时把名字写进表</h2>
+        <p><code>setupActions()</code> 里那张表是一个只在方法内存活的 <code>ActionRegistry</code>,按 <strong>name 字符串</strong>去重:</p>
+        <pre class="code-block"><code>actions.register(TransportGetAction.TYPE, TransportGetAction.class);
+// NamedRegistry.register 的去重逻辑
+if (registry.putIfAbsent(name, t) != null) {
+    throw new IllegalArgumentException(targetName + " for name [" + name + "] already registered");
+}</code></pre>
+        <p>所以 <code>indices:data/read/get</code> 在整个进程里只能有一个 handler。两个插件抢同一个名字,节点<strong>起不来</strong>(启动期 fail-fast),而不是运行时随机命中某一个。插件接在内置名单之后:<code>ActionPlugin.getActions()</code> 返回 <code>ActionHandler</code> 列表——reindex 那一组就是模块以插件身份登记的,不改内置名单。</p>
+        <p>表建好还要交货。<code>ActionModule.configure()</code> 用 Guice <code>MapBinder</code> 把每个 TransportAction 绑成 eager singleton,按 ActionType 填进 <code>Map&lt;ActionType, TransportAction&gt;</code>;节点构造尾声一句 <code>client.initialize(actions, transportService.getTaskManager(), …)</code> 把表交给 <code>NodeClient</code>。漏登记的代价不在编译期:要等有人 <code>execute</code> 那个名字,查表才会抛 <code>failed to find action</code>(第 6 节)。过滤器同源于插件:<code>getActionFilters()</code> 收进 <code>ActionFilters</code>,按 <code>order()</code> 从小到大排;X-Pack Security 的 <code>SecurityActionFilter</code> 返回 <code>Integer.MIN_VALUE</code>,永远排第一。</p>
+
+        <h2>5. TransportAction:execute ≠ doExecute</h2>
+        <p><code>TransportAction&lt;Request, Response&gt;</code> 是所有内部操作的抽象基类:子类只实现 <code>doExecute</code>,公共骨架在基类——<strong>校验 → 引用计数 → 过滤器链 →(executor 不是 direct 才 fork)→ doExecute</strong>。注意顺序:校验和过滤器都发生在<strong>当前线程</strong>,过滤器走完、handler 是 <code>doExecuteForking</code> 时,才把真正的 <code>doExecute</code> 丢进线程池。旧版教程把它写成「先 fork 到线程池再走过滤器」,与当前仓库相反。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah07b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="40" y="25" width="200" height="64" rx="9" class="fig-box"/>
+              <text x="140" y="48" text-anchor="middle" class="fig-name">execute(当前线程)</text>
+              <text x="140" y="68" text-anchor="middle" class="fig-sub">final 入口,骨架在基类</text>
+              <line x1="240" y1="57" x2="270" y2="57" class="fig-arrow" marker-end="url(#ah07b)"/>
+              <rect x="274" y="25" width="200" height="64" rx="9" class="fig-box"/>
+              <text x="374" y="48" text-anchor="middle" class="fig-name">① validate()</text>
+              <text x="374" y="68" text-anchor="middle" class="fig-sub">返回异常,不是抛出</text>
+              <line x1="474" y1="57" x2="504" y2="57" class="fig-arrow" marker-end="url(#ah07b)"/>
+              <rect x="508" y="25" width="200" height="64" rx="9" class="fig-box"/>
+              <text x="608" y="48" text-anchor="middle" class="fig-name">② mustIncRef()</text>
+              <text x="608" y="68" text-anchor="middle" class="fig-sub">引用计数防双重释放</text>
+              <line x1="608" y1="89" x2="608" y2="141" class="fig-arrow" marker-end="url(#ah07b)"/>
+              <rect x="400" y="145" width="320" height="78" rx="9" class="fig-box-hot"/>
+              <text x="560" y="168" text-anchor="middle" class="fig-name">③ RequestFilterChain</text>
+              <text x="560" y="188" text-anchor="middle" class="fig-key">filters[i].apply → chain.proceed</text>
+              <text x="560" y="208" text-anchor="middle" class="fig-sub">忘了 proceed 请求就挂起</text>
+              <line x1="396" y1="184" x2="366" y2="184" class="fig-arrow" marker-end="url(#ah07b)"/>
+              <rect x="40" y="145" width="320" height="78" rx="9" class="fig-box-hot"/>
+              <text x="200" y="168" text-anchor="middle" class="fig-name">④ doExecute(子类实现)</text>
+              <text x="200" y="188" text-anchor="middle" class="fig-sub">executor 非 direct 才 fork 线程池</text>
+              <text x="380" y="240" text-anchor="middle" class="fig-sub">Security、审计、插件拦截全部包在 doExecute 外面;空 filters 数组也照样建 chain</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 业务不在 execute 里发生:doExecute 是过滤器说「放行」之后才碰的点。</figcaption>
+        </figure>
+
+        <pre class="code-block"><code>public final void execute(Task task, Request request, ActionListener&lt;Response&gt; listener) {
+    handleExecution(task, request, listener,
+        executor == EsExecutors.DIRECT_EXECUTOR_SERVICE ? this::doExecute : this::doExecuteForking);
+}
+private void doExecuteForking(Task task, Request request, ActionListener&lt;Response&gt; listener) {
+    executor.execute(ActionRunnable.wrap(listener, l -&gt; doExecute(task, request, listener)));
+}</code></pre>
+        <p><code>handleExecution</code> 依次做三件事。第一,<code>request.validate()</code>——用<strong>返回值</strong>表示校验失败(返回 <code>ActionRequestValidationException</code> 或 null),抛异常反而算 bug(<code>assert false</code> + warn 再转 listener)。<code>GetRequest.validate()</code> 查 id 非空、version 对读合法,但 REST 的 <code>/{index}/_doc/{id}</code> 路由造不出空 id 请求——curl 缺 id 撞上的是第 6 课的路由层(实验 7 实测),这条校验真正拦的是内部 / Transport 调用者。第二,<code>request.mustIncRef()</code>:请求对象在异步路径上被多处持有,注释写明「要么走到链尾执行真正的 action,要么完成 listener 短路」,两条路都用 <code>Releasables.releaseOnce</code> 避免双重释放。第三,<strong>总是</strong> <code>new RequestFilterChain</code> 再 <code>proceed</code>——空 filters 数组也照走,第一次 proceed 时下标 <code>i == 0 == filters.length</code>,直接进 handler(「空数组就跳过 chain」是旧说法)。</p>
+        <pre class="code-block"><code>public void proceed(Task task, String actionName, Request request, ActionListener&lt;Response&gt; listener) {
+    int i = index.getAndIncrement();
+    if (i &lt; this.action.filters.length) {            // 轮到第 i 个过滤器
+        this.action.filters[i].apply(task, actionName, request, listener, this);
+    } else if (i == this.action.filters.length) {    // 下标用尽:真正的业务
+        try (releaseRef) { handler.execute(task, request, listener); }
+    } else {                                          // proceed 多调了
+        listener.onFailure(new IllegalStateException("proceed was called too many times"));
+    }
+}</code></pre>
+        <p>链就是一个 <code>AtomicInteger</code> 下标:每个 filter 必须调 <code>chain.proceed(...)</code> 才轮到下一个——忘了 proceed,请求挂起、listener 永不回,这是过滤器作者最容易踩的坑。对 GET 来说,<code>doExecute</code> 甚至不在 <code>TransportGetAction</code> 里:它继承 <code>TransportSingleShardAction</code>,基类的 <code>doExecute</code> 里 <code>new AsyncSingleAction(...).start()</code>——解析目标 shard、必要时把请求发给持有副本的节点、<code>shardOperation</code> 读 Engine(第 10 课)。本课的边界:过滤器放行之后,业务才开工。</p>
+
+        <h3>执行模式:先看 extends 谁</h3>
+        <table class="ktable">
+          <tr><th>基类</th><th>执行模式</th><th>典型操作</th></tr>
+          <tr><td><code>TransportMasterNodeAction</code></td><td>转发到 Master,改 / 读 ClusterState</td><td>建索引、改 mapping、cluster health(读走 MasterNodeRead)</td></tr>
+          <tr><td><code>TransportSingleShardAction</code></td><td>选一个 shard 副本,失败可换</td><td>GET、Explain</td></tr>
+          <tr><td><code>TransportReplicationAction</code></td><td>先 primary 后 replica</td><td>shard 级写入(<code>TransportShardBulkAction</code>)</td></tr>
+          <tr><td><code>TransportBroadcastAction</code></td><td>打到索引的每个 shard</td><td>Flush、Clear Cache</td></tr>
+          <tr><td><code>TransportNodesAction</code></td><td>打到多个节点,各跑 nodeOperation</td><td>Nodes Stats / Info</td></tr>
+        </table>
+        <p>还有一层常遇到:<code>HandledTransportAction</code> 构造时用<strong>同一个 actionName</strong> 向 <code>TransportService</code> 登记远程 handler——别的节点发来 <code>indices:data/read/get</code>,会进 <code>executeDirect</code>。这就是「名字同时是本地查表键和节点间协议键」(帧怎么编码,第 9 课)。<code>TransportGetAction</code> 构造时还顺带登记了内部动作 <code>indices:data/read/get_from_translog</code>(Realtime GET 的接力,第 10 课):内部动作也是 ActionType 名字,同样走登记。</p>
+
+        <h2>6. NodeClient:查表发生在 Task 之前</h2>
+        <pre class="code-block"><code>// AbstractClient:便捷方法只是把 TYPE 填进统一入口
+public void get(final GetRequest request, final ActionListener&lt;GetResponse&gt; listener) {
+    execute(TransportGetAction.TYPE, request, listener);
+}
+// NodeClient:先查表,再登记 Task
+public Task executeLocally(ActionType&lt;Response&gt; action, Request request, ActionListener&lt;Response&gt; listener) {
+    return taskManager.registerAndExecute("transport", transportAction(action), request,
+        localConnection, ActionListener.assertOnce(listener));
+}
+private TransportAction&lt;Request, Response&gt; transportAction(ActionType&lt;Response&gt; action) {
+    TransportAction&lt;Request, Response&gt; transportAction = actions.get(action);
+    if (transportAction == null) {
+        throw new IllegalStateException("failed to find action [" + action + "] to execute");
+    }
+    return transportAction;
+}</code></pre>
+        <p>注意 <code>registerAndExecute</code> 的参数顺序:先 <code>transportAction(action)</code> 查表拿到执行体,<strong>再</strong>登记 Task。查不到就 <code>IllegalStateException</code>(消息里的 <code>action</code> 的 toString 就是名字),根本走不到 <code>TransportAction.execute</code>,更不会有 <code>_tasks</code> 记录。listener 包了 <code>assertOnce</code>——回调必须恰好一次,为什么、怎么保证,第 8 课。<code>TaskManager</code> 用 action 名登记、完成即 unregister,所以 <code>_tasks</code> 里看到的 <code>action</code> 字段和源码里的 <code>TYPE</code> 是同一串。</p>
+
+        <h2>7. 过滤器与 Task:一根管子上的两个观察口</h2>
+        <p><code>ActionFilter</code> 能做的只有两件事:声明 <code>order()</code>,以及在 <code>apply()</code> 里二选一——自己完成 listener,或 <code>chain.proceed(...)</code>。<code>ActionFilters</code> 构造时按 order 升序排。链上最重要的是 X-Pack Security 的 <code>SecurityActionFilter</code>:order = <code>Integer.MIN_VALUE</code>,认证授权全基于 action 名字符串(经 <code>SecurityActionMapper</code> 可能映射成安全侧名字)——许可证过期时它按前缀拦 <code>cluster:monitor/health*</code> 一类监控、放行数据读写,判断依据是名字,不是 Java 类型。授权做成 filter 而不是每个 <code>doExecute</code> 开头复制一段,换来的是「所有执行路径(含没有 REST 入口的内部动作)共用同一条链」。</p>
+        <p>Task 是每个正在跑的 action 一份的跟踪对象。<code>GET /_tasks</code> 列的是 action 名不是 REST 路径,<code>actions=</code> 参数按前缀匹配,<code>POST /_tasks/{task_id}/_cancel</code> 取消。GET 通常太快抓不到——这不是 API 坏了,是完成后就 unregister;要看见它,得抓慢动作(长 search、<code>wait_for_completion=false</code> 的任务),或事后看 <code>_nodes/usage</code> 的计数——那是 REST 名字空间,下一个对照表里分清。另有 <code>MappedActionFilter</code> 只套某一个 Action;多数读者记住「全局链按 order 排序」即可。</p>
+
+        <h2>8. REST 名与 Action 名:一张对照表</h2>
+        <table class="ktable">
+          <tr><th>REST 端点</th><th>RestHandler</th><th>ActionType.name</th><th>TransportAction</th></tr>
+          <tr><td><code>GET/HEAD /{index}/_doc/{id}</code></td><td>RestGetAction</td><td>indices:data/read/get</td><td>TransportGetAction</td></tr>
+          <tr><td><code>PUT/POST /{index}/_doc/{id}</code></td><td>RestIndexAction</td><td>indices:data/write/index</td><td>TransportIndexAction</td></tr>
+          <tr><td><code>POST /{index}/_doc</code>(无 id)</td><td>RestIndexAction.AutoIdHandler</td><td>indices:data/write/index</td><td>TransportIndexAction</td></tr>
+          <tr><td><code>POST/PUT /_bulk</code></td><td>RestBulkAction</td><td>indices:data/write/bulk</td><td>TransportBulkAction</td></tr>
+          <tr><td><code>GET/POST /{index}/_search</code></td><td>RestSearchAction</td><td>indices:data/read/search</td><td>TransportSearchAction</td></tr>
+          <tr><td><code>PUT /{index}</code></td><td>RestCreateIndexAction</td><td>indices:admin/create</td><td>TransportCreateIndexAction</td></tr>
+          <tr><td><code>GET /_cluster/health</code></td><td>RestClusterHealthAction</td><td>cluster:monitor/health</td><td>TransportClusterHealthAction</td></tr>
+          <tr><td><code>PUT /_cluster/settings</code></td><td>RestClusterUpdateSettingsAction</td><td>cluster:admin/settings/update</td><td>TransportClusterUpdateSettingsAction</td></tr>
+        </table>
+        <p>几点不要被表简化掉:<strong>HEAD 和 GET 共用</strong>一个 RestHandler 和同一个 ActionType,<code>GetResponse.isExists()</code> 映射成 200/404,Action 框架并不知道你用的是哪个方法。<strong>REST 名 ≠ Action 名</strong>:<code>RestGetAction.getName()</code> 返回 <code>document_get_action</code>,出现在 <code>_nodes/usage</code> 的 <code>rest_actions</code> 里;<code>_tasks</code> 里是 <code>indices:data/read/get</code>——两个 API 数的不是同一类东西。<strong>没有 <code>_cat/actions</code></strong>:ActionType 表不外泄,要「看见登记」读 <code>setupActions</code>,要「看见正在跑」用 <code>_tasks</code>。另外单条写入的 <code>TransportIndexAction</code> 标了 <code>@Deprecated</code>:内部转给 <code>TransportBulkAction</code> 做单元素 bulk,但对外名字 <code>indices:data/write/index</code> 和 <code>client.index()</code> 都还在。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 235" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah07c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="20" width="220" height="64" rx="9" class="fig-box"/>
+              <text x="120" y="43" text-anchor="middle" class="fig-name">① GET /idx/_doc/1</text>
+              <text x="120" y="63" text-anchor="middle" class="fig-sub">Netty → RestController</text>
+              <line x1="230" y1="52" x2="270" y2="52" class="fig-arrow" marker-end="url(#ah07c)"/>
+              <rect x="270" y="20" width="220" height="64" rx="9" class="fig-box"/>
+              <text x="380" y="43" text-anchor="middle" class="fig-name">② RestGetAction</text>
+              <text x="380" y="63" text-anchor="middle" class="fig-sub">解析参数,造 GetRequest</text>
+              <line x1="490" y1="52" x2="530" y2="52" class="fig-arrow" marker-end="url(#ah07c)"/>
+              <rect x="530" y="20" width="220" height="64" rx="9" class="fig-box"/>
+              <text x="640" y="43" text-anchor="middle" class="fig-name">③ client.get(req)</text>
+              <text x="640" y="63" text-anchor="middle" class="fig-sub">填上 TYPE 这串查表键</text>
+              <line x1="640" y1="84" x2="640" y2="136" class="fig-arrow" marker-end="url(#ah07c)"/>
+              <rect x="530" y="140" width="220" height="64" rx="9" class="fig-box-hot"/>
+              <text x="640" y="163" text-anchor="middle" class="fig-name">④ NodeClient 查表</text>
+              <text x="640" y="183" text-anchor="middle" class="fig-sub">Map&lt;ActionType,…&gt; 命中单例</text>
+              <line x1="526" y1="172" x2="496" y2="172" class="fig-arrow" marker-end="url(#ah07c)"/>
+              <rect x="270" y="140" width="220" height="64" rx="9" class="fig-box"/>
+              <text x="380" y="163" text-anchor="middle" class="fig-name">⑤ TaskManager 登记</text>
+              <text x="380" y="183" text-anchor="middle" class="fig-sub">action 名进 _tasks</text>
+              <line x1="266" y1="172" x2="236" y2="172" class="fig-arrow" marker-end="url(#ah07c)"/>
+              <rect x="10" y="140" width="220" height="64" rx="9" class="fig-box-hot"/>
+              <text x="120" y="163" text-anchor="middle" class="fig-name">⑥ 过滤器链 → doExecute</text>
+              <text x="120" y="183" text-anchor="middle" class="fig-sub">AsyncSingleAction 选 shard</text>
+              <text x="380" y="226" text-anchor="middle" class="fig-sub">HTTP 入口不执行 GET:⑥之前的每一格都在回答「找到谁来执行、能不能执行」</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 一次 GET 把第 6、7 课缝合(happy path;Netty 细节、Engine 不进图)。</figcaption>
+        </figure>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>全部 HTTP 可观察:用 <code>_nodes/usage</code> 的计数看 REST 名,用 <code>_tasks</code> 看 Action 名,用坏路径和空 id 分清「死在路由层」与「死在查表层」。索引 <code>tut-l07-docs</code>,1 分片 0 副本。</p>
+
+        <h3>实验 0:建索引(0 副本保 green)</h3>
+        <div class="exp-slot" data-exp="ch07-00-setup"></div>
+
+        <h3>实验 1:写入靶子文档</h3>
+        <div class="exp-slot" data-exp="ch07-01-doc"></div>
+
+        <h3>实验 2:显微镜下的那次 GET</h3>
+        <div class="exp-slot" data-exp="ch07-02-get"></div>
+
+        <h3>实验 3:REST 名——usage 里的计数键</h3>
+        <div class="exp-slot" data-exp="ch07-03-usage"></div>
+
+        <h3>实验 4:Action 名——_tasks 列出它自己</h3>
+        <div class="exp-slot" data-exp="ch07-04-tasks-self"></div>
+
+        <h3>实验 5:假 Action 名只是过滤器</h3>
+        <div class="exp-slot" data-exp="ch07-05-fake-action"></div>
+
+        <h3>实验 6:坏路径死在哪一层</h3>
+        <div class="exp-slot" data-exp="ch07-06-bad-path"></div>
+
+        <h3>实验 7:空 id 撞上的是路由,不是校验</h3>
+        <div class="exp-slot" data-exp="ch07-07-empty-id"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch07-08-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 过滤器是子类在 doExecute 里自己调用的,还是基类在 doExecute 之前走完的?空 filters 数组会不会绕过 RequestFilterChain?是先切线程池还是先校验?</summary>
+          <div class="answer">
+            <p>基类、doExecute 之前。<code>execute</code> 把「executor 是否 DIRECT」折算成 handler 传给 <code>handleExecution</code>,但校验、<code>mustIncRef</code>、过滤器都在<strong>当前线程</strong>;空数组照样 <code>new RequestFilterChain</code>,首次 proceed 时 <code>i == 0 == filters.length</code> 直接进 handler。fork 只可能发生在过滤器走完之后(<code>doExecuteForking</code> 才碰线程池)。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 一个插件在 getActions() 里登记了也叫 indices:data/read/get 的 ActionHandler,节点起得来吗?运行时 new ActionType&lt;&gt;("indices:data/read/get")(新对象、旧名字)去查表,查得到吗?</summary>
+          <div class="answer">
+            <p>起不来:<code>NamedRegistry</code> 的 <code>putIfAbsent</code> 命中重复,启动期就抛 <code>already registered</code>,节点 fail-fast,不会运行时随机命中某一个。查得到:<code>Map&lt;ActionType, TransportAction&gt;</code> 的 key 相等只看 name(equals/hashCode 委托给字符串),新实例照样命中内置 <code>TransportGetAction</code>。启动期按字符串去重、运行期按字符串相等——同一条不变量的两副面孔。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 为什么不许 RestGetAction 直接 new TransportGetAction().doExecute(...)?拆掉「名字 → 实现」这张表,哪条不变量先破?</summary>
+          <div class="answer">
+            <p>表把名字从实现类上拆下来:插件不改 <code>RestGetAction</code> 也能插入新操作;Security 只认字符串,就能给<strong>所有</strong>操作(含没有 REST 入口的 <code>internal:</code> 动作)做授权;远程节点凭帧头里同一串名字找到 <code>HandledTransportAction</code> 登记的 handler。直接 new 还会绕过 <code>ActionFilters</code> 和 Task 登记——未授权也执行、_tasks 不可见。最先破的是「所有执行路径共用同一套过滤与登记」。</p>
+          </div>
+        </details>
+        <details>
+          <summary>4. 认证授权为什么做成 order = Integer.MIN_VALUE 的 ActionFilter,而不是每个 doExecute 开头复制一段?换来什么,付出什么,忘了 proceed 谁收尸?</summary>
+          <div class="answer">
+            <p>换来:所有执行路径(含 NodeClient / Transport 进来的内部请求——它们根本不经过 RestController)都过同一条链,新增 Action 不必改 Security 核心;拦的依据是名字前缀,所以许可证过期能只拦 <code>cluster:monitor/health*</code>、放行数据读写。付出:filter 必须 <code>proceed</code>——忘了请求就挂起,listener 永不回,没人收尸,Task 也 unregister 不了;多调一次则 <code>IllegalStateException("proceed was called too many times")</code>。Security 用 MIN_VALUE 把自己钉死在链头,order 从此成为安全不变量。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 拿 REST 名去 _tasks 找,或拿 Action 名去 usage 找:</span><code>document_get_action</code> 只在 <code>_nodes/usage</code> 的 rest_actions 里;<code>indices:data/read/get</code> 只在 _tasks、授权、跨节点帧里。两个名字空间没有交集。</div>
+        <div class="callout warn"><span class="co-title">🕳 「curl 打不到的路径」=「ActionType 未注册」?</span>坏路径死在第 6 课的路由层,9.4.0 实测回 400 <code>no handler found for uri</code>,到不了 NodeClient;<code>failed to find action</code> 只有内部代码 execute 一个没登记的名字才会抛。404 属于「路由命中、文档不存在」。</div>
+        <div class="callout warn"><span class="co-title">🕳 ActionType.localOnly(name) 听起来像「只在本节点跑」:</span>它与执行位置无关(且已标 forRemoval);跨节点转发是 TransportAction 子类自己用 TransportService 做的。望文生义会错。</div>
+        <div class="callout warn"><span class="co-title">🕳 写 ActionFilter 忘了 chain.proceed():</span>链就断在半路,请求挂起、listener 永不回、Task 不 unregister;proceed 多调一次则是 IllegalStateException。过滤器只有「自己完成 listener」或「proceed」两条活路。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>接头</td><td>ActionType.name 全局唯一:查表、跨节点、Security、_tasks 认同一串</td></tr>
+          <tr><td>登记</td><td>setupActions 建 NamedRegistry,重名启动即炸;插件走 getActions()</td></tr>
+          <tr><td>接线</td><td>MapBinder 造 Map&lt;ActionType, TransportAction&gt; → NodeClient.initialize</td></tr>
+          <tr><td>骨架</td><td>validate → mustIncRef → RequestFilterChain → 按需 fork → doExecute</td></tr>
+          <tr><td>模式</td><td>Master / 单 shard / 复制 / 广播 / 多节点;GET 的 doExecute 在 TransportSingleShardAction</td></tr>
+          <tr><td>名字空间</td><td>usage 数 REST 名;_tasks 数 Action 名;没有 _cat/actions</td></tr>
+        </table>
+        <p><strong>心法:REST 只是门面;过了 client.get(),全世界只认那串 Action 名。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch06.html">← 第 6 课:请求入口层</a>
+          <a href="ch08.html">第 8 课:异步编程模型 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch07.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

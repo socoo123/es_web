@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 30 课:全景回顾与方法论 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch30" data-ch="ch30">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 30 · 第六篇 · 高级专题 · 收官</div>
+        <h1>全景回顾与方法论</h1>
+        <div class="ch-meta-line">自己追一次 POST /idx/_search · 约 15 分钟 · 前置:全部 29 课 · 13 个自测实验 + 全链回放动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li><strong>自己追一次搜索</strong>:从 <code>POST /tut-l30-docs/_search</code> 指出 REST handler、<code>ActionType</code> 名字、TransportAction 的 happy path、Query Then Fetch 的两阶段、<code>SearchService</code> 的异步签名、Engine 的 EXTERNAL searcher 各停在哪——用本页 13 个自测实验验证,不只是看图。</li>
+          <li><strong>知道测试里该找什么</strong>:对一条不变量(非法 <code>search_type</code> 的解析边界、<code>from+size</code> 撞窗口的 10010、默认 hits),能说出该打开同包 <code>*Tests</code> 还是 yaml REST 用例,以及断言长什么样——实测文案与测试断言一字不差。</li>
+          <li><strong>选出下一个要读的模块</strong>:用三步主链(REST → TransportAction → 测试)从一条<strong>真实 REST 路径</strong>走进一条教程没走完的路(kNN、ES|QL、某个 x-pack),而不是从包名闲逛。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:六篇接到一次请求上</h2>
+        <p>收官不把 29 课再贴成一张墙。一次 <code>POST /idx/_search</code> 在集群里换了几次身份、碰了几块存储——六篇的职责都挂在这条链上。前提:索引里已有文档并且已经 refresh。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 420" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch30f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="33" text-anchor="middle" class="fig-name">POST /idx/_search</text>
+              <text x="380" y="50" text-anchor="middle" class="fig-sub">查询 JSON 在 body 里,还没被任何东西理解</text>
+              <line x1="380" y1="57" x2="380" y2="71" class="fig-arrow" marker-end="url(#ch30f1-arrow)"/>
+              <rect x="15" y="71" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="89" text-anchor="middle" class="fig-name">凭据过了才进 handler(横切:失败根本走不到 REST)</text>
+              <text x="380" y="106" text-anchor="middle" class="fig-sub">开安全的节点先 401;本站 9200 匿名直过</text>
+              <line x1="380" y1="113" x2="380" y2="127" class="fig-arrow" marker-end="url(#ch30f1-arrow)"/>
+              <rect x="15" y="127" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="145" text-anchor="middle" class="fig-name">HTTP 变成 SearchRequest(适配层,不查 Lucene 不碰 Engine)</text>
+              <text x="380" y="162" text-anchor="middle" class="fig-sub">execute(TransportSearchAction.TYPE) —— 靠动作名交给下一层</text>
+              <line x1="380" y1="169" x2="380" y2="183" class="fig-arrow" marker-end="url(#ch30f1-arrow)"/>
+              <rect x="15" y="183" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="201" text-anchor="middle" class="fig-name">RoutingTable 列出 shard(来自不可变 ClusterState 快照)</text>
+              <text x="380" y="218" text-anchor="middle" class="fig-sub">doc 当初靠 hash(routing) % N 进的分片;读的是已 commit 的共识产物</text>
+              <line x1="380" y1="225" x2="380" y2="239" class="fig-arrow" marker-end="url(#ch30f1-arrow)"/>
+              <rect x="15" y="239" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="257" text-anchor="middle" class="fig-name">QUERY:各 shard 回 from+size 条 (docId, score)</text>
+              <text x="380" y="274" text-anchor="middle" class="fig-sub">getTopDocsSize = from + size(默认 0+10);数据节点走 EXTERNAL searcher</text>
+              <line x1="380" y1="281" x2="380" y2="295" class="fig-arrow" marker-end="url(#ch30f1-arrow)"/>
+              <rect x="15" y="295" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="313" text-anchor="middle" class="fig-name">协调节点选出全局 Top-N → FETCH:只取这 N 篇的 _source</text>
+              <text x="380" y="330" text-anchor="middle" class="fig-sub">先比分,再取正文——SEARCH 不是放大的 GET</text>
+              <line x1="380" y1="337" x2="380" y2="351" class="fig-arrow" marker-end="url(#ch30f1-arrow)"/>
+              <rect x="15" y="351" width="730" height="42" rx="9" class="fig-box-hot"/>
+              <text x="380" y="369" text-anchor="middle" class="fig-name">客户端拿到 hits</text>
+              <text x="380" y="386" text-anchor="middle" class="fig-sub">每一格都是数据变成了什么——类名在下面这张表里,不在方块上</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 一次搜索的全链:六篇是同一条请求上的不同角色,不是 30 个并列目录。</figcaption>
+        </figure>
+
+        <table class="ktable">
+          <tr><th>篇</th><th>接到这次 POST /idx/_search 上的角色</th></tr>
+          <tr><td>全局认知(ch01-05)</td><td>集群、节点、索引、分片已经存在;请求打到某个节点;配置决定这台节点是谁</td></tr>
+          <tr><td>请求处理(ch06-10)</td><td>HTTP 适配成内部请求、凭动作名找到执行器、异步扇出不占线程、节点间帧</td></tr>
+          <tr><td>数据写入(ch11-15)</td><td>SEARCH 读的是 Engine <strong>已 refresh</strong> 的 EXTERNAL searcher,不是 realtime GET 那条 VersionMap → Translog</td></tr>
+          <tr><td>搜索查询(ch16-20)</td><td>默认 Query Then Fetch:网上先走 (docId, score),每个 shard 回 from+size 条,再只 Fetch 全局 Top-N 的 _source</td></tr>
+          <tr><td>分布式(ch21-25)</td><td>协调节点拿一份<strong>不可变</strong> ClusterState 快照选 shard;副本不与同号 primary 同节点;内存尖峰熔断 429 杀请求不杀节点</td></tr>
+          <tr><td>高级专题(ch26-29)</td><td>安全先于 handler;ES|QL / ILM / Painless 是<strong>另一条</strong> REST 入口,不在本链上</td></tr>
+        </table>
+        <p>单节点上扇出可能根本不出网,Fetch 对单 shard 还可能跳过第二次往返——但模型仍然是 Query Then Fetch。不要因为本地看不到两跳,就把 SEARCH 理解成「放大的 GET」。</p>
+
+        <h2>2. 阅读主链:REST → TransportAction → 测试</h2>
+        <p>旧课列了四条阅读方法,收官只把三条收成一条主链(先接口后实现、用命名跳文件当工具)。这条主链是你以后打开任何未知 API 都重复的动作:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch30f2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="33" text-anchor="middle" class="fig-name">第 1 步:REST —— 搜路径字面量,命中 RestXxxAction</text>
+              <text x="380" y="50" text-anchor="middle" class="fig-sub">IDE 全局搜 /{index}/_search 或 new Route(POST,,比搜 SearchService 更不容易进错门</text>
+              <line x1="380" y1="57" x2="380" y2="71" class="fig-arrow" marker-end="url(#ch30f2-arrow)"/>
+              <rect x="15" y="71" width="730" height="42" rx="9" class="fig-box-hot"/>
+              <text x="380" y="89" text-anchor="middle" class="fig-name">抄下两样:routes() 的模板 + execute(...) 的第一个参数 TYPE</text>
+              <text x="380" y="106" text-anchor="middle" class="fig-sub">这是 HTTP 层与协调层唯一的接头——必须抄在笔记里</text>
+              <line x1="380" y1="113" x2="380" y2="127" class="fig-arrow" marker-end="url(#ch30f2-arrow)"/>
+              <rect x="15" y="127" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="145" text-anchor="middle" class="fig-name">第 2 步:TransportAction —— 凭 TYPE.name() 找到类</text>
+              <text x="380" y="162" text-anchor="middle" class="fig-sub">_tasks 里看到的 indices:data/read/search 就是这串名字</text>
+              <line x1="380" y1="169" x2="380" y2="183" class="fig-arrow" marker-end="url(#ch30f2-arrow)"/>
+              <rect x="15" y="183" width="730" height="42" rx="9" class="fig-box-hot"/>
+              <text x="380" y="201" text-anchor="middle" class="fig-name">doExecute 只跟 happy path:executeRequest → executeSearch → 两阶段</text>
+              <text x="380" y="218" text-anchor="middle" class="fig-sub">跨集群 / PIT / DFS / canMatch 记「存在分支」,不画进主图,第一天也不跟进去</text>
+              <line x1="380" y1="225" x2="380" y2="239" class="fig-arrow" marker-end="url(#ch30f2-arrow)"/>
+              <rect x="15" y="239" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="257" text-anchor="middle" class="fig-name">第 3 步:测试 —— 按命名找,不全仓库瞎搜</text>
+              <text x="380" y="274" text-anchor="middle" class="fig-sub">生产类同包 *Tests;HTTP 契约/状态码/错误文案找 yaml rest-api-spec</text>
+              <line x1="380" y1="281" x2="380" y2="295" class="fig-arrow" marker-end="url(#ch30f2-arrow)"/>
+              <rect x="15" y="295" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="313" text-anchor="middle" class="fig-name">用问题当过滤器:catch: 钉错误文案,assert 钉默认行为</text>
+              <text x="380" y="330" text-anchor="middle" class="fig-sub">测试是约束清单,不是小说——不要从第一个 test* 读到最后一个</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 阅读主链三步:读源码的入口是一条 HTTP 路径,不是一个包名。</figcaption>
+        </figure>
+
+        <p>追这一次搜索,五个文件够用(第 30 课没有百科表,这张是地图):</p>
+        <table class="ktable">
+          <tr><th>文件</th><th>追 SEARCH 时用它证明什么</th></tr>
+          <tr><td><code>server/.../rest/action/search/RestSearchAction.java</code></td><td>routes() 声明 GET/POST;prepareRequest 造 SearchRequest 后 execute(TransportSearchAction.TYPE, …)</td></tr>
+          <tr><td><code>server/.../action/search/TransportSearchAction.java</code></td><td>NAME = "indices:data/read/search";doExecute → executeRequest → executeSearch</td></tr>
+          <tr><td><code>server/.../search/SearchService.java</code></td><td>数据节点 executeQueryPhase(ShardSearchRequest, CancellableTask, ActionListener) —— 返回 void</td></tr>
+          <tr><td><code>server/.../action/search/SearchPhaseController.java</code></td><td>getTopDocsSize = from + size(默认 0+10;撞窗文案里的 10010 就是它算的)</td></tr>
+          <tr><td><code>server/.../index/engine/Engine.java</code></td><td>acquireSearcher(source) 默认 SearcherScope.EXTERNAL —— 近实时的全部秘密</td></tr>
+        </table>
+
+        <h2>3. 第 1 步:从 REST 路径找到 Handler,停在 execute(TYPE)</h2>
+        <p>不要从 <code>org.elasticsearch.search</code> 逛起。全局搜路径字面量命中 <code>RestSearchAction</code>,先抄路由(确认 9.4.0 <strong>没有</strong> 7.x 那种 <code>/{index}/{type}/_search</code>):</p>
+        <pre class="code-block"><code>// server/src/main/java/org/elasticsearch/rest/action/search/RestSearchAction.java(节选)
+@Override
+public String getName() { return "search_action"; }        // REST usage 名,_nodes/usage 里见(实验 12)
+
+@Override
+public List&lt;Route&gt; routes() {
+    return List.of(
+        new Route(GET, "/_search"),   new Route(POST, "/_search"),
+        new Route(GET, "/{index}/_search"),   new Route(POST, "/{index}/_search"));
+}
+// prepareRequest 只做适配:
+cancelClient.execute(TransportSearchAction.TYPE, searchRequest, new RestRefCountedChunkedToXContentListener&lt;&gt;(channel));</code></pre>
+        <p>路径在 PathTrie 上配不上任何 Handler 是 <strong>400</strong> <code>no handler found</code>,不是 404;404 是 Handler 自己决定的「资源不存在」(实验 4 实测)。GET 和 POST 都能打 <code>_search</code>。这一步必须抄下的接头是 <code>execute</code> 的第一个参数 <code>TransportSearchAction.TYPE</code>;HTTP 断开时 <code>RestCancellableNodeClient</code> 负责取消对应 task——适配层的附加职责,仍然不是搜索算法。<strong>两套名字最容易追丢</strong>:<code>getName()</code> = <code>"search_action"</code>(REST usage);<code>TYPE.name()</code> = <code>"indices:data/read/search"</code>(Action,_tasks 里看到的是它);分片相位再挂后缀 <code>[phase/query]</code> / <code>[phase/fetch/id]</code>(SearchTransportService 的常量)。三套名字不混,追丢率减半。</p>
+
+        <h2>4. 第 2 步:凭 Action 名走进 TransportAction,只跟 happy path</h2>
+        <p><code>NodeClient</code> 不 <code>new TransportSearchAction()</code>——连接两层的是全局唯一的操作名。happy path 四跳:<code>doExecute</code> → <code>executeRequest</code>(开头就 <code>clusterService.state()</code> 拿一份不可变快照,RoutingTable 从这份快照来)→ <code>executeSearch</code> → <code>SearchQueryThenFetchAsyncAction</code>(默认搜索类型)。数据节点上 Query 相位的 handler:</p>
+        <pre class="code-block"><code>// server/src/main/java/org/elasticsearch/search/SearchService.java(节选)
+public void executeQueryPhase(ShardSearchRequest request, CancellableTask task,
+                              ActionListener&lt;SearchPhaseResult&gt; listener) {
+    // 注意:返回 void,结果从 listener 回去——方法 return 时 Lucene 不一定跑完(第 8 课的形状)
+
+// server/src/main/java/org/elasticsearch/index/engine/Engine.java(节选)
+public final Searcher acquireSearcher(String source) throws EngineException {
+    return acquireSearcher(source, SearcherScope.EXTERNAL);   // 只看见上次 refresh 之后的快照
+}</code></pre>
+        <p>无参/单 source 的 <code>acquireSearcher</code> 默认 <strong>EXTERNAL</strong>:刚写入、还没 refresh 的文档,Realtime GET 可以走 VersionMap → Translog 命中,SEARCH 这条链看不见它(实验 7-11 当场对照)。这一步允许你在 2000 多行的 TransportSearchAction 里迷路,规矩是<strong>只跟 happy path</strong>。两个工具兜底:</p>
+        <table class="ktable">
+          <tr><th>命名模式</th><th>含义</th><th>追 SEARCH 时的例子</th></tr>
+          <tr><td><code>RestXxxAction</code></td><td>HTTP 入口:routes() + prepareRequest</td><td>RestSearchAction</td></tr>
+          <tr><td><code>TransportXxxAction</code></td><td>内部执行:TYPE + doExecute</td><td>TransportSearchAction</td></tr>
+          <tr><td><code>XxxService</code></td><td>组件,不直接暴露 REST</td><td>SearchService、SearchTransportService</td></tr>
+          <tr><td><code>InternalXxx</code> / <code>AbstractXxx</code></td><td>核心实现 / 扇出与生命周期框架</td><td>InternalEngine、AbstractSearchAsyncAction</td></tr>
+          <tr><td><code>XxxTests</code> / yaml</td><td>约束清单</td><td>RestSearchActionTests;search/30_limits.yml</td></tr>
+          <tr><td><code>XxxPlugin</code></td><td>另一条入口的装载点</td><td>EsqlPlugin → POST /_query(不是 /_esql)</td></tr>
+        </table>
+        <p>「先接口后实现」:先在抽象 <code>Engine.acquireSearcher</code> 上确认默认 scope,再决定要不要进 InternalEngine 的 3000 行——一上来就读实现,会把 GET 的 VersionMap 和 SEARCH 的 searcher 缠在一起。别的模块同理:先 ClusterState 的字段再 Master 怎么发布;先 AllocationDecider 的 Decision.NO 再 balancer 怎么打分。<strong>接口上的方法名是不变量,实现是代价。</strong></p>
+
+        <h2>5. 第 3 步:用测试钉不变量,不要把测试当小说读</h2>
+        <p>源码说「代码会怎么走」,测试说「作者认为怎样算对、必须怎样失败」。先按命名找:</p>
+        <table class="ktable">
+          <tr><th>你刚打开的生产类</th><th>第一份测试往哪放</th></tr>
+          <tr><td><code>RestSearchAction</code></td><td>同包 <code>RestSearchActionTests</code></td></tr>
+          <tr><td><code>TransportSearchAction</code> / <code>SearchPhaseController</code></td><td>同包同名 Tests(如 testReduceTopNWithFromOffset)</td></tr>
+          <tr><td><code>SearchService</code></td><td>SearchServiceTests / SearchServiceSingleNodeTests</td></tr>
+          <tr><td>HTTP 契约、状态码、错误文案</td><td><code>rest-api-spec/.../test/search/*.yml</code>(yaml 走真实 HTTP)</td></tr>
+        </table>
+        <p>打开之后用问题当过滤器,四类各举一例:<strong>解析边界</strong>——<code>RestSearchActionTests.testIllegalSearchType</code> 把 <code>search_type=some_search_type</code> 钉成 <code>"No search type for [...]"</code>(实验 5 实测同文案);<strong>窗口不变量</strong>——yaml <code>search/30_limits.yml</code> 用 <code>catch:</code> 配 <code>from: 10000</code>,断言文案含 <code>10010</code>(实验 6 实测同文案);<strong>默认行为</strong>——yaml <code>search/20_default_values.yml</code> 的 Basic search 断言 refresh 后的 hits.total;<strong>分片执行</strong>——SearchServiceTests 的 testCanMatch* 系列,等你能指认 executeQueryPhase 之后再打开。跑 yaml 的形态(<code>TESTING.asciidoc</code>):<code>./gradlew ":rest-api-spec:yamlRestTest" --tests "…test {yaml=search/30_limits.yml}"</code>——本课不强制跑通,要练的是<strong>看见 catch: 就知道它在钉错误文案</strong>。测试基类分工读文件头就对上:ESTestCase 单测 / ESSingleNodeTestCase 单节点 / ESIntegTestCase 多节点 / yaml REST 走真实 HTTP。</p>
+
+        <h2>6. 哲学当过滤器,不当海报</h2>
+        <p>迷路时问:这段代码在保护哪条不变量?能当问题问的才留下:</p>
+        <table class="ktable">
+          <tr><th>不变量</th><th>追这次 SEARCH 时你会看见</th></tr>
+          <tr><td>分片是最小执行单元</td><td>协调节点扇出;不在本节点扫全集倒排</td></tr>
+          <tr><td>近实时</td><td>SEARCH 用 EXTERNAL searcher,未 refresh 则 0 hits;GET realtime 是另一条路</td></tr>
+          <tr><td>全异步</td><td>executeQueryPhase 把结果交给 ActionListener;扇出发完就释放入口线程</td></tr>
+          <tr><td>快照不可变</td><td>executeRequest 开头 clusterService.state();RoutingTable 来自已 commit 的共识产物</td></tr>
+          <tr><td>过滤先于平衡</td><td>副本不与同号 primary 同节点——SameShardAllocationDecider 在分配期,搜索期不再决定</td></tr>
+          <tr><td>防御性拒绝</td><td>from+size 撞窗 → 请求失败;聚合内存尖峰熔断 429,不是把节点 OOM</td></tr>
+          <tr><td>可插拔</td><td>新查询类型走 Plugin 扩展点,不把 server/ 的代码塞去依赖 modules/</td></tr>
+        </table>
+        <p>30 课收官,把整条链完整回放一遍:</p>
+        <div class="fp-slot" data-flow="ch30-finale"></div>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验(自测清单)</h2>
+        <p>先发一次真实的 <code>POST /tut-l30-docs/_search</code>(实验 1-3),再按三步自测:REST 层的两个 400(未注册路由、非法 search_type)+ 窗口 10010(实验 4-6);然后当场演「SEARCH 与 GET 分道」:doc 2 未 refresh 时 SEARCH 0 hits、GET 200、refresh 后 SEARCH 1 hit(实验 7-11);最后用 <code>_nodes/usage</code> 指认两套名字(实验 12),清理收官(实验 13)。索引 <code>refresh_interval=-1</code>,全部结果零竞态。</p>
+
+        <h3>实验 0-3:一条可追的请求</h3>
+        <div class="exp-slot" data-exp="ch30-01-setup"></div>
+        <div class="exp-slot" data-exp="ch30-02-doc1"></div>
+        <div class="exp-slot" data-exp="ch30-03-search-brown"></div>
+
+        <h3>实验 4-6:REST 层的三种拒绝</h3>
+        <div class="exp-slot" data-exp="ch30-04-no-route"></div>
+        <div class="exp-slot" data-exp="ch30-05-illegal-type"></div>
+        <div class="exp-slot" data-exp="ch30-06-window"></div>
+
+        <h3>实验 7-11:SEARCH 与 GET 分道扬镳</h3>
+        <div class="exp-slot" data-exp="ch30-07-doc2"></div>
+        <div class="exp-slot" data-exp="ch30-08-search-purple"></div>
+        <div class="exp-slot" data-exp="ch30-09-get-doc2"></div>
+        <div class="exp-slot" data-exp="ch30-10-refresh"></div>
+        <div class="exp-slot" data-exp="ch30-11-search-purple2"></div>
+
+        <h3>实验 12-13:两套名字,清理收官</h3>
+        <div class="exp-slot" data-exp="ch30-12-usage"></div>
+        <div class="exp-slot" data-exp="ch30-13-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 追这次 POST /tut-l30-docs/_search,你仍然不能独立走完的是哪一层(REST 接头、Action 名字、扇出、SearchService、Engine searcher、测试定位)?卡住的具体症状是名字对不上、方法找不到,还是单节点让你以为没有 Query Then Fetch?</summary>
+          <div class="answer">
+            <p>不必「答对一层」,把卡住处写成可验证的缺口:getName() 与 TYPE.name() 分不清 → 回 RestSearchAction 与 TransportSearchAction 文件头(实验 12 的两套名字对照);单节点看不见两跳 → 记住 Fetch 对单 shard 可跳过第二次往返,但 (docId, score) 与 _source 仍是两阶段;进了 InternalEngine.get → 已经滑到 GET 的 VersionMap/Translog 去了(实验 8-9 的 0 hits vs 200 就是分界线)。缺口就是下一小时要打开的文件,不是再读一遍 29 课目录。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 假设要给「每个 shard 回 from+size 条」补一条保护,避免以后有人改 getTopDocsSize 却不改窗口检查。你会先打开哪一份已经存在的测试?要找的是异常消息、hits 条数还是 catch: 正则?为什么不先写一个新的 500 行集成测试?</summary>
+          <div class="answer">
+            <p>先打开已有约束:yaml search/30_limits.yml 的 catch:(from+size → 10010,实验 6 实测同文案),或 SearchPhaseControllerTests.testReduceTopNWithFromOffset。已有用例更短、断言已经钉死文案——catch: 正则就是「这条错误文案不许变」的契约。500 行集成测试会把「窗口算术」淹没在集群启动里;而补一条 catch: 断言恰好也是贡献的第一步(CONTRIBUTING.md 的 good-first-issue 多是这类)。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 教程到此结束。下一个你要读的模块是哪一个(Lucene 倒排实现、dense_vector/kNN、某个 x-pack 插件、还是 CONTRIBUTING 里的 good-first-issue)?你准备用三步主链从哪一条 REST 路径走进去?</summary>
+          <div class="answer">
+            <p>答案因人而异,判据只有一条:入口必须是一条真实路径。向量:搜 _search body 里的 knn 或 RestKnnSearchAction 的 routes(),不要从 Lucene HNSW 实现倒爬;ES|QL:POST /_query(第 27 课已给全链);安全深入:9201 上把 API key 的 role_descriptors 走一遍(第 29 课留的口子);贡献:先读 CONTRIBUTING.md,从补 yaml/单测开始,正好练第 3 步。「浏览 server/src/main/java」不算计划。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 把 SEARCH 当放大的 GET:</span>SEARCH 走 acquireSearcher 默认的 EXTERNAL(只看 refresh 后快照),realtime GET 走 VersionMap → Translog——同一毫秒 0 hits vs 200(实验 8-9)。不要去 InternalEngine.get 里找 SEARCH,那是另一条请求。</div>
+        <div class="callout warn"><span class="co-title">🕳 混三套名字:</span>search_action 是 REST usage 名(_nodes/usage);indices:data/read/search 是 Action 名(_tasks);[phase/query] / [phase/fetch/id] 是分片相位名。路径没配上 Handler 是 400 no handler,不是 404;404 留给资源不存在。</div>
+        <div class="callout warn"><span class="co-title">🕳 从包名闲逛,或一头扎进 2400 行:</span>入口是路径字面量 → routes() → execute(TYPE);进了 TransportAction 只跟 happy path(doExecute → executeRequest → executeSearch → 两阶段),跨集群/PIT/DFS/canMatch 记「存在」即可,不画进主图。</div>
+        <div class="callout warn"><span class="co-title">🕳 把测试当小说读:</span>用问题当过滤器:解析边界找同包 Tests 的非法输入用例,窗口找 yaml 的 catch:,默认行为找 20_default_values.yml。看见 catch: 就知道它在钉错误文案;不要从第一个 test* 读到最后一个。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>六篇接到一次请求上:认证 → REST 适配 → 快照选 shard → Query Then Fetch → EXTERNAL searcher → hits</td></tr>
+          <tr><td>主链三步</td><td>REST(抄 routes() 与 TYPE)→ TransportAction(doExecute 的 happy path)→ 测试(同包 *Tests / yaml catch:)</td></tr>
+          <tr><td>五个文件</td><td>RestSearchAction → TransportSearchAction → SearchService → SearchPhaseController → Engine</td></tr>
+          <tr><td>两套名字</td><td>search_action(REST usage)≠ indices:data/read/search(Action);相位名再挂 [phase/…] 后缀</td></tr>
+          <tr><td>关键签名</td><td>executeQueryPhase 返回 void(结果走 listener);acquireSearcher 默认 EXTERNAL;getTopDocsSize = from+size</td></tr>
+          <tr><td>工具箱</td><td>先接口后实现;命名跳文件(Rest/Transport/Service/Internal/Abstract/Tests/Plugin);哲学当过滤器问不变量</td></tr>
+          <tr><td>下一站</td><td>从一条真实 REST 路径走进未读模块(kNN、ES|QL、x-pack);贡献从补 catch: 断言开始</td></tr>
+        </table>
+        <p><strong>心法:入口永远是一条 HTTP 路径,不是一个包名;迷路时问——这段代码在保护哪条不变量?</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch29.html">← 第 29 课:安全机制</a>
+          <span class="disabled">已是最后一课 →</span>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch30.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

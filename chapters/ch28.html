@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 28 课:索引生命周期管理 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch28" data-ch="ch28">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 28 · 第六篇 · 高级专题</div>
+        <h1>索引生命周期管理</h1>
+        <div class="ch-meta-line">Hot→Warm→Delete 是触发器,不是五个类 · 约 15 分钟 · 前置:第 5、23 课 · 20 个实验 + 一分钟 rollover 动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>对 <code>tut-l28-logs-000001</code> 画出「满 1 分钟 → rollover(000002 接写)→ 滚走后再满 2h → warm → 再满 24h → delete」这条触发链,把 <code>rollover.max_age</code> 对上 <code>WaitForRolloverReadyStep</code> 的 dry_run、把 <code>min_age</code> 对上 <code>isReadyToTransitionToThisPhase</code>——两种时钟,两次判断。</li>
+          <li>用 <code>GET /{index}/_ilm/explain</code> 读出 <code>phase</code>/<code>action</code>/<code>step</code>/<code>phase_execution</code>,说出当前 step 是从索引 metadata 里缓存的 <code>phaseDefinition</code> 解析的(<code>PolicyStepsRegistry.getStep</code>),explain 展示的是「这条索引正在执行的那一相」,不是策略全文。</li>
+          <li>预测 <code>PUT _ilm/policy</code> 改策略会不会立刻作用在已有索引上,用 <code>PhaseCacheManagement.isIndexPhaseDefinitionUpdatable</code> 对照:当前相的 StepKey 集合变了就不刷新(实测:活策略 version=2 带 forcemerge,索引缓存仍 version=1 只有 rollover);并说出 rollover 新索引的托管身份靠<strong>模板接力</strong>(rollover 本身不复制 lifecycle settings)。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:阶段是触发器,不是五个类</h2>
+        <p>忘掉「Hot 类把索引交给 Warm 类」。仓库里阶段只有一种数据结构:<code>Phase</code> = 名字 + <code>min_age</code> + 一组 <code>LifecycleAction</code>。合法名字写在 <code>TimeseriesLifecycleType.ORDERED_VALID_PHASES</code> 里:<code>hot</code>、<code>warm</code>、<code>cold</code>、<code>frozen</code>、<code>delete</code>——五个名字,一个类。触发器有两种时钟:</p>
+        <table class="ktable">
+          <tr><th>谁在等</th><th>条件写在哪</th><th>源码里谁判定</th></tr>
+          <tr><td>还在写的那份要不要 <strong>rollover</strong></td><td>Hot 里 rollover 的 <code>max_age</code> / <code>max_primary_shard_size</code> / <code>max_docs</code>(至少一个 max_*)</td><td><code>WaitForRolloverReadyStep</code>:对 Rollover API 做 <strong>dry_run</strong>,满足才迈到 attempt-rollover</td></tr>
+          <tr><td>已经滚走的那份要不要 <strong>进下一阶段</strong></td><td>下一阶段的 <code>min_age</code></td><td><code>IndexLifecycleRunner.isReadyToTransitionToThisPhase</code>:now ≥ lifecycleDate + min_age</td></tr>
+        </table>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 400" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch28f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="730" height="50" rx="9" class="fig-box"/>
+              <text x="380" y="36" text-anchor="middle" class="fig-name">T=0:开始写 tut-l28-logs-000001(lifecycleDate = 创建时刻)</text>
+              <text x="380" y="56" text-anchor="middle" class="fig-sub">托管身份:index.lifecycle.name(实验里由模板注入)+ write alias 指向自己</text>
+              <line x1="380" y1="65" x2="380" y2="79" class="fig-arrow" marker-end="url(#ch28f1-arrow)"/>
+              <rect x="15" y="79" width="730" height="44" rx="9" class="fig-box"/>
+              <text x="380" y="97" text-anchor="middle" class="fig-name">触发:满 1m(dry_run 判 max_age,外加暗门 min_docs: 1)</text>
+              <text x="380" y="115" text-anchor="middle" class="fig-sub">空索引到点不滚——only_if_has_documents 默认 true</text>
+              <line x1="380" y1="123" x2="380" y2="137" class="fig-arrow" marker-end="url(#ch28f1-arrow)"/>
+              <rect x="15" y="137" width="730" height="44" rx="9" class="fig-box"/>
+              <text x="380" y="155" text-anchor="middle" class="fig-name">rollover:000002 接写(按模板创建,alias 写指针翻转)</text>
+              <text x="380" y="173" text-anchor="middle" class="fig-sub">000001 被设 indexing_complete=true,lifecycleDate 改成 rollover 时刻</text>
+              <line x1="380" y1="181" x2="380" y2="195" class="fig-arrow" marker-end="url(#ch28f1-arrow)"/>
+              <rect x="15" y="195" width="730" height="44" rx="9" class="fig-box"/>
+              <text x="380" y="213" text-anchor="middle" class="fig-name">触发:滚走后再满 2h(零点已改写,从停止写入起算)</text>
+              <text x="380" y="231" text-anchor="middle" class="fig-sub">000001 停在 hot/complete(PhaseCompleteStep)等这一刻</text>
+              <line x1="380" y1="239" x2="380" y2="253" class="fig-arrow" marker-end="url(#ch28f1-arrow)"/>
+              <rect x="15" y="253" width="730" height="44" rx="9" class="fig-box"/>
+              <text x="380" y="271" text-anchor="middle" class="fig-name">warm:执行 readonly(实验里是它;生产常见 shrink/forcemerge/allocate)</text>
+              <text x="380" y="289" text-anchor="middle" class="fig-sub">000001 还是同一条索引——ILM 只是在执行状态里改 phase 名</text>
+              <line x1="380" y1="297" x2="380" y2="311" class="fig-arrow" marker-end="url(#ch28f1-arrow)"/>
+              <rect x="15" y="311" width="730" height="44" rx="9" class="fig-box-hot"/>
+              <text x="380" y="329" text-anchor="middle" class="fig-name">触发:再满 24h → delete:删掉 000001</text>
+              <text x="380" y="347" text-anchor="middle" class="fig-sub">000002 自己再从 Hot 的触发器走一遍——箭头上写的是条件,不是类名</text>
+              <rect x="15" y="366" width="730" height="26" rx="9" class="fig-box"/>
+              <text x="380" y="383" text-anchor="middle" class="fig-sub">cold/frozen 是同一条有序列表上更靠后的可选触发器(常见动作 searchable_snapshot),本课不跑也不画</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 生命周期时间线:每条箭头是一次触发判断,索引从未「变成某个类的对象」。</figcaption>
+        </figure>
+
+        <p><strong>min_age 的零点值得单独记。</strong><code>InitializePolicyContextStep</code> 先把 <code>lifecycleDate</code> 设成索引创建时间;rollover 成功后,<code>UpdateRolloverLifecycleDateStep</code> 把<strong>被滚走的那份</strong>的 <code>lifecycleDate</code> 改成 rollover 时刻——所以「再满 2h」是从停止写入起算,不是从创建再加 2h;<code>_ilm/explain</code> 里的 <code>age</code> 看同一个零点。Rollover 也不是「索引改个名」:它要求一个 <strong>write alias</strong>(<code>index.lifecycle.rollover_alias</code> 指到 <code>tut-l28-logs</code> 且 <code>is_write_index: true</code>),条件满足后写指针翻到 000002。还有一个实测出来的关键事实(实验 3、11):<strong>rollover 不会把 <code>index.lifecycle.name</code> 复制给新索引</strong>——无模板时 000002 的 settings 里根本没有 lifecycle 键,<code>managed=false</code>,链条滚一代就断。生产正解是配一个 <strong>index template</strong> 接力:模板只带 lifecycle settings(<strong>不要</strong>把 rollover alias 写进模板,否则 rollover 直接 ERROR:<code>found duplicated alias in index template</code>),首索引手动带 write alias。Data stream 免手写这些,本课用 alias 就为了把每条 setting 看清。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>x-pack/plugin/ilm/.../IndexLifecycleService.java</code></td><td>只在 master 上跑;调度器按 poll_interval 唤醒;triggerPolicies 遍历带 index.lifecycle.name 的索引</td></tr>
+          <tr><td><code>x-pack/plugin/ilm/.../IndexLifecycleRunner.java</code></td><td>runPeriodicStep 跑 AsyncWaitStep(rollover 检查)与 PhaseCompleteStep(等 min_age);isReadyToTransitionToThisPhase 是阶段时钟</td></tr>
+          <tr><td><code>x-pack/plugin/ilm/.../PolicyStepsRegistry.java</code></td><td>getStep 从索引 metadata 里的 phaseDefinition JSON 解析当前 step,不是每次读活策略</td></tr>
+          <tr><td><code>x-pack/plugin/core/.../ilm/PhaseCacheManagement.java</code></td><td>PUT 策略时要不要刷新已有索引的缓存:当前 StepKey 仍在、且当前相 StepKey 集合不变才刷新</td></tr>
+          <tr><td><code>x-pack/plugin/core/.../ilm/WaitForRolloverReadyStep.java</code></td><td>check-rollover-ready:构造 RolloverRequest.dryRun(true),条件满足才让 runner 迈到 attempt-rollover</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>LifecyclePolicy.java</code>(策略 = 名字 + Map&lt;String, Phase&gt;)、<code>Phase.java</code>、<code>TimeseriesLifecycleType.java</code>(ORDERED_VALID_PHASES 与各阶段允许的 action 名单)、<code>RolloverAction.java</code>(toSteps 拆五步)、<code>RolloverStep.java</code>、<code>IndexLifecycleTransition.java</code>(换 phase 时从活策略重写 phaseDefinition)、<code>PutLifecycleMetadataService.java</code>(PUT 成功后调 updateIndicesForPolicy)、<code>TransportExplainLifecycleAction.java</code>(explain 的 phase_execution 就是缓存的 PhaseExecutionInfo)、<code>LifecycleSettings.java</code>(poll 默认 <strong>10 分钟</strong>)、<code>LifecycleExecutionState.java</code>(自定义 metadata 键 "ilm")。ILM 在 <code>x-pack/plugin/ilm</code>,默认发行版带 x-pack,可直接打 <code>_ilm</code> API。</p>
+
+        <h2>3. 轮询读的是这份索引上的 Step,不是「五个阶段对象」</h2>
+        <p>Master 上的 <code>IndexLifecycleService</code> 做两件事:集群状态一变就 triggerPolicies 一遍;另外用 SchedulerEngine 按 poll 间隔再跑一遍。旧课把间隔写成「每 10 秒」——错的,默认在这:</p>
+        <pre class="code-block"><code>// x-pack/plugin/core/.../ilm/LifecycleSettings.java(节选)
+public static final Setting&lt;TimeValue&gt; LIFECYCLE_POLL_INTERVAL_SETTING = Setting.timeSetting(
+    LIFECYCLE_POLL_INTERVAL,
+    TimeValue.timeValueMinutes(10),      // 默认 10 分钟
+    TimeValue.timeValueSeconds(1),       // 下限 1s
+    Setting.Property.Dynamic, Setting.Property.NodeScope);</code></pre>
+        <p>一轮周期对每个托管索引取出 <code>LifecycleExecutionState</code> 里的当前 <code>StepKey</code>(<code>(phase, action, step_name)</code> 三元组,不是类)交给 runner;一个索引失败不挡后面的。Hot 里一次 rollover 实际是一串 step,由 <code>RolloverAction.toSteps</code> 排好:</p>
+        <table class="ktable">
+          <tr><th>step_name</th><th>类</th><th>干什么</th></tr>
+          <tr><td><code>check-rollover-ready</code></td><td><code>WaitForRolloverReadyStep</code></td><td>dry_run,等 max_*(外加默认注入的 min_docs: 1)</td></tr>
+          <tr><td><code>attempt-rollover</code></td><td><code>RolloverStep</code></td><td>真的调 Rollover API(新索引按模板创建)</td></tr>
+          <tr><td><code>wait-for-active-shards</code></td><td><code>WaitForActiveShardsStep</code></td><td>等新索引分片起来</td></tr>
+          <tr><td><code>update-rollover-lifecycle-date</code></td><td><code>UpdateRolloverLifecycleDateStep</code></td><td>把旧索引 lifecycleDate 写成 rollover 时刻</td></tr>
+          <tr><td><code>set-indexing-complete</code></td><td><code>UpdateSettingsStep</code></td><td>index.lifecycle.indexing_complete=true</td></tr>
+        </table>
+        <p>当前 step <strong>从哪来</strong>是本课要钉死的第一件事。<code>PolicyStepsRegistry.getStep</code> 不按策略名去读集群上那份最新策略,而是解析索引 metadata 里缓存的当前相 JSON:</p>
+        <pre class="code-block"><code>// x-pack/plugin/ilm/.../PolicyStepsRegistry.java(节选)
+final String phaseJson = Objects.requireNonNullElse(
+    indexMetadata.getLifecycleExecutionState().phaseDefinition(),
+    InitializePolicyContextStep.INITIALIZATION_PHASE);   // 还没进相 → 初始化
+final List&lt;Step&gt; phaseSteps = parseStepsFromPhase(policyName, phase, phaseJson);
+final Step s = phaseSteps.stream().filter(step -> step.getKey().equals(stepKey)).findFirst().orElse(null);</code></pre>
+        <p><code>parseStepsFromPhase</code> 把缓存的当前相<strong>覆盖</strong>进活策略的 phaseMap 再 toSteps()——执行 Hot 用的 max_age 是这份索引 metadata 里那份 JSON 的 max_age,除非缓存被刷新(下一节)。<code>_ilm/explain</code> 读同一份状态:<code>TransportExplainLifecycleAction</code> 把 <code>lifecycleState.phaseDefinition()</code> 解析成 <code>PhaseExecutionInfo</code> 填进 <code>phase_execution</code>(policy/version/phase_definition)。所以 explain 不是「策略现在长什么样」,是「<strong>这条索引正在执行的那一相</strong>长什么样」。把实验那份数据走一遍:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch28f2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="730" height="44" rx="9" class="fig-box"/>
+              <text x="380" y="34" text-anchor="middle" class="fig-name">T≈75s:一轮 15s 的周期 poll 轮到 000001</text>
+              <text x="380" y="52" text-anchor="middle" class="fig-sub">读出 StepKey = (hot, rollover, check-rollover-ready),交给 runner</text>
+              <line x1="380" y1="59" x2="380" y2="73" class="fig-arrow" marker-end="url(#ch28f2-arrow)"/>
+              <rect x="15" y="73" width="730" height="44" rx="9" class="fig-box"/>
+              <text x="380" y="92" text-anchor="middle" class="fig-name">check-rollover-ready:对 Rollover API dry_run</text>
+              <text x="380" y="110" text-anchor="middle" class="fig-sub">max_age=1m 已过、docs≥1(暗门)→ 条件满足</text>
+              <line x1="380" y1="117" x2="380" y2="131" class="fig-arrow" marker-end="url(#ch28f2-arrow)"/>
+              <rect x="15" y="131" width="730" height="44" rx="9" class="fig-box"/>
+              <text x="380" y="150" text-anchor="middle" class="fig-name">迈到 attempt-rollover:真的 rollover(本相后续 step 依次收尾)</text>
+              <text x="380" y="168" text-anchor="middle" class="fig-sub">000002 按模板创建;000001 更新 lifecycleDate、indexing_complete=true</text>
+              <line x1="380" y1="175" x2="380" y2="189" class="fig-arrow" marker-end="url(#ch28f2-arrow)"/>
+              <rect x="15" y="189" width="730" height="44" rx="9" class="fig-box-hot"/>
+              <text x="380" y="208" text-anchor="middle" class="fig-name">000002 成为写索引;000001 停在 hot/complete</text>
+              <text x="380" y="226" text-anchor="middle" class="fig-sub">PhaseCompleteStep 上按 warm 的 min_age=2h 再等——那是另一次判断</text>
+              <rect x="15" y="245" width="730" height="70" rx="9" class="fig-box"/>
+              <text x="380" y="267" text-anchor="middle" class="fig-sub">两条路的分工写在 runPeriodicStep 里:AsyncWaitStep 才 evaluateCondition(dry_run);</text>
+              <text x="380" y="287" text-anchor="middle" class="fig-sub">PhaseCompleteStep 才调 isReadyToTransitionToThisPhase(min_age,读活策略)</text>
+              <text x="380" y="307" text-anchor="middle" class="fig-sub">rollover 的触发和阶段切换的触发,不是同一次判断</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 一次周期触发:dry_run 判 Rollover 条件;阶段时钟判 min_age,两不相干。</figcaption>
+        </figure>
+
+        <h2>4. 改策略,已有索引不一定立刻改道</h2>
+        <p><code>PUT /_ilm/policy/{name}</code> 给策略 version+1,然后 <code>PutLifecycleMetadataService</code> 调 <code>PhaseCacheManagement.updateIndicesForPolicy</code>。类注释把「为什么要缓存」说死了:<em>We cache the currently executing ILM phase in the index metadata so the ILM execution for managed indices is not irrecoverably interrupted by a concurrent update policy</em>——不是策略不可变,是<strong>正在跑的这一相不能被并发 PUT 抽掉当前 step</strong>。能不能安全重读由 <code>isIndexPhaseDefinitionUpdatable</code> 决定:</p>
+        <pre class="code-block"><code>// x-pack/plugin/core/.../ilm/PhaseCacheManagement.java(节选)
+if (newStepKeys.contains(currentStepKey) == false) {
+    return false;   // 新策略里已经没有当前 StepKey:不能刷新
+}
+if (newPhaseStepKeys.equals(oldPhaseStepKeys)) {
+    return true;    // 当前相的 StepKey 集合没变(例如只改 max_age):可以刷新
+} else {
+    return false;   // 当前相加/删了 action:不刷新
+}</code></pre>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+              <text x="192" y="16" text-anchor="middle" class="fig-name">改当前 Hot 的 actions(实验 8)</text>
+              <rect x="15" y="26" width="355" height="66" rx="9" class="fig-box"/>
+              <text x="192" y="50" text-anchor="middle" class="fig-key">加 forcemerge → StepKey 集合变了</text>
+              <text x="192" y="72" text-anchor="middle" class="fig-sub">缓存不刷新:索引仍执行 v1 只有 rollover</text>
+              <rect x="15" y="104" width="355" height="50" rx="9" class="fig-box-hot"/>
+              <text x="192" y="125" text-anchor="middle" class="fig-sub">把旧 Hot 跑完,跳过新加的 forcemerge</text>
+              <text x="192" y="145" text-anchor="middle" class="fig-sub">explain 仍是旧 phase_definition(v1)</text>
+              <text x="567" y="16" text-anchor="middle" class="fig-name">改未来 Delete 的 min_age(思考题 1)</text>
+              <rect x="390" y="26" width="355" height="66" rx="9" class="fig-box"/>
+              <text x="567" y="50" text-anchor="middle" class="fig-key">当前 Hot 的 StepKey 不变</text>
+              <text x="567" y="72" text-anchor="middle" class="fig-sub">只改 max_age:集合没变 → 缓存刷新,立刻生效</text>
+              <rect x="390" y="104" width="355" height="50" rx="9" class="fig-box"/>
+              <text x="567" y="125" text-anchor="middle" class="fig-sub">改未来相:进那一相时从活策略整份加载</text>
+              <text x="567" y="145" text-anchor="middle" class="fig-sub">000002 进 Hot 拿到 v2,靠模板托管</text>
+              <rect x="15" y="168" width="730" height="66" rx="9" class="fig-box"/>
+              <text x="380" y="190" text-anchor="middle" class="fig-sub">换相的瞬间(IndexLifecycleTransition):phaseDefinition 整份换成活策略里那一相</text>
+              <text x="380" y="210" text-anchor="middle" class="fig-sub">package-info 那句「改 Hot 不影响正在跑的 Hot」是简化:只改 max_age 时缓存会刷新,</text>
+              <text x="380" y="228" text-anchor="middle" class="fig-sub">真正门闩是上表四个 return</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 改策略的两条路:集合变 → 不刷;集合不变 → 刷;换相 → 从活策略重读。</figcaption>
+        </figure>
+
+        <table class="ktable">
+          <tr><th>你改了什么</th><th>已有索引会怎样</th></tr>
+          <tr><td>当前相的 <strong>StepKey 集合变了</strong>(加/删 action)</td><td>不刷新缓存;把旧相跑完,explain 仍是旧 phase_definition</td></tr>
+          <tr><td>当前相的<strong>条件变了、StepKey 没变</strong>(只改 max_age)</td><td><strong>会</strong>刷新;下一轮 poll 的 dry_run 用新条件</td></tr>
+          <tr><td><strong>未来</strong>相的 min_age / actions</td><td>当前相继续;进入那一相时从活策略加载</td></tr>
+          <tr><td>索引已经 TerminalPolicyStep / 策略跑完</td><td>再改策略也没有效果</td></tr>
+        </table>
+        <p>常见 action 用表收尾:Hot 里 <code>forcemerge</code> / <code>shrink</code> 在 <code>TimeseriesLifecycleType.HOT_ACTIONS_THAT_REQUIRE_ROLLOVER</code> 中——必须先 rollover 再执行,所以它们出现在 Hot 时也是 rollover <strong>之后</strong>的 step,不是另一种触发器。</p>
+        <table class="ktable">
+          <tr><th>阶段名</th><th>常见 action</th><th>触发之后做什么</th></tr>
+          <tr><td>hot</td><td><code>rollover</code></td><td>时间/size/docs 够了就换写索引(新索引靠模板接力托管)</td></tr>
+          <tr><td>hot / warm</td><td><code>forcemerge</code>、<code>shrink</code>、<code>allocate</code>、<code>readonly</code></td><td>合并段、减分片、迁节点、关写入</td></tr>
+          <tr><td>cold / frozen</td><td><code>searchable_snapshot</code></td><td>本课不展开;仍是 Phase 上的一个 action</td></tr>
+          <tr><td>delete</td><td><code>delete</code></td><td>删索引(删除要显式点名,见实验 15)</td></tr>
+        </table>
+        <p>整条链路走一遍:</p>
+        <div class="fp-slot" data-flow="ch28-ilm-rollover"></div>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>主线:poll 调 15s → 策略(1m/2h/24h)→ <strong>接力模板</strong>(只带 settings)→ 首索引 + 一篇文档;explain 三个时刻(new → hot/check-rollover-ready → 滚后);中途 PUT v2 加 forcemerge,亲眼看见活策略 v2 与索引缓存 v1 分叉;等约 80 秒看 000002 出现、alias 翻转、新索引从活策略拿到 v2。破坏三连:删被引用的策略、wildcard DELETE、模板带 alias 的 ERROR 写法在实验 3 的对照里。清理必须按序:显式删两个索引 → 模板 → 策略 → poll 恢复 null。</p>
+
+        <h3>实验 1-3:策略、模板、poll</h3>
+        <div class="exp-slot" data-exp="ch28-01-poll"></div>
+        <div class="exp-slot" data-exp="ch28-02-policy"></div>
+        <div class="exp-slot" data-exp="ch28-03-template"></div>
+
+        <h3>实验 4-7:首索引上路</h3>
+        <div class="exp-slot" data-exp="ch28-04-index"></div>
+        <div class="exp-slot" data-exp="ch28-05-doc"></div>
+        <div class="exp-slot" data-exp="ch28-06-explain-new"></div>
+        <div class="exp-slot" data-exp="ch28-07-explain-hot"></div>
+
+        <h3>实验 8-10:PUT v2,缓存分叉(须在 1 分钟内做)</h3>
+        <div class="exp-slot" data-exp="ch28-08-policy-v2"></div>
+        <div class="exp-slot" data-exp="ch28-09-policy-get"></div>
+        <div class="exp-slot" data-exp="ch28-10-explain-after"></div>
+
+        <h3>实验 11-13:等约 80 秒,rollover 落地</h3>
+        <div class="exp-slot" data-exp="ch28-11-wait-cat"></div>
+        <div class="exp-slot" data-exp="ch28-12-alias-flip"></div>
+        <div class="exp-slot" data-exp="ch28-13-explain-both"></div>
+
+        <h3>实验 14-15:破坏两连(顺序与通配符)</h3>
+        <div class="exp-slot" data-exp="ch28-14-delete-inuse"></div>
+        <div class="exp-slot" data-exp="ch28-15-wildcard"></div>
+
+        <h3>清理(必按序:16→20)</h3>
+        <div class="exp-slot" data-exp="ch28-16-del-1"></div>
+        <div class="exp-slot" data-exp="ch28-17-del-2"></div>
+        <div class="exp-slot" data-exp="ch28-18-del-tpl-policy"></div>
+        <div class="exp-slot" data-exp="ch28-19-del-policy"></div>
+        <div class="exp-slot" data-exp="ch28-20-restore"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 实验 8 不加 action、只把 Hot 的 rollover.max_age 从 1m 改成 10m(StepKey 集合不变)。000001 若仍停在 check-rollover-ready,explain 里的 max_age 会立刻变成 10m 吗?本来 1 分钟该发生的 rollover 还会发生吗?</summary>
+          <div class="answer">
+            <p>会立刻变:newPhaseStepKeys.equals(oldPhaseStepKeys) 为 true,updateIndicesForPolicy 刷新缓存,explain 的 phase_definition 变 10m、version=2;下一轮 poll 从刷新后的 JSON 构造 WaitForRolloverReadyStep,带着新条件 dry_run——1 分钟时不再满足,要再等约 9 分钟。与实验 8 的加 forcemerge 相反:加法改 StepKey 集合,缓存不动;只改条件则缓存跟着动。「改 Hot 不影响正在跑的 Hot」在这条路径上不成立。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么把当前 phase JSON 缓存在索引 metadata 里,而不是每次 poll 都读集群上的活策略?若并发 PUT 把正在执行的 action 整段删掉,哪条不变量会破?</summary>
+          <div class="answer">
+            <p>缓存保的是「当前这一相的执行计划不能被抽掉」。getStep 只认缓存 JSON 里的 StepKey;若每次读活策略,并发 PUT 删掉 rollover 或整个 Hot,runner 会在 check-rollover-ready 上找不到下一步,索引掉进 error,而且没有一份「当时正在执行的相」可用来把动作做完。不变量:一份索引一旦开始跑某一相,这一相的 steps 必须能跑完(或明确进 error/手动 retry),不能在两次 poll 之间变成「策略里没这个 step」。未来相不在缓存里,进入时再读活策略——所以改 Delete 的 min_age 仍然有效。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 生产上「日志 7 天热、30 天删」:(a) poll 调到几秒、策略也写很短,好在测试里立刻看见;(b) 保持默认 10 分钟、策略用天为单位。各付什么换什么?data stream 相比手写模板 + rollover_alias,省掉和藏掉的各是什么?</summary>
+          <div class="answer">
+            <p>(a) 教程和集成测试能在一分钟内看见 000002,但每个 poll 都要扫全部托管索引并可能提交集群状态任务,master 会被 ILM 拖住;过短 min_age 还会让 shrink/forcemerge 在数据仍热时跑。(b) rollover 最多迟到一个 poll 槽,对按天的日志可接受,换来 master 空闲。data stream 把写索引和 rollover 目标绑在流名字上:省掉模板接力 + rollover_alias + is_write_index 这整面出错墙(以及本课实测的「不复制 lifecycle.name」陷阱);藏掉的正是实验 3-4 必须看清的那几条 setting——出错时你少一个可以指认的旋钮。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 以为 rollover 会把策略带给新索引:</span>实测 alias 方式 rollover <strong>不复制</strong> <code>index.lifecycle.name</code>——无模板时 000002 的 settings 没有 lifecycle 键,managed=false,链条滚一代就断。必须配 index template 接力;且模板里<strong>不能</strong>带 rollover alias 本体(否则 duplicated alias → ERROR step)。</div>
+        <div class="callout warn"><span class="co-title">🕳 把 explain 当策略全文读:</span><code>phase_execution.phase_definition</code> 是这条索引<strong>正在执行的缓存相</strong>(PolicyStepsRegistry.getStep 读同一份 JSON),只有当前相的 actions——想看全文用 GET _ilm/policy。改策略后的分叉(活策略 v2 vs 缓存 v1)正靠这两份对照。</div>
+        <div class="callout warn"><span class="co-title">🕳 「改策略不影响已有索引」记成绝对:</span>门闩是 StepKey 集合:加/删当前相 action → 不刷(跑完旧相);只改 max_age → 刷(立刻生效);改未来相 → 进相时生效;索引已 Terminal → 无效。别背简化口诀,背这四行。</div>
+        <div class="callout warn"><span class="co-title">🕳 忘了 min_docs 暗门和 min_age 零点:</span>only_if_has_documents 默认 true 给 dry_run 注入 min_docs:1,空索引到点不滚;被滚走那份的 lifecycleDate 已改成 rollover 时刻,「再满 2h」从停止写入起算——拿创建时间手算会差出一大截。</div>
+        <div class="callout warn"><span class="co-title">🕳 清理乱了顺序或用通配符:</span>先删索引(去引用)再删策略,否则 400 in use;且 <code>DELETE /tut-l28-*</code> 默认被拒(action.destructive_requires_name=true)——显式点名删;poll 记得 null 回默认 10 分钟。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>阶段是触发器(Phase = 名字+min_age+actions),rollover 看 max_*、进下一阶段看 min_age——两种时钟</td></tr>
+          <tr><td>执行引擎</td><td>只在 master;poll 默认 10 分钟(下限 1s,实验调 15s);StepKey=(phase, action, step) 三元组</td></tr>
+          <tr><td>缓存相</td><td>phaseDefinition 存索引 metadata "ilm" 键;getStep 与 explain 的 phase_execution 同源——正在执行的那一相</td></tr>
+          <tr><td>rollover 五步</td><td>check-rollover-ready(dry_run+min_docs 暗门)→ attempt → wait-shards → update-date(零点改写)→ indexing_complete</td></tr>
+          <tr><td>模板接力</td><td>rollover 不复制 lifecycle.name;模板只带 settings(带 alias 会 ERROR),首索引手动带 write alias;data stream 免手写</td></tr>
+          <tr><td>改策略门闩</td><td>当前相 StepKey 集合变 → 不刷;只改条件 → 刷;改未来相 → 进相时生效;Terminal → 无效</td></tr>
+          <tr><td>清理顺序</td><td>显式删索引(通配符默认被拒)→ 模板 → 策略(被引用时 400)→ poll=null</td></tr>
+        </table>
+        <p><strong>心法:箭头上写的是条件——索引从未变成某个对象;它只是带着自己缓存的那一相,等下一次触发。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch27.html">← 第 27 课:管道查询语言</a>
+          <a href="ch29.html">第 29 课:安全机制 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch28.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

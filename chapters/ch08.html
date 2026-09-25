@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 8 课:异步编程模型 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch08" data-ch="ch08">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 08 · 第二篇 · 请求处理</div>
+        <h1>异步编程模型</h1>
+        <div class="ch-meta-line">两条不变量:等网络不占线程、回调只响一次 · 约 17 分钟 · 前置:第 6、7 课 · 10 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>拿到 <code>listener.map(fn)</code> 与 <code>ActionListener.wrap(...)</code> 各一段代码,说出 <code>fn</code> 抛异常、下游 <code>onResponse</code> 再抛各自走哪条路——一个进 <code>onFailure</code>,一个被视为 bug。</li>
+          <li>用 <code>GET /_cat/thread_pool</code> 对上 <code>search</code> / <code>write</code> / <code>cluster_coordination</code> 的隔离;说出队列满时抛的异常类名、HTTP 状态码,以及为什么 <code>generic</code> 永不 429。</li>
+          <li>预测 <code>PUT /_cluster/settings</code> 改 <code>thread_pool.search.queue_size</code> 的结果并用实验验证;解释这个设置为什么不是 Dynamic。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:发出去就释放线程</h2>
+        <p>一个搜索可能要问几十个分片,每个分片可能在另一台节点上,网络往返以几十毫秒计。如果协调线程发完请求就原地 <code>join()</code> 等响应,它整个等待期唯一的「工作」就是占着一条线程。池子是固定大小的,几十个这样的等待就能把池填满——新搜索进不来,连写入都得跟着排队。</p>
+        <p>ES 的解法不是把池开大,而是换编程模型:凡是要等网络的方法,签名一律 <code>void</code> + <code>ActionListener</code>——发出请求后立刻返回,把「接下来干什么」写成回调;响应到达时,传输层用一小段 CPU 时间调 <code>onResponse</code> / <code>onFailure</code>。这就是本课第一条不变量:<strong>等待网络时,线程必须回到池里</strong>。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 246" xmlns="http://www.w3.org/2000/svg">
+              <rect x="10" y="18" width="360" height="200" rx="10" class="fig-box"/>
+              <text x="190" y="44" text-anchor="middle" class="fig-name">同步:占着线程等</text>
+              <rect x="30" y="58" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="190" y="76" text-anchor="middle" class="fig-sub">① 发出请求,同步 future.get()</text>
+              <rect x="30" y="94" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="190" y="112" text-anchor="middle" class="fig-sub">② 等待期 50ms,线程什么都不干</text>
+              <rect x="30" y="130" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="190" y="148" text-anchor="middle" class="fig-sub">③ 等到结果才继续下一步</text>
+              <rect x="30" y="166" width="320" height="27" rx="6" class="fig-box-hot"/>
+              <text x="190" y="184" text-anchor="middle" class="fig-sub">④ 高并发时池被「等待」填满</text>
+
+              <rect x="390" y="18" width="360" height="200" rx="10" class="fig-box-hot"/>
+              <text x="570" y="44" text-anchor="middle" class="fig-name">异步:发出去就回池</text>
+              <rect x="410" y="58" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="570" y="76" text-anchor="middle" class="fig-sub">① 发出请求,方法立刻返回</text>
+              <rect x="410" y="94" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="570" y="112" text-anchor="middle" class="fig-sub">② 等待期线程回池,可干别的</text>
+              <rect x="410" y="130" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="570" y="148" text-anchor="middle" class="fig-sub">③ 响应到达,传输线程回调</text>
+              <rect x="410" y="166" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="570" y="184" text-anchor="middle" class="fig-sub">④ 合并只占最后一份回调</text>
+
+              <text x="380" y="234" text-anchor="middle" class="fig-sub">两种模型发出请求的那一步一样;差别全在等待期线程属不属于线程池</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 同一条 50ms 网络等待的两种活法:ES 选右边——所以才养得起固定尺寸的 search / write 池。</figcaption>
+        </figure>
+
+        <p>顺带纠正一个旧名字:老教程里的 <code>SAME_THREAD</code> 池在当前仓库已不存在,等价物是 <code>EsExecutors.DIRECT_EXECUTOR_SERVICE</code>——<code>execute()</code> 就是当场 <code>run()</code>,在调用者线程上跑完,不进任何池、不排队、不切换。它名字里没有「池」,因为它真的不是。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>action/ActionListener.java</code></td><td>两个方法 + <code>map</code> / <code>assertOnce</code> / <code>notifyOnce</code>;文件头 javadoc 解释为什么拒绝 CompletableFuture</td></tr>
+          <tr><td><code>action/search/AbstractSearchAsyncAction.java</code></td><td>搜索扇出:for 循环发完就返回;<code>finishOneShard</code> 倒数到 0 才合并</td></tr>
+          <tr><td><code>search/SearchService.java</code></td><td>数据节点把 query 丢进 search 池的那行 <code>runAsync</code></td></tr>
+          <tr><td><code>threadpool/DefaultBuiltInExecutorBuilders.java</code></td><td>每个池的类型 / 线程数 / 队列(数字以此为准,不背旧文档)</td></tr>
+          <tr><td><code>common/util/concurrent/EsAbortPolicy.java</code></td><td>Fixed 有界队列满 → <code>EsRejectedExecutionException</code></td></tr>
+        </table>
+
+        <h2>3. 不变量在搜索里怎么落地</h2>
+        <p><code>TransportSearchAction</code> 构造时传入的执行器是 <code>DIRECT_EXECUTOR_SERVICE</code>,所以过滤器链和 <code>doExecute</code> 的开头跑在调用者线程(通常是 Netty HTTP 线程)上;rewrite 被显式提交到 <code>search_coordination</code> 池。然后是对每个 shard 的发送——<code>AbstractSearchAsyncAction.doRun</code>:</p>
+        <pre class="code-block"><code>protected void doRun(Map&lt;SearchShardIterator, Integer&gt; shardIndexMap) {
+    for (int i = 0; i &lt; shardsIts.size(); i++) {
+        final SearchShardIterator shardRoutings = shardsIts.get(i);
+        ...
+        performPhaseOnShard(shardIndex, shardRoutings, routing);  // 发送,不等待
+    }
+}   // 循环结束,方法返回——没有 Future.get(),也没有 latch.await()</code></pre>
+        <p>发送最终落到 <code>SearchTransportService.sendExecuteQuery</code> → <code>transportService.sendChildRequest(...)</code>,返回类型是 <code>void</code>:帧写进连接(或排进 Netty outbound)之后,调用者继续走自己的路。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah08b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="18" width="232" height="64" rx="9" class="fig-box"/>
+              <text x="126" y="42" text-anchor="middle" class="fig-name">Netty/REST 线程</text>
+              <text x="126" y="64" text-anchor="middle" class="fig-sub">dispatchRequest → NodeClient</text>
+              <line x1="245" y1="50" x2="260" y2="50" class="fig-arrow" marker-end="url(#ah08b)"/>
+              <rect x="264" y="18" width="232" height="64" rx="9" class="fig-box"/>
+              <text x="380" y="42" text-anchor="middle" class="fig-name">DIRECT(调用者线程)</text>
+              <text x="380" y="64" text-anchor="middle" class="fig-sub">过滤器链 + doExecute 扇出</text>
+              <line x1="499" y1="50" x2="514" y2="50" class="fig-arrow" marker-end="url(#ah08b)"/>
+              <rect x="518" y="18" width="232" height="64" rx="9" class="fig-box"/>
+              <text x="634" y="42" text-anchor="middle" class="fig-name">search_coordination</text>
+              <text x="634" y="64" text-anchor="middle" class="fig-sub">rewrite;合并也在这里</text>
+              <path d="M 634 84 L 634 101 L 126 101 L 126 116" class="fig-arrow" marker-end="url(#ah08b)"/>
+
+              <rect x="10" y="120" width="232" height="64" rx="9" class="fig-box"/>
+              <text x="126" y="144" text-anchor="middle" class="fig-name">sendChildRequest</text>
+              <text x="126" y="166" text-anchor="middle" class="fig-sub">帧写入连接,立刻返回 void</text>
+              <line x1="245" y1="152" x2="260" y2="152" class="fig-arrow" marker-end="url(#ah08b)"/>
+              <rect x="264" y="120" width="232" height="64" rx="9" class="fig-box"/>
+              <text x="380" y="144" text-anchor="middle" class="fig-name">数据节点 transport</text>
+              <text x="380" y="166" text-anchor="middle" class="fig-sub">handler 挂 DIRECT 接住</text>
+              <line x1="499" y1="152" x2="514" y2="152" class="fig-arrow" marker-end="url(#ah08b)"/>
+              <rect x="518" y="120" width="232" height="64" rx="9" class="fig-box-hot"/>
+              <text x="634" y="144" text-anchor="middle" class="fig-name">search 池(Fixed)</text>
+              <text x="634" y="166" text-anchor="middle" class="fig-sub">runAsync 提交 Lucene 查询</text>
+              <path d="M 634 186 L 634 203 L 126 203 L 126 218" class="fig-arrow" marker-end="url(#ah08b)"/>
+
+              <rect x="10" y="222" width="232" height="64" rx="9" class="fig-box"/>
+              <text x="126" y="246" text-anchor="middle" class="fig-name">回调 finishOneShard</text>
+              <text x="126" y="268" text-anchor="middle" class="fig-sub">outstandingShards 倒数</text>
+              <line x1="245" y1="254" x2="260" y2="254" class="fig-arrow" marker-end="url(#ah08b)"/>
+              <rect x="264" y="222" width="232" height="64" rx="9" class="fig-box"/>
+              <text x="380" y="246" text-anchor="middle" class="fig-name">outstanding = 0</text>
+              <text x="380" y="268" text-anchor="middle" class="fig-sub">onPhaseDone → fetch/组响应</text>
+              <line x1="499" y1="254" x2="514" y2="254" class="fig-arrow" marker-end="url(#ah08b)"/>
+              <rect x="518" y="222" width="232" height="64" rx="9" class="fig-box-hot"/>
+              <text x="634" y="246" text-anchor="middle" class="fig-name">HTTP 响应</text>
+              <text x="634" y="268" text-anchor="middle" class="fig-sub">写回当初的 REST channel</text>
+
+              <text x="380" y="308" text-anchor="middle" class="fig-sub">每一段只占很小的 CPU 时间;等待网络的那几十毫秒,线程不在任何一格里</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 一次 3-shard 搜索的线程轨迹:协调侧发完就返回,数据侧由传输线程 fork 进 search 池,合并发生在最后一份回调里。</figcaption>
+        </figure>
+
+        <p>数据节点这一侧,query 的 request handler <strong>不是</strong>注册在 search 池上——<code>SearchTransportService</code> 把 <code>indices:data/read/search[phase/query]</code> 挂在 <code>DIRECT_EXECUTOR_SERVICE</code> 上:传输线程先接住并解码,再由 <code>SearchService.executeQueryPhase</code> 自己 fork:</p>
+        <pre class="code-block"><code>transportService.registerRequestHandler(QUERY_ACTION_NAME,
+    EsExecutors.DIRECT_EXECUTOR_SERVICE, ...,
+    (request, channel, task) -&gt; searchService.executeQueryPhase(
+        request, (SearchShardTask) task, new ChannelActionListener&lt;&gt;(channel)));
+
+// SearchService:真正占 search 池的是这一行
+private static &lt;T extends RefCounted&gt; void runAsync(Executor executor,
+        CheckedSupplier&lt;T, Exception&gt; executable, ActionListener&lt;T&gt; listener) {
+    executor.execute(ActionRunnable.supplyAndDecRef(listener, executable));
+}</code></pre>
+        <p><code>getExecutor</code> 对普通索引返回 <code>threadPool.executor(Names.SEARCH)</code>;系统索引走 <code>SYSTEM_READ</code> / <code>SYSTEM_CRITICAL_READ</code>,隔离逻辑同款。提交成功之后,传输线程立刻回去读下一帧——这是不变量在数据节点上的版本:<strong>等 Lucene 查询的不该是 Netty worker</strong>。</p>
+        <p>合并发生在回调里。每份 shard 结果(或该 shard 全部副本失败)都进 <code>finishOneShard</code>:</p>
+        <pre class="code-block"><code>private void finishOneShard() {
+    final int outstanding = outstandingShards.decrementAndGet();
+    assert outstanding &gt;= 0 : "outstanding: " + outstanding;
+    if (outstanding == 0) {
+        onPhaseDone();   // 进入 fetch 阶段,或组 SearchResponse
+    }
+}</code></pre>
+        <p>3 个 shard 就倒数 3 次;任意一次回调都可能落在「刚处理完那份响应」的任意一条线程上,所以 <code>outstandingShards</code> 是 <code>AtomicInteger</code>、结果收集用 <code>AtomicArray</code>,「最后一份到齐」必须被设计成只发生一次。失败路径一条带过:单个副本失败会 <code>shardIt.nextOrNull()</code> 换下一个副本,同一 shard 的所有副本都失败才算一次 <code>finishOneShard</code>;<code>allowPartialSearchResults=false</code> 时还会取消整个 task。老教程用 <code>CountDownLatch</code> 写的合并伪代码方向对,但 <code>latch.await()</code> 本身就会堵死调用线程——生产路径没有这个调用;通用的扇入组合子是 <code>RefCountingListener</code>,搜索这条专用路径就是 <code>outstandingShards</code>。</p>
+
+        <h2>4. ActionListener:两个方法,一层层包</h2>
+        <p><code>ActionListener</code> 文件头的 javadoc 把设计说得很硬:回调让代码「异步且不阻塞」,而 ES 明确避开 <code>CompletableFuture</code>,理由两条,都不是口味问题:</p>
+        <ol>
+          <li>Future 支持 <code>get()</code> 阻塞,而 ES 的线程太贵——一处 <code>get()</code> 就能把本课的不变量整个拆掉,极端时直接死锁;</li>
+          <li><code>CompletableFuture</code> 会接住 <code>Error</code>:JVM 本该立刻退出的时刻,被推迟到有人观察那个 result——可能是很久以后,也可能永远没有。</li>
+        </ol>
+        <p>接口本体只有两个方法。Java 的一个方法要么返回值、要么抛异常,两个继续方式正好一一对应:</p>
+        <pre class="code-block"><code>public interface ActionListener&lt;Response&gt; {
+    void onResponse(Response response);
+    void onFailure(Exception e);
+}</code></pre>
+        <p>组合、扇出、超时,全部靠「再包一层 listener」完成,不发明第二种回调类型。还有一条工程配套容易记错归属:安全身份、<code>X-Opaque-Id</code>、headers 的传递发生在线程池提交那一刻——<code>EsThreadPoolExecutor.execute</code> 会 <code>contextHolder.preserveContext(command)</code>。这是线程池的功能,不是 listener 的魔法;纯 JDK Future 不会帮你做这件事。</p>
+        <p>组合子只记会改变控制流的几个,其余打开 <code>ActionListener.java</code> 现查:</p>
+        <table class="ktable">
+          <tr><th>方法</th><th>成功时</th><th>失败时</th><th>记住</th></tr>
+          <tr><td><code>wrap(onResponse, onFailure)</code></td><td>调前者</td><td>调后者</td><td><code>onResponse</code> 里抛的异常<strong>会转交</strong> <code>onFailure</code>(wrap 特有)</td></tr>
+          <tr><td><code>map(fn)</code></td><td><code>fn</code> 转换后交给 delegate</td><td>原样透传</td><td><code>fn</code> 抛 → <code>delegate.onFailure</code>;delegate 的 <code>onResponse</code> 再抛视为 bug,<strong>不会</strong>回头进 <code>onFailure</code></td></tr>
+          <tr><td><code>delegateFailureAndWrap</code></td><td>自己写成功分支,可在里面发起下一步异步</td><td>自动委托到底</td><td>链式首选,比手写 <code>listener::onFailure</code> 便宜</td></tr>
+          <tr><td><code>runAfter(listener, cleanup)</code></td><td>完成后跑清理</td><td>同左</td><td>异步版的 finally:方法 return 不等于结束</td></tr>
+          <tr><td><code>notifyOnce(delegate)</code></td><td>第一次照常</td><td>同左</td><td>第二次静默丢弃,并放开 delegate 引用</td></tr>
+          <tr><td><code>assertOnce(delegate)</code></td><td>第一次照常</td><td>同左</td><td>仅断言构建有效:第二次 <code>AssertionError</code>;断言关闭时是恒等包装</td></tr>
+        </table>
+        <p><code>wrap</code> 和 <code>map</code> 的失败模型不是一回事,这是最容易被想当然的地方。看 <code>ActionListenerImplementations.MappedActionListener</code> 的关键行:</p>
+        <pre class="code-block"><code>mapped = fn.apply(response);     // fn 抛异常 → onFailure(e):走失败 continuation
+delegate.onResponse(mapped);     // delegate 自己抛 → expectNoException:视为 bug,不转 onFailure</code></pre>
+        <p>javadoc 原话:<em>it is considered a bug if the listener's onResponse or onFailure fails. onResponse failures will not call onFailure.</em> continuation 自己必须把异常处理干净——把 <code>map</code> 当 <code>wrap</code> 用,会把下游 bug 悄悄变成「看起来正常的失败处理」。</p>
+
+        <h2>5. 只完成一次:assertOnce 是断言,notifyOnce 是吞掉</h2>
+        <p>第二条不变量与第一条正交:<strong>同一个 listener 恰好完成一次</strong>。HTTP 响应写两次、引用计数多减一次、<code>RefCountingListener</code> 减成负数,根源都是同一条 continuation 被完成两次——双回调不是「多通知一次」,是非法状态。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 226" xmlns="http://www.w3.org/2000/svg">
+              <rect x="10" y="18" width="360" height="170" rx="10" class="fig-box"/>
+              <text x="190" y="44" text-anchor="middle" class="fig-name">notifyOnce · 生产可用的去重</text>
+              <rect x="30" y="58" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="190" y="76" text-anchor="middle" class="fig-sub">① 第一次回调:getAndSet 拿到 delegate</text>
+              <rect x="30" y="94" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="190" y="112" text-anchor="middle" class="fig-sub">② delegate 完成,continuation 结束</text>
+              <rect x="30" y="130" width="320" height="27" rx="6" class="fig-box-hot"/>
+              <text x="190" y="148" text-anchor="middle" class="fig-sub">③ 第二次:拿到 null,静默丢弃</text>
+
+              <rect x="390" y="18" width="360" height="170" rx="10" class="fig-box-hot"/>
+              <text x="570" y="44" text-anchor="middle" class="fig-name">assertOnce · 测试构建的断言</text>
+              <rect x="410" y="58" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="570" y="76" text-anchor="middle" class="fig-sub">① 第一次:compareAndExchange 记栈</text>
+              <rect x="410" y="94" width="320" height="27" rx="6" class="fig-box"/>
+              <text x="570" y="112" text-anchor="middle" class="fig-sub">② delegate 正常完成</text>
+              <rect x="410" y="130" width="320" height="27" rx="6" class="fig-box-hot"/>
+              <text x="570" y="148" text-anchor="middle" class="fig-sub">③ 第二次:AssertionError,两份栈对照</text>
+
+              <text x="380" y="212" text-anchor="middle" class="fig-sub">断言关闭(生产发布包)时 assertOnce 退化为恒等包装——双回调要靠别的层兜底</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 同一个「第二次回调」:notifyOnce 用静默换安全,assertOnce 用崩溃换可见性。两者不是一回事。</figcaption>
+        </figure>
+
+        <p><code>notifyOnce</code> 用 <code>getAndSet(null)</code> 保证只有第一次拿到 delegate,第二次直接 return,顺手放开引用——即使 wrapper 还躺在某个 pending 列表里,delegate 和它抓着的大对象也能被 GC(<code>ActionListenerTests.testNotifyOnceReleasesDelegate</code> 专门验证)。<code>assertOnce</code> 则在断言开启时用 <code>compareAndExchange</code> 记下第一次的栈,第二次把两份栈一起打出来:</p>
+        <pre class="code-block"><code>static &lt;Response&gt; ActionListener&lt;Response&gt; assertOnce(ActionListener&lt;Response&gt; delegate) {
+    if (Assertions.ENABLED) {
+        ...  // compareAndExchange 记下第一次;第二次 assert 失败,带两份栈
+    }
+    return delegate;   // 断言关闭:恒等包装,不设防
+}</code></pre>
+        <p>第 7 课见过 <code>NodeClient.executeLocally</code> 无条件包一层 <code>assertOnce</code>——那是给测试构建抓双回调用的;生产发布包断言默认关闭,别指望它兜底。另外「一个结果、多个订阅者」用 <code>SubscribableListener</code>:它自己就是 <code>ActionListener</code>,完成超过一次时第一次之后全部静默丢弃,来晚的订阅者立刻用已有结果完成;<code>andThen</code> / <code>andThenApply</code> / <code>newForked</code> 把嵌套回调拉直,失败自动沉底。</p>
+
+        <h2>6. 线程池:按职责隔离,而不是一张大池</h2>
+        <p>异步解决的是「等网络别占线程」;CPU 密集的活——跑 Lucene、写 segment、刷 translog、选主——仍然要线程来跑。ES 的答案是按职责拆池:一个池排队甚至拒绝,别的池照常服务。反例不用画图:假如所有请求共用 16 条线程,100 个慢搜索就能把它们全部占住,refresh 没人跑、master 发布没人处理、<code>_cluster/health</code> 也得排,节点看起来「死了」。拆开后,<code>search</code> 可以对客户端 429,<code>write</code> 和 <code>cluster_coordination</code> 不受牵连。</p>
+        <p>数字锚定 9.4.0:<code>N</code> = <code>EsExecutors.allocatedProcessors</code>(下表以 12 核节点为例),来源是 <code>DefaultBuiltInExecutorBuilders</code> 与 <code>ThreadPool.searchOrGetThreadPoolSize</code>——<strong>不是</strong>旧文档的「一律 CPU+1、search 队列 1000」。</p>
+        <table class="ktable">
+          <tr><th>池名</th><th>类型</th><th>默认大小</th><th>队列</th><th>职责</th></tr>
+          <tr><td><code>search</code></td><td>Fixed</td><td>((N*3)/2)+1,12 核时 19</td><td>size×1000,12 核时 19000</td><td>数据节点跑 query/fetch(Lucene CPU)</td></tr>
+          <tr><td><code>search_coordination</code></td><td>Fixed</td><td>(N+1)/2,12 核时 6</td><td>1000</td><td>rewrite、合并各 shard 结果</td></tr>
+          <tr><td><code>write</code></td><td>Fixed</td><td>N,12 核时 12</td><td>max(N*750,10000)</td><td>索引/delete/bulk 落 Lucene</td></tr>
+          <tr><td><code>write_coordination</code></td><td>Fixed</td><td>N</td><td>10000</td><td>写入协调,与 write 互相隔离</td></tr>
+          <tr><td><code>get</code></td><td>Fixed</td><td>同 search</td><td>1000</td><td>realtime GET</td></tr>
+          <tr><td><code>analyze</code></td><td>Fixed</td><td>1</td><td>16</td><td>_analyze,刻意极小</td></tr>
+          <tr><td><code>cluster_coordination</code></td><td>Fixed</td><td>1</td><td>-1(无界)</td><td>集群状态/选举;单线程换互斥</td></tr>
+          <tr><td><code>generic</code></td><td>Scaling</td><td>4…boundedBy(4N,128,512)</td><td>无界</td><td>杂项;正常运行不拒绝</td></tr>
+          <tr><td><code>management</code></td><td>Scaling</td><td>1…boundedBy(N,1,5)</td><td>无界</td><td>管理 API,刻意小</td></tr>
+          <tr><td><code>flush</code> / <code>refresh</code> / <code>warmer</code></td><td>Scaling</td><td>约 min(⌈N/2⌉,5/10)</td><td>无界</td><td>落盘 / 近实时可见 / 预热</td></tr>
+        </table>
+        <table class="ktable">
+          <tr><th></th><th>Fixed</th><th>Scaling</th></tr>
+          <tr><td>线程数</td><td>固定 size</td><td>[min, max],空闲按 keep-alive 回收</td></tr>
+          <tr><td>队列</td><td>SizeBlockingQueue:有界(≥0)或无界(-1)</td><td>无界 LinkedTransferQueue,offer 失败才加 worker</td></tr>
+          <tr><td>满了</td><td>有界:EsAbortPolicy 拒绝;无界:只在 shutdown 拒绝</td><td>ForceQueuePolicy 塞回队列,正常运行不拒绝</td></tr>
+          <tr><td>keep-alive</td><td>0,线程常驻</td><td>generic 30s;management/flush/refresh 5min</td></tr>
+          <tr><td>典型用途</td><td>高频、延迟敏感、必须背压</td><td>低频或内部任务</td></tr>
+        </table>
+        <p><code>cluster_coordination</code> 是 Fixed 却配 -1 无界队列:1 条线程换互斥(避开 <code>Coordinator#mutex</code> 争用),无限排队换「集群任务绝不因队列满而丢」——与 <code>search</code> 的「宁可 429」正好是相反的权衡,第 22 课还会遇到它。<code>DIRECT_EXECUTOR_SERVICE</code> 则不在两种类型里:不排队、不拒绝、不切线程;Transport 大量 handler 挂在它上面,目的就是先尽快离开 Netty 读循环,再由业务代码决定 fork 到哪个具名池。</p>
+        <p>把图 2 展开成职责清单,一次搜索实际经过:</p>
+        <ol>
+          <li><strong>Netty HTTP 线程</strong>:<code>RestController.dispatchRequest</code> → REST handler → <code>NodeClient</code>。并没有「先 hop 进 generic」的硬性步骤;</li>
+          <li><strong>调用者线程(DIRECT)</strong>:<code>TransportAction</code> 过滤器链与 <code>doExecute</code> 开头;</li>
+          <li><strong>search_coordination</strong>:<code>Rewriteable.rewriteAndFetch</code>;</li>
+          <li><strong>Transport 写路径</strong>:<code>sendChildRequest</code> 把帧交给 Netty,立即返回;</li>
+          <li><strong>数据节点传输线程(DIRECT handler)→ search 池</strong>:<code>SearchService.runAsync</code>;</li>
+          <li><strong>回调</strong>:最后一份 <code>finishOneShard</code> 触发 fetch 或组响应,HTTP 写回原 channel。</li>
+        </ol>
+        <p><code>TransportAction.execute</code> 自己也会 fork,但仅当构造传入的 executor 不是 DIRECT(走 <code>doExecuteForking</code>)——「这个 Action 在哪个池跑」没有全局答案,每个 <code>TransportAction</code> 构造函数传入的那个 executor 说了算。</p>
+
+        <h2>7. 背压:队列满 → EsAbortPolicy → 429</h2>
+        <div class="fp-slot" data-flow="ch08-reject"></div>
+        <p>Fixed 池的有界队列满了,ES 选择<strong>拒绝</strong>而不是把堆撑爆。拒绝策略是 <code>EsAbortPolicy</code>:</p>
+        <pre class="code-block"><code>public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+    if (executor.isShutdown() == false &amp;&amp; isForceExecution(r)) { /* 强行塞回队列 */ }
+    incrementRejections();                        // 就是 _cat/thread_pool 的 rejected 列
+    throw newRejectedException(r, executor, ...); // EsRejectedExecutionException
+}</code></pre>
+        <p>REST 一侧,<code>ExceptionsHelper.status</code> 认出它:</p>
+        <pre class="code-block"><code>} else if (t instanceof EsRejectedExecutionException) {
+    return RestStatus.TOO_MANY_REQUESTS;          // 429
+}</code></pre>
+        <p>客户端拿到 429 的正确反应是退避、换节点、降速——不是立刻重试把队列再打满一次。两件不要想当然的事:</p>
+        <ol>
+          <li><strong>不是所有池都会拒绝。</strong><code>generic</code> 的 javadoc 写明 <em>does not reject any task</em>;Scaling 池走 <code>ForceQueuePolicy</code>。<code>_cat/thread_pool</code> 里 <code>search</code>/<code>write</code> 的 <code>rejected</code> 上涨,才是用户流量的背压信号。</li>
+          <li><strong>队列长度改不了运行时值。</strong><code>FixedExecutorBuilder</code> 把 <code>thread_pool.&lt;name&gt;.size</code> / <code>queue_size</code> 登记为 <code>Property.NodeScope</code>(没有 Dynamic),<code>EsThreadPoolExecutor.setMaximumPoolSize</code> 直接抛 <code>UnsupportedOperationException</code>。想改:yml + 重启——实验 3 踹的就是这堵墙。</li>
+        </ol>
+        <p><code>forceExecution</code> 是给「内部不能丢的任务」留的口子(某些 cluster task);普通搜索没有这个标记,该拒绝就拒绝。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>索引名 <code>tut-l08-docs</code>。本课以读为主:<strong>不做任何压测</strong>——一次 rejected 计数虽然便宜,但把 search 池打满会让你的笔记本先投降。看懂列,生产上看监控。每个实验先预测再运行。</p>
+
+        <h3>实验 0:看关键池的真实参数</h3>
+        <div class="exp-slot" data-exp="ch08-00-pools"></div>
+
+        <h3>实验 1:拿到 N,自己算线程数</h3>
+        <div class="exp-slot" data-exp="ch08-01-processors"></div>
+
+        <h3>实验 2:默认值里的队列口径</h3>
+        <div class="exp-slot" data-exp="ch08-02-defaults"></div>
+
+        <h3>实验 3:踹墙——运行时改小 search 队列</h3>
+        <div class="exp-slot" data-exp="ch08-03-put-queue"></div>
+
+        <h3>实验 4-6:制造几次可观测的搜索</h3>
+        <div class="exp-slot" data-exp="ch08-04-setup"></div>
+        <div class="exp-slot" data-exp="ch08-05-doc"></div>
+        <div class="exp-slot" data-exp="ch08-06-search"></div>
+
+        <h3>实验 7:用 completed 验证隔离</h3>
+        <div class="exp-slot" data-exp="ch08-07-counters"></div>
+
+        <h3>实验 8:看 rejected 列(应为 0)</h3>
+        <div class="exp-slot" data-exp="ch08-08-rejected"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch08-09-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. listener.map(GetResponse::getId) 包装之后:(a) getId 抛 RuntimeException;(b) map 成功但下游 delegate.onResponse 又抛。各走哪条路?ActionListener.wrap 在 (b) 情形走哪条?</summary>
+          <div class="answer">
+            <p>(a) 进 <code>delegate.onFailure</code>——<code>fn</code> 的异常是「转换失败」,<code>MappedActionListener</code> 用 try/catch 接住、转进失败 continuation。(b) 不会进 <code>onFailure</code>:delegate 的 <code>onResponse</code> 抛异常被 <code>expectNoException</code> 接住,断言构建直接失败,javadoc 称之为 bug。<code>wrap</code> 不同:它的 <code>onResponse</code> 抛异常<strong>会</strong>被转进 <code>onFailure</code>。把 map 当 wrap 用,等于把下游 bug 悄悄变成「看起来正常的失败处理」。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 同一个 listener 被回调第二次:notifyOnce 和 assertOnce 分别怎样?生产构建里 assertOnce 还设防吗?NodeClient.executeLocally 包的是哪个?</summary>
+          <div class="answer">
+            <p><code>notifyOnce</code>:<code>getAndSet(null)</code> 第二次拿到 null 直接 return,静默丢弃,还放开 delegate 引用帮 GC。<code>assertOnce</code>:断言开启时第二次抛 <code>AssertionError</code>,把两次的栈一起打出来;<code>Assertions.ENABLED</code> 为 false 时 <code>return delegate</code>,恒等包装——生产发布包不设防。<code>NodeClient.executeLocally</code> 包的是 <code>assertOnce</code>,给测试构建抓双回调;生产路径的防线是调用方自觉、<code>RefCountingListener</code> 内部的 assertOnce,或关键处再包 notifyOnce。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 某插件在协调路径上对每个远程 shard 写了 responseFuture.get(50ms)。3 个 shard、各 50ms 网络时,那条协调线程被占多久?客户端还会「异步」收到响应吗?不变量破了吗?</summary>
+          <div class="answer">
+            <p>约 150ms 量级——三次串行等待,而不是发出去就释放的几毫秒。HTTP 层看起来仍异步:REST 方法早已 return,响应由 listener 写回。但 ES 内部那条协调线程被 <code>get()</code> 占死,图 1 右边翻成左边;并发一高,当前承压的池(那条 DIRECT/HTTP 线程或 search_coordination)先耗尽,新搜索进不来。「客户端最终收到响应」不代表不变量还在。</p>
+          </div>
+        </details>
+        <details>
+          <summary>4. cluster_coordination 为什么选 1 条线程 + 无界队列,search 为什么有界 + 拒绝?把 search 队列再加大两个数量级,和更快 429 比,各在付什么代价?</summary>
+          <div class="answer">
+            <p>集群任务丢了等于丢状态更新,所以单线程换互斥、无界队列换「绝不因满而拒绝」;搜索丢一条可以重试,所以有界 + <code>EsAbortPolicy</code> 把过载显式推回客户端。队列加大两个数量级:峰值能多撑一会儿,代价是尾延迟变成「在队列里等」,客户端以为节点还活着、继续打,堆压力和延迟都在涨;更快 429 让过载立刻可见,好节点仍可服务。两种相反的背压,根源是「任务能不能丢」。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 旧数字别背:</span>search 线程数不是 CPU+1,是 ((N*3)/2)+1;队列不是 1000,是 size×1000;「write 队列比 search 大一个数量级」在 9.4.0 已反转(write 是 max(N*750,10000))。SAME_THREAD 已改名 <code>EsExecutors.DIRECT_EXECUTOR_SERVICE</code>。一切以 <code>DefaultBuiltInExecutorBuilders</code> + <code>_cat/thread_pool</code> 实测为准。</div>
+        <div class="callout warn"><span class="co-title">🕳 把 map 当 wrap:</span><code>onResponse</code> 里抛的异常,wrap 会转进 onFailure,map 不会——它把下游抛异常当 bug(<code>expectNoException</code>)。写转换逻辑前先想清楚要哪种失败模型。</div>
+        <div class="callout warn"><span class="co-title">🕳 指望 assertOnce 在生产兜底:</span>生产发布包断言关闭,<code>assertOnce</code> 是恒等包装,双回调不会在这里炸。运行时防线是 <code>notifyOnce</code> / <code>RefCountingListener</code>,以及 code review。</div>
+        <div class="callout warn"><span class="co-title">🕳 想用 _cluster/settings 在线调线程池:</span><code>thread_pool.*.size</code> / <code>queue_size</code> 是 NodeScope 非 Dynamic,PUT 必 400;改 yml 重启才是正路。看到 429 先降客户端并发,不是先改队列。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>不变量</td><td>等网络不占线程:void + ActionListener,sendRequest 返回即释放</td></tr>
+          <tr><td>扇出</td><td>doRun 循环发完就返回;finishOneShard 倒数到 0 才合并</td></tr>
+          <tr><td>组合</td><td>map 转换、delegateFailureAndWrap 接下一步、runAfter 异步 finally</td></tr>
+          <tr><td>一次</td><td>notifyOnce 静默去重(生产);assertOnce 断言(测试);断言关 = 空操作</td></tr>
+          <tr><td>隔离</td><td>search 跑 Lucene、write 落盘、cluster_coordination 单线程无界</td></tr>
+          <tr><td>背压</td><td>Fixed 有界满 → EsAbortPolicy → EsRejectedExecutionException → 429</td></tr>
+          <tr><td>数字</td><td>search=((N*3)/2)+1、队列 size×1000;write=N、max(N*750,10000)</td></tr>
+          <tr><td>改参</td><td>thread_pool.* 非 Dynamic;yml + 重启</td></tr>
+        </table>
+        <p><strong>心法:等待是网络的,线程是集群的——发出去就回池,回调只响一次。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch07.html">← 第 7 课:动作框架</a>
+          <a href="ch09.html">第 9 课:传输层 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch08.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

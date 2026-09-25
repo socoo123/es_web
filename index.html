@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ES 源码精读站</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="index.html" class="here">课程</a>
+      <a href="console.html">控制台</a>
+      <a href="cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="conn-badge" type="button"><span class="dot"></span><span class="conn-label">检查中…</span></button>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Elasticsearch 源码精读</h1>
+      <p class="sub">30 课读完 ES 9.4.0 的骨架与血肉:请求链路、Lucene 存储、搜索聚合、分布式共识。每课配架构图、机制动画,以及跑在你本机真实 ES 上的动手实验。</p>
+      <div class="badges">
+        <span class="pill">源码版本 9.4.0</span>
+        <span class="pill">30 课 · 六篇</span>
+        <span class="pill">连真实 ES 动手</span>
+        <span class="pill">纯静态 · 双击即用</span>
+      </div>
+    </section>
+
+    <section class="console-cta">
+      <div class="cta-main">
+        <div class="cta-title">🕹 先把 ES 跑起来</div>
+        <div class="cta-sub">终端执行 <code>bash docker/start.sh</code> 启动本地 ES 9.4.0。端口只监听 127.0.0.1,CORS 只放行本机页面和 <code>file://</code>,不要把这台学习节点暴露到局域网。没起 ES 也不影响阅读。第 29 课另起 <code>bash docker/start-secure.sh</code>(9201)。</div>
+      </div>
+      <div class="cta-actions">
+        <a class="btn primary" href="console.html">打开控制台</a>
+        <a class="btn" href="chapters/ch01.html">从第 1 课开始</a>
+      </div>
+    </section>
+
+    <div class="progress-panel">
+      <div class="progress-track"><div class="progress-fill"></div></div>
+      <div class="progress-text">已读 0 / 30 课</div>
+    </div>
+
+    <section class="module">
+      <h2>第一篇 · 全局认知</h2>
+      <p class="module-sub">ES 是什么、代码库长什么样、节点怎么启动、插件与配置怎么组织</p>
+      <div class="cards">
+        <a class="card" data-ch="ch01" href="chapters/ch01.html">
+          <div class="ch-no">LESSON 01</div>
+          <div class="ch-title">Elasticsearch 是什么</div>
+          <div class="ch-desc">概念模型与使用场景</div>
+          <div class="ch-meta"><span>📕 lesson01</span></div>
+        </a>
+        <a class="card" data-ch="ch02" href="chapters/ch02.html">
+          <div class="ch-no">LESSON 02</div>
+          <div class="ch-title">项目结构全景</div>
+          <div class="ch-desc">从 10000 英尺俯瞰代码库</div>
+          <div class="ch-meta"><span>📕 lesson02</span></div>
+        </a>
+        <a class="card" data-ch="ch03" href="chapters/ch03.html">
+          <div class="ch-no">LESSON 03</div>
+          <div class="ch-title">节点启动全流程</div>
+          <div class="ch-desc">从 main() 到 ready</div>
+          <div class="ch-meta"><span>📕 lesson03</span></div>
+        </a>
+        <a class="card" data-ch="ch04" href="chapters/ch04.html">
+          <div class="ch-no">LESSON 04</div>
+          <div class="ch-title">插件体系</div>
+          <div class="ch-desc">理解 Elasticsearch 的扩展机制</div>
+          <div class="ch-meta"><span>📕 lesson04</span></div>
+        </a>
+        <a class="card" data-ch="ch05" href="chapters/ch05.html">
+          <div class="ch-no">LESSON 05</div>
+          <div class="ch-title">配置框架</div>
+          <div class="ch-desc">类型安全的配置系统</div>
+          <div class="ch-meta"><span>📕 lesson05</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>第二篇 · 请求处理</h2>
+      <p class="module-sub">一个请求从 HTTP 进来,经过哪些层,最后怎么拿到文档</p>
+      <div class="cards">
+        <a class="card" data-ch="ch06" href="chapters/ch06.html">
+          <div class="ch-no">LESSON 06</div>
+          <div class="ch-title">请求入口层</div>
+          <div class="ch-desc">一条 URL 的认领之旅</div>
+          <div class="ch-meta"><span>📕 lesson06</span></div>
+        </a>
+        <a class="card" data-ch="ch07" href="chapters/ch07.html">
+          <div class="ch-no">LESSON 07</div>
+          <div class="ch-title">动作框架</div>
+          <div class="ch-desc">一张名字表接管所有动作</div>
+          <div class="ch-meta"><span>📕 lesson07</span></div>
+        </a>
+        <a class="card" data-ch="ch08" href="chapters/ch08.html">
+          <div class="ch-no">LESSON 08</div>
+          <div class="ch-title">异步编程模型</div>
+          <div class="ch-desc">等待不占线程,回调只响一次</div>
+          <div class="ch-meta"><span>📕 lesson08</span></div>
+        </a>
+        <a class="card" data-ch="ch09" href="chapters/ch09.html">
+          <div class="ch-no">LESSON 09</div>
+          <div class="ch-title">传输层</div>
+          <div class="ch-desc">节点间的二进制方言</div>
+          <div class="ch-meta"><span>📕 lesson09</span></div>
+        </a>
+        <a class="card" data-ch="ch10" href="chapters/ch10.html">
+          <div class="ch-no">LESSON 10</div>
+          <div class="ch-title">跟踪一次文档读取</div>
+          <div class="ch-desc">GET 为什么立刻可见</div>
+          <div class="ch-meta"><span>📕 lesson10</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>第三篇 · 数据写入</h2>
+      <p class="module-sub">文档进来后:定 schema、预处理、批量分发、落 Lucene、住进分片</p>
+      <div class="cards">
+        <a class="card" data-ch="ch11" href="chapters/ch11.html">
+          <div class="ch-no">LESSON 11</div>
+          <div class="ch-title">映射系统</div>
+          <div class="ch-desc">首篇文档写死 schema</div>
+          <div class="ch-meta"><span>📕 lesson11</span></div>
+        </a>
+        <a class="card" data-ch="ch12" href="chapters/ch12.html">
+          <div class="ch-no">LESSON 12</div>
+          <div class="ch-title">摄取管道</div>
+          <div class="ch-desc">先改 JSON,再选 shard</div>
+          <div class="ch-meta"><span>📕 lesson12</span></div>
+        </a>
+        <a class="card" data-ch="ch13" href="chapters/ch13.html">
+          <div class="ch-no">LESSON 13</div>
+          <div class="ch-title">批量写入</div>
+          <div class="ch-desc">两行一组,条自成败</div>
+          <div class="ch-meta"><span>📕 lesson13</span></div>
+        </a>
+        <a class="card" data-ch="ch14" href="chapters/ch14.html">
+          <div class="ch-no">LESSON 14</div>
+          <div class="ch-title">存储引擎</div>
+          <div class="ch-desc">三块存放,两个动作</div>
+          <div class="ch-meta"><span>📕 lesson14</span></div>
+        </a>
+        <a class="card" data-ch="ch15" href="chapters/ch15.html">
+          <div class="ch-no">LESSON 15</div>
+          <div class="ch-title">索引分片</div>
+          <div class="ch-desc">一把钥匙,一个不能变的除数</div>
+          <div class="ch-meta"><span>📕 lesson15</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>第四篇 · 搜索查询</h2>
+      <p class="module-sub">Query Then Fetch 的两阶段舞步、DSL 到 Lucene 的翻译、聚合与打分</p>
+      <div class="cards">
+        <a class="card" data-ch="ch16" href="chapters/ch16.html">
+          <div class="ch-no">LESSON 16</div>
+          <div class="ch-title">搜索流程总览</div>
+          <div class="ch-desc">先比名次,再搬正文</div>
+          <div class="ch-meta"><span>📕 lesson16</span></div>
+        </a>
+        <a class="card" data-ch="ch17" href="chapters/ch17.html">
+          <div class="ch-no">LESSON 17</div>
+          <div class="ch-title">搜索服务与搜索上下文</div>
+          <div class="ch-desc">上下文活一趟，查询分三层</div>
+          <div class="ch-meta"><span>📕 lesson17</span></div>
+        </a>
+        <a class="card" data-ch="ch18" href="chapters/ch18.html">
+          <div class="ch-no">LESSON 18</div>
+          <div class="ch-title">查询语法</div>
+          <div class="ch-desc">token 是钥匙，整串不是</div>
+          <div class="ch-meta"><span>📕 lesson18</span></div>
+        </a>
+        <a class="card" data-ch="ch19" href="chapters/ch19.html">
+          <div class="ch-no">LESSON 19</div>
+          <div class="ch-title">聚合框架</div>
+          <div class="ch-desc">本地第三，全局第二</div>
+          <div class="ch-meta"><span>📕 lesson19</span></div>
+        </a>
+        <a class="card" data-ch="ch20" href="chapters/ch20.html">
+          <div class="ch-no">LESSON 20</div>
+          <div class="ch-title">评分与排序</div>
+          <div class="ch-desc">稀有词一个顶四个</div>
+          <div class="ch-meta"><span>📕 lesson20</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>第五篇 · 分布式机制</h2>
+      <p class="module-sub">集群的真理之源、选主共识、分片分配与恢复、熔断背压</p>
+      <div class="cards">
+        <a class="card" data-ch="ch21" href="chapters/ch21.html">
+          <div class="ch-no">LESSON 21</div>
+          <div class="ch-title">集群状态</div>
+          <div class="ch-desc">换快照,不是改黑板</div>
+          <div class="ch-meta"><span>📖 16 实验</span></div>
+        </a>
+        <a class="card" data-ch="ch22" href="chapters/ch22.html">
+          <div class="ch-no">LESSON 22</div>
+          <div class="ch-title">主节点选举与共识</div>
+          <div class="ch-desc">谁有资格写下一份快照</div>
+          <div class="ch-meta"><span>📖 10 实验 · 1 动画</span></div>
+        </a>
+        <a class="card" data-ch="ch23" href="chapters/ch23.html">
+          <div class="ch-no">LESSON 23</div>
+          <div class="ch-title">分片分配</div>
+          <div class="ch-desc">过滤链先投 NO,才轮到 balancer</div>
+          <div class="ch-meta"><span>📖 11 实验 · 1 动画</span></div>
+        </a>
+        <a class="card" data-ch="ch24" href="chapters/ch24.html">
+          <div class="ch-no">LESSON 24</div>
+          <div class="ch-title">分片恢复与快照</div>
+          <div class="ch-desc">拷文件,再补那条缝</div>
+          <div class="ch-meta"><span>📖 20 实验 · 1 动画</span></div>
+        </a>
+        <a class="card" data-ch="ch25" href="chapters/ch25.html">
+          <div class="ch-no">LESSON 25</div>
+          <div class="ch-title">熔断器与背压</div>
+          <div class="ch-desc">先记账,超限 429</div>
+          <div class="ch-meta"><span>📖 14 实验 · 1 动画</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>第六篇 · 高级专题</h2>
+      <p class="module-sub">脚本引擎、ES|QL、索引生命周期、安全,以及把 30 课串起来的方法论</p>
+      <div class="cards">
+        <a class="card" data-ch="ch26" href="chapters/ch26.html">
+          <div class="ch-no">LESSON 26</div>
+          <div class="ch-title">脚本引擎</div>
+          <div class="ch-desc">先过白名单再变字节码——不是 eval</div>
+          <div class="ch-meta"><span>📗 20 实验 · 1 动画</span></div>
+        </a>
+        <a class="card" data-ch="ch27" href="chapters/ch27.html">
+          <div class="ch-no">LESSON 27</div>
+          <div class="ch-title">管道查询语言</div>
+          <div class="ch-desc">你写的一行,已经是执行模型</div>
+          <div class="ch-meta"><span>📗 14 实验 · 1 动画</span></div>
+        </a>
+        <a class="card" data-ch="ch28" href="chapters/ch28.html">
+          <div class="ch-no">LESSON 28</div>
+          <div class="ch-title">索引生命周期管理</div>
+          <div class="ch-desc">阶段是触发器,不是五个类</div>
+          <div class="ch-meta"><span>📗 20 实验 · 1 动画</span></div>
+        </a>
+        <a class="card" data-ch="ch29" href="chapters/ch29.html">
+          <div class="ch-no">LESSON 29</div>
+          <div class="ch-title">安全机制</div>
+          <div class="ch-desc">先认证再授权,第一个成功即停</div>
+          <div class="ch-meta"><span>📗 19 实验 · 1 动画</span></div>
+        </a>
+        <a class="card" data-ch="ch30" href="chapters/ch30.html">
+          <div class="ch-no">LESSON 30</div>
+          <div class="ch-title">全景回顾与方法论</div>
+          <div class="ch-desc">六篇接到一次请求上</div>
+          <div class="ch-meta"><span>📗 13 实验 · 1 动画</span></div>
+        </a>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      ES 源码精读站 · 内容基于本地 tutorial/(30 课,对齐 ES 9.4.0 源码)重新组织转写 ·
+      实验跑在 docker/start.sh 拉起的本机 ES 上
+    </footer>
+  </main>
+
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/es-client.js"></script>
+  <script src="assets/js/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 20 课:评分与排序 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch20" data-ch="ch20">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 20 · 第四篇 · 搜索查询</div>
+        <h1>评分与排序</h1>
+        <div class="ch-meta-line">Query 阶段比的就是 BM25,Fetch 之前名次已定 · 约 16 分钟 · 前置:第 16、18 课 · 12 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>用两篇文档、两个词的具体 TF / DF,手算谁的 <code>_score</code> 更高;并标出饱和:TF 从 1→2 的增幅远大于 20→21。</li>
+          <li>打开 <code>explain:true</code>(以及 <code>GET /idx/_explain/id</code>),对上 Lucene <code>BM25Similarity</code> 的 <code>idf</code> / <code>tf</code> / <code>k1</code> / <code>b</code>,并说出 ES 默认为什么多一个 <code>(k1+1)</code>(<code>LegacyBM25Similarity</code>)。</li>
+          <li>用 <code>function_score</code> 的 <code>weight: 2</code> + <code>boost_mode: multiply</code> 验证分数翻倍;再说清:改成按字段 <code>sort</code> 之后,第 16 课截 Top-N 的键不再是 BM25。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:分数在 Fetch 之前就已经决定名次</h2>
+        <p>默认路径里,<strong>相关性不是 Fetch 阶段才算的</strong>。第 18 课的 match 把查询变成若干 term;每个 term 扫倒排表时,Lucene 用字段的 <code>Similarity</code> 给命中文档打一个数;多个 term 的数加起来就是 <code>_score</code>。第 16 课的 Query 阶段带着它回去,协调节点按它排序、截窗口,Fetch 只给窗口里的 id 加载 <code>_source</code>。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="20" width="355" height="120" rx="10" class="fig-box-hot"/>
+              <text x="192" y="46" text-anchor="middle" class="fig-name">Query 阶段:按 _score 截</text>
+              <text x="192" y="76" text-anchor="middle" class="fig-sub">每 term 算 BM25,相加得 _score</text>
+              <text x="192" y="100" text-anchor="middle" class="fig-sub">TopScoreDocCollectorManager</text>
+              <text x="192" y="124" text-anchor="middle" class="fig-sub">名次在这一步就定了</text>
+              <rect x="390" y="20" width="355" height="120" rx="10" class="fig-box"/>
+              <text x="567" y="46" text-anchor="middle" class="fig-name">Fetch 阶段:只搬正文</text>
+              <text x="567" y="76" text-anchor="middle" class="fig-sub">只给窗口里的 id 加载 _source</text>
+              <text x="567" y="100" text-anchor="middle" class="fig-sub">不算「谁更相关」</text>
+              <text x="567" y="124" text-anchor="middle" class="fig-sub">explain:true 也挂在这步</text>
+              <text x="380" y="162" text-anchor="middle" class="fig-sub">后面改 sort,改的是左边用哪把尺子截窗口,不是把评分推迟到 Fetch</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 名次在 Query 阶段就定。Fetch 不负责「再算一遍谁更相关」——它只搬运已经赢了的文档正文。</figcaption>
+        </figure>
+
+        <p>本课索引 <code>tut-l20-bm25</code> 用 <strong>1 个 shard</strong>:默认 <code>query_then_fetch</code> 用各 shard <strong>本地</strong> IDF,单 shard 时本地就是全局,手算才能和 explain 对上。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>lucene/similarity/LegacyBM25Similarity.java</code></td><td>ES 默认 BM25:包装 Lucene <code>BM25Similarity</code>,<code>scorer</code> 把 boost 乘上 <code>(1+k1)</code></td></tr>
+          <tr><td><code>index/similarity/SimilarityProviders.java</code></td><td><code>createBM25Similarity</code>:<code>k1</code> 默认 <code>1.2f</code>,<code>b</code> 默认 <code>0.75f</code></td></tr>
+          <tr><td><code>index/query/functionscore/FunctionScoreQueryBuilder.java</code></td><td><code>NAME = "function_score"</code> 仍在;<code>DEFAULT_BOOST_MODE = MULTIPLY</code></td></tr>
+          <tr><td><code>search/sort/ScoreSortBuilder.java</code></td><td>按 <code>_score</code> 排序;构造时默认 DESC</td></tr>
+          <tr><td><code>rest/action/search/RestExplainAction.java</code></td><td><code>GET|POST /{index}/_explain/{id}</code>:只解释一篇,不走第 16 课那两阶段搜索</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:Lucene 10.4.0 的 <code>org.apache.lucene.search.similarities.BM25Similarity</code>(依赖 jar,仓库里没有这份 .java,公式和默认值以它为准)、<code>SimilarityService</code>(DEFAULT_SIMILARITY = "BM25")、<code>ExplainPhase</code>(搜索里的 explain 是 Fetch 子阶段)、<code>TransportExplainAction</code>(<code>indices:data/read/explain</code>)、<code>QueryPhaseCollectorManager</code>(sort==null → TopScoreDocCollectorManager)、<code>CombineFunction</code>、<code>WeightFactorFunction</code>、<code>RescorePhase</code>。</p>
+
+        <h2>3. 手算 BM25:两个词、两篇文档</h2>
+        <p>玩具语料 2 篇,查询是第 18 课那种双词 match。字段 title 用标准分析器,切完没有停用词可删:</p>
+        <table class="ktable">
+          <tr><th>_id</th><th>title 原文</th><th>es 的 TF</th><th>tut 的 TF</th><th>dl</th></tr>
+          <tr><td>a</td><td><code>elasticsearch tutorial</code></td><td>1</td><td>1</td><td>2</td></tr>
+          <tr><td>b</td><td><code>elasticsearch elasticsearch</code></td><td>2</td><td>0</td><td>2</td></tr>
+        </table>
+        <p>集合统计(单 shard、2 篇都有 title):<code>N=2</code>,<code>avgdl=2</code>(两篇 <code>dl/avgdl=1</code>,长度归一化项=1,先不干扰 TF);<code>DF(es)=2</code>,<code>DF(tut)=1</code>。现代 Lucene 不再乘 coord,一篇的分 = 各匹配 term 的 BM25 <strong>相加</strong>:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 215" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="15" width="230" height="128" rx="10" class="fig-box"/>
+              <text x="130" y="40" text-anchor="middle" class="fig-name">IDF · 稀有度</text>
+              <text x="130" y="68" text-anchor="middle" class="fig-key">ln(1+(N-n+0.5)</text>
+              <text x="130" y="90" text-anchor="middle" class="fig-key">/(n+0.5))</text>
+              <text x="130" y="114" text-anchor="middle" class="fig-sub">n 越小越贵</text>
+              <text x="130" y="134" text-anchor="middle" class="fig-sub">依赖本 shard 的 N/n</text>
+              <rect x="265" y="15" width="230" height="128" rx="10" class="fig-box-hot"/>
+              <text x="380" y="40" text-anchor="middle" class="fig-name">tf 饱和 · 词频</text>
+              <text x="380" y="68" text-anchor="middle" class="fig-key">freq×(k1+1)</text>
+              <text x="380" y="90" text-anchor="middle" class="fig-key">/(freq+k1)</text>
+              <text x="380" y="114" text-anchor="middle" class="fig-sub">1→2 值钱,20→21 不动</text>
+              <text x="380" y="134" text-anchor="middle" class="fig-sub">k1=1.2 控制弯多早</text>
+              <rect x="515" y="15" width="230" height="128" rx="10" class="fig-box"/>
+              <text x="630" y="40" text-anchor="middle" class="fig-name">b · 长度归一化</text>
+              <text x="630" y="68" text-anchor="middle" class="fig-key">k1×(1-b</text>
+              <text x="630" y="90" text-anchor="middle" class="fig-key">+b×dl/avgdl)</text>
+              <text x="630" y="114" text-anchor="middle" class="fig-sub">b=0.75</text>
+              <text x="630" y="134" text-anchor="middle" class="fig-sub">短文档里出现更显眼</text>
+              <text x="380" y="175" text-anchor="middle" class="fig-sub">score = Σ IDF × tf_sat;ES 默认 LegacyBM25Similarity 把 (1+k1) 折进 boost</text>
+              <text x="380" y="199" text-anchor="middle" class="fig-sub">所以 explain 里 boost=2.2(查询没写 boost)——手算用这个经典形式才对得上 _score</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · BM25 三件套:稀有度(越少越贵)、饱和(出现过远大于再堆一次)、长度归一化(短文档占便宜)。本玩具里 dl=avgdl,第三件恰好为 1。</figcaption>
+        </figure>
+
+        <p>代入数字(<code>k1=1.2</code>,<code>k1+1=2.2</code>):<code>IDF(es) = ln(1+(2-2+0.5)/(2+0.5)) = ln(1.2) ≈ 0.1823</code>;<code>IDF(tut) = ln(1+(2-1+0.5)/(1+0.5)) = ln(2) ≈ 0.6931</code>;<code>tf_sat(1) = 2.2/2.2 = 1.000</code>,<code>tf_sat(2) = 4.4/3.2 = 1.375</code>。</p>
+        <table class="ktable">
+          <tr><th>文档</th><th>es 贡献</th><th>tut 贡献</th><th>_score</th></tr>
+          <tr><td>a</td><td>0.1823 × 1.000 = 0.1823</td><td>0.6931 × 1.000 = 0.6931</td><td><strong>≈ 0.8755</strong></td></tr>
+          <tr><td>b</td><td>0.1823 × 1.375 ≈ 0.2507</td><td>未命中 = 0</td><td><strong>≈ 0.2507</strong></td></tr>
+        </table>
+        <p>只搜 <code>elasticsearch</code> 时:a ≈ 0.1823,b ≈ 0.2507,<strong>b 赢</strong>;双词查询 <strong>a 翻盘</strong>。把这场胜负连起来算:</p>
+        <div class="fp-slot" data-flow="ch20-bm25"></div>
+
+        <p><strong>饱和</strong>单独看一眼:同一组 k1、dl=avgdl,只看 <code>freq × 2.2 / (freq + 1.2)</code>——TF 1→2 是 Δ+0.375(增 37.5%),TF 20→21 只 Δ+0.006(约小 67 倍)。若 TF 线性加,堆 21 次比堆 1 次高 21 倍,关键词堆砌直接买到排名。<code>k1</code> 越大曲线越晚弯,<code>k1=0</code> 完全不管词频;<code>b=0.75</code> 让比平均长的文档同样的 TF 贡献变小,<code>b=0</code> 关闭长度归一化,<code>b=1</code> 完全按 dl/avgdl 缩放。</p>
+
+        <h2>4. Lucene 的实现,以及 ES 为什么包一层 Legacy</h2>
+        <p>公式来自 Lucene 10.4.0 <code>BM25Similarity</code>(Gradle 依赖,<code>version.properties: lucene = 10.4.0</code>)。无参构造默认 <code>k1=1.2、b=0.75、discountOverlaps=true</code>(position increment 为 0 的 token,如同义词叠加,不计入文档长度);k1 必须 ≥ 0,b 在 [0,1]。ES 侧把默认值又写了一遍,创建的是 <strong>Legacy</strong> 包装:</p>
+        <pre class="code-block"><code>// SimilarityProviders.createBM25Similarity(节选)
+float k1 = settings.getAsFloat("k1", 1.2f);
+float b  = settings.getAsFloat("b", 0.75f);
+return new LegacyBM25Similarity(k1, b, discountOverlaps);
+
+// LegacyBM25Similarity.scorer —— (1+k1) 折进 boost
+return bm25Similarity.scorer(boost * (1 + bm25Similarity.getK1()), collectionStats, termStats);</code></pre>
+        <p>Lucene 的 <code>BM25Scorer.score</code> 不写教科书分式,写成 <code>weight - weight / (1 + freq × normInverse)</code>(与经典式等价),分子里<strong>没有</strong> (k1+1)——Lucene 认为它是与 freq 无关的常数、不改变排序,拿掉了;explain 树因此长成 <code>tf = freq / (freq + k1×(1-b+b×dl/avgdl))</code>。ES 的 Legacy 层把 <code>(1+k1)</code> 乘进 boost:查询 boost=1.0 时 Lucene 看到 <strong>2.2</strong>。所以 <strong>Legacy 分数 = (1+k1) × Lucene_BM25 = idf × freq×(k1+1) / (freq + k1×(1-b+b×dl/avgdl))</strong>——§3 手算用的经典形式。类已标 <code>@Deprecated</code>(新索引应直接用 BM25Similarity),但 9.4.0 默认路径仍是 Legacy,读 explain 必须带着这个倍数。读 <code>BM25Similarity</code> 盯三个入口:<code>idf(docFreq, docCount)</code>(公式本体)、<code>idfExplain</code>(给 explain 用,带 n/N 子解释)、<code>scorer(boost, ...)</code>(预计算 avgdl、256 档长度缓存,返回 BM25Scorer)。字段 mapping 里 <code>"similarity"</code> 按名字取 provider;<code>boolean</code> 对应 <code>BooleanSimilarity</code>(命中即常数分);内置还有 DFR / IB / LMDirichlet 等,默认路径就是 BM25。</p>
+
+        <h2>5. explain:true 与 _explain/{id} 不是同一条路</h2>
+        <p>两条 API 都调 Lucene <code>IndexSearcher.explain(query, docId)</code>,看到的公式树是同一棵,差在<strong>谁被解释、走哪次往返</strong>。搜索请求上的 <code>explain:true</code> 真正算解释的是 <strong>Fetch 子阶段</strong>:</p>
+        <pre class="code-block"><code>// ExplainPhase.getProcessor(节选)——只对已进全局窗口、正被加载 _source 的 hit
+final int topLevelDocId = hitContext.hit().docId();
+Explanation explanation = context.searcher().explain(context.rewrittenQuery(), topLevelDocId);
+hitContext.hit().explanation(explanation);</code></pre>
+        <p>对 size=10 的搜索开 explain,最多解释 10 篇,不是全部命中;每篇一次 explain 比 score() 重,别在生产热路径默认打开。<code>GET /{index}/_explain/{id}</code> 则是 <code>TransportSingleShardAction</code>:按 _id 路由到<strong>一个</strong> shard(像 GET,不像 SEARCH),先 Engine.Get 确认存在再解释——哪怕这篇排在第 10000 名。源码留有 TODO:_explain 不做跨 shard DFS 收集,IDF 可能与带 explain 的普通 search 不一致。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="15" width="355" height="125" rx="10" class="fig-box-hot"/>
+              <text x="192" y="40" text-anchor="middle" class="fig-name">_search + explain:true</text>
+              <text x="192" y="68" text-anchor="middle" class="fig-sub">Fetch 子阶段 ExplainPhase</text>
+              <text x="192" y="92" text-anchor="middle" class="fig-sub">只解释窗口里的 hit</text>
+              <text x="192" y="116" text-anchor="middle" class="fig-sub">挂在 hits.hits[]._explanation</text>
+              <rect x="390" y="15" width="355" height="125" rx="10" class="fig-box"/>
+              <text x="567" y="40" text-anchor="middle" class="fig-name">GET idx/_explain/id</text>
+              <text x="567" y="68" text-anchor="middle" class="fig-sub">按 _id 路由一个 shard</text>
+              <text x="567" y="92" text-anchor="middle" class="fig-sub">解释任意一篇,不做两阶段</text>
+              <text x="567" y="116" text-anchor="middle" class="fig-sub">顶层 explanation + matched</text>
+              <text x="380" y="172" text-anchor="middle" class="fig-sub">何时用哪个:前者问「返回的这 10 篇为什么是这个顺序」,后者问「这篇为什么没进结果」</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 同一棵 Lucene explain 树,两个入口:一个跟着搜索走 Fetch,一个按 id 单篇直达。</figcaption>
+        </figure>
+
+        <h2>6. function_score:在 BM25 之后再乘一层</h2>
+        <p>BM25 只看词频、稀有度、长度;业务常要「同样相关,浏览量高的往前」。这条 DSL 9.4.0 里<strong>仍叫</strong> function_score,默认把查询分和函数分<strong>相乘</strong>(<code>DEFAULT_BOOST_MODE = MULTIPLY</code>;另有独立的 script_score 查询,是另一条 Builder)。<code>boost_mode</code> 是「查询 BM25 ⋈ 函数结果」怎么合,<code>score_mode</code> 是多个 <code>functions[]</code> 之间怎么合:</p>
+        <pre class="code-block"><code>// CombineFunction.MULTIPLY —— 默认 boost_mode 写得很直
+return (float) (queryScore * Math.min(funcScore, maxBoost));</code></pre>
+        <p><code>weight: 2</code> 走 <code>WeightBuilder</code>:<code>doToFunction</code> 返回 null,父类包成 <code>WeightFactorFunction(2, null)</code>,内部缺函数用常数 1.0 再乘 weight → 函数分就是 2。于是 Doc b:BM25 ≈ 0.251 × 2 = <strong>≈ 0.502</strong>;<strong>乘的是已算完的 BM25,不改 IDF/TF</strong>——两篇同乘 2,名次不变,只是绝对值翻倍(实验 6)。其它函数仍在:<code>field_value_factor</code> 读数值字段、gauss 等 decay、脚本。<code>boost_mode: replace</code> 扔掉 BM25 只留函数分,效果接近字段 sort,但仍走「算一个 _score 再按分数截 Top-N」,不是换 Doc Values 排序。</p>
+
+        <h2>7. sort:换掉截 Top-N 的尺子</h2>
+        <p>不写 sort 时 <code>SearchContext.sort()</code> 保持 null,<code>QueryPhaseCollectorManager</code> 建 <code>TopScoreDocCollectorManager</code>——默认「按分数取 Top-N」。JSON 里出现 sort 后,<code>SortBuilder.fromXContent</code> 分流:字段名 <code>"_score"</code> → ScoreSortBuilder(默认 DESC),否则 FieldSortBuilder:</p>
+        <pre class="code-block"><code>// SortBuilder.fieldOrScoreSort
+if (fieldName.equals(ScoreSortBuilder.NAME)) {   // "_score"
+    return new ScoreSortBuilder();
+} else {
+    return new FieldSortBuilder(fieldName);
+}</code></pre>
+        <p>按字段排换 <code>TopFieldCollectorManager</code>,读 Doc Values:「什么叫更大」从 _score 换成字段值——BM25 很高、views 很低的文档可能进不了窗口,Fetch 永远看不到它。按字段排时 _score 默认不进命中(<code>track_scores</code> 默认 false),要旁路看 BM25 就显式打开(实验 7、8)。</p>
+        <table class="ktable">
+          <tr><th>DSL</th><th>Builder</th><th>Lucene 侧</th></tr>
+          <tr><td><code>"_score"</code></td><td>ScoreSortBuilder</td><td>SortField.Type.SCORE</td></tr>
+          <tr><td><code>{"views":"desc"}</code></td><td>FieldSortBuilder</td><td>按字段类型的 SortField(数值走 numeric DocValues)</td></tr>
+          <tr><td><code>_geo_distance</code></td><td>GeoDistanceSortBuilder</td><td>距离比较器</td></tr>
+          <tr><td><code>_script</code></td><td>ScriptSortBuilder</td><td>脚本比较器</td></tr>
+          <tr><td><code>_doc</code></td><td>字段名 _doc</td><td>按 Lucene 内部 doc id,最快但不稳定</td></tr>
+        </table>
+        <p><strong>Rescore</strong> 是「先便宜后昂贵」:Query 阶段收集完 shard 本地 Top 之后,<code>RescorePhase.execute</code> 对每条 RescoreContext 用更贵的查询(常是 match_phrase)重打<strong>最多 window_size 篇</strong>(默认 10),rescored 分数再作为 (docId, score) 送回协调节点——不是 Fetch 之后的第三阶段,也不是全局合并后的精排;窗口以外的文档带着原始 BM25 离开,没有第二次机会。它禁止和普通 sort 同用(<code>Cannot use [sort] option in conjunction with [rescore]</code>)。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>一个 2 篇文档的单分片索引 <code>tut-l20-bm25</code> 打全场:先单词/双词查询看胜负互换,再 explain 两条入口对上手算公式,然后 function_score 翻倍、sort 换尺子、track_scores 旁路看分,最后加一篇不相干文档观察「老文档的分数为什么会变」。</p>
+
+        <h3>实验 0-1:建索引、两篇对照文档</h3>
+        <div class="exp-slot" data-exp="ch20-00-setup"></div>
+        <div class="exp-slot" data-exp="ch20-01-bulk"></div>
+
+        <h3>实验 2-3:单词 b 赢,双词 a 翻盘</h3>
+        <div class="exp-slot" data-exp="ch20-02-match-one"></div>
+        <div class="exp-slot" data-exp="ch20-03-match-two"></div>
+
+        <h3>实验 4-5:explain 两条入口</h3>
+        <div class="exp-slot" data-exp="ch20-04-explain-search"></div>
+        <div class="exp-slot" data-exp="ch20-05-explain-api"></div>
+
+        <h3>实验 6-8:function_score 与 sort</h3>
+        <div class="exp-slot" data-exp="ch20-06-func-score"></div>
+        <div class="exp-slot" data-exp="ch20-07-sort-views"></div>
+        <div class="exp-slot" data-exp="ch20-08-track-scores"></div>
+
+        <h3>实验 9-10:IDF 不是查询常量</h3>
+        <div class="exp-slot" data-exp="ch20-09-add-doc"></div>
+        <div class="exp-slot" data-exp="ch20-10-score-changed"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch20-11-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 在 tut-l20-bm25 再加一篇 {"title":"unrelated document"} 并 refresh。再搜 elasticsearch,原来 a、b 的 _score 变大、变小还是不变?</summary>
+          <div class="answer">
+            <p><strong>变大</strong>。N 从 2 变 3、n 仍是 2,IDF 从 ln(1.2)≈0.182 升到 ln(1+(3-2+0.5)/(2+0.5))=ln(1.6)≈0.470——词相对集合更稀有,同样 TF 贡献更高;TF 饱和项不变。若答「不变」,是把 IDF 当成了查询常量:它依赖当前 shard 的 N/n,默认 QTF 用本地统计(实验 9-10 验证)。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么 Query 阶段必须先打完 BM25、Fetch 才取 _source?若先搬全部命中正文再算分,第 16 课哪条带宽不变量破了?explain:true 为什么放 Fetch 子阶段?</summary>
+          <div class="answer">
+            <p>Query 只传 (docId, score),协调节点截完全局窗口再 Fetch 正文——「不要把 30 篇 _source 搬去只为丢掉 20 篇」。先搬正文再打分,带宽按命中全集涨,而评分并不需要 _source(BM25 用倒排里的 TF 和范数)。explain 树比一个 float 大几个数量级,所以 ExplainPhase 只对已经赢了、正要返回的 hit 跑;Query 阶段给每个候选 explain,窗口外的工作全浪费。_explain/{id} 是另一条单文档动作,专门解释「没进窗口的那篇」。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 要「浏览量高的往前」,选 sort: [{"views":"desc"}] 还是 function_score 把 views 乘进 _score?谁还能让 BM25 当主序?Rescore 能替代它们吗?</summary>
+          <div class="answer">
+            <p>sort 把截窗口的键换成 views:BM25 冠军若浏览量低,根本不被 Fetch;_score 默认还不算。function_score 乘 views 时主序仍是一个分数,BM25 还在乘积里——相关但浏览量为 0 的文档不会仅因字段小被尺子扔掉。boost_mode: replace 效果接近字段 sort,但仍走打分收集器。Rescore 不能替代:只重打各 shard 已进 window_size 的那一小撮、禁止和 sort 同用;它解决「便宜模型粗筛 + 贵模型精排」,不是「业务字段当主键排序」。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 拿裸 Lucene BM25 对 ES 的 _score:</span>差 (k1+1)=2.2 倍。ES 默认 LegacyBM25Similarity 把倍数折进 boost——explain 里 boost=2.2 不是查询写了 2.2,tf 描述里没有 (k1+1) 也不是公式变了。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为 TF 越多越好:</span>饱和项让 1→2 增 37.5%、20→21 只剩 0.3%。关键词堆砌在 BM25 里买不到排名;k1=0 时词频干脆不参与。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为同查询同分数:</span>IDF 依赖本 shard 的 N/n,写入不相干文档都会改老文档的分数(实验 10)。对比分数要固定语料,跨集群比绝对值更没意义。</div>
+        <div class="callout warn"><span class="co-title">🕳 sort 之后找 _score:</span>按字段排时 _score 默认 null(track_scores=false);而且尺子已换成 Doc Values,BM25 冠军可能根本不进窗口——sort 不是 _score 的并列装饰。</div>
+        <div class="callout warn"><span class="co-title">🕳 rescore 和 sort 一起写:</span>直接报错 Cannot use [sort] option in conjunction with [rescore]。rescore 只重打各 shard 本地 window_size 一小撮,不是全局精排,更不是第三阶段。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>名次在 Query 阶段就定;Fetch 不算分,只搬已经赢了的正文</td></tr>
+          <tr><td>公式</td><td>score = Σ IDF×tf_sat;k1=1.2、b=0.75;IDF=ln(1+(N-n+0.5)/(n+0.5));ES 的 Legacy 把 (1+k1) 折进 boost(=2.2)</td></tr>
+          <tr><td>两词两篇</td><td>tutorial DF=1 压过 elasticsearch 堆两次:0.875 vs 0.251;单词查询则 b 赢(0.251 vs 0.182)</td></tr>
+          <tr><td>饱和</td><td>TF 1→2 增 37.5%,20→21 只 +0.006;出现过远大于再堆一次</td></tr>
+          <tr><td>两个 explain</td><td>explain:true 是 Fetch 子阶段,只解释窗口内;_explain/{id} 按 id 单 shard,解释任意一篇</td></tr>
+          <tr><td>function_score</td><td>boost_mode 默认 multiply;weight=2 → BM25×2,名次不变;replace 扔掉 BM25</td></tr>
+          <tr><td>sort / rescore</td><td>写字段 sort 换 TopFieldCollectorManager(DocValues),_score 默认不回;rescore 在 Query 末尾重打 window_size 篇,禁与 sort 同用</td></tr>
+        </table>
+        <p><strong>心法:名次在 Query 阶段就定——BM25 算分,function_score 改分,sort 换尺子;Fetch 只负责搬运赢家。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch19.html">← 第 19 课:聚合框架</a>
+          <a href="ch21.html">第 21 课:集群状态 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch20.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

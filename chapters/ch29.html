@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 29 课:安全机制 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch29" data-ch="ch29">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 29 · 第六篇 · 高级专题</div>
+        <h1>安全机制</h1>
+        <div class="ch-meta-line">先认证再授权,链上第一个成功即停 · 约 15 分钟 · 前置:第 6、7、28 课 · 19 个实验 + 认证链动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>对安全节点(<code>localhost:9201</code>)发一次不带凭据的 <code>GET /</code>,预测并对照 <strong>401</strong> + <code>missing authentication credentials</code> + 双 <code>WWW-Authenticate</code> 挑战;再带 <code>elastic:elastic-password</code> 对照 <strong>200</strong>;用错密码拿到<strong>另一种 401</strong>(<code>unable to authenticate user</code>)——同码不同因,文案就是链走到哪一步的指纹。</li>
+          <li>打开 <code>AuthenticationService</code> 构造函数,按源码背出认证链顺序:(可选 Pluggable)→ Service Account → OAuth2 token → API Key → Realms;说出 <code>curl -u</code> 为什么前三环全 CONTINUE、Basic 落在最后一环 Realms 的 <code>UsernamePasswordToken.extractToken</code>。</li>
+          <li>亲手造一个 <strong>403</strong>:建只有 <code>tut-l29-*</code> read 权限的角色和用户 alice,让 alice 打 <code>GET /</code> 拿 <code>action [cluster:monitor/main] is unauthorized … with effective roles</code>;再让 alice 打 <code>_security/_authenticate</code> 靠 <code>checkSameUserPermissions</code> 拿 200——认证失败 401、授权失败 403、问自己是谁免授权不免认证。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <div class="callout tip"><span class="co-title">🕹 本课需要两座集群:</span>9200 一直用的「安全关闭」学习节点照旧;<strong>9201</strong> 是本课新开的「安全开启」节点——终端跑 <code>bash docker/start-secure.sh</code>(账号 <code>elastic / elastic-password</code>),本课实验已固定指明各自端点,互不干扰。安全关闭时 <code>_security</code> 整组路由不存在,所以这套实验必须在 9201 上做。</div>
+
+        <h2>1. 心智模型:先问「你是谁」,再问「你能不能」</h2>
+        <p>安全开启时,HTTP 请求进节点有两道闸。第一道是<strong>认证(authentication)</strong>:从 <code>Authorization</code> 头里抽出一种凭据,按固定名单<strong>依次尝试</strong>,谁先 SUCCESS 谁赢,后面不再试。第二道是<strong>授权(authorization)</strong>:已经知道你是谁,再用角色(RBAC)判断这个 action 能不能做。认证发生在 handler 跑起来之前(<code>Security.java</code>:先把凭据填进 ThreadContext,再 <code>authenticationService.authenticate</code>)——所以实验 1 的 401 响应体里连 <code>cluster_name</code> 都没有,<code>RestMainAction</code> 根本没跑。用一次具体请求走链:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 430" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch29f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="33" text-anchor="middle" class="fig-name">curl -u elastic:elastic-password GET http://localhost:9201/</text>
+              <text x="380" y="50" text-anchor="middle" class="fig-sub">curl 把它编成 Authorization: Basic <base64(user:pass)></text>
+              <line x1="380" y1="57" x2="380" y2="71" class="fig-arrow" marker-end="url(#ch29f1-arrow)"/>
+              <rect x="15" y="71" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="89" text-anchor="middle" class="fig-name">Service Account:头不是 Bearer → CONTINUE</text>
+              <text x="380" y="106" text-anchor="middle" class="fig-sub">CONTINUE 不是失败,是「这不是我的凭据,让下一家」</text>
+              <line x1="380" y1="113" x2="380" y2="127" class="fig-arrow" marker-end="url(#ch29f1-arrow)"/>
+              <rect x="15" y="127" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="145" text-anchor="middle" class="fig-name">OAuth2 token:同样看 Bearer → CONTINUE</text>
+              <text x="380" y="162" text-anchor="middle" class="fig-sub">与上一环共用同一种头,解析不成再让下一家用</text>
+              <line x1="380" y1="169" x2="380" y2="183" class="fig-arrow" marker-end="url(#ch29f1-arrow)"/>
+              <rect x="15" y="183" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="201" text-anchor="middle" class="fig-name">API Key:前缀不是 ApiKey → CONTINUE</text>
+              <text x="380" y="218" text-anchor="middle" class="fig-sub">独立前缀,不与 Basic 抢;同塞 ApiKey+Basic 时 Basic 根本不会被问到</text>
+              <line x1="380" y1="225" x2="380" y2="239" class="fig-arrow" marker-end="url(#ch29f1-arrow)"/>
+              <rect x="15" y="239" width="730" height="46" rx="9" class="fig-box-hot"/>
+              <text x="380" y="258" text-anchor="middle" class="fig-name">Realms(最后一环):UsernamePasswordToken 抽出 Basic → SUCCESS,停链</text>
+              <text x="380" y="278" text-anchor="middle" class="fig-sub">Realm 内部再 first-match:reserved 永远第一(实测 elastic 走 reserved),然后 file/native</text>
+              <line x1="380" y1="285" x2="380" y2="299" class="fig-arrow" marker-end="url(#ch29f1-arrow)"/>
+              <rect x="15" y="299" width="730" height="46" rx="9" class="fig-box"/>
+              <text x="380" y="318" text-anchor="middle" class="fig-name">授权:AuthorizationService.authorize(不再看 Authorization 头)</text>
+              <text x="380" y="338" text-anchor="middle" class="fig-sub">GET / = cluster:monitor/main;superuser 的 checkClusterAction 过</text>
+              <line x1="380" y1="345" x2="380" y2="359" class="fig-arrow" marker-end="url(#ch29f1-arrow)"/>
+              <rect x="15" y="359" width="730" height="42" rx="9" class="fig-box"/>
+              <text x="380" y="377" text-anchor="middle" class="fig-name">HTTP 200</text>
+              <text x="380" y="394" text-anchor="middle" class="fig-sub">角色不过是 403(action unauthorized,实验 9 的 alice);节点不认识你才是 401</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 一次带 Basic 凭据的 GET /:认证链 first-match,SUCCESS 即停,之后才轮到 RBAC。</figcaption>
+        </figure>
+
+        <p>这张图证明三件事:<strong>认证在授权前面</strong>;<strong>链是 first-match</strong>(黄色级的 CONTINUE 不是失败);<strong>Basic 不在链的最前面</strong>——它藏在最后一环 <code>RealmsAuthenticator</code> 里。旧课把顺序画成 Token → API Key → LDAP → SAML,漏了 Service Account,也把 Realms 里的 Basic 和 SAML 摆成了同一层海报;SAML/OIDC 也是 Realm,只是认的凭据不是 <code>Basic </code> 用户名密码,本课不展开。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>x-pack/plugin/security/.../authc/AuthenticationService.java</code></td><td>HTTP 认证入口;构造函数里<strong>写死</strong>链的成员顺序</td></tr>
+          <tr><td><code>x-pack/plugin/security/.../authc/AuthenticatorChain.java</code></td><td>成员装进不可变列表;IteratingActionListener 遇 CONTINUE 才试下一个;全失败走 handleNullToken</td></tr>
+          <tr><td><code>x-pack/plugin/security/.../authc/RealmsAuthenticator.java</code></td><td>链上最后一环:各 Realm 的 token() 抽凭据,第一个非 null 即用;Basic 从这里进</td></tr>
+          <tr><td><code>x-pack/plugin/security/.../authz/AuthorizationService.java</code></td><td>授权入口:已有 Authentication 之后 resolveAuthorizationInfo,再按 cluster / index action 检查</td></tr>
+          <tr><td><code>x-pack/plugin/security/.../authz/RBACEngine.java</code></td><td>默认引擎:CompositeRolesStore 得到 Role,checkClusterAction / checkIndicesAction</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>Authenticator.java</code>(extractApiKeyFromHeader / extractBearerTokenFromHeader)、<code>UsernamePasswordToken.java</code>(Basic 前缀与 extractToken)、<code>DefaultAuthenticationFailureHandler.java</code>(401 + WWW-Authenticate)、<code>Exceptions.java</code>(authenticationError → 401,authorizationError → 403)、<code>CompositeRolesStore.java</code>(角色装配)、<code>Security.java</code>(两步:填 ThreadContext → authenticate)。</p>
+
+        <h2>3. 认证链 first-match,顺序以构造函数为准</h2>
+        <p>每个 Authenticator 做两件事:<code>extractCredentials</code> 看头里有没有<strong>自己认识的</strong>凭据;有则 <code>authenticate</code> 校验。抽不到返回 null,链把它当成 <code>notHandled()</code>。三种结局写在 <code>AuthenticationResult.Status</code>:</p>
+        <table class="ktable">
+          <tr><th>状态</th><th>含义</th><th>链怎么办</th></tr>
+          <tr><td><code>SUCCESS</code></td><td>这环认出并校验通过</td><td><strong>停</strong>。写出 Authentication,后面的不再跑</td></tr>
+          <tr><td><code>CONTINUE</code></td><td>没抽到凭据,或抽到了但校验失败且允许别人再试</td><td>试下一个</td></tr>
+          <tr><td><code>TERMINATE</code></td><td>这环认定整条链必须停(凭据坏到不可恢复)</td><td><strong>停</strong>,失败</td></tr>
+        </table>
+        <p>真实顺序不是背出来的,是构造函数的参数顺序:</p>
+        <pre class="code-block"><code>// x-pack/plugin/security/.../authc/AuthenticationService.java(节选)
+this.authenticatorChain = new AuthenticatorChain(settings, operatorPrivilegesService, anonymousUser,
+    new AuthenticationContextSerializer(),
+    pluggableAuthenticatorChain,                                        // 有插件自定义认证器时插在最前
+    new ServiceAccountAuthenticator(serviceAccountService, nodeName, meterRegistry),
+    new OAuth2TokenAuthenticator(tokenService, meterRegistry),
+    new ApiKeyAuthenticator(apiKeyService, nodeName, meterRegistry),
+    new RealmsAuthenticator(numInvalidation, lastSuccessfulAuthCache, meterRegistry)
+);</code></pre>
+        <p>迭代停不停,看的就是 CONTINUE 这个谓词——SUCCESS 不满足谓词,迭代结束;四环都 CONTINUE 且从未抽出 token,才进 <code>handleNullToken</code>。链按<strong>头前缀</strong>分流:</p>
+        <table class="ktable">
+          <tr><th>顺序</th><th>Authenticator</th><th>认的头</th><th>curl -u 时</th></tr>
+          <tr><td>0(可选)</td><td>PluggableAuthenticatorChain</td><td>插件自己说了算</td><td>教程集群通常没有</td></tr>
+          <tr><td>1</td><td>ServiceAccountAuthenticator</td><td><code>Bearer</code> 且能解析成 service account token</td><td>头是 Basic → CONTINUE</td></tr>
+          <tr><td>2</td><td>OAuth2TokenAuthenticator</td><td>同样看 <code>Bearer</code>(access token)</td><td>同样抽不到 → CONTINUE</td></tr>
+          <tr><td>3</td><td>ApiKeyAuthenticator</td><td><code>ApiKey</code> + Base64(id:key)</td><td>前缀不对 → CONTINUE</td></tr>
+          <tr><td>4</td><td>RealmsAuthenticator</td><td>各 Realm 的 token();用户名密码 Realm 认 <code>Basic</code></td><td><strong>在这里命中</strong></td></tr>
+        </table>
+        <p>Service Account 和 OAuth2 <strong>共用</strong> Bearer 前缀:前者先 tryParseToken,解析不成再让 OAuth2 拿同一段 Bearer 去 TokenService。Basic 更靠后的原因在 <code>UsernamePasswordToken.extractToken</code>:头不是 <code>Basic </code> 前缀就返回 null——注释写得很直白,<em>maybe it is valid for another realm</em>。Realms 内部按 <code>getDefaultOrderedRealmList()</code> <strong>再</strong> first-match 一次:reserved 永远第一(实验 4 实测 <code>elastic</code> 走的就是 <code>reserved</code> realm),然后是默认 file、native。<code>curl -u</code> 因此几乎总是:前三环抽不到 → Realms 抽出 UsernamePasswordToken → 某个用户名密码 Realm SUCCESS。若同时塞了 <code>ApiKey</code> 和 <code>Basic</code>,API Key 在前,Basic 根本不会被问到——first-match 的不变量:<strong>一次请求只有一个身份</strong>。</p>
+
+        <h2>4. 两种 401:缺凭据走 handleNullToken,错密码走 authenticationError</h2>
+        <p>无凭据的请求每一环都抽不到 token,链走尽仍是 CONTINUE,且 <code>shouldHandleNullToken()</code> 仍为 true(Realms 只有抽出过 token 才会把它打成 false):</p>
+        <pre class="code-block"><code>// x-pack/plugin/core/.../authc/DefaultAuthenticationFailureHandler.java(节选)
+public ElasticsearchSecurityException missingToken(HttpPreRequest request, ThreadContext context) {
+    return createAuthenticationError("missing authentication credentials for REST request [{}]", null, request.uri());
+}
+// createAuthenticationError 保证 RestStatus.UNAUTHORIZED(401),并加 WWW-Authenticate</code></pre>
+        <p>错密码走另一条:Realms 已抽出 token、<code>setHandleNullToken(false)</code>,迭代结束后 CONTINUE 但不再 handleNullToken,而是 <code>authenticationError("failed to authenticate", …)</code>。同样 401,文案不同——实验 1 与实验 5 的实测对照:</p>
+        <table class="ktable">
+          <tr><th></th><th>无凭据(实验 1)</th><th>错密码 / 用户不存在(实验 5、19)</th></tr>
+          <tr><td>token 抽出过?</td><td>没有(没有任何一环认领)</td><td>有(Basic 头被 extractToken 解码)</td></tr>
+          <tr><td>走的工厂</td><td>missingToken</td><td>authenticationError</td></tr>
+          <tr><td>实测 reason</td><td><code>missing authentication credentials for REST request [/]</code></td><td><code>unable to authenticate user [elastic] for REST request [/]</code></td></tr>
+          <tr><td>响应头</td><td colspan="2">相同:<code>WWW-Authenticate: Basic realm="security", charset="UTF-8"</code> + <code>ApiKey</code>(双挑战,9.4.0 实测)</td></tr>
+        </table>
+
+        <h2>5. 有了 Authentication 才做 RBAC:401 与 403 分家</h2>
+        <p>认证成功后 Authentication 写进 ThreadContext;授权是另一次调用 <code>AuthorizationService.authorize(authentication, action, request, listener)</code>——它不再看 Authorization 头。默认引擎 RBACEngine 先向 CompositeRolesStore 要角色,包成 <code>RBACAuthorizationInfo</code>,随后按 action 名分叉:cluster 动作 → <code>Role.checkClusterAction</code>;index 动作 → <code>Role.checkIndicesAction</code>;都不是 → deny。<code>GET /</code> 是 <code>cluster:monitor/main</code>。拒绝时走 <code>Exceptions.authorizationError</code>,状态是 <strong>403 FORBIDDEN</strong>:</p>
+        <pre class="code-block"><code>// x-pack/plugin/core/.../support/Exceptions.java(节选)
+public static ElasticsearchSecurityException authenticationError(String msg, Object... args) {
+    ElasticsearchSecurityException e = new ElasticsearchSecurityException(msg, RestStatus.UNAUTHORIZED, args);   // 401
+    e.addBodyHeader("WWW-Authenticate", "Basic realm=\"" + XPackField.SECURITY + "\", charset=\"UTF-8\"");
+    return e;
+}
+public static ElasticsearchSecurityException authorizationError(String msg, Object... args) {
+    return new ElasticsearchSecurityException(msg, RestStatus.FORBIDDEN, null, args);                            // 403
+}</code></pre>
+        <table class="ktable">
+          <tr><th></th><th>认证失败</th><th>授权失败</th></tr>
+          <tr><td>发生点</td><td>链还没交出 Authentication</td><td>已经有用户,Role.check* 为 false</td></tr>
+          <tr><td>HTTP</td><td><strong>401</strong> UNAUTHORIZED</td><td><strong>403</strong> FORBIDDEN</td></tr>
+          <tr><td>头</td><td>带 WWW-Authenticate(挑战:请给凭据)</td><td>不挑战,你已表明身份</td></tr>
+          <tr><td>实测文案</td><td>missing credentials / unable to authenticate user</td><td><code>action [cluster:monitor/main] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader]</code></td></tr>
+        </table>
+        <p>有一个例外:<code>checkSameUserPermissions</code>——「问自己是谁」这类动作(<code>GET _security/_authenticate</code>)只要认证过就授予。实验 10 里 alice 连 <code>GET /</code> 都是 403,却能在 <code>_authenticate</code> 拿 200,靠的就是这条,不是 superuser 特供。多角色用户(旧课 alice 挂 log_reader + metric_writer)在授权侧是权限<strong>并集</strong>——RBAC 的加法,和认证链的 first-match <strong>相反</strong>:认证只能有一个身份,授权可以把多个角色叠在这个身份上。字段级/文档级安全(FLS/DLS)也在这之后:index privilege 先允许你搜 <code>logs-*</code>,<code>field_security</code>(grant/except)与 <code>query</code>(文档过滤,自动 AND 进查询)再削一刀——它们不是认证链的一环,是 <code>IndicesAccessControl</code> 包进查询的。</p>
+
+        <h2>6. 两座集群:一个开关,两种世界</h2>
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+              <text x="192" y="16" text-anchor="middle" class="fig-name">9200:安全关闭(本站默认)</text>
+              <rect x="15" y="26" width="355" height="66" rx="9" class="fig-box"/>
+              <text x="192" y="50" text-anchor="middle" class="fig-key">GET / 无凭据 → 200</text>
+              <text x="192" y="72" text-anchor="middle" class="fig-sub">两道闸整个不存在,人人都是匿名 superuser</text>
+              <rect x="15" y="104" width="355" height="50" rx="9" class="fig-box"/>
+              <text x="192" y="125" text-anchor="middle" class="fig-sub">_security/* → 400 no handler(路由未注册)</text>
+              <text x="192" y="145" text-anchor="middle" class="fig-sub">_xpack/usage:available=true, enabled=false</text>
+              <text x="567" y="16" text-anchor="middle" class="fig-name">9201:安全开启(本课实验场)</text>
+              <rect x="390" y="26" width="355" height="66" rx="9" class="fig-box-hot"/>
+              <text x="567" y="50" text-anchor="middle" class="fig-key">GET / 无凭据 → 401 + 双挑战</text>
+              <text x="567" y="72" text-anchor="middle" class="fig-sub">认证链 first-match → Realms → RBAC</text>
+              <rect x="390" y="104" width="355" height="50" rx="9" class="fig-box"/>
+              <text x="567" y="125" text-anchor="middle" class="fig-sub">角色/用户/API key 全套可用(实验 7-12)</text>
+              <text x="567" y="145" text-anchor="middle" class="fig-sub">elastic:elastic-password(superuser, reserved realm)</text>
+              <rect x="15" y="168" width="730" height="66" rx="9" class="fig-box"/>
+              <text x="380" y="190" text-anchor="middle" class="fig-sub">同一份 9.4.0 镜像,一个 xpack.security.enabled 开关两种世界——</text>
+              <text x="380" y="210" text-anchor="middle" class="fig-sub">「关着」不是「路由还在但放行」:handler 整组不注册(第 7 课未知路由 400 的另一应用)</text>
+              <text x="380" y="228" text-anchor="middle" class="fig-sub">9200 上仍有与凭据无关的安全默认:第 28 课的 destructive_requires_name=true</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 双节点对照:排障第一步永远是「我连的是哪个开关状态」。</figcaption>
+        </figure>
+        <p>把两道闸完整走一遍:</p>
+        <div class="fp-slot" data-flow="ch29-auth-chain"></div>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>先跑 <code>bash docker/start-secure.sh</code>(9201,elastic / elastic-password)。主线:无凭据 401 → 带凭据 200 → 错密码拿另一种 401 → 伪造 ApiKey 换一环认领;然后亲手造一个 403:建最小角色(只读 tut-l29-*)+ 用户 alice,看她在 GET /、_cat/indices、PUT 索引上各拿什么,又凭什么能在 _authenticate 上 200;最后回到 9200 对照「安全关闭」的世界,并按序清理 alice 与角色。</p>
+
+        <h3>实验 1-6:9201 上的认证链(三、四种 401)</h3>
+        <div class="exp-slot" data-exp="ch29-01-unauth-root"></div>
+        <div class="exp-slot" data-exp="ch29-02-unauth-self"></div>
+        <div class="exp-slot" data-exp="ch29-03-auth-root"></div>
+        <div class="exp-slot" data-exp="ch29-04-authenticate"></div>
+        <div class="exp-slot" data-exp="ch29-05-wrong-password"></div>
+        <div class="exp-slot" data-exp="ch29-06-bogus-apikey"></div>
+
+        <h3>实验 7-12:亲手造一个 403(alice 与 RBAC)</h3>
+        <div class="exp-slot" data-exp="ch29-07-role"></div>
+        <div class="exp-slot" data-exp="ch29-08-user"></div>
+        <div class="exp-slot" data-exp="ch29-09-alice-403"></div>
+        <div class="exp-slot" data-exp="ch29-10-alice-self"></div>
+        <div class="exp-slot" data-exp="ch29-11-alice-cat"></div>
+        <div class="exp-slot" data-exp="ch29-12-alice-put"></div>
+
+        <h3>实验 13-16:对照 9200(安全关闭)</h3>
+        <div class="exp-slot" data-exp="ch29-13-usage"></div>
+        <div class="exp-slot" data-exp="ch29-14-nohandler"></div>
+        <div class="exp-slot" data-exp="ch29-15-nohandler-key"></div>
+        <div class="exp-slot" data-exp="ch29-16-anon-root"></div>
+
+        <h3>清理(17→19:删用户、删角色、验证)</h3>
+        <div class="exp-slot" data-exp="ch29-17-del-user"></div>
+        <div class="exp-slot" data-exp="ch29-18-del-role"></div>
+        <div class="exp-slot" data-exp="ch29-19-alice-gone"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 无凭据请求与错密码请求,HTTP 状态相同吗?reason 相同吗?哪一次会经过 UsernamePasswordToken.extractToken?哪一次会调用 handleNullToken?</summary>
+          <div class="answer">
+            <p>都是 401,reason 不同。无凭据:没有任何 Authenticator 抽出 token,链全 CONTINUE,shouldHandleNullToken 仍 true → handleNullToken → missing authentication credentials。错密码:Basic 头被 UsernamePasswordToken.extractToken 解码出用户与错密码,Realms 校验失败后 CONTINUE,但已 setHandleNullToken(false) → authenticationError → unable to authenticate user。两次都带 WWW-Authenticate,都还没进 RBAC。实验 19 补第三种:用户被删,文案与错密码同款——token 抽出过,只是查无此人。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么认证必须 first-match,不能「API Key 验一下、Basic 再验一下,两个都过才放行」或「两个都过就权限取并集」?若改成并集,哪条不变量破了?</summary>
+          <div class="answer">
+            <p>first-match 保证一次请求只有一个主体。API Key 在链上先于 Realms:同时出现时以 API Key 为准,Basic 根本不会被问到。改成「都要过」,合法的只用 -u 的请求会被 API Key 环拖死;改成「都过则并集」,同一请求可能同时是「受限 API Key」和「superuser 密码」,审计里的 Authentication、API Key 自己的 role_descriptors、run-as 全部失去「这是谁」的唯一答案。授权侧角色可以叠加(并集),认证侧身份不能——两个方向的规则相反,这不是不一致,是分工。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. API Key 做成链上独立的 ApiKeyAuthenticator(排在 Realms 前),Basic 只作为 Realms 里的一种 token()。另一种设计是把 Basic 也提成平级 Authenticator。各付什么换什么?几乎只用 -u 的集群,每请求先过前三环,划算吗?</summary>
+          <div class="answer">
+            <p>API Key 独立且靠前:校验走 ApiKeyService(id+key、过期、自带 role_descriptors),不必先解析成某个 Realm 用户。Basic 留在 Realms:与 reserved/file/native(及启用的 LDAP 等)共用「用户名密码 → User → 角色」这条路,避免再复制一套密码校验,也让「file 与 native 谁先」继续复用 Realm 顺序。代价是每次 Basic 请求前三环各做一次前缀判断——见不到 Bearer / ApiKey 就返回 null,比一次磁盘/网络 Realm 查询便宜得多,教程集群付得起。把 Basic 提成平级可以让纯密码集群少绕 Realms 列表,但拆开 UsernamePasswordRealm 的共用抽取,得不偿失。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 把 401 当「没权限」:</span>没权限是 403(身份就位、角色不过,文案带 effective roles);401 是「我还不承认你是谁」。两种 401 还要再分:missing credentials(token 没抽出过)与 unable to authenticate user(抽出过、校验失败)——排障时文案就是链走到哪一步的指纹。</div>
+        <div class="callout warn"><span class="co-title">🕳 背旧课那张 Token→API Key→LDAP→SAML 海报:</span>漏了 Service Account,层级也错了。9.4.0 链:(可选 Pluggable)→ Service Account → OAuth2 → API Key → Realms;Basic 不是链上第五个兄弟,是 Realms 里 UsernamePasswordToken.extractToken 认的头;SAML/OIDC 是 Realm,不是链环。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为主管账号失败是连接问题:</span>端口听着呢——401 + WWW-Authenticate 挑战就是它在说话。也别把「安全关闭」当成「路由还在但放行」:_security 整组 handler 不注册,GET /_security/_authenticate 在 9200 是 400 no handler(第 7 课口径)。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为 _authenticate 免认证:</span>它免的是授权(checkSameUserPermissions:认证过即可问自己是谁),不免认证——无凭据时照样 401(实验 2)。alice 能 200 而 GET / 403,正是这两层分开的证据。</div>
+        <div class="callout warn"><span class="co-title">🕳 混淆认证并集/角色并集:</span>多角色在授权侧是权限并集(RBAC 的加法);认证侧一次请求只能有一个身份(first-match)。同时塞 ApiKey 和 Basic,API Key 赢,Basic 不会被问到。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>先认证(你是谁)后授权(你能不能);两次机会拒绝,状态码不同</td></tr>
+          <tr><td>链顺序</td><td>(可选 Pluggable)→ Service Account → OAuth2(Bearer)→ API Key(ApiKey)→ Realms(Basic 在这);SUCCESS 停 / CONTINUE 试下一个 / TERMINATE 整链停</td></tr>
+          <tr><td>Realm 内部</td><td>再 first-match:reserved 第一(实测 elastic 走 reserved)→ file → native;SAML/OIDC 也是 Realm</td></tr>
+          <tr><td>两种 401</td><td>缺凭据:handleNullToken → missing credentials;错密码/无此用户:authenticationError → unable to authenticate user;都带双 WWW-Authenticate(Basic + ApiKey)</td></tr>
+          <tr><td>403</td><td>authorizationError:action … is unauthorized for user … with effective roles;checkSameUserPermissions 例外:_authenticate 认证过即 200</td></tr>
+          <tr><td>两个方向</td><td>授权侧多角色=权限并集;认证侧身份唯一(first-match)——相反但分工</td></tr>
+          <tr><td>双节点</td><td>9200 关安全:匿名 200、_security 400 no handler;9201 开安全:本课实验场(elastic/elastic-password)</td></tr>
+        </table>
+        <p><strong>心法:认证链第一个成功即停,身份唯一;角色才谈并集——401 是「不承认你是谁」,403 是「认识你,但你不能」。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch28.html">← 第 28 课:索引生命周期管理</a>
+          <a href="ch30.html">第 30 课:全景回顾与方法论 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch29.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

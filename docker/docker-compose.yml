@@ -1,0 +1,32 @@
+# 本地学习用单节点 Elasticsearch(与教程源码版本严格一致:9.4.0)
+# 启动:bash docker/start.sh   (或 docker compose -f docker/docker-compose.yml up -d)
+# 说明:
+#  - xpack.security 关闭:纯本地学习,网页控制台免认证直连
+#  - http.cors.*:允许本静态站(file:// 或任意端口)用 fetch 直连 9200
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    container_name: es-study
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - http.cors.enabled=true
+      # 值两侧的引号会原样进镜像生成的 overrides.yml;不加引号时裸 * 会被 YAML 当成 alias。
+      # 正则只放行 localhost / 127.0.0.1 以及 file:// 的 Origin: null。
+      - 'http.cors.allow-origin="/^https?:\\/\\/(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$|^null$/"'
+      - http.cors.allow-headers=X-Requested-With,Content-Type,Content-Length,Authorization
+      - http.cors.allow-methods=OPTIONS,HEAD,GET,POST,PUT,DELETE
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "127.0.0.1:9200:9200"
+      - "127.0.0.1:9300:9300"
+    volumes:
+      - es-study-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  es-study-data:

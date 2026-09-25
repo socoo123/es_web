@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 25 课:熔断器与背压 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch25" data-ch="ch25">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 25 · 第五篇 · 分布式机制 · 收官</div>
+        <h1>熔断器与背压</h1>
+        <div class="ch-meta-line">先记账,超限 429,节点还活着 · 约 15 分钟 · 前置:第 8、19 课 · 14 个实验 + 熔断水位旗舰动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>用 <code>GET /_nodes/stats/breaker</code> 指出 <code>parent</code> / <code>request</code> / <code>fielddata</code> 的 <code>limit_size_in_bytes</code>、<code>estimated_size_in_bytes</code>、<code>tripped</code>;并解释默认 Parent 的 estimated 为什么接近<strong>真实堆</strong>、常大于三本子账之和——不是三本相加。</li>
+          <li>打开 <code>ChildMemoryCircuitBreaker</code>:说出<strong>子熔断器</strong>超限时在 CAS <strong>之前</strong>就 <code>circuitBreak</code>(账上还没这笔);<strong>Parent</strong> 超限时账已加上,必须 <code>addWithoutBreaking(-bytes)</code> 回滚再抛。</li>
+          <li>把 <code>indices.breaker.request.limit</code> 用 transient 调到 <code>1kb</code>,对 <code>tut-l25-card</code> 发一次 <code>terms</code>,观察到 <code>circuit_breaking_exception</code>(label <code>preallocate[aggregations]</code>,HTTP 429);再用 <code>null</code> 恢复——可逆,只在本地教程集群做。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:一本运行中的字节账</h2>
+        <p>熔断器不是保险丝烧断后整机停电。它是一本<strong>运行中的字节账</strong>:每次分配先告诉账本「我打算再用 N 字节」,账本看限额,要么放行并记下,要么拒绝这次分配——请求失败,节点还活着。假想一台 <strong>1GB 堆</strong> 的节点:默认 Parent 限额是堆的 <strong>95% = 950MB</strong>;子账 <code>request</code> 默认 <strong>60% = 600MB</strong>,<code>fielddata</code> 默认 <strong>40% = 400MB</strong>。此刻 request 账上已有 50MB,JVM 真实堆已用 900MB。一次高基数 <code>terms</code>(第 19 课的那种)估计还要 <strong>+500MB</strong>:先加进 request → 550 ≤ 600,过;再问 Parent:真实堆 900 + 这笔预留 500 = 1400 &gt; 950,<strong>破</strong> → 把刚加的 500MB 扣回去,抛 <code>CircuitBreakingException</code>,REST 映射成 <strong>HTTP 429</strong>。三件事同时成立:<strong>限额可以叠</strong>(子过了还要过 Parent);<strong>默认 Parent 看的是真实堆 + 这一笔预留</strong>,不是三本子账相加;<strong>拒绝发生在加账之后</strong>——所以必须回滚,否则账比真实占用还高,后面每笔都更冤。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="15" width="730" height="64" rx="10" class="fig-box-hot"/>
+              <text x="380" y="39" text-anchor="middle" class="fig-name">Parent · indices.breaker.total.limit · 默认 95% 真实堆</text>
+              <text x="380" y="63" text-anchor="middle" class="fig-sub">不是第四本可加减的账:只被 check,不被 add/subtract;use_real_memory=false 时才看子账之和,且默认变 70%</text>
+              <rect x="15" y="95" width="222" height="70" rx="10" class="fig-box"/>
+              <text x="126" y="119" text-anchor="middle" class="fig-name">request · 60%</text>
+              <text x="126" y="141" text-anchor="middle" class="fig-sub">聚合/请求内存,overhead 1.0</text>
+              <text x="126" y="159" text-anchor="middle" class="fig-sub">TRANSIENT:请求结束就退</text>
+              <rect x="269" y="95" width="222" height="70" rx="10" class="fig-box"/>
+              <text x="380" y="119" text-anchor="middle" class="fig-name">fielddata · 40%</text>
+              <text x="380" y="141" text-anchor="middle" class="fig-sub">堆上缓存,overhead 1.03</text>
+              <text x="380" y="159" text-anchor="middle" class="fig-sub">PERMANENT:要清缓存才退</text>
+              <rect x="523" y="95" width="222" height="70" rx="10" class="fig-box"/>
+              <text x="634" y="119" text-anchor="middle" class="fig-name">inflight_requests · 100%</text>
+              <text x="634" y="141" text-anchor="middle" class="fig-sub">网上没拆完的请求体,overhead 2.0</text>
+              <text x="634" y="159" text-anchor="middle" class="fig-sub">和 terms 桶不是同一本账</text>
+              <rect x="15" y="180" width="730" height="50" rx="9" class="fig-box-hot"/>
+              <text x="380" y="200" text-anchor="middle" class="fig-sub">孩子限额之和 60%+40%+100% ≫ 95%:故意的——同一时刻不会三本都顶满;Parent 是总阀门,孩子是分类阀门</text>
+              <text x="380" y="220" text-anchor="middle" class="fig-sub">一次大 terms 通常先撞 request;fielddata 缓存膨胀才撞 fielddata</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 层级账本:三个分类阀门各自限额,总阀门默认看真实堆。</figcaption>
+        </figure>
+
+        <table class="ktable">
+          <tr><th>账本</th><th>加之前</th><th>这一笔</th><th>加之后</th><th>限额</th><th>过?</th></tr>
+          <tr><td><code>request</code></td><td>50MB</td><td>+500MB</td><td>550MB</td><td>600MB</td><td>过</td></tr>
+          <tr><td>真实堆(Parent)</td><td>900MB</td><td>+500MB 预留</td><td>1400MB</td><td>950MB</td><td><strong>破</strong></td></tr>
+          <tr><td><code>fielddata</code></td><td>未动</td><td>0</td><td>同前</td><td>400MB</td><td>过</td></tr>
+        </table>
+        <p>回滚后 request 回到 50MB;客户端拿到 429;那 500MB 从没真正分配——节点没有被撑爆。写入侧还有另一本账(<code>IndexingPressure</code>,§6),拒绝时抛的是 <code>EsRejectedExecutionException</code>(第 8 课线程池那种),不是熔断器。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>common/breaker/CircuitBreaker.java</code></td><td>四本账的名字常量;记账入口 <code>addEstimateBytesAndMaybeBreak</code>(没有叫 addEstimateIfBreaking 的方法)</td></tr>
+          <tr><td><code>common/breaker/ChildMemoryCircuitBreaker.java</code></td><td>子账实现:超自身限额在 CAS 前 <code>circuitBreak</code>;过了才 <code>parent.checkParentLimit</code>,Parent 跳则 <code>addWithoutBreaking(-bytes)</code></td></tr>
+          <tr><td><code>indices/breaker/HierarchyCircuitBreakerService.java</code></td><td>默认百分比与 setting 名;<code>checkParentLimit</code> 的两个分支;stats 里 Parent 的 estimated 从哪来</td></tr>
+          <tr><td><code>indices/breaker/CircuitBreakerStats.java</code></td><td><code>_nodes/stats/breaker</code> 的字段名:<code>limit_size_in_bytes</code> / <code>estimated_size_in_bytes</code> / <code>tripped</code> / <code>overhead</code></td></tr>
+          <tr><td><code>search/aggregations/AggregatorBase.java</code></td><td>terms 怎么进 request 账:构造挂 <code>DEFAULT_WEIGHT = 5kb</code>,数组涨时再 <code>addEstimateBytesAndMaybeBreak</code></td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>CircuitBreakingException</code>(<code>status()=TOO_MANY_REQUESTS</code>;JSON 里 <code>bytes_wanted</code> / <code>bytes_limit</code> / <code>durability</code>)、<code>AggregationBuilder</code>(<code>DEFAULT_PREALLOCATION = 6kb</code>)、<code>BigArrays</code>(<code>&lt;reused_arrays&gt;</code> 标签)、<code>IndexingPressure</code>(写入另一条账)、<code>RestCatCircuitBreakerAction</code>(<code>GET /_cat/circuit_breaker</code>)。</p>
+
+        <h2>3. 子熔断器:CAS 之前就拒绝</h2>
+        <p>调用方从不先 new 一块堆再回头问「能不能用」——它把<strong>估计值</strong>交给账本,label 会进异常文案,所以实验里你会看见 <code>preallocate[aggregations]</code> 或 <code>&lt;agg [users]&gt;</code>,不是一个泛泛的 "memory"。负数走另一条:<code>addWithoutBreaking</code>,<strong>不</strong>乘 overhead、<strong>不</strong>问 Parent、<strong>不</strong>熔断——专门用来释放或回滚。真正干活的是 <code>ChildMemoryCircuitBreaker</code>:</p>
+        <pre class="code-block"><code>// common/breaker/ChildMemoryCircuitBreaker.java(节选)
+if (memoryBytesLimit &gt; 0 &amp;&amp; newUsedWithOverhead &gt; memoryBytesLimit) {
+    logger.warn("[{}] New used memory {} [{}] for data of [{}] would be larger ...",
+        this.name, newUsedWithOverhead, ByteSizeValue.ofBytes(newUsedWithOverhead), label, ...);
+    circuitBreak(label, newUsedWithOverhead);   // 还没有 compareAndSet!
+}
+// Attempt to set the new used value, but make sure it hasn't changed
+// underneath us, if it has, keep trying until we are able to set it
+} while (this.used.compareAndSet(currentUsed, newUsed) == false);</code></pre>
+        <p><strong>子账自己跳的时候,账上还没有这一笔</strong>——失败则账面不变,这和 Parent 跳的路径正好相反(§4)。<code>circuitBreak</code> 把文案拼成 <code>[request] Data too large, data for [label] would be [X/Y], which is larger than the limit of [L/M]</code> 然后抛异常;HTTP 状态码不在熔断器里写死,在异常上:</p>
+        <pre class="code-block"><code>// common/breaker/CircuitBreakingException.java(节选)
+@Override public RestStatus status() { return RestStatus.TOO_MANY_REQUESTS; }   // 429
+@Override protected void metadataToXContent(XContentBuilder builder, Params params) {
+    builder.field("bytes_wanted", bytesWanted);
+    builder.field("bytes_limit", byteLimit);
+    builder.field("durability", durability);   // request=TRANSIENT / fielddata=PERMANENT
+}</code></pre>
+        <table class="ktable">
+          <tr><th>子账</th><th>setting</th><th>默认限额</th><th>overhead</th><th>durability</th></tr>
+          <tr><td><code>request</code></td><td><code>indices.breaker.request.limit</code></td><td><strong>60%</strong> 堆</td><td>1.0</td><td>TRANSIENT(请求结束就释放)</td></tr>
+          <tr><td><code>fielddata</code></td><td><code>indices.breaker.fielddata.limit</code></td><td><strong>40%</strong> 堆</td><td>1.03</td><td>PERMANENT(要清缓存/改查询)</td></tr>
+          <tr><td><code>inflight_requests</code></td><td><code>network.breaker.inflight_requests.limit</code></td><td><strong>100%</strong> 堆</td><td>2.0</td><td>TRANSIENT</td></tr>
+        </table>
+        <p>fielddata 多乘 1.03,因为从 doc values 加载到堆的真实占用常略高于估算;request 默认乘 1.0,聚合这边大量走 BigArrays、按页精确加减。限额 0 会立刻 circuitBreak(所以破坏实验用 1kb 不用 0b);-1 表示只记账永不跳。</p>
+
+        <h2>4. Parent:不是第四本账,默认看真实堆</h2>
+        <p><code>CircuitBreaker.PARENT</code> 的 javadoc 写得很直:Parent 是孩子们的合计上限,<strong>自己不能被 add/subtract</strong>。每次孩子 CAS 成功之后才问它:</p>
+        <pre class="code-block"><code>// ChildMemoryCircuitBreaker.addEstimateBytesAndMaybeBreak 末尾(节选)
+try {
+    parent.checkParentLimit((long) (bytes * overheadConstant), label);
+} catch (CircuitBreakingException e) {
+    // If the parent breaker is tripped, this breaker has to be adjusted
+    // back down because the allocation is "blocked" but the breaker has
+    // already been incremented
+    this.addWithoutBreaking(-bytes);   // 回滚用原始 bytes,不再乘 overhead
+    throw e;
+}</code></pre>
+        <p>这就是「先加会计再拒绝」:<strong>孩子账已加上,Parent 说不行,必须减回去</strong>。若漏掉回滚,图 1 的 request 会永远顶着 550MB,之后再来 51MB 的合法聚合就会撞 600MB 孩子限额——而那 500MB 根本没分配成功。Parent 的 setting 是 <code>indices.breaker.total.limit</code>,默认值<strong>跟着</strong> <code>indices.breaker.total.use_real_memory</code>(默认 <code>true</code>)走:</p>
+        <pre class="code-block"><code>// indices/breaker/HierarchyCircuitBreakerService.java(节选)
+public static final Setting&lt;Boolean&gt; USE_REAL_MEMORY_USAGE_SETTING = Setting.boolSetting(
+    "indices.breaker.total.use_real_memory", true, Property.Dynamic, Property.NodeScope);
+
+public static final Setting&lt;ByteSizeValue&gt; TOTAL_CIRCUIT_BREAKER_LIMIT_SETTING = new Setting&lt;&gt;(
+    "indices.breaker.total.limit",
+    settings -> USE_REAL_MEMORY_USAGE_SETTING.get(settings) ? "95%" : "70%",
+    ...);</code></pre>
+        <p><code>checkParentLimit</code> 拿什么和 95% 比,也由这个开关决定:<code>trackRealMemoryUsage=true</code> 时 <code>totalUsage = currentMemoryUsage() + newBytesReserved</code>,前者接 <code>MEMORY_MX_BEAN.getHeapMemoryUsage().getUsed()</code>——图 1 的 900+500=1400 就是这条;<code>false</code> 时才退化成「各孩子估算之和」,限额默认也变 70%(集成测试常关这个开关,所以测试里看到 70% 别抄进生产笔记)。孩子的 used×overhead 仍会汇总成 transient/permanent 两列,但那只用来<strong>挑 Parent 异常的 durability</strong>(瞬时多 → TRANSIENT),不是默认限额的比较项。`GET /_nodes/stats/breaker` 里 parent 那行的 <code>estimated_size_in_bytes</code> 同源:默认模式下约等于此刻真实堆——所以常常<strong>大于</strong> request+fielddata+inflight 的 estimated 之和,堆上还有倒排、segment、线程这些没挂账本的东西。实验 0 就要你先预测这一点。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch25f2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <text x="192" y="18" text-anchor="middle" class="fig-name">子账自己跳</text>
+              <rect x="15" y="30" width="355" height="64" rx="9" class="fig-box"/>
+              <text x="192" y="52" text-anchor="middle" class="fig-sub">newUsed×overhead &gt; 子限额?</text>
+              <text x="192" y="74" text-anchor="middle" class="fig-sub">是 → circuitBreak,发生在 CAS 之前</text>
+              <rect x="15" y="108" width="355" height="56" rx="9" class="fig-box-hot"/>
+              <text x="192" y="130" text-anchor="middle" class="fig-sub">账上没有这一笔:失败则账面不变</text>
+              <text x="192" y="150" text-anchor="middle" class="fig-sub">bytes_wanted = newUsedWithOverhead</text>
+              <line x1="192" y1="94" x2="192" y2="104" class="fig-arrow" marker-end="url(#ch25f2-arrow)"/>
+              <text x="567" y="18" text-anchor="middle" class="fig-name">Parent 跳</text>
+              <rect x="390" y="30" width="355" height="64" rx="9" class="fig-box"/>
+              <text x="567" y="52" text-anchor="middle" class="fig-sub">子账 CAS 成功(used 已含这笔)</text>
+              <text x="567" y="74" text-anchor="middle" class="fig-sub">→ checkParentLimit:真实堆+预留 vs 95%</text>
+              <rect x="390" y="108" width="355" height="56" rx="9" class="fig-box-hot"/>
+              <text x="567" y="130" text-anchor="middle" class="fig-sub">破 → addWithoutBreaking(-bytes) 回滚</text>
+              <text x="567" y="150" text-anchor="middle" class="fig-sub">再抛:不回滚 = 冤枉后续每个请求</text>
+              <line x1="567" y1="94" x2="567" y2="104" class="fig-arrow" marker-end="url(#ch25f2-arrow)"/>
+              <rect x="15" y="182" width="730" height="56" rx="9" class="fig-box-hot"/>
+              <text x="380" y="204" text-anchor="middle" class="fig-sub">两条路径都终结于 CircuitBreakingException.status() = 429:请求死,节点活</text>
+              <text x="380" y="226" text-anchor="middle" class="fig-sub">durability 按 transient/permanent 占比挑;request 账的大聚合几乎总是 TRANSIENT</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 两种跳闸路径:子跳在记账前(CAS 前),Parent 跳在记账后(须回滚)。</figcaption>
+        </figure>
+
+        <h2>5. 第 19 课的高基数 terms,字节怎么进 request 账</h2>
+        <p>第 19 课钉死过:<code>size=2</code> 只限制<strong>返回</strong>的桶,收集期仍要给见过的每个全局序数记账。本课补账本这一侧。聚合上下文一建立,先按所有 agg 的 <code>bytesToPreallocate()</code> 之和在 request 上扣一笔——单个 agg 默认 <code>DEFAULT_PREALLOCATION = 6kb</code>,标签 <code>preallocate[aggregations]</code>。<strong>把限额调到 1kb 时往往在这里就 429 了</strong>,还没走到收集文档、更没走到 shardSize(实验 4-7 验证;集成测试 <code>CircuitBreakerServiceIT.testAggTookTooMuch</code> 把限额设 100b,断言文案含这个 label)。每个 Aggregator 构造时再挂 5kb:</p>
+        <pre class="code-block"><code>// search/aggregations/AggregatorBase.java(节选)
+public static final int DEFAULT_WEIGHT = 1024 * 5;   // 5kb
+// 构造器末尾:
+addRequestCircuitBreakerBytes(DEFAULT_WEIGHT);
+
+protected long addRequestCircuitBreakerBytes(long bytes) {
+    if (bytes &gt;= 0) {
+        context.breaker().addEstimateBytesAndMaybeBreak(bytes, "&lt;agg [" + name + "]&gt;");
+    } else {
+        context.breaker().addWithoutBreaking(bytes);   // 释放走这条
+    }
+    this.requestBytesUsed += bytes;
+    return requestBytesUsed;
+}</code></pre>
+        <p>BigArrays 扩页时标签是 <code>&lt;reused_arrays&gt;</code>;收集过程每 1024 次还会 <code>addEstimateBytesAndMaybeBreak(0, label)</code>——加 0 字节,专门给 Parent 一个「用真实堆再看一眼」的机会。所以高基数 terms 的内存曲线是:<strong>先 6kb 预留 → 再 5kb 重量 → 计数数组随基数涨,每涨一次就可能 MaybeBreak</strong>;把 size 写成 2 几乎不改变这条曲线。要降内存,换 <code>cardinality</code>、加 <code>include</code> / <code>min_doc_count</code>、或干脆别对 <code>user_id</code> 做 terms——breaker 是安全网,不是配额系统。协调节点合并聚合树时 <code>QueryPhaseResultConsumer</code> 还会记 <code>&lt;reduce_aggs&gt;</code> 一笔,那是数据节点 build 完之后的另一跳;单分片实验里通常先炸在数据节点这一跳。</p>
+
+        <h2>6. 写入另一条账:IndexingPressure,不是 CircuitBreaker</h2>
+        <p>Bulk 背压和熔断不是同一张决策网。<code>IndexingPressure</code> <strong>不实现</strong> CircuitBreaker,超限抛 <code>EsRejectedExecutionException</code>(第 8 课的老朋友):</p>
+        <table class="ktable">
+          <tr><th>角色</th><th>setting</th><th>默认</th></tr>
+          <tr><td>coordinating / primary 上限</td><td><code>indexing_pressure.memory.limit</code>(coordinating/primary 各自跟随)</td><td><strong>10%</strong> 堆</td></tr>
+          <tr><td>replica 上限</td><td><code>indexing_pressure.memory.replica.limit</code></td><td><strong>1.5× primary</strong> = 15% 堆</td></tr>
+          <tr><td>低水位拆 Bulk</td><td><code>indexing_pressure.memory.split_bulk.watermark.low</code></td><td><strong>5%</strong>;超过则 &gt;4MB 的 Bulk 拆</td></tr>
+          <tr><td>高水位拆 Bulk</td><td><code>indexing_pressure.memory.split_bulk.watermark.high</code></td><td><strong>7.5%</strong>;超过则 &gt;1MB 的 Bulk 拆</td></tr>
+        </table>
+        <p>coordinating 真正比较的是「当前 coordinating+primary 字节 + replica 字节」对 coordinatingLimit:超了先把刚 <code>addAndGet</code> 的字节减回去再抛——和 Parent 那条「加了再回滚」是同一类不变量,只是账本不同、异常类型不同。<code>GET /_nodes/stats/indexing_pressure</code> 能看 <code>coordinating_in_bytes</code> / <code>primary_in_bytes</code> / <code>replica_in_bytes</code> 和 <code>*_rejections</code>(本课不把它调爆:写入背压和聚合熔断别缠在一次破坏实验里)。另外,<strong>集群健康色不是熔断</strong>:Green/Yellow/Red 说的是分片是否 STARTED(第 1、23 课);熔断是单次请求的 429,集群仍可以是 Green。整本账走一遍:</p>
+        <div class="fp-slot" data-flow="ch25-breaker"></div>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>先读四本账的字段名并预测「Parent 的 estimated vs 三子之和」;然后用第 19 课同构的数据(20 个唯一 user_id)把 <code>request</code> 限额 transient 调到 1kb,亲眼看 429 和 <code>preallocate[aggregations]</code>,最后 null 恢复、确认 tripped 是计数器不清零。<strong>破坏实验只在本机教程集群做,用 transient,结束必恢复。</strong></p>
+
+        <h3>实验 0-1:看见四本账</h3>
+        <div class="exp-slot" data-exp="ch25-00-stats"></div>
+        <div class="exp-slot" data-exp="ch25-01-cat"></div>
+
+        <h3>实验 2-4:建数据,默认限额下先跑通</h3>
+        <div class="exp-slot" data-exp="ch25-02-setup"></div>
+        <div class="exp-slot" data-exp="ch25-03-bulk"></div>
+        <div class="exp-slot" data-exp="ch25-04-terms-ok"></div>
+
+        <h3>实验 5-7:调到 1kb,亲眼看 429</h3>
+        <div class="exp-slot" data-exp="ch25-05-limit-1kb"></div>
+        <div class="exp-slot" data-exp="ch25-06-terms-break"></div>
+        <div class="exp-slot" data-exp="ch25-07-tripped"></div>
+
+        <h3>实验 8-11:null 恢复,一切如常</h3>
+        <div class="exp-slot" data-exp="ch25-08-restore"></div>
+        <div class="exp-slot" data-exp="ch25-09-stats-restored"></div>
+        <div class="exp-slot" data-exp="ch25-10-terms-ok2"></div>
+        <div class="exp-slot" data-exp="ch25-11-matchall"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch25-12-restore-again"></div>
+        <div class="exp-slot" data-exp="ch25-13-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 恢复限额之后 request.tripped 仍 ≥1。此时再发一次不带 aggs 的 match_all(size=0),会因 tripped&gt;0 继续被拒吗?若当初把限额设成 0b 而不是 1kb,不带 aggs 的搜索还能过吗?</summary>
+          <div class="answer">
+            <p>tripped 只是<strong>计数器</strong>,不是锁:恢复 60% 后不带 aggs 的 match_all 照过——它几乎不加 request 账。限额 0b 完全不同:<code>memoryBytesLimit == 0</code> 时任何一次 <code>addEstimateBytesAndMaybeBreak</code>(包括加 0 探 Parent、聚合预留)都立刻 circuitBreak,「简单搜索还能用」指望不上。所以破坏实验用 1kb 这种极小但非 0 的可逆值,并且必须 null 恢复。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么孩子必须先 CAS 加上账、再问 Parent,而不是先问 Parent 再加?Parent 跳了却漏掉 addWithoutBreaking(-bytes),哪条不变量破了?子账自己跳时为什么不能先 CAS?</summary>
+          <div class="answer">
+            <p>Parent 默认看的是<strong>真实堆 + 这一笔预留</strong>,不是孩子账本本身;孩子必须先把自己的估算加上,其它并发分配看到的 used 才含这一笔,避免大家同时对同一块空档乐观加。Parent 拒绝说明分配没发生、估算却已入账——不变量是「used = 此刻仍被允许占着的估算」,所以必须回滚。漏回滚的话,图 1 的 request 停在 550MB:再来 51MB 的合法聚合就撞 600MB,而那 500MB 从没分配成功。子账自己跳若先 CAS,失败路径同样要回滚,还会把 used 瞬时抬过限额让别的线程误读——所以它在 CAS 前 circuitBreak,失败则账面干净。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 生产上要挡住高基数 terms,三条路:(a) 把 request.limit 从 60% 降得很小;(b) 保持 60%,把 total.limit 从 95% 往下压、继续 use_real_memory=true;(c) 不改 breaker,禁止对 user_id 做 terms / 改用 cardinality。各付什么、换什么?哪条会误伤「聚合很小但节点堆已经很高」的请求?</summary>
+          <div class="answer">
+            <p>(a) 专挡聚合/请求内存这一类,但误伤所有稍大的合法聚合——像实验里 6kb 预留都过不了;fielddata 膨胀和「堆被别的东西占满」它不一定挡得住。(b) 挡的是<strong>整机</strong>:不论字节进没进 request 账,真实堆逼近就拒;误伤的正是「聚合很小但堆已 94%」的请求——包括不带 aggs 的搜索,因为 checkParentLimit 看的是真实堆。(c) 从根上不让一百万基数进收集期,breaker 留给真正的异常尖峰。高基数 terms 优先 (c);breaker 是安全网不是配额系统——第 19 课已经证明极大 shard_size 救不了收集期数组,先撞的就是本课这本 request 账。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 把 Parent 当「三本子账之和 ≤ 95%」:</span>那只在 use_real_memory=false 时成立,而且那条路径默认是 70%。当前默认 true:Parent 拿真实堆(HeapMemoryUsage.getUsed())+ 这一笔预留去比 95%,stats 里 parent.estimated ≈ 真实堆,常大于三子之和。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为 size=2 就只占两个桶的内存:</span>收集期按基数记账:先 preallocate[aggregations] 6kb、再 agg 5kb、再随基数扩 BigArrays;size/shard_size 只管返回窗口。限额 1kb 时连 6kb 预留都过不了,根本轮不到收集。</div>
+        <div class="callout warn"><span class="co-title">🕳 混淆两种拒绝:</span>聚合熔断是 CircuitBreakingException(HTTP 429,带 bytes_wanted/bytes_limit/durability);IndexingPressure / 线程池队列满是 EsRejectedExecutionException(第 8 课)。账本不同、异常类型不同,别在一张图里搅。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为 tripped&gt;0 就熔断锁死:</span>tripped 是计数器,恢复限额后不清零也不拦新请求。也别把限额设 0b——那会让任何一次记账(包括加 0 探 Parent)立刻拒绝;破坏实验用 1kb + transient + 课末 null。</div>
+        <div class="callout warn"><span class="co-title">🕳 把健康色当熔断指示:</span>Green/Yellow/Red 说的是分片是否 STARTED;熔断是单次请求的 429,集群完全可以 Green 时疯狂 429——反之 Yellow(第 23 课)和内存毫无关系。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>熔断是运行中的字节账:先估后加,超限 CircuitBreakingException → 429,节点继续活</td></tr>
+          <tr><td>层级</td><td>request 60% / fielddata 40%(overhead 1.03)/ inflight 100%;Parent = total.limit,默认 95% 真实堆(use_real_memory=false 时 70% 看子账之和)</td></tr>
+          <tr><td>两种跳法</td><td>子跳在 CAS 前(账面不变);Parent 跳在 CAS 后(必须 addWithoutBreaking(-bytes) 回滚)</td></tr>
+          <tr><td>stats 字段</td><td>limit_size_in_bytes / estimated_size_in_bytes / tripped / overhead;parent.estimated ≈ 真实堆</td></tr>
+          <tr><td>terms 账单</td><td>preallocate[aggregations] 6kb → &lt;agg [name]&gt; 5kb → &lt;reused_arrays&gt; 随基数涨;size=2 救不了</td></tr>
+          <tr><td>写入背压</td><td>IndexingPressure 10%/10%/15% + 拆 Bulk 水位 5%/7.5%,抛 EsRejectedExecutionException——另一本账</td></tr>
+          <tr><td>第五篇收官</td><td>第 21-24 课:快照状态 → quorum 发布 → 过滤链落位 → 两阶段补数据;本课是内存这最后一道闸</td></tr>
+        </table>
+        <p><strong>心法:先记账再拒绝——子账在 CAS 前自己跳,Parent 在 CAS 后强制回滚;429 杀的是请求,不是节点。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch24.html">← 第 24 课:分片恢复与快照</a>
+          <a href="ch26.html">第 26 课:脚本引擎 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch25.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

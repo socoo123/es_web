@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 27 课:管道查询语言 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch27" data-ch="ch27">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 27 · 第六篇 · 高级专题</div>
+        <h1>管道查询语言</h1>
+        <div class="ch-meta-line">你写的一行,已经是执行模型 · 约 15 分钟 · 前置:第 16-19 课 · 14 个实验 + 管道执行动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>对 5 行 <code>views = 50/100/150/200/250</code> 发出 <code>FROM tut-l27-pages | WHERE views &gt; 100 | STATS avg(views)</code>,先预测列名(<code>avg(views)</code>,跟源码文本)、行数(一行一列)、均值(<strong>200</strong>,<code>&gt;</code> 不含 100)与响应形状(<code>columns</code>+<code>values</code>,没有 hits),再用 <code>POST /_query</code> 对照。</li>
+          <li>写出同等意图的 Query DSL(<code>size:0</code> + <code>range.gt</code> + <code>avg</code> 聚合),验证数学相同(200.0);漏 <code>size:0</code> 看 hits 把 <code>_source</code> 搬回来而均值不变——「两棵树」与「一条管道」的形状差异。</li>
+          <li>打开 <code>EsqlPlugin.getRestHandlers</code> 与 <code>LogicalPlanBuilder.visitWhereCommand</code> / <code>visitStatsCommand</code>:说出 REST 路径是 <code>/_query</code> 不是 <code>/_esql</code>(实测 POST /_esql 是 <strong>405</strong>);<code>WHERE</code> 变 <code>Filter</code>、<code>STATS</code> 变 <code>Aggregate</code>;并用 <code>profile:true</code> 在算子链上亲眼看见过滤下推(无 FilterOperator)与 avg 的 Sum/Count 改写。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:查询本身就是一条管道</h2>
+        <p>忘掉「Parser → Analyzer → Optimizer → Planner → Executor」那张阶段墙。ES|QL(Elasticsearch Query Language,8.11 起随发行版默认装载)要记住的是:<strong>你写的那一行,已经是执行模型。</strong>竖杠 <code>|</code> 和 Unix pipe 是同一件事:左边产出的表,是右边的输入。拿实验里的具体数字走一遍——5 行 <code>views</code>,<code>WHERE views &gt; 100</code> 丢掉 ≤100 的两行,<code>STATS</code> 把剩下三行收成一个均值:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch27f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="730" height="56" rx="9" class="fig-box"/>
+              <text x="380" y="38" text-anchor="middle" class="fig-name">FROM tut-l27-pages:读出各行(Page:views 列 = 50, 100, 150, 200, 250)</text>
+              <text x="380" y="60" text-anchor="middle" class="fig-sub">行进列式 Block 里,不是一篇篇 _source;只看见已 refresh 的数据(第 16 课不变量)</text>
+              <line x1="380" y1="71" x2="380" y2="85" class="fig-arrow" marker-end="url(#ch27f1-arrow)"/>
+              <rect x="15" y="85" width="730" height="56" rx="9" class="fig-box"/>
+              <text x="380" y="108" text-anchor="middle" class="fig-name">WHERE views &gt; 100:丢掉不满足的行(50、100 出局,&gt; 不含等于)</text>
+              <text x="380" y="130" text-anchor="middle" class="fig-sub">过滤后这列只剩 150, 200, 250 —— views=100 是实验故意放的边界证据</text>
+              <line x1="380" y1="141" x2="380" y2="155" class="fig-arrow" marker-end="url(#ch27f1-arrow)"/>
+              <rect x="15" y="155" width="730" height="56" rx="9" class="fig-box"/>
+              <text x="380" y="178" text-anchor="middle" class="fig-name">STATS avg(views):把剩下的行收成一行(sum=600, count=3)</text>
+              <text x="380" y="200" text-anchor="middle" class="fig-sub">无 BY → 空分组;必须看完过滤后的每一页才输出(阻塞算子)</text>
+              <line x1="380" y1="211" x2="380" y2="225" class="fig-arrow" marker-end="url(#ch27f1-arrow)"/>
+              <rect x="15" y="225" width="730" height="56" rx="9" class="fig-box-hot"/>
+              <text x="380" y="248" text-anchor="middle" class="fig-name">响应:columns = [avg(views)/double],values = [[200.0]] —— 一行一列的表</text>
+              <text x="380" y="270" text-anchor="middle" class="fig-sub">没有 hits.hits,没有 _score;客户端拿到的是一张表,不是带分数的命中列表</text>
+              <rect x="15" y="292" width="730" height="32" rx="9" class="fig-box"/>
+              <text x="380" y="312" text-anchor="middle" class="fig-sub">优化器可以把 WHERE 推进 Lucene(被丢的行不进 Page)——但源码文本仍是三个命令首尾相接</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 管道心智模型:工作单元是「表怎么一步步变瘦、变少列」,不是 Query Then Fetch。</figcaption>
+        </figure>
+
+        <p>REST 入口也不是同一条:搜索是 <code>POST /{index}/_search</code>(第 16 课);ES|QL 是 <strong><code>POST /_query</code></strong>,仓库里没有 <code>/_esql</code> 这条路由。动作名倒是带着 esql:<code>indices:data/read/esql</code>——不要靠动作名去猜 URL。一个实测细节(实验 4):<code>POST /_esql</code> 回的不是 404 而是 <strong>405</strong>,allowed 列表是 <code>[GET, PUT, DELETE, HEAD]</code>——它撞上的是裸索引路由 <code>/{index}</code>(POST 不在其中),和第 7 课「未知路由 400、方法不匹配 405」的错误码阶梯对得上。和 Query DSL 的形状差别:同等「过滤后再平均」,ES|QL 是一条从左到右的管道;Query DSL 是两棵并排的 JSON 树——<code>query</code> 管命中、<code>aggs</code> 管桶。</p>
+
+        <table class="ktable">
+          <tr><th></th><th>_search(第 16-19 课)</th><th>_query(本课)</th></tr>
+          <tr><td>你写的</td><td>JSON Query DSL(query + aggs 两棵树)</td><td>管道文本(命令首尾相接)</td></tr>
+          <tr><td>REST</td><td><code>POST /{index}/_search</code></td><td><code>POST /_query</code>(异步另有 <code>/_query/async</code>)</td></tr>
+          <tr><td>网上流动的</td><td>各 shard (docId, score) + 可选聚合树</td><td>列式 Page(过滤/局部聚合之后)</td></tr>
+          <tr><td>客户端形状</td><td><code>hits.hits</code> + 可选 <code>aggregations</code></td><td><code>columns</code> + <code>values</code></td></tr>
+          <tr><td>avg 一类扫描聚合</td><td>挂在 Query 阶段(第 19 课)</td><td>管道里的 STATS 算子</td></tr>
+          <tr><td>主场</td><td>全文 match、BM25 排名、highlight</td><td>探索分析、日志扫描、过滤聚合一张表</td></tr>
+        </table>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>x-pack/plugin/esql/.../plugin/EsqlPlugin.java</code></td><td>插件入口:getRestHandlers 挂 RestEsqlQueryAction;createComponents 造 PlanExecutor 和 ExchangeService</td></tr>
+          <tr><td><code>x-pack/plugin/esql/.../action/RestEsqlQueryAction.java</code></td><td>routes() 只有 POST /_query;body 的 query 字段交给 EsqlQueryAction</td></tr>
+          <tr><td><code>x-pack/plugin/esql/.../parser/LogicalPlanBuilder.java</code></td><td>竖杠的语义:visitCompositeQuery 把左边计划喂给右边;WHERE→Filter、STATS→Aggregate、FROM→UnresolvedRelation</td></tr>
+          <tr><td><code>x-pack/plugin/esql/.../planner/LocalExecutionPlanner.java</code></td><td>FilterExec→FilterOperatorFactory;无分组的 AggregateExec 走 AggregationOperator</td></tr>
+          <tr><td><code>x-pack/plugin/esql/compute/.../operator/Driver.java</code></td><td>单线程把 Page 从当前算子 getOutput() 交给下一个 addInput</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>EsqlParser.java</code>(ANTLR:EsqlBaseLexer → EsqlBaseParser → AstBuilder)、<code>EsqlSession.java</code>(parse → analyzedPlan → optimizedPlan → mapper.map)、<code>Analyzer.java</code> / <code>ResolveTable</code>(UnresolvedRelation → EsRelation)、<code>EsPhysicalOperationProviders.java</code>(FROM → LuceneSourceOperator)、<code>Avg.java</code>(surrogate 成 Sum/Count)、<code>Page.java</code>(列式 Block[])、<code>FilterOperator.java</code>、<code>AggregationOperator.java</code>、<code>TransportEsqlQueryAction.java</code>、<code>RestEsqlAsyncQueryAction.java</code>(POST /_query/async)。ES|QL 住在 <code>x-pack/plugin/esql</code>,是 <code>EsqlPlugin extends Plugin implements ActionPlugin, ...</code>——和第 4 课一样:拿掉这个插件,<code>POST /_query</code> 消失,<code>_search</code> 不受影响。</p>
+
+        <h2>3. 这条管道在源码里怎么接起来</h2>
+        <p>REST 停在造 <code>EsqlQueryRequest</code>:路由写死在 <code>RestEsqlQueryAction.routes()</code> 里,只有一条 <code>new Route(POST, "/_query")</code>。进到 <code>TransportEsqlQueryAction</code> 时,真正干活的是插件在 <code>createComponents</code> 里造好的 <code>PlanExecutor</code>(解析/分析/优化/映射)和 <code>ExchangeService</code>(节点间传 Page),线程池是自己的 <code>esql_worker</code>——不复用第 16 课那条 _search 协调路径。解析的核心是竖杠的组合语义:</p>
+        <pre class="code-block"><code>// x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/parser/LogicalPlanBuilder.java(节选)
+@Override
+public LogicalPlan visitCompositeQuery(EsqlBaseParser.CompositeQueryContext ctx) {
+    LogicalPlan input = plan(ctx.query());                                  // 先递归解析左边
+    PlanFactory makePlan = typedParsing(this, ctx.processingCommand(), PlanFactory.class);
+    return makePlan.apply(input);                                           // 左边的计划喂给右边
+}
+
+@Override
+public PlanFactory visitWhereCommand(EsqlBaseParser.WhereCommandContext ctx) {
+    Expression expression = expression(ctx.booleanExpression());
+    return input -> new Filter(source(ctx), input, expression);             // WHERE → Filter
+}
+
+@Override
+public PlanFactory visitStatsCommand(EsqlBaseParser.StatsCommandContext ctx) {
+    final Stats stats = stats(source(ctx), ctx.grouping, ctx.stats);
+    return input -> new Aggregate(source(ctx), input, stats.groupings, stats.aggregates);  // 非 TS 索引
+}</code></pre>
+        <p>所以三个命令各自变成:<code>FROM</code> → <code>UnresolvedRelation</code>(分析期由 <code>ResolveTable</code> 配上 field-caps 结果变成 <code>EsRelation</code>——<code>views</code> 必须在这时候能认成数值字段,否则 <code>avg(views)</code> 过不了 verifier);<code>WHERE</code> → <code>Filter</code>(没有叫 Where 的计划节点);<code>STATS</code> → <code>Aggregate</code>(没有叫 Stats 的节点;无 BY 时 groupings 为空)。树形 = <code>Aggregate(Filter(EsRelation))</code>:<strong>嵌套即管道,顺序即语义</strong>。优化器只留两条和本查询有关的行为:</p>
+        <pre class="code-block"><code>// x-pack/plugin/esql/.../rule/PushDownAndCombineFilters.java 的 javadoc
+// 过滤器要尽量往数据源推:
+// "Ideally, the filter ends up all the way down at the data source
+//  and can be turned into a Lucene query."
+
+// x-pack/plugin/esql/.../expression/function/aggregate/Avg.java(节选)
+@Override
+public Expression surrogate() {   // avg 改写成 Sum / Count,没有叫 AvgOperator 的类
+    return new Div(s, new Sum(s, field, ...), new Count(s, field, ...), dataType());
+}</code></pre>
+        <p><code>views &gt; 100</code> 推下去之后,<code>LuceneSourceOperator</code> 里的 Lucene Query 就带上了等价 range——被丢的行根本不进 Page。这不是改语义,是少算;不变量只有一条:<strong>源码管道仍是 FROM → WHERE → STATS,优化器可以少算,但不能改「先过滤再平均」。</strong>物理计划只是一张短表:<code>Filter</code>→<code>FilterExec</code>、<code>Aggregate</code>→<code>AggregateExec</code>;数据节点上 <code>FROM</code> 最终由 <code>sourcePhysicalOperation</code> 造出 <code>LuceneSourceOperator.Factory</code>(按 pageSize 吐文档号);无 BY 的聚合走阻塞式 <code>AggregationOperator</code>——javadoc 写明 <em>only produces output once all possible input has been added</em>:均值要看过滤后的全集,和第 19 课「聚合不能等 Fetch」同因。下面两条链不是示意图,是 <code>profile: true</code> 在本课实验数据上的实测输出(实验 8):</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg">
+              <text x="192" y="16" text-anchor="middle" class="fig-name">数据节点 Driver(profile 实测)</text>
+              <rect x="15" y="26" width="355" height="44" rx="9" class="fig-box"/>
+              <text x="192" y="44" text-anchor="middle" class="fig-key">LuceneSourceOperator</text>
+              <text x="192" y="62" text-anchor="middle" class="fig-sub">query 已是 range(WHERE 下推),不是 match_all</text>
+              <rect x="15" y="80" width="355" height="44" rx="9" class="fig-box"/>
+              <text x="192" y="98" text-anchor="middle" class="fig-key">ValuesSourceReaderOperator[fields=[views]]</text>
+              <text x="192" y="116" text-anchor="middle" class="fig-sub">抽列:Page 里只剩 views 这一列</text>
+              <rect x="15" y="134" width="355" height="44" rx="9" class="fig-box"/>
+              <text x="192" y="152" text-anchor="middle" class="fig-key">AggregationOperator[SumLong, Count] mode=INITIAL</text>
+              <text x="192" y="170" text-anchor="middle" class="fig-sub">局部聚合:sum=600, count=3</text>
+              <rect x="15" y="188" width="355" height="36" rx="9" class="fig-box-hot"/>
+              <text x="192" y="211" text-anchor="middle" class="fig-sub">ExchangeSinkOperator:中间态送回协调节点</text>
+              <text x="567" y="16" text-anchor="middle" class="fig-name">协调节点 Driver(profile 实测)</text>
+              <rect x="390" y="26" width="355" height="44" rx="9" class="fig-box"/>
+              <text x="567" y="44" text-anchor="middle" class="fig-key">ExchangeSourceOperator</text>
+              <text x="567" y="62" text-anchor="middle" class="fig-sub">接住数据节点送回的 Page</text>
+              <rect x="390" y="80" width="355" height="44" rx="9" class="fig-box"/>
+              <text x="567" y="98" text-anchor="middle" class="fig-key">AggregationOperator mode=FINAL</text>
+              <text x="567" y="116" text-anchor="middle" class="fig-sub">合并局部 Sum/Count → 全局 600 / 3</text>
+              <rect x="390" y="134" width="355" height="44" rx="9" class="fig-box"/>
+              <text x="567" y="152" text-anchor="middle" class="fig-key">Limit[999/1000] → Eval: DivDoublesEvaluator</text>
+              <text x="567" y="170" text-anchor="middle" class="fig-sub">600 ÷ 3 = 200.0(avg 的 Sum/Count 改写在这除)</text>
+              <rect x="390" y="188" width="355" height="36" rx="9" class="fig-box-hot"/>
+              <text x="567" y="211" text-anchor="middle" class="fig-sub">OutputOperator[columns = [avg(views)]]</text>
+              <rect x="15" y="238" width="730" height="76" rx="9" class="fig-box"/>
+              <text x="380" y="261" text-anchor="middle" class="fig-sub">两条链上都没有 FilterOperator:WHERE 被推入 Lucene 的 query,不是丢了,是换地方死了</text>
+              <text x="380" y="283" text-anchor="middle" class="fig-sub">INITIAL/FINAL 是同一个 AggregationOperator 的两个 mode:先局部后合并,仍是全集,不是 Top-N</text>
+              <text x="380" y="303" text-anchor="middle" class="fig-sub">中间那条 ExchangeSource→ExchangeSink 是节点间中转;一个 Driver 一条链,分布式发生在多个 Driver 上</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 实测算子链:数据节点算局部 Sum/Count,协调节点 FINAL 合并后做除法。</figcaption>
+        </figure>
+
+        <h2>4. Page 是列,Driver 是单线程传送带</h2>
+        <p>图 1 是命令,图 2 是算子;中间流动的东西叫 <code>Page</code>,它把「列式、按批」写在类注释里:</p>
+        <pre class="code-block"><code>// x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/data/Page.java(节选)
+/** A page is a column-oriented data abstraction that allows data to be
+ *  passed between operators in batches. ... composed of a number of Blocks */
+public final class Page implements Writeable, Releasable {
+    private final Block[] blocks;      // 每列一个 Block
+    private final int positionCount;   // 行数</code></pre>
+        <p>同一列的 <code>views</code> 挨在一个 Block 里,过滤和聚合按列扫——这是它对 CPU 缓存/SIMD 友好的来源,不要画成架构盒。<code>Operator.TARGET_PAGE_SIZE</code> 默认按约 256KB 切批,5 行的实验看不见切批。<code>FilterOperator.process</code> 对每一行跑布尔 evaluator,<code>null</code> 和多值当成 false,留下的行号拿去重切 Page;<code>Driver</code> 的循环体则是:</p>
+        <pre class="code-block"><code>// x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/operator/Driver.java(节选)
+if (op.isFinished() == false &amp;&amp; nextOp.needsInput()) {
+    Page page = op.getOutput();          // 上游吐一页
+    if (page == null) { /* 这一轮没有输出 */ }
+    else if (page.getPositionCount() == 0 &amp;&amp; page.batchMetadata() == null) {
+        page.releaseBlocks();            // 空页直接释放
+    } else {
+        nextOp.addInput(page);           // 交给下游
+    }
+}</code></pre>
+        <p>javadoc:*operates single-threadedly on a simple chain of Operators, passing Pages from one operator to the next*。没有扇出箭头:一个 Driver 一条链;分布式发生在<strong>多个</strong> Driver 上(数据节点若干、协调节点再 reduce),由 ComputeService + ExchangeService 编排。对本课,Exchange 只是「数据节点算完局部聚合,把中间态送回协调节点再合并」。</p>
+
+        <h2>5. 同等意图的 Query DSL 有多啰嗦</h2>
+        <p>把图 1 翻成第 18、19 课的 JSON,最小等价是 <code>size: 0</code> + <code>query.range.gt</code> + <code>aggs.avg</code> 三件事(实验 9-11)。你必须同时记住三件彼此分开的事:不要 hits、过滤写在 query、平均写在 aggs;漏掉 <code>size: 0</code> 会多搬三篇 <code>_source</code> 而均值不变。ES|QL 把这三件收成三个命令,顺序就是执行顺序。<code>avg</code> 在两条路上数学相同(200.0);选择哪条,看你要<strong>一张变换中的表</strong>,还是<strong>带分数的 hits</strong>:全文 match 与 BM25 排名(第 18、20 课)、<code>highlight</code>、<code>_explain</code> 仍是 <code>_search</code> 的主场;扫描、过滤、聚合一张表,管道更便宜——不是因为少打字,而是响应和执行模型都不再搬 hits。整条管道走一遍:</p>
+        <div class="fp-slot" data-flow="ch27-esql-pipeline"></div>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>主线:5 行数据(100 是故意的边界)先跑通那条三命令管道,再四个变体(大写列名 / &gt;= / 去 WHERE / SORT·KEEP·LIMIT)把「顺序即语义」钉死;对照面:同数学的 Query DSL 三连(含漏 size:0 的坑);破坏面:<code>POST /_esql</code> 的 405 真相;压轴是 <code>profile:true</code> 亲眼读出算子链——WHERE 下推与 Sum/Count 改写都写在响应里。</p>
+
+        <h3>实验 1-2:建数据</h3>
+        <div class="exp-slot" data-exp="ch27-01-setup"></div>
+        <div class="exp-slot" data-exp="ch27-02-bulk"></div>
+
+        <h3>实验 3-7:那条管道与四个变体</h3>
+        <div class="exp-slot" data-exp="ch27-03-main"></div>
+        <div class="exp-slot" data-exp="ch27-05-case"></div>
+        <div class="exp-slot" data-exp="ch27-06-gte"></div>
+        <div class="exp-slot" data-exp="ch27-07-nowhere"></div>
+        <div class="exp-slot" data-exp="ch27-12-sort-keep"></div>
+
+        <h3>实验 8:profile 读算子链</h3>
+        <div class="exp-slot" data-exp="ch27-08-profile"></div>
+
+        <h3>实验 9-11:同数学的 Query DSL 对照</h3>
+        <div class="exp-slot" data-exp="ch27-09-dsl-avg"></div>
+        <div class="exp-slot" data-exp="ch27-10-dsl-hits"></div>
+        <div class="exp-slot" data-exp="ch27-11-dsl-gte"></div>
+
+        <h3>实验 4、13:两条路由的真相</h3>
+        <div class="exp-slot" data-exp="ch27-04-wrong-path"></div>
+        <div class="exp-slot" data-exp="ch27-13-async-route"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch27-14-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 查询 A:WHERE views &gt; 100 | STATS avg(views);B:同条但 STATS AVG(views);C:WHERE views &gt;= 100;D:去掉 WHERE。四条的列名和均值各是什么?若 POST 到 /_esql 而不是 /_query,A 会怎样?</summary>
+          <div class="answer">
+            <p>A:列名 <code>avg(views)</code>,200.0;B:列名 <code>AVG(views)</code>,仍 200.0(大小写只改列名字符串);C:175.0(把 100 算进去);D:150.0(五行之平均)。POST /_esql:<strong>405</strong>,allowed [GET,PUT,DELETE,HEAD]——它被裸索引路由 /{index} 捕获,不是 404;A 不会执行。allowed 列表是「这条路谁认领」的指纹:GET /_query 的 allowed 是 [POST]。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么 STATS avg(views) 必须阻塞到看完过滤后的每一页,而不能像第 16 课那样「各 shard 只回 Top-10 再平均这 10 个 views」?WHERE 被推进 Lucene 后,哪条不变量仍成立、哪条预期会破?Avg 的 Sum/Count 改写会改变「先过滤再平均」吗?</summary>
+          <div class="answer">
+            <p>均值的分母是<strong>过滤后的全集行数</strong>,不是 hits 窗口:Top-10 的 views 平均不是全集平均,分母会错。所以 AggregationOperator 必须等所有输入到齐才吐那一行(可以先各 shard 局部 Sum/Count、协调节点 FINAL 合并——那仍是全集)。下推后不变量「views≤100 的行不进平均」仍成立;破的是「profile 里一定看得到 FilterOperator」——这些行在源算子的 Lucene query 里就被丢了。Sum/Count 改写是同一批行上的代数等价,过滤集合不变。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 产品要「浏览量大于 100 的文章平均浏览量」,用 ES|QL 还是 Query DSL?什么时候值得付 Query DSL 那份嵌套 JSON?什么时候 ES|QL 的管道更便宜——不是因为少打字?</summary>
+          <div class="answer">
+            <p>结果是一张分析表、不要 _score 时用 ES|QL:管道顺序即语义,响应没有 hits 形状,不走「先排名再 Fetch」,聚合的中间态按列流动。需要全文 match 的 SHOULD(第 18 课)、BM25 排序(第 20 课)、_explain、highlight 时付 Query DSL 的嵌套 JSON 走 _search。不要因为 ES|QL 字少就拿它替代 match——两边引擎的产物不同;也不要因为会写 aggs.avg 就拒绝一条三命令的管道——「少打字」从来不是重点,执行模型和响应形状才是。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 把 /_esql 当成 404:</span>实测 POST /_esql 回 <strong>405</strong> allowed [GET,PUT,DELETE,HEAD]——它撞上裸索引路由 /{index}(POST 不在其中),不是「无 handler」的 400,更不是 404。ES|QL 的同步路由只有 POST /_query;异步是 /_query/async。</div>
+        <div class="callout warn"><span class="co-title">🕳 用动作名猜 URL:</span><code>indices:data/read/esql</code> 带着 esql,URL 里却没有——和第 16 课 search 动作对的是 /_search 不是动作名直译,同一类陷阱。</div>
+        <div class="callout warn"><span class="co-title">🕳 在 profile 里找不到 FilterOperator 就以为 WHERE 没生效:</span>WHERE 被下推进 LuceneSourceOperator 的 query(被丢的行根本不进 Page),链上可以没有 FilterOperator——下推只换执行地点,不变量「这些行不进平均」仍在。</div>
+        <div class="callout warn"><span class="co-title">🕳 找 AvgOperator / Where 节点 / Stats 节点:</span>都不存在——avg 改写成 Sum/Count(除法在协调端 Eval),WHERE→Filter、STATS→Aggregate,列名仍按你写的呈现。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为 ES|QL 更短所以 Lucene 路径更短:</span>FROM 仍打 Lucene(LuceneSourceOperator),省下的是描述方式与 hits 形状;全文排名还得回 _search。也别忘了 FROM 只见已 refresh 的数据——第 16 课不变量没变。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>另一条 REST 入口:POST /_query 上的管道文本,你写的一行就是执行模型</td></tr>
+          <tr><td>命令 → 节点</td><td>FROM→UnresolvedRelation→EsRelation;WHERE→Filter(可下推进 Lucene);STATS→Aggregate(无 BY 走阻塞式 AggregationOperator)</td></tr>
+          <tr><td>竖杠语义</td><td>visitCompositeQuery:左边 LogicalPlan 喂给右边 PlanFactory——嵌套即管道</td></tr>
+          <tr><td>物理侧</td><td>LuceneSourceOperator → ValuesSourceReader → Aggregation[INITIAL] → ExchangeSink;协调端 FINAL 合并 + Eval 除法</td></tr>
+          <tr><td>avg 的真身</td><td>SurrogateExpression:Sum/Count 两聚合 + DivDoublesEvaluator;没有 AvgOperator</td></tr>
+          <tr><td>流动单元</td><td>列式 Page(Block[] × positionCount),~256KB 切批;Driver 单线程一条链</td></tr>
+          <tr><td>与 _search 分工</td><td>hits/_score/BM25/highlight 走 _search;扫描过滤聚合一张表走 _query;响应 columns+values</td></tr>
+        </table>
+        <p><strong>心法:竖杠把三步钉成一条链——顺序即语义;优化器只能少算,不能改「先过滤再平均」。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch26.html">← 第 26 课:脚本引擎</a>
+          <a href="ch28.html">第 28 课:索引生命周期管理 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch27.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

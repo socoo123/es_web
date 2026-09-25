@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 14 课:存储引擎 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch14" data-ch="ch14">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 14 · 第三篇 · 数据写入</div>
+        <h1>存储引擎</h1>
+        <div class="ch-meta-line">一个分片内部的写入生命周期 · 约 18 分钟 · 前置:第 10、13 课 · 29 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>把 <code>refresh_interval</code> 设成 <code>-1</code> 后写一篇文档,同时问 GET 与 SEARCH,用一次对照把「可见性(refresh)」和「耐久性(fsync / commit)」两条轴彻底分开。</li>
+          <li>在 <code>_stats</code> 里读出 <code>primaries.translog.uncommitted_operations</code>:只 <code>_refresh</code> 它不归零,手动 <code>_flush</code> 之后才掉下来,并说出它统计的是哪一段日志。</li>
+          <li>打开 <code>InternalEngine.index</code>,指出 9.4.0 的真实顺序是 <strong>version 检查 → 写 Lucene → 写 translog</strong>,且 <code>trackTranslogLocation</code> 默认 <code>false</code>。</li>
+        </ul>
+      </header>
+
+      <section class="lesson">
+        <h2>1. 心智模型:一篇文档的四种时刻</h2>
+        <p>第 13 课把文档送到了主分片门口。门里是谁?是一个 <strong>Engine</strong>——单个分片的存储抽象,管着 Lucene 的 <code>IndexWriter</code>、预写日志 translog、两套 searcher 和一张 <code>LiveVersionMap</code>。忘掉类名,先看一篇 <code>_id=1</code> 的文档写入后依次经历的四种时刻:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah14a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="30" width="170" height="90" rx="10" class="fig-box-hot"/>
+              <text x="95" y="56" text-anchor="middle" class="fig-name">PUT _doc/1</text>
+              <text x="95" y="80" text-anchor="middle" class="fig-sub">index():进 Engine</text>
+              <text x="95" y="100" text-anchor="middle" class="fig-sub">GET 立即可见</text>
+              <line x1="182" y1="75" x2="198" y2="75" class="fig-arrow" marker-end="url(#ah14a)"/>
+              <rect x="200" y="30" width="170" height="90" rx="10" class="fig-box"/>
+              <text x="285" y="56" text-anchor="middle" class="fig-name">buffer + translog</text>
+              <text x="285" y="80" text-anchor="middle" class="fig-sub">回 201 前 fsync(耐久)</text>
+              <text x="285" y="100" text-anchor="middle" class="fig-sub">SEARCH 还看不见</text>
+              <line x1="372" y1="75" x2="388" y2="75" class="fig-arrow" marker-end="url(#ah14a)"/>
+              <rect x="390" y="30" width="170" height="90" rx="10" class="fig-box"/>
+              <text x="475" y="56" text-anchor="middle" class="fig-name">refresh</text>
+              <text x="475" y="80" text-anchor="middle" class="fig-sub">内存 → 新 segment</text>
+              <text x="475" y="100" text-anchor="middle" class="fig-sub">SEARCH 可见 · 日志不动</text>
+              <line x1="562" y1="75" x2="578" y2="75" class="fig-arrow" marker-end="url(#ah14a)"/>
+              <rect x="580" y="30" width="170" height="90" rx="10" class="fig-box-hot"/>
+              <text x="665" y="56" text-anchor="middle" class="fig-name">flush</text>
+              <text x="665" y="80" text-anchor="middle" class="fig-sub">IndexWriter.commit()</text>
+              <text x="665" y="100" text-anchor="middle" class="fig-sub">translog 归零</text>
+              <text x="380" y="140" text-anchor="middle" class="fig-sub">耐久在第 1 步就定了(fsync);可见性在第 2 步才给(searcher);commit 是第 3 步的事</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 四种时刻:写入即耐久、refresh 才可见、flush 才 commit。最容易犯的错是把后两步当成一步——「能搜到」和「已提交」之间隔着一整个 translog。</figcaption>
+        </figure>
+
+        <p>把三种存放被哪一步碰到列成表,这张表是全课的地图,后面每一节都在展开其中一行:</p>
+        <table class="ktable">
+          <tr><th>步骤</th><th>IndexWriter 内存缓冲</th><th>translog</th><th>已 commit 的磁盘 segment</th><th>SEARCH</th><th>GET(默认)</th></tr>
+          <tr><td><code>index()</code></td><td>写入(addDocuments)</td><td><code>translog.add</code></td><td>不动</td><td>看不见</td><td>看得见(VersionMap)</td></tr>
+          <tr><td>回 201 前</td><td>不动</td><td><code>ensureSynced</code> fsync</td><td>不动</td><td>看不见</td><td>看得见</td></tr>
+          <tr><td>refresh</td><td>做成 NRT segment,缓冲清空</td><td><strong>不动、不裁</strong></td><td><strong>不</strong> commit</td><td>看得见</td><td>看得见</td></tr>
+          <tr><td>flush</td><td><code>IndexWriter.commit()</code></td><td>滚动 generation 并裁剪</td><td>新的 <code>segments_N</code></td><td>看得见</td><td>看得见</td></tr>
+        </table>
+
+        <p>注意第三行:Lucene 的 NRT refresh 确实会落出新的 segment 文件、SEARCH 能打开它,但<strong>没有新的 commit 点</strong>。进程崩溃时这些未 commit 的 segment 作废,恢复靠 translog 重放——所以「进磁盘 segment」这一列只在 flush 打勾。下面这部动画把四步连成一次完整旅程,上半是请求如何到达主分片,下半是这篇文档在分片内外的存放位置如何随时间变化:</p>
+
+        <div class="fp-slot" data-flow="ch14-write-path"></div>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>index/engine/Engine.java</code></td><td>抽象层:<code>index / delete / get / refresh / flush</code>;<code>SearcherScope.EXTERNAL</code> vs <code>INTERNAL</code></td></tr>
+          <tr><td><code>index/engine/InternalEngine.java</code></td><td>唯一可写实现:<code>index</code> 的 Lucene→translog 顺序、<code>refresh</code>、<code>flushHoldingLock</code>、<code>realtimeGetUnderLock</code></td></tr>
+          <tr><td><code>index/translog/Translog.java</code></td><td>预写日志:<code>add</code>、generation 滚动、<code>translog.ckp</code>;<code>Durability.REQUEST / ASYNC</code></td></tr>
+          <tr><td><code>index/engine/LiveVersionMap.java</code></td><td>uid → 最近版本;refresh 后 <code>afterRefresh</code> 丢掉已可见条目</td></tr>
+          <tr><td><code>index/translog/TranslogStats.java</code></td><td><code>_stats</code> 里 <code>uncommitted_operations</code> 等字段名的出处</td></tr>
+        </table>
+        <p>生产路径上真正接写入的只有 <code>InternalEngine</code>。<code>ReadOnlyEngine</code> 服务于 Searchable Snapshot 这类「打开已有 commit、不再写」的场景,<code>NoOpEngine</code> 继承它、几乎什么都不做——记住「可写引擎就这一份」即可。Engine 由 <code>IndexShard</code> 在 recovery 完成后才创建,这是第 15 课的主线。</p>
+
+        <h2>3. index():先 Lucene,后 translog</h2>
+        <p>这是 ES 最核心的写入路径。当前仓库(9.4.0)的顺序<strong>不是</strong>教科书里「先写 WAL 再改数据结构」的排列:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 140" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah14b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="22" width="170" height="64" rx="9" class="fig-box"/>
+              <text x="95" y="46" text-anchor="middle" class="fig-name">version 检查</text>
+              <text x="95" y="68" text-anchor="middle" class="fig-sub">冲突根本不写</text>
+              <line x1="182" y1="54" x2="198" y2="54" class="fig-arrow" marker-end="url(#ah14b)"/>
+              <rect x="200" y="22" width="170" height="64" rx="9" class="fig-box-hot"/>
+              <text x="285" y="46" text-anchor="middle" class="fig-name">indexIntoLucene</text>
+              <text x="285" y="68" text-anchor="middle" class="fig-sub">进内存,还不可搜</text>
+              <line x1="372" y1="54" x2="388" y2="54" class="fig-arrow" marker-end="url(#ah14b)"/>
+              <rect x="390" y="22" width="170" height="64" rx="9" class="fig-box-hot"/>
+              <text x="475" y="46" text-anchor="middle" class="fig-name">translog.add</text>
+              <text x="475" y="68" text-anchor="middle" class="fig-sub">成功才记 Index</text>
+              <line x1="562" y1="54" x2="578" y2="54" class="fig-arrow" marker-end="url(#ah14b)"/>
+              <rect x="580" y="22" width="170" height="64" rx="9" class="fig-box"/>
+              <text x="665" y="46" text-anchor="middle" class="fig-name">VersionMap</text>
+              <text x="665" y="68" text-anchor="middle" class="fig-sub">location 常 = null</text>
+              <text x="95" y="112" text-anchor="middle" class="fig-sub">uid 锁串行</text>
+              <text x="285" y="112" text-anchor="middle" class="fig-sub">addDocuments / softUpdateDocument</text>
+              <text x="475" y="112" text-anchor="middle" class="fig-sub">失败记 NoOp,保 seqNo 连续</text>
+              <text x="665" y="112" text-anchor="middle" class="fig-sub">trackTranslogLocation 默认关</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · InternalEngine.index 的真实顺序。Lucene 在前、translog 在后——耐久不靠调用顺序,靠回 201 之前的 fsync 兜底。</figcaption>
+        </figure>
+
+        <pre class="code-block"><code>// InternalEngine.java — index() 成功路径(省略 seqNo 生成与节流)
+if (plan.indexIntoLucene || plan.addStaleOpToLucene) {
+    indexResult = indexIntoLucene(index, plan);            // ① 先 Lucene
+}
+if (index.origin().isFromTranslog() == false) {
+    if (indexResult.getResultType() == Result.Type.SUCCESS) {
+        location = translog.add(new Translog.Index(index, indexResult)); // ② 再 translog
+    } else if (indexResult.getSeqNo() != UNASSIGNED_SEQ_NO) {
+        location = innerNoOp(noOp).getTranslogLocation();  // 失败也要占住 seqNo
+    }
+    indexResult.setTranslogLocation(location);
+}
+final Translog.Location translogLocation =
+    trackTranslogLocation.get() ? indexResult.getTranslogLocation() : null; // 默认 null
+versionMap.maybePutIndexUnderLock(index.uid(), new IndexVersionValue(...));</code></pre>
+
+        <p>四件必须钉死的事实:</p>
+        <p><strong>一,version 检查在 Lucene 之前。</strong><code>indexingStrategyForOperation</code> 在 primary 上走进 <code>planIndexingAsPrimary</code>:带外部 version 或 <code>if_seq_no</code> 时先 <code>resolveDocVersion</code>,冲突则直接跳过,根本碰不到 IndexWriter。同一 uid 的并发修改靠 <code>versionMap.acquireLock(index.uid())</code> 串行。</p>
+        <p><strong>二,Lucene 这一步仍是内存语义。</strong><code>indexIntoLucene</code> 按计划调 <code>indexWriter.addDocuments</code>(append)或 <code>indexWriter.softUpdateDocument</code>(软删除旧 uid 再加新文档)。EXTERNAL searcher 还看不见它。</p>
+        <p><strong>三,translog.add 在 Lucene 成功之后。</strong>这样 Lucene 文档级失败时,translog 记下的是一条 NoOp 而不是一条「索引里其实没有」的 Index——seqNo 已经发出去了,空洞比脏日志更难收拾(思考题 2 展开)。</p>
+        <p><strong>四,VersionMap 里的 translog location 经常是 null。</strong><code>trackTranslogLocation</code> 是个默认 <code>false</code> 的 <code>AtomicBoolean</code>;第一次 realtime GET 撞上「命中但 location 为空」才把它打开(见第 7 节)。</p>
+        <div class="callout tip"><span class="co-title">append 优化:</span><code>POST /idx/_doc</code> 自动生成 _id 时,若 <code>canOptimizeAddDocument</code> 成立,走 <code>optimizedAppendOnly</code>:跳过 VersionMap 查找直接 <code>addDocuments</code>。重试或副本乱序会抬高 <code>maxUnsafeAutoIdTimestamp</code>,后续退化为完整路径。本课实验都用显式 _id。</div>
+
+        <h2>4. translog:耐久性,不是搜索可见性</h2>
+        <p>IndexWriter 的新文档在内存里;就算 refresh 落出了 NRT segment,没 commit 掉电仍会丢。translog 补的就是这块缺口:每个未 commit 的操作记一份,崩溃后按 seqNo 重放。它在磁盘上的布局(<code>Translog</code> 类注释):</p>
+        <pre class="code-block"><code>${shard_path}/translog/
+├── translog-1.tlog      # 已滚动、只读的那一代
+├── translog-1.ckp       # 该代的 checkpoint 副本
+├── translog-2.tlog      # 当前正在写的 generation
+└── translog.ckp         # 当前 checkpoint(单盘块写入,视为原子)</code></pre>
+        <p>当前 writer 写到 <code>index.translog.generation_threshold_size</code>(默认 64MB)或 primary term 变化就 <code>rollGeneration()</code>:旧 <code>.tlog</code> 冻结为只读,新文件接着写。<strong>滚动不是 flush</strong>——flush 才 commit 并裁掉不再需要的 generation。</p>
+        <p><code>translog.add</code> 只保证写进文件(进程读得到),<strong>不保证已 fsync</strong>。耐久时机由 <code>index.translog.durability</code> 决定:</p>
+        <table class="ktable">
+          <tr><th>设置</th><th>默认</th><th>回 201 之前做什么</th><th>掉电窗口</th></tr>
+          <tr><td><code>durability = request</code></td><td><strong>是默认</strong></td><td><code>AsyncAfterWriteAction</code> 调 <code>syncAfterWrite → ensureSynced</code></td><td>已成功的请求不应丢</td></tr>
+          <tr><td><code>durability = async</code></td><td>需显式打开</td><td>不在这条请求上 fsync</td><td>最多约一个 <code>sync_interval</code>(5s)</td></tr>
+        </table>
+        <p>所以在默认配置下,「写入已持久化」指的是 <strong>201 返回时 translog 已 fsync</strong>;Lucene commit 可能几分钟之后才发生。SEARCH 能不能看见,和这张表毫无关系。未 commit 的量在 <code>_stats</code> 里看,字段名以 <code>TranslogStats.toXContent</code> 为准:<code>operations</code>、<code>size_in_bytes</code>、<code>uncommitted_operations</code>、<code>uncommitted_size_in_bytes</code>——没有叫 <code>uncommitted</code> 的短键。<code>uncommitted_*</code> 统计的是 safe commit 的 local checkpoint 之后那些 generation(<code>Translog.stats()</code> 用 <code>minGenerationForSeqNo(localCheckpointOfSafeCommit + 1)</code>),refresh 不推进 commit,所以只 refresh 它掉不下去——实验 2、3 就是用数字打这句话。</p>
+
+        <h2>5. refresh:换 searcher,不碰磁盘</h2>
+        <p>refresh 的对象是 searcher,不是 commit 点。<code>Engine.refresh(source)</code> 在 <code>InternalEngine</code> 里被钉死为 EXTERNAL、阻塞:</p>
+        <pre class="code-block"><code>@Override
+public RefreshResult refresh(String source) throws EngineException {
+    return refresh(source, SearcherScope.EXTERNAL, true);   // 对外 refresh
+}
+protected final RefreshResult refresh(String source, SearcherScope scope, boolean block) {
+    ReferenceManager&lt;ElasticsearchDirectoryReader&gt; referenceManager = getReferenceManager(scope);
+    if (block) referenceManager.maybeRefreshBlocking();     // Lucene NRT:打开看得见新文档的 reader
+}</code></pre>
+        <p>两套 searcher 不要混:</p>
+        <table class="ktable">
+          <tr><th>SearcherScope</th><th>谁在用</th><th>何时换新 reader</th></tr>
+          <tr><td><code>EXTERNAL</code></td><td>SEARCH;<code>GET ?realtime=false</code></td><td>定时 <code>refresh_interval</code>、手动 <code>_refresh</code>、<code>refresh=wait_for</code></td></tr>
+          <tr><td><code>INTERNAL</code></td><td>realtime GET 的后备;引擎自己的 version 查找</td><td>内部 refresh(<code>realtime_get</code>、<code>version_table_flush</code>)</td></tr>
+        </table>
+        <p><code>ExternalReaderManager</code> 的实现是:先让 INTERNAL <code>maybeRefreshBlocking()</code>,再把那份 reader <strong>偷过来</strong>给 EXTERNAL——一次对外 refresh,内部一定已追上;反之只做内部 refresh,SEARCH 仍看不见。<code>LiveVersionMap</code> 实现了 <code>RefreshListener</code>,refresh 后 <code>afterRefresh</code> 丢掉已被新 searcher 接住的条目:VersionMap 不是缓存,只盖「searcher 还没接住的那一小段」。tombstone(删除)按 <code>index.gc_deletes</code>(默认 60s)单独过期。</p>
+        <div class="callout warn"><span class="co-title">🕳 refresh_interval=-1 不是「实时」,是关掉定时:</span><code>0</code> 才是每次写入都试图 refresh——高写入下会制造大量小 segment,文件描述符和 merge 一起炸。想「写完立即可读」,GET 本来就是实时的,轮不到 refresh。</div>
+
+        <h2>6. flush:commit 之后,才能裁 translog</h2>
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 140" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah14c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="22" width="170" height="64" rx="9" class="fig-box"/>
+              <text x="95" y="46" text-anchor="middle" class="fig-name">rollGeneration</text>
+              <text x="95" y="68" text-anchor="middle" class="fig-sub">旧 .tlog 冻结只读</text>
+              <line x1="182" y1="54" x2="198" y2="54" class="fig-arrow" marker-end="url(#ah14c)"/>
+              <rect x="200" y="22" width="170" height="64" rx="9" class="fig-box-hot"/>
+              <text x="285" y="46" text-anchor="middle" class="fig-name">Lucene commit</text>
+              <text x="285" y="68" text-anchor="middle" class="fig-sub">commitIndexWriter()</text>
+              <line x1="372" y1="54" x2="388" y2="54" class="fig-arrow" marker-end="url(#ah14c)"/>
+              <rect x="390" y="22" width="170" height="64" rx="9" class="fig-box"/>
+              <text x="475" y="46" text-anchor="middle" class="fig-name">内部 refresh</text>
+              <text x="475" y="68" text-anchor="middle" class="fig-sub">version_table_flush</text>
+              <line x1="562" y1="54" x2="578" y2="54" class="fig-arrow" marker-end="url(#ah14c)"/>
+              <rect x="580" y="22" width="170" height="64" rx="9" class="fig-box-hot"/>
+              <text x="665" y="46" text-anchor="middle" class="fig-name">trim 旧 generation</text>
+              <text x="665" y="68" text-anchor="middle" class="fig-sub">trimUnreferencedReaders</text>
+              <text x="285" y="112" text-anchor="middle" class="fig-sub">写出 segments_N,commit user data 带 local checkpoint</text>
+              <text x="665" y="112" text-anchor="middle" class="fig-sub">删掉 commit 点之前不再需要的 .tlog</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · flushHoldingLock 的四步。顺序有讲究:先冻结日志、再 commit、再让 INTERNAL searcher 接住 VersionMap 里挂着旧 location 的文档、最后才敢删旧日志。</figcaption>
+        </figure>
+        <p><code>Engine.flush(force, waitIfOngoing)</code> 走到 <code>InternalEngine.flushHoldingLock</code>,按图 3 的顺序执行。<code>commitIndexWriter</code> 往 Lucene commit user data 里写 <code>translog_uuid</code>、<code>local_checkpoint</code>、<code>max_seq_no</code>——下次崩溃恢复从最后一个 commit 打开 Lucene,只重放其后的 translog。这也解释了 <code>uncommitted_operations</code> 的语义:还没被 commit 覆盖、崩溃后必须重放的那些操作。</p>
+        <p>为什么 commit 之后还要 <code>refresh("version_table_flush")</code>?VersionMap 里的条目可能挂着旧 generation 的 translog location,generation 被 trim 之后再按 location 去读会读空。内部 refresh 让 INTERNAL searcher 接住这些文档,<code>afterRefresh</code> 丢掉相关条目,后续 GET / version 检查走 Lucene,不再指向已删除的 <code>.tlog</code>。</p>
+        <p>定期 flush 的阈值,以 9.4.0 的 <code>IndexSettings</code> 为准,不要背旧博客:</p>
+        <table class="ktable">
+          <tr><th>触发</th><th>默认(9.4.0)</th><th>作用</th></tr>
+          <tr><td><code>index.translog.flush_threshold_size</code></td><td>10GB,且与磁盘总量的 1% 取小(下限 10MB)</td><td>未 commit translog 体积触发</td></tr>
+          <tr><td><code>index.translog.flush_threshold_age</code></td><td>1 分钟</td><td>距上次 flush 的时间触发</td></tr>
+          <tr><td><code>POST /&lt;index&gt;/_flush</code></td><td>手动(wait_if_ongoing 默认 true)</td><td>实验 3 用</td></tr>
+          <tr><td>节点关闭 / 快照前</td><td>内部</td><td>保证留有一个安全 commit</td></tr>
+        </table>
+        <p><code>shouldPeriodicallyFlush</code> 看的是未 commit translog 的 generation 体积和上次 flush 时间,<strong>不是</strong> IndexWriter 堆缓冲——refresh 再勤,这两个阈值也不会因为「已经可搜索」而清零。</p>
+        <div class="callout tip"><span class="co-title">一次没 flush 到 0?</span>rest api 测试 <code>20_translog.yml</code> 在写一条后断言 <code>uncommitted_operations: 1</code>,flush <strong>两次</strong>之后才断言 0——第二次是为了让 global checkpoint 跟上、形成 safe commit。本地 1 主 0 副本往往一次就够;若没掉到 0,再 flush 一次,不要改预测。</div>
+
+        <h2>7. Engine.get:与第 10 课对齐</h2>
+        <p>读取侧第 10 课已走完整链路,这里只钉死和本课时间线有关的三句:</p>
+        <p><strong>一</strong>,<code>InternalEngine.get</code> 在 <code>realtime==true</code> 时走 <code>realtimeGetUnderLock</code>;否则只读 EXTERNAL searcher——未 refresh 就是 <code>found: false</code>。<strong>二</strong>,VersionMap 是第一站(current → old → tombstones → archive),命中且 <code>getLocation() != null</code> 才 <code>translog.readOperation</code>。<strong>三</strong>,因为 <code>trackTranslogLocation</code> 默认 false,第一次 realtime GET 常撞上「命中但 location 为空」:此时 <code>trackTranslogLocation.set(true)</code>,<code>refreshIfNeeded("realtime_get")</code> 推 INTERNAL searcher 从段里读;之后的写入才带 location,后续 GET 才稳定走 translog。另外,只加 <code>?refresh=true</code> 而 realtime 仍为 true,<strong>不会</strong>在 GET 上触发外部 refresh——第 10 课踩过的坑,不重复踩。</p>
+
+        <h2>8. 段合并:后台的清道夫</h2>
+        <p>refresh 几乎每次都留下新的小 segment。Lucene 在后台把小段合成大段:搜索打开的文件变少,被软删除的旧文档在合并时物理丢掉。代价是 CPU 和磁盘带宽;合并落后时 <code>InternalEngine</code> 的 <code>IndexThrottle</code> 会经 <code>throttle.acquireThrottle()</code> 卡住写入线程——这是背压,不是错误。<code>POST /&lt;index&gt;/_forcemerge?max_num_segments=1</code> 能把段数打到 1,只适合归档后的只读索引;写入还在继续时强制合并,成果立刻被新写入拆散。策略细节(tier、floor segment)是 <code>MergePolicy</code> 的事,本课不展开。</p>
+        <table class="ktable">
+          <tr><th>操作</th><th>段数量</th><th>已删除文档</th><th>写入是否被拖住</th></tr>
+          <tr><td>持续 index + refresh</td><td>变多</td><td>仍占空间(软删除)</td><td>通常否</td></tr>
+          <tr><td>后台 merge</td><td>变少</td><td>合并时回收</td><td>落后时 IndexThrottle</td></tr>
+          <tr><td><code>_forcemerge</code></td><td>可打到 1</td><td>尽量回收</td><td>很重,别当例行</td></tr>
+        </table>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>四组实验共用一个配方:1 主分片 0 副本、<code>refresh_interval=-1</code>,把可见性与 commit 的时机全部握在自己手里。索引名 <code>tut-l14-*</code>,不依赖前面的课。</p>
+
+        <h3>实验 1:关掉定时 refresh,拆开「可见」与「已 commit」</h3>
+        <div class="exp-slot" data-exp="ch14-00-nrt-setup"></div>
+        <div class="exp-slot" data-exp="ch14-01-nrt-put"></div>
+        <div class="exp-slot" data-exp="ch14-02-nrt-get"></div>
+        <div class="exp-slot" data-exp="ch14-03-nrt-search"></div>
+        <div class="exp-slot" data-exp="ch14-04-nrt-refresh"></div>
+        <div class="exp-slot" data-exp="ch14-05-nrt-search-hit"></div>
+        <div class="exp-slot" data-exp="ch14-06-nrt-stats"></div>
+
+        <h3>实验 2:_stats 读 uncommitted_operations</h3>
+        <div class="exp-slot" data-exp="ch14-10-tlog-setup"></div>
+        <div class="exp-slot" data-exp="ch14-11-tlog-flush"></div>
+        <div class="exp-slot" data-exp="ch14-12-tlog-zero"></div>
+        <div class="exp-slot" data-exp="ch14-13-tlog-put"></div>
+        <div class="exp-slot" data-exp="ch14-14-tlog-one"></div>
+        <div class="exp-slot" data-exp="ch14-15-tlog-async"></div>
+
+        <h3>实验 3:refresh 之后、flush 之前</h3>
+        <div class="exp-slot" data-exp="ch14-20-fl-setup"></div>
+        <div class="exp-slot" data-exp="ch14-21-fl-put"></div>
+        <div class="exp-slot" data-exp="ch14-22-fl-refresh"></div>
+        <div class="exp-slot" data-exp="ch14-23-fl-stats-refresh"></div>
+        <div class="exp-slot" data-exp="ch14-24-fl-search"></div>
+        <div class="exp-slot" data-exp="ch14-25-fl-flush"></div>
+        <div class="exp-slot" data-exp="ch14-26-fl-stats-flush"></div>
+
+        <h3>实验 4:_segments 看段的生老病死</h3>
+        <div class="exp-slot" data-exp="ch14-30-seg-setup"></div>
+        <div class="exp-slot" data-exp="ch14-31-seg-bulk-a"></div>
+        <div class="exp-slot" data-exp="ch14-32-seg-bulk-b"></div>
+        <div class="exp-slot" data-exp="ch14-33-seg-segments"></div>
+        <div class="exp-slot" data-exp="ch14-34-seg-update"></div>
+        <div class="exp-slot" data-exp="ch14-35-seg-deleted"></div>
+        <div class="exp-slot" data-exp="ch14-36-seg-forcemerge"></div>
+        <div class="exp-slot" data-exp="ch14-37-seg-after"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch14-90-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. refresh_interval=-1,连续 PUT _id=1,2,3,只 _refresh 不 _flush:SEARCH 能命中几篇?uncommitted_operations 是多少?此时 kill -9,重启后这 3 篇还在吗?</summary>
+          <div class="answer">
+            <p>SEARCH 命中 3 篇——refresh 换了 EXTERNAL searcher。<code>uncommitted_operations</code> 仍是 3(或略高):refresh 不 commit、不裁日志。kill -9 后未 commit 的 NRT segment 作废,但默认 <code>request</code> 耐久下这 3 条操作在回 201 前已 fsync 进 translog,恢复按 seqNo 重放,都还在。若当时是 <code>async</code> 且没到 sync_interval,可能丢。可见 ≠ 已 commit;已 fsync ≠ 已 commit——三件事三个开关。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 把 indexIntoLucene 与 translog.add 对调,Lucene 文档级失败会破坏什么?失败路径为什么还要写一条 NoOp?</summary>
+          <div class="answer">
+            <p>对调后,失败时日志里留下一条「索引里其实没有」的 Index:恢复时重放同样会失败的操作,或更糟——seqNo 对应的内容与 Lucene 永久不一致。现码是 Lucene 成功才 <code>translog.add(Index)</code>;失败但 seqNo 已分配则 <code>innerNoOp</code> 记一条 NoOp,保证序号连续、恢复时跳过。primary 上这类文档级失败不 failEngine,所以补偿必须落在 translog 里。空洞(seqNo 跳号)和脏日志(记了没发生的事)相比,后者让恢复语义彻底崩坏。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. durability=async 什么场景能开?refresh_interval=0 能不能替代 realtime GET?trackTranslogLocation 为什么默认 false?</summary>
+          <div class="answer">
+            <p>日志类索引可以开 async:丢最多约 5 秒通常可接受,换来少 fsync 的吞吐。写后立刻 GET 做确认的接口不能开:201 不再意味着掉电还在,GET 可能读到一份崩溃即消失的文档。<code>refresh_interval=0</code> 不能替代 realtime GET——那是把「每次写入造一个小 segment」的成本摊到写路径上,换来的仍只是 SEARCH 可见性;GET 要的是 VersionMap / INTERNAL,根本不走 EXTERNAL。<code>trackTranslogLocation</code> 默认 false,因为不是每个 shard 都会被 realtime GET:一创建就跟踪,等于每个写入都在 VersionMap 里挂一个 location。第一次真正需要时再打开,之后的写入才付这份钱。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 「能搜到 = 已落盘」:</span>refresh 只换 EXTERNAL searcher,不 commit、不裁 translog。可搜索之后 <code>uncommitted_operations</code> 照样 ≥1,掉电恢复仍要靠日志重放。把可见性当持久化,是本课最大的坑。</div>
+        <div class="callout warn"><span class="co-title">🕳 「ES 是教科书 WAL,先写日志再改数据」:</span>9.4.0 的 <code>InternalEngine.index</code> 是先 <code>indexIntoLucene</code> 后 <code>translog.add</code>。耐久语义不在调用顺序里,而在 durability=request 时回 201 前的 <code>ensureSynced</code> fsync 里。</div>
+        <div class="callout warn"><span class="co-title">🕳 旧博客的 flush 阈值:</span>「512MB 或 30 分钟」是老黄历。9.4.0 的 <code>IndexSettings</code>:体积阈值 10GB(与磁盘 1% 取小、下限 10MB),时间阈值 1 分钟——以源码为准,别背二手数字。</div>
+        <div class="callout warn"><span class="co-title">🕳 在热索引上例行 _forcemerge:</span>强制合并是全量重写,写入不停就立刻再裂出新段;它只属于归档只读索引。平时交给后台 merge,落后时 <code>IndexThrottle</code> 自己会背压。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>引擎</td><td>Engine 是分片的存储抽象;可写实现只有 InternalEngine(IndexWriter + translog + 两套 searcher + LiveVersionMap)</td></tr>
+          <tr><td>顺序</td><td>index():version 检查 → 写 Lucene → translog.add → 条件性进 VersionMap</td></tr>
+          <tr><td>耐久</td><td>durability=request:回 201 前 ensureSynced;async 窗口约 sync_interval=5s</td></tr>
+          <tr><td>可见</td><td>refresh 换 EXTERNAL searcher(默认 1s,search idle 可停表,-1 关);不 commit、不裁日志;INTERNAL 只服务 realtime 后备</td></tr>
+          <tr><td>提交</td><td>flush:rollGeneration → IndexWriter.commit → version_table_flush → trimUnreferencedReaders</td></tr>
+          <tr><td>读</td><td>realtime GET:VersionMap 第一站;trackTranslogLocation 默认 false,第一次 GET 才打开</td></tr>
+          <tr><td>合并</td><td>merge 收段、回收软删除;落后时 IndexThrottle 背压写入</td></tr>
+        </table>
+        <p><strong>心法:refresh 管看得见,fsync 管丢不了,flush 管回得来——三个动作三个开关,谁也替不了谁。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch13.html">← 第 13 课:批量写入</a>
+          <a href="ch15.html">第 15 课:索引分片 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch14.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

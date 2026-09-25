@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>控制台 — ES 源码精读站</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="index.html">课程</a>
+      <a href="console.html" class="here">控制台</a>
+      <a href="cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="conn-badge" type="button"><span class="dot"></span><span class="conn-label">检查中…</span></button>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <header class="hero" style="padding-bottom: 0;">
+      <h1 style="font-size: 28px;">真实 ES 控制台</h1>
+      <p class="sub">请求发往本机 Elasticsearch 9.4.0(<code>bash docker/start.sh</code>,端口只绑 127.0.0.1)。第 29 课深链会带上目标端口和凭据别名,口令不进网址,也不写入浏览器存储;离开本页即丢。点「清除」可立刻去掉输入框里的凭据。</p>
+    </header>
+
+    <div class="console-layout">
+      <aside class="console-side">
+        <div class="endpoint-row">
+          <input id="endpoint-input" type="text" spellcheck="false" aria-label="ES 地址">
+          <input id="auth-input" type="password" placeholder="user:pass(仅本页)" spellcheck="false" autocomplete="off" aria-label="Basic 凭据">
+          <button id="auth-clear" class="btn" type="button">清除</button>
+        </div>
+        <div id="preset-box"></div>
+        <div class="preset-group">
+          <h3>历史</h3>
+          <div id="hist-list" class="hist-list"></div>
+        </div>
+      </aside>
+
+      <section class="console-main">
+        <div class="req-builder">
+          <select id="req-method" aria-label="HTTP 方法">
+            <option>GET</option>
+            <option>POST</option>
+            <option>PUT</option>
+            <option>DELETE</option>
+            <option>HEAD</option>
+          </select>
+          <input id="req-path" type="text" value="/_cluster/health" spellcheck="false" aria-label="路径">
+          <button id="send-btn" class="btn primary" type="button">发送 ⏎</button>
+        </div>
+        <div id="req-body-wrap" class="req-body-wrap" style="display:none;">
+          <textarea id="req-body" spellcheck="false" placeholder='请求体(JSON),⌘/Ctrl+Enter 发送'></textarea>
+        </div>
+        <div id="resp-head" class="resp-head"></div>
+        <div id="resp-viewer" class="resp-viewer"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/es-client.js"></script>
+  <script src="assets/js/console.js"></script>
+</body>
+</html>

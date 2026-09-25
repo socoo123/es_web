@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 23 课:分片分配 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch23" data-ch="ch23">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 23 · 第五篇 · 分布式机制</div>
+        <h1>分片分配</h1>
+        <div class="ch-meta-line">过滤链先投 NO,通过的才进 balancer · 约 16 分钟 · 前置:第 1、21 课 · 11 个实验 + 均衡迁移动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>在单节点上建 <code>tut-l23-yellow</code>(1 副本),用 <code>POST /_cluster/allocation/explain</code> 读出未分配 replica 的 <code>deciders</code>,指出 <code>same_shard</code> 投的那张 NO——第 1 课只看见 Yellow,这一课看见投出 Yellow 的那一票。</li>
+          <li>打开 <code>AllocationDeciders.withDeciders</code> 与 <code>SameShardAllocationDecider.decideSameNode</code>,说出过滤链「NO 即短路」的顺序与四种票(NO &lt; THROTTLE &lt; NOT_PREFERRED &lt; YES)的排序语义。</li>
+          <li>写出磁盘三档水位的 setting 名与默认值(85% / 90% / 95%),并用 <code>DiskThresholdDecider.canAllocate</code> 的分支回答:过 low 之后,<strong>新</strong>分片怎样、存量分片怎样、从未分配的 primary 有没有豁免。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:先过滤,后平衡</h2>
+        <p>第 21 课把「每个分片在哪个节点」钉在 <code>ClusterState.routingTable</code> 里;这一课解开谁执笔。答案不是一张组织架构图,而是两段清晰的流水线:<strong>过滤链(AllocationDecider)先回答「这个 shard 放这个节点行不行」,投 NO 的组合当场作废;全部放行的节点才交给 balancer 打分挑人</strong>。最短的例子就是第 1 课见过的单节点 Yellow:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 270" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch23f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="222" height="82" rx="10" class="fig-box"/>
+              <text x="126" y="39" text-anchor="middle" class="fig-name">建 tut-l23-yellow</text>
+              <text x="126" y="63" text-anchor="middle" class="fig-sub">1 primary + 1 replica</text>
+              <text x="126" y="85" text-anchor="middle" class="fig-sub">集群里只有 Node-A</text>
+              <rect x="269" y="15" width="222" height="82" rx="10" class="fig-box"/>
+              <text x="380" y="39" text-anchor="middle" class="fig-name">P0 落到 Node-A</text>
+              <text x="380" y="63" text-anchor="middle" class="fig-sub">STARTED,可读可写</text>
+              <text x="380" y="85" text-anchor="middle" class="fig-sub">primary 先行(replica 要等它)</text>
+              <rect x="523" y="15" width="222" height="82" rx="10" class="fig-box"/>
+              <text x="634" y="39" text-anchor="middle" class="fig-name">R0 也想进 Node-A</text>
+              <text x="634" y="63" text-anchor="middle" class="fig-sub">过滤链逐个问 Decider</text>
+              <text x="634" y="85" text-anchor="middle" class="fig-sub">same_shard 看见同号副本</text>
+              <line x1="237" y1="56" x2="263" y2="56" class="fig-arrow" marker-end="url(#ch23f1-arrow)"/>
+              <line x1="491" y1="56" x2="517" y2="56" class="fig-arrow" marker-end="url(#ch23f1-arrow)"/>
+              <rect x="269" y="120" width="222" height="82" rx="10" class="fig-box"/>
+              <text x="380" y="144" text-anchor="middle" class="fig-name">same_shard 投 NO</text>
+              <text x="380" y="168" text-anchor="middle" class="fig-sub">生产路径遇 NO 即短路</text>
+              <text x="380" y="190" text-anchor="middle" class="fig-sub">balancer 根本轮不到打分</text>
+              <line x1="634" y1="97" x2="634" y2="130" class="fig-arrow" marker-end="url(#ch23f1-arrow)"/>
+              <line x1="634" y1="161" x2="493" y2="161" class="fig-arrow" marker-end="url(#ch23f1-arrow)"/>
+              <rect x="523" y="120" width="222" height="82" rx="10" class="fig-box"/>
+              <text x="634" y="144" text-anchor="middle" class="fig-name">R0 停在 UNASSIGNED</text>
+              <text x="634" y="168" text-anchor="middle" class="fig-sub">唯一候选被剔除,无处可去</text>
+              <text x="634" y="190" text-anchor="middle" class="fig-sub">RoutingTable 这行没有 node</text>
+              <rect x="15" y="222" width="730" height="40" rx="9" class="fig-box-hot"/>
+              <text x="380" y="240" text-anchor="middle" class="fig-sub">集群 Yellow:主分片都在、能读写;副本不是同一台机器上的第二份文件——机器挂了两份一起没,高可用当场破</text>
+              <text x="380" y="257" text-anchor="middle" class="fig-sub">Yellow 不是「副本没创建」,是过滤链合法地拒绝了唯一候选节点</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 单节点 Yellow 全链:R0 被 same_shard 拒之门外,balancer 根本没上场。</figcaption>
+        </figure>
+
+        <p>分配引擎是 <code>AllocationService</code>,一次 reroute 大致三步:先给<strong>磁盘上已有副本</strong>找家(GatewayAllocator),再对每个「未分配 shard × 候选节点」跑过滤链,最后只在投出 YES(或 THROTTLE / NOT_PREFERRED)的节点里让 allocator 挑人。默认 allocator 由 <code>cluster.routing.allocation.type</code> 决定,默认 <code>desired_balance</code>:外层 <code>DesiredBalanceShardsAllocator</code> 异步算目标位置再 reconcile,<strong>内层打分引擎仍是 BalancedShardsAllocator</strong>。触发 reroute 的场景:索引创建、节点加入/离开、手动 <code>POST /_cluster/reroute</code>,磁盘水位监控(DiskThresholdMonitor)也会踢一脚。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>cluster/routing/allocation/AllocationService.java</code></td><td>分配入口:<code>reroute</code> 先 <code>allocateExistingUnassignedShards</code>(先 primary 后 replica),再 <code>shardsAllocator.allocate</code></td></tr>
+          <tr><td><code>cluster/routing/allocation/decider/AllocationDeciders.java</code></td><td>过滤链本体:<code>withDeciders</code> 逐个问 Decider;生产路径碰到 <strong>NO 就 break</strong></td></tr>
+          <tr><td><code>cluster/routing/allocation/decider/SameShardAllocationDecider.java</code></td><td>同一 shard 的另一份已在该节点 → <code>Decision.NO</code>;explain 文案 <code>a copy of this shard is already allocated to this node</code></td></tr>
+          <tr><td><code>cluster/routing/allocation/decider/DiskThresholdDecider.java</code></td><td>low 水位之上不接<strong>新</strong>分片;high 之上连「从未分配过的 primary」也不放</td></tr>
+          <tr><td><code>cluster/routing/allocation/allocator/BalancedShardsAllocator.java</code></td><td>全部放行之后:<code>allocateUnassigned</code> → <code>moveShards</code> → <code>balance</code>;只在非 NO 的节点里选权重最低者</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>AllocationDecider</code>(每个方法默认 <code>Decision.ALWAYS</code>)、<code>ClusterModule.createAllocationDeciders</code>(内置链的注册顺序)、<code>DiskThresholdSettings</code>(水位 setting 名与默认值)、<code>RestClusterAllocationExplainAction</code>(<code>GET|POST /_cluster/allocation/explain</code>)、<code>DesiredBalanceShardsAllocator</code>(默认外层)、<code>GatewayAllocator</code>(已有副本)、<code>ThrottlingAllocationDecider</code>(THROTTLE 的来源)、<code>ReplicaAfterPrimaryActiveAllocationDecider</code>(replica 必须等 primary 先 STARTED)。</p>
+
+        <h2>3. reroute:先已有副本,后 allocator</h2>
+        <p>Master 上任何会改 RoutingTable 的变化,最终都要算「下一步该把哪些未分配分片放到哪些节点」。这步贵,所以生产路径尽量经 <code>RerouteService.reroute</code> 批处理,不是每个事件直接打 <code>AllocationService.reroute</code>。核心顺序:</p>
+        <pre class="code-block"><code>// cluster/routing/allocation/AllocationService.java(节选)
+private void reroute(RoutingAllocation allocation, RerouteStrategy rerouteStrategy) {
+    rerouteStrategy.removeDelayMarkers(allocation);
+    allocateExistingUnassignedShards(allocation); // 磁盘上已有的副本优先
+    rerouteStrategy.execute(allocation);          // 默认:shardsAllocator.allocate(...)
+}</code></pre>
+        <p>「已有副本优先」不是口号:<code>allocateExistingUnassignedShards</code> <strong>先扫完所有 unassigned primary,再扫 replica</strong>。对新建索引,primary 的 recovery source 是 <code>EMPTY_STORE</code>,Gateway 这边很快结束,真正挑节点的是后面的 shardsAllocator;节点重启、从磁盘恢复,才轮到 <code>GatewayAllocator</code> 问「哪台机器上已经有这份 Lucene 目录」——第 24 课的 peer recovery 从这里接。</p>
+        <table class="ktable">
+          <tr><th>shardsAllocator 类型</th><th>setting 值</th><th>谁上场</th></tr>
+          <tr><td><code>DESIRED_BALANCE_ALLOCATOR</code></td><td><code>desired_balance</code>(<strong>默认</strong>)</td><td><code>DesiredBalanceShardsAllocator</code>,内部仍 <code>new BalancedShardsAllocator(...)</code></td></tr>
+          <tr><td><code>BALANCED_ALLOCATOR</code></td><td><code>balanced</code></td><td>直接 <code>BalancedShardsAllocator</code></td></tr>
+        </table>
+
+        <h2>4. AllocationDecider 是过滤链,不是组织架构图</h2>
+        <p>每个 Decider 只回答一件事:<strong>把「这个」shard 放到「这个」节点,行不行</strong>。接口 <code>AllocationDecider</code> 的 <code>canAllocate</code> / <code>canRemain</code> / <code>canRebalance</code> 默认都是 <code>Decision.ALWAYS</code>,真正干活的是子类;组合它们的是 <code>AllocationDeciders</code>,不是一张「磁盘 / Zone / 版本」并列的架构盒。生产路径(DebugMode.OFF)碰到 NO <strong>立刻 break</strong>,后面的 Decider 根本不问:</p>
+        <pre class="code-block"><code>// cluster/routing/allocation/decider/AllocationDeciders.java(节选)
+if (debugMode == RoutingAllocation.DebugMode.OFF) {
+    Decision mostNegativeDecision = Decision.YES;
+    for (AllocationDecider decider : deciders) {
+        var decision = deciderAction.apply(decider);
+        if (mostNegativeDecision.type().compareToBetweenDecisions(decision.type()) > 0) {
+            mostNegativeDecision = decision;
+            if (mostNegativeDecision.type() == Decision.Type.NO) {
+                break;   // 已经 NO,后面不必再问
+            }
+        }
+    }
+    return mostNegativeDecision;
+}</code></pre>
+        <p>票的序是 <strong>NO &lt; THROTTLE &lt; NOT_PREFERRED &lt; YES</strong>,链的汇总取「最负面」那张:一个 THROTTLE 压过所有 YES,一个 NO 压倒一切。<code>NOT_PREFERRED</code> 是较新的第四种票(节点资源画像偏高,<strong>允许</strong>放但不优先);explain JSON 里偶尔会见到它。explain 把 debugMode 打开时走 else 分支:构造 <code>Decision.Multi</code>,把每个非 ALWAYS 的票收进数组——这就是响应里 <code>deciders</code> 的来源,§7 展开。</p>
+
+        <h3>同节点 NO 的那一票:SameShardAllocationDecider</h3>
+        <p>类名是 <strong>SameShardAllocationDecider</strong>(不是旧图写的 SameShardDecider),<code>NAME = "same_shard"</code>,会原样出现在 explain 的 <code>deciders[].decider</code> 里。Javadoc 写得很死:禁止同一 shard 的多份落在同一 <strong>node</strong>——跟 <code>cluster.routing.allocation.same_shard.host</code>(默认 false)无关,那是给「同一物理机起多个节点」再比一层 host address 用的开关;<strong>node 级禁叠永远生效</strong>。R0 问 Node-A 时,真正投 NO 的是 <code>decideSameNode</code>:</p>
+        <pre class="code-block"><code>// SameShardAllocationDecider.decideSameNode(节选)
+for (ShardRouting assignedShard : assignedShards) {
+    if (node.nodeId().equals(assignedShard.currentNodeId())) {
+        return debug ? debugNo(shardRouting, assignedShard) : Decision.NO;
+    }
+}
+return YES_NO_COPY;  // "this node does not hold a copy of this shard"</code></pre>
+        <p>生产路径直接返回常量 <code>Decision.NO</code>(热路径不建 explanation 字符串);explain 路径才走 <code>debugNo</code>,文案两种:「这份分片本身已在该节点」或 <code>a copy of this shard is already allocated to this node</code>——单节点 Yellow 时你在 JSON 里看到的就是后者。</p>
+        <table class="ktable">
+          <tr><th>类</th><th>explain 里的 decider</th><th>检查什么</th><th>默认</th></tr>
+          <tr><td><code>SameShardAllocationDecider</code></td><td><code>same_shard</code></td><td>同号副本不在同一 node</td><td>总开;host 级开关 false</td></tr>
+          <tr><td><code>ReplicaAfterPrimaryActiveAllocationDecider</code></td><td><code>replica_after_primary_active</code></td><td>replica 等 primary 先 active</td><td>总开</td></tr>
+          <tr><td><code>DiskThresholdDecider</code></td><td><code>disk_threshold</code></td><td>磁盘水位(§6)</td><td><code>threshold_enabled=true</code></td></tr>
+          <tr><td><code>ThrottlingAllocationDecider</code></td><td><code>throttling</code></td><td>单节点并发 recovery 过多 → THROTTLE</td><td>并发 recovery 2 / 初始 primary 4</td></tr>
+          <tr><td><code>FilterAllocationDecider</code></td><td><code>filter</code></td><td><code>require</code> / <code>include</code> / <code>exclude</code></td><td>无过滤</td></tr>
+          <tr><td><code>EnableAllocationDecider</code></td><td><code>enable</code></td><td>总开关 all/primaries/new_primaries/none</td><td><code>all</code></td></tr>
+          <tr><td><code>AwarenessAllocationDecider</code></td><td><code>awareness</code></td><td>按 rack/zone 打散</td><td>需配 attributes</td></tr>
+          <tr><td><code>NodeVersionAllocationDecider</code></td><td><code>node_version</code></td><td>副本不能拷向更旧节点</td><td>总开</td></tr>
+        </table>
+        <p>THROTTLE 不是「暂时不知道」:<code>ThrottlingAllocationDecider</code> 的意图写在类注释里——节点正在恢复的分片太多时返回 THROTTLE,让上游<strong>按批次</strong>分配,避免 100 个 replica 同时 recovery 把磁盘和网络打满。YES 会立刻开冲,NO 会让分片一直黄着等人工,THROTTLE 是「这轮先别动,下一轮再问」。</p>
+
+        <h2>5. 全部放行之后,balancer 才挑人</h2>
+        <p>过滤链的产出是「这个节点能不能接」;<strong>能接的可能有好几个</strong>,谁最终拿到分片是 allocator 的事。把场景换成 3 个节点:Node-A 已有 P0,B、C 空着——R0 问完全部节点,A 被 same_shard 剔除,B、C 全链 YES,balancer 只在 B、C 上打分,选权重<strong>最低</strong>(偏差最小)的那个:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch23f2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <text x="126" y="18" text-anchor="middle" class="fig-name">R0 逐个问节点</text>
+              <rect x="15" y="30" width="222" height="52" rx="9" class="fig-box"/>
+              <text x="126" y="50" text-anchor="middle" class="fig-sub">Node-A:same_shard → NO</text>
+              <text x="126" y="70" text-anchor="middle" class="fig-sub" style="fill: rgb(var(--warn))">剔除,不进 balancer</text>
+              <rect x="15" y="92" width="222" height="52" rx="9" class="fig-box"/>
+              <text x="126" y="112" text-anchor="middle" class="fig-sub">Node-B:全链 YES</text>
+              <text x="126" y="132" text-anchor="middle" class="fig-sub">进候选集</text>
+              <rect x="15" y="154" width="222" height="52" rx="9" class="fig-box"/>
+              <text x="126" y="174" text-anchor="middle" class="fig-sub">Node-C:全链 YES</text>
+              <text x="126" y="194" text-anchor="middle" class="fig-sub">进候选集</text>
+              <line x1="237" y1="118" x2="285" y2="118" class="fig-arrow" marker-end="url(#ch23f2-arrow)"/>
+              <line x1="237" y1="180" x2="285" y2="180" class="fig-arrow" marker-end="url(#ch23f2-arrow)"/>
+              <rect x="297" y="92" width="180" height="114" rx="10" class="fig-box-hot"/>
+              <text x="387" y="118" text-anchor="middle" class="fig-name">候选集</text>
+              <text x="387" y="144" text-anchor="middle" class="fig-key">{B, C}</text>
+              <text x="387" y="170" text-anchor="middle" class="fig-sub">YES / THROTTLE /</text>
+              <text x="387" y="190" text-anchor="middle" class="fig-sub">NOT_PREFERRED</text>
+              <line x1="477" y1="149" x2="519" y2="149" class="fig-arrow" marker-end="url(#ch23f2-arrow)"/>
+              <rect x="531" y="92" width="214" height="114" rx="10" class="fig-box-hot"/>
+              <text x="638" y="116" text-anchor="middle" class="fig-name">balancer 打分</text>
+              <text x="638" y="140" text-anchor="middle" class="fig-sub">WeightFunction 四因子</text>
+              <text x="638" y="160" text-anchor="middle" class="fig-sub">选权重最低(偏差最小)</text>
+              <text x="638" y="180" text-anchor="middle" class="fig-sub">不是「最多的机器再加一个」</text>
+              <text x="638" y="198" text-anchor="middle" class="fig-sub">R0 落 B 或 C 中更空的那台</text>
+              <text x="380" y="222" text-anchor="middle" class="fig-sub">balancer 不推翻 NO——它根本看不到被剔除的 Node-A;没有「磁盘组投 YES、Zone 组投 YES、委员会表决」这种环节</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 两段流水线:过滤链决定候选集,balancer 只在候选集里选权重最低者。</figcaption>
+        </figure>
+
+        <p><code>BalancedShardsAllocator.allocate</code> 自己也是三步,而且每步都要再问 deciders:<code>allocateUnassigned()</code>(给未分配的找家)→ <code>moveShards()</code>(节点离开等场景的迁移)→ <code>balance()</code>(平衡)。给未分配分片找家时,先问 shard 级「这个 shard 现在能不能分配」,再对每个节点 <code>canAllocate(shard, node)</code>,<strong>只有 YES / THROTTLE / NOT_PREFERRED 才进入选最小权重</strong>。权重四因子的 setting 与默认值仍在类顶部:</p>
+        <table class="ktable">
+          <tr><th>setting</th><th>默认</th><th>想拉开的差距</th></tr>
+          <tr><td><code>cluster.routing.allocation.balance.shard</code></td><td><code>0.45</code></td><td>各节点总分片数</td></tr>
+          <tr><td><code>cluster.routing.allocation.balance.index</code></td><td><code>0.55</code></td><td>同一索引的分片不要堆在一台</td></tr>
+          <tr><td><code>cluster.routing.allocation.balance.write_load</code></td><td><code>10.0</code></td><td>数据流写索引的写入负载</td></tr>
+          <tr><td><code>cluster.routing.allocation.balance.disk_usage</code></td><td><code>2e-11</code></td><td>磁盘用量(系数极小,只微调)</td></tr>
+          <tr><td><code>cluster.routing.allocation.balance.threshold</code></td><td><code>1.0</code></td><td>低于阈值的「更平衡」不搬,防抖动</td></tr>
+        </table>
+        <p>选的是<strong>偏差最小</strong>的节点,不是「分片最多的机器再加一个」。<code>disk_usage</code> 的 <code>2e-11</code> 看着像笔误,源码就是这个数量级:磁盘的大头由 DiskThresholdDecider 用硬阈值卡死,balancer 只在「都没过水位」的节点之间微调。DesiredBalance 外层把「算理想位置」(DesiredBalanceComputer 异步)与「往理想走一步」(DesiredBalanceReconciler.reconcile)拆开;THROTTLE 时目标已算好,只是这轮搬不完,下一轮继续——reconcile 仍要问 deciders,过滤链的不变量不变。</p>
+
+        <h2>6. 磁盘水位:low 卡增量,high 才动存量</h2>
+        <p>水位不是链上的「架构层」,它是 DiskThresholdDecider 这一环的输入,setting 声明在 <code>DiskThresholdSettings</code>:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="15" width="222" height="120" rx="10" class="fig-box"/>
+              <text x="126" y="40" text-anchor="middle" class="fig-name">low · 85%</text>
+              <text x="126" y="66" text-anchor="middle" class="fig-sub">新分片不进这台</text>
+              <text x="126" y="88" text-anchor="middle" class="fig-sub">replica 尤其如此</text>
+              <text x="126" y="110" text-anchor="middle" class="fig-sub">存量 STARTED 不动</text>
+              <text x="126" y="128" text-anchor="middle" class="fig-sub">low.max_headroom=200GB</text>
+              <rect x="269" y="15" width="222" height="120" rx="10" class="fig-box"/>
+              <text x="380" y="40" text-anchor="middle" class="fig-name">high · 90%</text>
+              <text x="380" y="66" text-anchor="middle" class="fig-sub">存量分片不允许再留</text>
+              <text x="380" y="88" text-anchor="middle" class="fig-sub">Monitor 开始往外迁</text>
+              <text x="380" y="110" text-anchor="middle" class="fig-sub">再接就越过 high 的也 NO</text>
+              <text x="380" y="128" text-anchor="middle" class="fig-sub">high.max_headroom=150GB</text>
+              <rect x="523" y="15" width="222" height="120" rx="10" class="fig-box-hot"/>
+              <text x="634" y="40" text-anchor="middle" class="fig-name">flood_stage · 95%</text>
+              <text x="634" y="66" text-anchor="middle" class="fig-sub">这台上的索引标只读</text>
+              <text x="634" y="88" text-anchor="middle" class="fig-sub">read_only_allow_delete</text>
+              <text x="634" y="110" text-anchor="middle" class="fig-sub">写入 403,不是分配问题</text>
+              <text x="634" y="128" text-anchor="middle" class="fig-sub">flood.max_headroom=100GB</text>
+              <rect x="15" y="152" width="730" height="46" rx="9" class="fig-box-hot"/>
+              <text x="380" y="172" text-anchor="middle" class="fig-sub">low 卡增量、high 动存量、flood 掐写入:三档不是三次投票,是 DiskThresholdDecider + DiskThresholdMonitor 的三档行为</text>
+              <text x="380" y="190" text-anchor="middle" class="fig-sub">从未分配过的 primary 在 low~high 之间有豁免(YES_UNALLOCATED_PRIMARY_BETWEEN_WATERMARKS):集群必须先有主分片,否则是 Red 不是 Yellow</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 磁盘三档水位:过了 86% 存量不搬家,只是新分片进不来;91% 才开始迁;95% 是只读块。</figcaption>
+        </figure>
+
+        <p>low / high / flood 可以写绝对空闲字节(如 <code>500mb</code>),但三档<strong>必须同一单位</strong>。未显式改水位时还有 max headroom 上限(low 200GB / high 150GB / flood 100GB)——大磁盘不会因为 85% 这个百分比而要求腾出十几 TB。<code>canAllocate</code> 的分支把「新分片」说死了:</p>
+        <pre class="code-block"><code>// DiskThresholdDecider.canAllocate(节选)
+if (freeBytes &lt; freeBytesThresholdLowStage) {
+    if (skipLowThresholdChecks == false) {
+        return Decision.NO;   // "the node is above the low watermark ..." 新分片,含 replica
+    } else if (freeBytes &gt; freeBytesThresholdHighStage) {
+        return YES_UNALLOCATED_PRIMARY_BETWEEN_WATERMARKS;
+        // "above the low watermark, but less than the high watermark,
+        //  and this primary shard has never been allocated before"
+    } else {
+        return Decision.NO;   // "the node is above the high watermark ..."
+    }
+}</code></pre>
+        <p><code>skipLowThresholdChecks</code> 只给「还没 active 的 primary 且是空 store / clone」开:集群必须先有主分片,否则是 Red 而不是 Yellow。<strong>Replica 没有这个豁免</strong>——DiskThresholdMonitor 越过 low 时打的日志就是 <code>replicas will not be assigned to this node</code>。用具体数字走一遍:Node-A 用到 86%,新 replica 进不来,已 STARTED 的分片原地不动;用到 91% 才开始迁存量;95% 是 Monitor 把这台上的索引标只读,写入 403——那已经不是分配问题了。</p>
+
+        <h2>7. <code>_cluster/allocation/explain</code>:把票箱读成 JSON</h2>
+        <p>第 1 课用 <code>_cat/shards</code> / <code>_cat/health</code> 看见 Yellow;本课用 explain 把「为什么」从源码票箱里倒出来。路由 <code>GET|POST /_cluster/allocation/explain</code>,Transport 动作 <code>cluster:monitor/allocation/explain</code>。空 body = 「解释你找到的第一个 unassigned shard」(响应带 <code>note</code>);指定分片用 body:<code>index</code> / <code>shard</code> / <code>primary</code>。两个常用开关:<code>include_yes_decisions</code>(默认 false → DebugMode.EXCLUDE_YES_DECISIONS,deciders 里几乎只有 NO/THROTTLE;true → DebugMode.ON,整条链都在)和 <code>include_disk_info</code>(默认 false)。单节点上 R0 的响应骨架:</p>
+        <pre class="code-block"><code>{
+  "index": "tut-l23-yellow", "shard": 0, "primary": false,
+  "current_state": "unassigned",
+  "unassigned_info": { "reason": "INDEX_CREATED", "last_allocation_status": "no" },
+  "can_allocate": "no",
+  "allocate_explanation": "Elasticsearch isn't allowed to allocate this shard ...",
+  "node_allocation_decisions": [
+    { "node_id": "...", "node_name": "...", "node_decision": "no",
+      "deciders": [
+        { "decider": "same_shard", "decision": "NO",
+          "explanation": "a copy of this shard is already allocated to this node [...]" }
+      ] }
+  ]
+}</code></pre>
+        <p>三元组 <code>decider / decision / explanation</code> 来自 <code>Decision.Single.toXContent</code>;<code>deciders</code> 数组挂在 <code>node_allocation_decisions[]</code> 下面。默认不带 YES,所以单节点上你常常<strong>只看到</strong> same_shard 这一条 NO——不是链上只有一个 Decider,是 debug 模式把 YES 滤掉了(实验 4 打开对照)。整场「过滤 → 打分 → 迁移」连起来看:</p>
+        <div class="fp-slot" data-flow="ch23-balance"></div>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>一条主线:建出第 1 课那个 Yellow,这次用 explain 把 <code>same_shard</code> 那一票读出来;再打开 include_yes_decisions 看整条链、核对磁盘水位与平衡因子的默认值;最后把副本数归零看 Yellow 变 Green,验证「Yellow 是副本没处放,不是集群坏了」。</p>
+
+        <h3>实验 0-2:重建第 1 课的 Yellow</h3>
+        <div class="exp-slot" data-exp="ch23-00-setup"></div>
+        <div class="exp-slot" data-exp="ch23-01-cat-shards"></div>
+        <div class="exp-slot" data-exp="ch23-02-health"></div>
+
+        <h3>实验 3-4:把票箱倒出来</h3>
+        <div class="exp-slot" data-exp="ch23-03-explain"></div>
+        <div class="exp-slot" data-exp="ch23-04-explain-yes"></div>
+
+        <h3>实验 5-6:默认值核对(水位 + 平衡因子)</h3>
+        <div class="exp-slot" data-exp="ch23-05-defaults"></div>
+        <div class="exp-slot" data-exp="ch23-06-cat-allocation"></div>
+
+        <h3>实验 7-9:Yellow ⇄ Green 的开关</h3>
+        <div class="exp-slot" data-exp="ch23-07-replicas-0"></div>
+        <div class="exp-slot" data-exp="ch23-08-green"></div>
+        <div class="exp-slot" data-exp="ch23-09-replicas-back"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch23-10-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 两节点集群,索引 1 primary + 1 replica,本来 Green。停掉持有 replica 的那台:剩下那台同时握着 primary,集群什么颜色?对这条 unassigned replica 做 explain,same_shard 会对活着的那台投 NO 吗?把 number_of_replicas 改成 0,颜色怎么变?</summary>
+          <div class="answer">
+            <p><strong>Yellow</strong>(主分片在,能读写)。explain 时活着的那台已持有同号 P0,<code>same_shard</code> <strong>会</strong>投 NO——不是「节点刚离开所以暂时不行」,是「唯一活节点已经有一份」。过滤链问的是「还能不能放」,不是「曾经放过」。replica 改 0:不再需要第二份,集群 <strong>Green</strong>。同一不变量贯穿第 1 课和本课,区别只是这次你能在 JSON 里指出那一票。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么必须禁止「同一 shard 的 replica 和 primary 同节点」,而不能「同节点也算高可用,省一台机器」?same_shard.host 默认 false,又在放什么、挡什么?</summary>
+          <div class="answer">
+            <p>高可用的不变量是:<strong>一份数据的故障域必须大于一个</strong>。同节点两份,进程崩溃、磁盘坏、OOM kill 会两份一起没,集群从这个 shard 的 Yellow 直接掉到没有主分片的 Red。省一台机器换来的不是省,是一份假副本。<code>same_shard.host</code> 默认 false:允许同一宿主机起两个节点时 P、R 分坐两个 node(开发测试常见);设 true 则连同一 host address 也不行,把故障域抬到物理机。node 级禁叠与这个开关无关,永远生效。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. Decision 为什么要有 THROTTLE,而不是只有 YES/NO?节点重启后有 80 个 replica 要 recovery:全 YES 代价是什么?全 NO 等人工 reroute 代价又是什么?NOT_PREFERRED 和 THROTTLE 各在保护哪种资源?</summary>
+          <div class="answer">
+            <p>THROTTLE 让分配<strong>排队</strong>而不是拒绝。80 个 replica 全 YES,会在同一节点同时 INITIALIZING,磁盘、网络、node_concurrent_recoveries(默认 2)全被打满,recovery 互相拖死;全 NO 则分片长期 UNASSIGNED、集群长期黄,自动愈合没了。THROTTLE 保护<strong>瞬时并发</strong>(recovery 槽位):这轮先别动,下一轮再问;NOT_PREFERRED 保护<strong>已经偏高的资源画像</strong>:还能放,但别优先放。过滤链把 NO 当硬约束,THROTTLE / NOT_PREFERRED 交给 allocator 在「能放的节点」里排序。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 把 Yellow 当「副本没创建」:</span>副本分片是真的想要而放不下——过滤链合法拒绝了唯一候选节点。读 explain:can_allocate=no、same_shard NO,票箱里写得明明白白。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为 explain 默认只跑一个 Decider:</span>deciders 里只有一条 NO,是因为 DebugMode.EXCLUDE_YES_DECISIONS 把 YES 滤掉了;include_yes_decisions=true 才看到整条链。打开 YES 不会把 NO 改成 YES。</div>
+        <div class="callout warn"><span class="co-title">🕳 把 low 水位当 high:</span>85% 只挡<strong>新</strong>分片,存量原地不动;90% 才开始迁存量;95% flood 是把索引标只读(写入 403),根本不是再投一次 NO。三档单位必须一致(全百分比或全字节)。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为 balancer 会推翻 NO:</span>被投 NO 的节点根本不进候选集,balancer 看不到它。过滤是硬约束,打分只在「能放的节点」里选偏差最小者——不是「分片最多的机器再加一个」。</div>
+        <div class="callout warn"><span class="co-title">🕳 拿旧课类名 SameShardDecider 去源码里找:</span>9.4.0 全名 SameShardAllocationDecider,NAME="same_shard"。另记住:从未分配过的 primary 在 low~high 之间有豁免,replica 没有任何豁免。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>过滤链(AllocationDecider)先答「行不行」,全 YES 的节点才进 balancer 选「谁最好」</td></tr>
+          <tr><td>同节点 NO</td><td>same_shard:同号副本已在 node → Decision.NO;explain 文案 a copy of this shard is already allocated</td></tr>
+          <tr><td>票序</td><td>NO &lt; THROTTLE &lt; NOT_PREFERRED &lt; YES,取最负面;生产路径遇 NO 即 break,explain 才收齐所有票</td></tr>
+          <tr><td>reroute</td><td>先 GatewayAllocator 处理已有副本(先 primary 后 replica),再 shardsAllocator.allocate(默认 desired_balance 外层 + BalancedShardsAllocator 内层)</td></tr>
+          <tr><td>平衡因子</td><td>shard 0.45 / index 0.55 / write_load 10.0 / disk_usage 2e-11 / threshold 1.0;选偏差最小,不选分片最多</td></tr>
+          <tr><td>水位</td><td>low 85% 卡新分片;high 90% 迁存量;flood 95% 索引只读;未分配 primary 在 low~high 有豁免,replica 没有</td></tr>
+          <tr><td>explain</td><td>deciders[].decider/decision/explanation;默认滤掉 YES;空 body 解释第一条 unassigned(带 note)</td></tr>
+        </table>
+        <p><strong>心法:过滤链管「行不行」——一个 NO 就出局;balancer 管「谁最好」——只在能放的节点里挑偏差最小。Yellow 是那张 NO 的合法产物。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch22.html">← 第 22 课:主节点选举与共识</a>
+          <a href="ch24.html">第 24 课:分片恢复与快照 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch23.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

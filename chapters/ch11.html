@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 11 课:映射系统 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch11" data-ch="ch11">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 11 · 第三篇 · 数据写入</div>
+        <h1>映射系统</h1>
+        <div class="ch-meta-line">文档的 Schema · 约 17 分钟 · 前置:第 10 课 · 19 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>不写 mapping 放进一篇 JSON,从 <code>GET _mapping</code> 指出字符串推断成 <code>text</code> + <code>fields.keyword</code>(<code>ignore_above: 256</code>)、小数成 <code>float</code>、日期串成 <code>date</code>,并对上 <code>DynamicFieldsBuilder.newDynamicStringField</code>。</li>
+          <li>预测 <code>PUT _mapping</code> 把已有 <code>text</code> 改成 <code>keyword</code> 的状态码与错误原文,指出这句话拼自 <code>FieldMapper.checkIncomingMergeType</code>。</li>
+          <li>用 <code>_analyze</code> 加 <code>term</code>/<code>match</code> 对照同一字符串在两种词典里留下的 key,说出谁能被 <code>match</code> 命中、谁必须整串 <code>term</code>。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:mapping 是索引的 schema</h2>
+        <p>第 10 课把 <code>GET /index/_doc/1</code> 一路追到 Engine。写入这条路上还欠一个问题:JSON 里的 <code>"title": "Elasticsearch Guide"</code>,凭什么变成倒排表里的某个词?答案就是 mapping——索引这一层的 schema。关系库先建表再插数;ES 默认让你先插数,但「表结构」同样存在,只不过<strong>第一篇文档替你写了</strong>。它决定每个字段写成哪种 Lucene 结构(切词的 <code>text</code>、整串的 <code>keyword</code>,还是 <code>long</code>/<code>date</code>),查询侧再按类型选 Query——它是「索引怎么建、查询怎么走」的分叉点,不是文档的注释。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 122" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah11a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="18" width="168" height="86" rx="9" class="fig-box"/>
+              <text x="94" y="40" text-anchor="middle" class="fig-name">一篇 JSON 文档</text>
+              <text x="94" y="64" text-anchor="middle" class="fig-key">{"title":"ES Guide"}</text>
+              <text x="94" y="84" text-anchor="middle" class="fig-sub">值自己不带类型</text>
+              <line x1="178" y1="61" x2="204" y2="61" class="fig-arrow" marker-end="url(#ah11a)"/>
+              <rect x="208" y="18" width="168" height="86" rx="9" class="fig-box"/>
+              <text x="292" y="40" text-anchor="middle" class="fig-name">Mapping 定类型</text>
+              <text x="292" y="64" text-anchor="middle" class="fig-key">text? keyword? long?</text>
+              <text x="292" y="84" text-anchor="middle" class="fig-sub">schema 长在索引上</text>
+              <line x1="376" y1="61" x2="402" y2="61" class="fig-arrow" marker-end="url(#ah11a)"/>
+              <rect x="406" y="18" width="168" height="86" rx="9" class="fig-box-hot"/>
+              <text x="490" y="40" text-anchor="middle" class="fig-name">写成 Lucene 字段</text>
+              <text x="490" y="64" text-anchor="middle" class="fig-key">切词 or 整串进词典</text>
+              <text x="490" y="84" text-anchor="middle" class="fig-sub">doc_values 有或无</text>
+              <line x1="574" y1="61" x2="600" y2="61" class="fig-arrow" marker-end="url(#ah11a)"/>
+              <rect x="604" y="18" width="146" height="86" rx="9" class="fig-box"/>
+              <text x="677" y="40" text-anchor="middle" class="fig-name">查询按类型选路</text>
+              <text x="677" y="64" text-anchor="middle" class="fig-key">match · term · agg</text>
+              <text x="677" y="84" text-anchor="middle" class="fig-sub">MappingLookup 快照</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 同一个值,标成 text 会切词后挂到多个 term 上;标成 keyword 整串进词典,还能靠 doc_values 排序、聚合。</figcaption>
+        </figure>
+
+        <p>运行时是三层(类名记在这,不画进方块):每个索引一份 <code>MapperService</code>,握着当前生效的 <code>DocumentMapper</code>;后者内含两个角色——给搜索的不可变 <code>MappingLookup</code> 和给写入的 <code>DocumentParser</code>。叶子是一个个 <code>FieldMapper</code>:<code>title</code> 可能是 <code>TextFieldMapper</code>,<code>status</code> 是 <code>KeywordFieldMapper</code>。<code>_id</code>/<code>_source</code>/<code>_routing</code> 这类元数据字段也是 mapper,走 <code>MetadataFieldMapper</code>,本课不展开。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件(server/src/main/java/org/elasticsearch/index/mapper/)</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>DynamicFieldsBuilder.java</code></td><td>未知 JSON 字符串如何建成 text + keyword</td></tr>
+          <tr><td><code>TextFieldMapper.java</code></td><td><code>setTokenized(true)</code>;倒排带词频和位置</td></tr>
+          <tr><td><code>KeywordFieldMapper.java</code></td><td><code>setTokenized(false)</code>;整串 + SORTED_SET doc_values</td></tr>
+          <tr><td><code>FieldMapper.java</code></td><td><code>parse()</code> 先主字段后 multi-fields;类型冲突那句异常</td></tr>
+          <tr><td><code>DocumentParser.java</code></td><td>按 JSON token 找 mapper;找不到走动态推断</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>MapperService.java</code>(<code>merge</code> / <code>MergeReason</code> / 字段数限额)、<code>MappingLookup.java</code>(查询时 <code>getFieldType</code>)、<code>ObjectMapper.java</code>(<code>Dynamic.TRUE/FALSE/STRICT/RUNTIME</code>)、<code>RootObjectMapper.java</code>(两个 detection 的默认值)。</p>
+
+        <h2>3. text vs keyword:同一字符串的两条路</h2>
+        <p>这是 mapping 里最贵的分叉。输入就用一个值:<code>"Elasticsearch Guide"</code>。<code>text</code> 默认走 standard 分析器,小写、按词切开,词典里躺两个 key;<code>match</code> 会对查询串做<strong>同一套</strong>分析,所以大小写不敏感地落到同一张 posting list 上。<code>term</code> 则故意不再分析:拿原始串去 term 一个 text 字段,词典里没有这个 key,安静地 0 hits。<code>keyword</code> 不走切词链,类 javadoc 第一句就是 <em>indexes them as-is</em>:整串一个 term,大小写、空格全保留。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 214" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah11b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="14" width="365" height="192" rx="10" class="fig-box"/>
+              <text x="192" y="38" text-anchor="middle" class="fig-name">text:切词进词典</text>
+              <text x="192" y="62" text-anchor="middle" class="fig-key">"Elasticsearch Guide"</text>
+              <line x1="192" y1="70" x2="192" y2="84" class="fig-arrow" marker-end="url(#ah11b)"/>
+              <rect x="102" y="88" width="180" height="32" rx="8" class="fig-box-hot"/>
+              <text x="192" y="108" text-anchor="middle" class="fig-sub">standard:小写+切词</text>
+              <line x1="192" y1="122" x2="192" y2="134" class="fig-arrow" marker-end="url(#ah11b)"/>
+              <rect x="30" y="138" width="152" height="30" rx="8" class="fig-box"/>
+              <text x="106" y="158" text-anchor="middle" class="fig-key">elasticsearch</text>
+              <rect x="192" y="138" width="130" height="30" rx="8" class="fig-box"/>
+              <text x="257" y="158" text-anchor="middle" class="fig-key">guide</text>
+              <text x="192" y="190" text-anchor="middle" class="fig-sub">key = token;带词频与位置</text>
+
+              <rect x="385" y="14" width="365" height="192" rx="10" class="fig-box"/>
+              <text x="567" y="38" text-anchor="middle" class="fig-name">keyword:整串进词典</text>
+              <text x="567" y="62" text-anchor="middle" class="fig-key">"Elasticsearch Guide"</text>
+              <line x1="567" y1="70" x2="567" y2="84" class="fig-arrow" marker-end="url(#ah11b)"/>
+              <rect x="477" y="88" width="180" height="32" rx="8" class="fig-box-hot"/>
+              <text x="567" y="108" text-anchor="middle" class="fig-sub">不分析:原样一个 term</text>
+              <line x1="567" y1="122" x2="567" y2="134" class="fig-arrow" marker-end="url(#ah11b)"/>
+              <rect x="415" y="138" width="305" height="30" rx="8" class="fig-box"/>
+              <text x="567" y="158" text-anchor="middle" class="fig-key">Elasticsearch Guide</text>
+              <text x="567" y="190" text-anchor="middle" class="fig-sub">key = 整串;doc_values 可聚合排序</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 差别不在「能不能搜」,而在词典里躺着什么:text 的 key 是 token,keyword 的 key 是整串。term、聚合、排序要的都是后者。</figcaption>
+        </figure>
+
+        <p>Lucene <code>FieldType</code> 把这条分叉钉死。两边各看几行关键代码:</p>
+        <pre class="code-block"><code>// TextFieldMapper.java
+FieldType ft = new FieldType();
+ft.setTokenized(true);                                          // IndexWriter 会跑分析器
+ft.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);  // 短语、高亮要位置
+ft.setOmitNorms(false);                                         // BM25 要字段长度
+FIELD_TYPE = freezeAndDeduplicateFieldType(ft);
+
+// KeywordFieldMapper.java
+FieldType ft = new FieldType();
+ft.setTokenized(false);                          // 整串当一个 term
+ft.setIndexOptions(IndexOptions.DOCS);
+ft.setOmitNorms(true);
+ft.setDocValuesType(DocValuesType.SORTED_SET);   // 列存:排序/聚合走这里</code></pre>
+
+        <table class="ktable">
+          <tr><th></th><th>text</th><th>keyword</th></tr>
+          <tr><td>tokenized</td><td>true,IndexWriter 里切词</td><td>false,整串即 term</td></tr>
+          <tr><td>indexOptions</td><td>DOCS_AND_FREQS_AND_POSITIONS</td><td>DOCS</td></tr>
+          <tr><td>norms</td><td>开(BM25 字段长度)</td><td>omitNorms</td></tr>
+          <tr><td>doc_values</td><td>默认关</td><td>SORTED_SET 列存</td></tr>
+          <tr><td>典型查询</td><td>match</td><td>term、terms 聚合、sort</td></tr>
+        </table>
+
+        <p>写入侧两边都<strong>没有</strong>在 mapper 里手动调 <code>analyzer.tokenStream</code>:<code>TextFieldMapper.parseCreateField</code> 只是读出字符串、构造一个 Lucene <code>Field</code> 丢进文档;因为 FieldType 是 tokenized,真正切词发生在 IndexWriter。<code>KeywordFieldMapper</code> 把字符串收成 <code>BytesRef</code>,超长(UTF-8 超过 Lucene <code>MAX_TERM_LENGTH</code> = 32766)在进 Lucene <strong>之前</strong>抛,避免半篇写入再标删;<code>ignore_above</code> 命中则整段不索引并记进 ignored。<code>text</code> 想聚合得开 <code>fielddata: true</code>,在堆上从倒排反建列存——贵、易熔断(第 25 课),<code>MappedFieldType.fielddataBuilder</code> 的默认实现干脆直接抛;keyword 天生 doc_values,不走这条路。</p>
+
+        <p>常见搭配是 <code>fields</code> 多字段:主字段 <code>text</code> 管全文,子字段 <code>keyword</code> 管精确与聚合。这不是两份 JSON,是<strong>同一份值写进两种 Lucene 字段</strong>——<code>FieldMapper.parse</code> 先 <code>parseCreateField</code> 写主字段,再把同一个 parser 位置交给子 mapper:</p>
+        <pre class="code-block"><code>// FieldMapper.java
+public void parse(DocumentParserContext context) throws IOException {
+    parseCreateField(context);                       // 主字段先写
+    if (builderParams.multiFields.mappers.length != 0) {
+        doParseMultiFields(context);                 // 同一个值,再写一遍子字段
+    }
+}</code></pre>
+        <p>代价是磁盘与索引时间都写两遍。<code>status</code>、<code>error_code</code> 这种永远不全文搜的字段,直接声明 <code>keyword</code>,别靠默认推断。</p>
+
+        <h2>4. 动态映射:第一篇文档写死 schema</h2>
+        <div class="fp-slot" data-flow="ch11-dynamic-mapping"></div>
+        <p>默认 <code>dynamic: true</code>:mapping 里没有的字段名,ES 按<strong>当前 JSON token</strong> 推断类型,把新 mapper 挂上,再按新类型把这个值索引进去。分叉点在 <code>DocumentParser.parseValue</code>:</p>
+        <pre class="code-block"><code>// DocumentParser.java
+Mapper mapper = getLeafMapper(context, currentFieldName);
+if (mapper != null) {
+    parseObjectOrField(context, mapper);           // 有叶子 mapper:按声明走
+} else {
+    parseDynamicValue(context, currentFieldName);  // 没有:动态推断
+}</code></pre>
+        <p><code>parseDynamicValue</code> 先挡 <code>STRICT</code>/<code>FALSE</code>,再把 token 交给 <code>DynamicFieldsBuilder.createDynamicFieldFromValue</code>。字符串(VALUE_STRING)按这个顺序试:①能 <code>Long.parseLong</code> 且 <code>numeric_detection</code> 开 → long;②能 <code>Double.parseDouble</code> 且该开关开 → float;③不是纯数字且 <code>date_detection</code> 开、能按动态日期格式 parse 出毫秒 → date;④兜底 <code>newDynamicStringField</code>。默认值在 <code>RootObjectMapper.Defaults</code>:<strong>date_detection 开</strong>(IMPLICIT_TRUE)、<strong>numeric_detection 关</strong>(IMPLICIT_FALSE)。所以字符串 <code>"42"</code> 仍是 text + keyword,JSON 数字 <code>42</code> 才走 VALUE_NUMBER → long;而 <code>"2024-01-15"</code> 这种像日期的字符串,默认被收成 <code>date</code>。JSON 浮点是另一支:FLOAT/DOUBLE token 建成的是 <code>float</code> 不是 double——源码注释写明这是为了省空间,旧 Demo 里 29.99 显示 float 不是玄学。</p>
+        <p>字符串最终建成什么,看 <code>DynamicFieldsBuilder.newDynamicStringField</code>(普通对象这条路):</p>
+        <pre class="code-block"><code>// DynamicFieldsBuilder.java
+new TextFieldMapper.Builder(name, indexSettings, indexAnalyzers, false)
+    .addMultiField(new KeywordFieldMapper.Builder("keyword", indexSettings, true)
+        .ignoreAbove(256))          // 子字段名写死 "keyword",ignore_above 写死 256</code></pre>
+        <p>两个例外:父对象带 time-series dimensions 时只建 keyword(维度要精确值);<code>dynamic: runtime</code> 走另一套策略,字段查询时从 <code>_source</code> 现算,不写倒排。文档解析结束后,新 mapper 也不只活在这一次 parse 里:<code>createDynamicUpdate</code> 把这批动态 builder 收成一份 mapping 源,由 <code>MapperService.merge(..., MAPPING_AUTO_UPDATE)</code> 合并进集群状态——这就是动画第 ⑥ 步。</p>
+
+        <table class="ktable">
+          <tr><th>dynamic</th><th>遇到未知字段</th><th>值还在 _source 吗</th><th>能搜吗</th></tr>
+          <tr><td>true(默认)</td><td>建成具体 mapper,写入 Lucene</td><td>是</td><td>能</td></tr>
+          <tr><td>runtime</td><td>建成 runtime field,不写倒排</td><td>是</td><td>能,查询时现算</td></tr>
+          <tr><td>false</td><td>不改 mapping;必要时记 ignored</td><td>是</td><td>否</td></tr>
+          <tr><td>strict</td><td>立刻失败</td><td>文档被拒</td><td>—</td></tr>
+        </table>
+        <p><code>STRICT</code>/<code>FALSE</code> 根本拿不到 <code>getDynamicFieldsBuilder()</code>(调用会 <code>UnsupportedOperationException</code>),它们在 <code>parseDynamicValue</code> 里就被拦住。strict 的报错原文是 <code>mapping set to strict, dynamic introduction of [字段名] within [_doc] is not allowed</code>——根对象的 path 就是 <code>_doc</code>(<code>MapperService.SINGLE_MAPPING_NAME</code>)。</p>
+
+        <h2>5. Mapping 合并:能加字段,不能改类型</h2>
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 178" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah11c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="16" width="300" height="58" rx="9" class="fig-box"/>
+              <text x="160" y="38" text-anchor="middle" class="fig-name">加一个新字段:可以</text>
+              <text x="160" y="58" text-anchor="middle" class="fig-key">{"status":{"type":"keyword"}}</text>
+              <line x1="316" y1="45" x2="368" y2="45" class="fig-arrow" marker-end="url(#ah11c)"/>
+              <rect x="372" y="16" width="378" height="58" rx="9" class="fig-box-hot"/>
+              <text x="561" y="38" text-anchor="middle" class="fig-name">200 · acknowledged</text>
+              <text x="561" y="58" text-anchor="middle" class="fig-sub">merge 吸收新 mapper,mapping 长出一列</text>
+
+              <rect x="10" y="104" width="300" height="58" rx="9" class="fig-box"/>
+              <text x="160" y="126" text-anchor="middle" class="fig-name">改已有字段的 type:不行</text>
+              <text x="160" y="146" text-anchor="middle" class="fig-key">{"title":{"type":"keyword"}}</text>
+              <line x1="316" y1="133" x2="368" y2="133" class="fig-arrow" marker-end="url(#ah11c)"/>
+              <rect x="372" y="104" width="378" height="58" rx="9" class="fig-box"/>
+              <text x="561" y="126" text-anchor="middle" class="fig-key" style="fill: rgb(var(--warn))">400 · mapper [title] cannot be</text>
+              <text x="561" y="146" text-anchor="middle" class="fig-sub" style="fill: rgb(var(--warn))">changed from type [text] to [keyword]</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · mapping 的更新是 merge 不是 replace:新字段、dynamic 参数(如 ignore_above)都能动,唯独已有字段的 type 不行——倒排里已经按旧方式躺着数据。</figcaption>
+        </figure>
+
+        <p>用户 <code>PUT /idx/_mapping</code> 走 <code>MergeReason.MAPPING_UPDATE</code>。<code>FieldMapper.checkIncomingMergeType</code> 先比 mapper 的 Class,再比 <code>contentType()</code>,任一不同就抛同一句话:</p>
+        <pre class="code-block"><code>// FieldMapper.java
+if (Objects.equals(this.getClass(), mergeWith.getClass()) == false) {
+    throw new IllegalArgumentException("mapper [" + fullPath() + "] cannot be changed from type ["
+        + contentType() + "] to [" + mergeWith.contentType() + "]");
+}
+if (Objects.equals(contentType(), mergeWith.contentType()) == false) {
+    throw new IllegalArgumentException(/* 同一句原文 */);
+}</code></pre>
+        <p>仓库测试把措辞钉死了(<code>UpdateMappingTests</code> 断言 <code>mapper [foo] cannot be changed from type [long] to [double]</code>),实验 4a 对的就是这句。注意 merge 看的是类型承诺,<strong>不看文档条数</strong>:零篇也改不了。读源码还要知道一条实验里看不到的分叉:<code>FieldMapper.Builder.mergeWith</code> 若发现 <code>getMergeReason().isAutoUpdate()</code>,类型冲突时 <code>return this</code> 不抛——动态更新保住已有 mapper,让那篇类型对不上的文档在 <code>parseCreateField</code> 里失败;用户显式 PUT 不是 auto-update,一定抛。换类型的正道只有一条:建新索引 + <code>_reindex</code>。</p>
+
+        <table class="ktable">
+          <tr><th>MergeReason</th><th>谁用</th></tr>
+          <tr><td>MAPPING_UPDATE</td><td>用户 PUT mapping,显式更新</td></tr>
+          <tr><td>MAPPING_AUTO_UPDATE</td><td>索引文档时动态加字段</td></tr>
+          <tr><td>MAPPING_AUTO_UPDATE_PREFLIGHT</td><td>动态更新送 master 前的预检,不改 this.mapper</td></tr>
+          <tr><td>INDEX_TEMPLATE</td><td>composable template,同名字段允许后写覆盖</td></tr>
+          <tr><td>MAPPING_RECOVERY</td><td>重启、搬 shard 时装回已有 mapping</td></tr>
+        </table>
+        <p><code>doMerge</code> 在非 preflight 路径上 <code>synchronized</code>:解析 incoming → 合并 builder → 换一个新的 <code>DocumentMapper</code> 引用。DocumentMapper 本身不可变,换 mapping 就是换引用;<code>MappingLookup</code> 的 javadoc 自述 <em>mostly immutable snapshot</em>——搜索线程拿着旧快照继续查,看不到半合并的树。最后是护栏(默认值以 9.4.0 <code>MapperService</code> 为准):</p>
+        <table class="ktable">
+          <tr><th>Setting</th><th>默认</th><th>说明</th></tr>
+          <tr><td>index.mapping.total_fields.limit</td><td>1000</td><td>字段总数(含 multi-field、object、runtime)</td></tr>
+          <tr><td>index.mapping.depth.limit</td><td>20</td><td>对象嵌套深度</td></tr>
+          <tr><td>index.mapping.nested_fields.limit</td><td>100(老索引 50)</td><td>nested 字段个数</td></tr>
+          <tr><td>index.mapping.dimension_fields.limit</td><td>32768</td><td>时序维度字段</td></tr>
+        </table>
+        <p>超限时 merge / 动态更新失败——动态 mapping 不是无限加列,高基数字段很快逼近 1000。</p>
+
+        <h2>6. 解析循环与查询侧的快照</h2>
+        <p>写入一篇文档时,<code>DocumentMapper.parse</code> 把 <code>SourceToParse</code> 交给 <code>DocumentParser.parseDocument</code>:空 body 直接抛 <code>document is empty</code>;非空则先跑元数据 mapper 的 <code>preParse</code>(_id、_routing),再进 <code>innerParseObject</code> 的 token 循环,最后 <code>postParse</code> 与 <code>createDynamicUpdate</code>。循环里 <code>FIELD_NAME</code> 记名字,<code>START_OBJECT</code> / <code>START_ARRAY</code> / 标量 / <code>VALUE_NULL</code> 各走一条函数。两个要点:<strong>数组没有自己的类型</strong>,每个元素按同一字段 mapper 再 parse 一次(<code>"tags": ["search", "database"]</code> 给 tags 留下两段 token 流);<strong>对象是扁平的</strong>,<code>author.name</code> 只是个带点的字段路径,同在一篇 Lucene 文档里——要「数组里每个对象独立成子文档」得用 <code>nested</code>,那是另一张文档,本课不碰。产物 <code>ParsedDocument</code>:若干 Lucene 文档、原始 _source、可能的动态 mapping 更新;Engine 怎么写 translog 是第 14 课。</p>
+        <p>查询侧不翻 FieldMapper 树:搜索、聚合、高亮拿 <code>MappingLookup.getFieldType(name)</code> 得到 <code>MappedFieldType</code>——能不能搜、用什么 analyzer、有没有 doc_values、<code>termQuery</code>/<code>rangeQuery</code> 怎么建。字段不存在时多数查询当 0 hits 而不是 400(那是 Query DSL 课的事)。动态推断实际会建成的类型就这几种:</p>
+        <table class="ktable">
+          <tr><th>类型</th><th>何时出现</th><th>可搜</th><th>可聚合/排序</th></tr>
+          <tr><td>text</td><td>普通字符串默认主字段</td><td>match</td><td>默认否(需 fielddata)</td></tr>
+          <tr><td>keyword</td><td>字符串 multi-field,或显式声明</td><td>term</td><td>是(doc_values)</td></tr>
+          <tr><td>long</td><td>JSON 整数</td><td>range</td><td>是</td></tr>
+          <tr><td>float</td><td>JSON 浮点(不是 double)</td><td>range</td><td>是</td></tr>
+          <tr><td>date</td><td>date_detection 命中的字符串</td><td>range</td><td>是</td></tr>
+          <tr><td>boolean</td><td>JSON true / false</td><td>term</td><td>是</td></tr>
+        </table>
+        <p><code>geo_point</code>、<code>dense_vector</code>、<code>nested</code> 都要显式声明(或动态模板),不会从一句普通 JSON 里长出来。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>五个实验组:推断对答案、text/keyword 词典对照、dynamic 三档、显式 merge 的墙、字段能力表。全部单节点可跑,索引名 <code>tut-l11-*</code>。</p>
+
+        <h3>实验 1:不声明 mapping,看推断(§4)</h3>
+        <div class="exp-slot" data-exp="ch11-00-setup"></div>
+        <div class="exp-slot" data-exp="ch11-01-infer-put"></div>
+        <div class="exp-slot" data-exp="ch11-02-infer-mapping"></div>
+        <div class="exp-slot" data-exp="ch11-03-detection-put"></div>
+        <div class="exp-slot" data-exp="ch11-04-detection-mapping"></div>
+
+        <h3>实验 2:同一字符串,两种词典(§3)</h3>
+        <div class="exp-slot" data-exp="ch11-05-analyze-text"></div>
+        <div class="exp-slot" data-exp="ch11-06-analyze-keyword"></div>
+        <div class="exp-slot" data-exp="ch11-07-term-miss"></div>
+        <div class="exp-slot" data-exp="ch11-08-match-hit"></div>
+        <div class="exp-slot" data-exp="ch11-09-term-keyword"></div>
+
+        <h3>实验 3:dynamic 三档对照(§4)</h3>
+        <div class="exp-slot" data-exp="ch11-10-strict-create"></div>
+        <div class="exp-slot" data-exp="ch11-11-strict-reject"></div>
+        <div class="exp-slot" data-exp="ch11-12-false-create"></div>
+        <div class="exp-slot" data-exp="ch11-13-false-swallow"></div>
+        <div class="exp-slot" data-exp="ch11-14-false-mapping"></div>
+
+        <h3>实验 4:显式 PUT _mapping:能加不能改(§5)</h3>
+        <div class="exp-slot" data-exp="ch11-15-merge-conflict"></div>
+        <div class="exp-slot" data-exp="ch11-16-merge-add"></div>
+
+        <h3>实验 5:_field_caps 看字段能力(§6)</h3>
+        <div class="exp-slot" data-exp="ch11-17-field-caps"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch11-18-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 写入 <code>{"sku": "42"}</code>(带引号)和 <code>{"sku": 42}</code>(不带),类型一样吗?再来 <code>{"day": "2024-01-15"}</code> 呢?</summary>
+          <div class="answer">
+            <p>不一样,因为走的是不同 JSON token:字符串是 VALUE_STRING,数字是 VALUE_NUMBER。<code>"42"</code> 就算能 <code>Long.parseLong</code>,<code>numeric_detection</code> 默认关,仍是 text + keyword;<code>42</code> 与开关无关,直接 long。<code>"2024-01-15"</code> 默认成 date:<code>date_detection</code> 默认开,且它不是纯数字(源码特意拒绝纯数字当日期,免得 epoch/年份误伤)。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 索引里只有零篇文档,为什么 <code>text</code> 也改不成 <code>keyword</code>?自动更新遇冲突 <code>return this</code> 又是在保什么?</summary>
+          <div class="answer">
+            <p>merge 比的是 mapper Class 和 <code>contentType()</code>,不看文档条数:mapping 一旦存在,就是对索引方式的承诺——倒排与 doc_values 都按那个 FieldType 建,改 type 等于宣布「用另一套结构读旧数据」,新旧文档没法用同一种 Query 解释。动态更新 <code>return this</code> 保的是集群:不让一篇类型不符的文档把 mapping 改坏,那篇文档在 <code>parseCreateField</code> 失败即可;显式 PUT 则必须让用户看见冲突。换类型只有新索引 + _reindex。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 什么时候接受默认 text+keyword,什么时候显式 keyword,什么时候 strict / runtime?</summary>
+          <div class="answer">
+            <p>探索期、字段集合未知:默认 dynamic:true 换来「随便写就能 match 也能聚合」,代价是每个字符串写两份索引,高基数字段逼近 total_fields.limit(1000)。生产里身份类、状态类字段显式 keyword,确定全文搜的才 text(两者都要用 fields)。schema 稳定后 strict 把脏数据挡成 400,避免一次失误永久加列;runtime 适合偶尔查、不想撑 mapping 的字段——不占倒排,查询时扫 _source,延迟换空间。没有「又全文又聚合又零成本」的选项。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 第一篇文档定了终身:</span>动态推断的类型一经写进 cluster state 就是 schema——<code>price</code> 第一次是数字,之后想全存字符串只能 400 或 reindex。生产索引先显式 PUT mapping 再放量写。</div>
+        <div class="callout warn"><span class="co-title">🕳 term 打在 text 上 0 hits,还不报错:</span>term 不跑分析器,而 text 词典里的 key 是小写 token。要精确匹配就 term 打 keyword 子字段,且查询串与存储值一字不差;要大小写不敏感就用 match。</div>
+        <div class="callout warn"><span class="co-title">🕳 dynamic:false 是安静的丢失:</span>写入 201、_source 里有,但字段不进倒排——搜不到、聚合不到。strict 才会 400 拦你;false 只能靠 GET _mapping / _field_caps 发现。</div>
+        <div class="callout warn"><span class="co-title">🕳 小数是 float、日期串是 date:</span>动态映射把 JSON 浮点建成 float(不是 double),把日期样字符串建成 date。按 double 估精度与范围、按文本存日期的计划都会在这里翻车。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>schema</td><td>mapping 决定 JSON 值写成哪种 Lucene 字段;查询按 MappedFieldType 选 Query</td></tr>
+          <tr><td>text</td><td>tokenized=true,DOCS_AND_FREQS_AND_POSITIONS,默认无 doc_values</td></tr>
+          <tr><td>keyword</td><td>整串一个 term,SORTED_SET doc_values;term/聚合/排序住这边</td></tr>
+          <tr><td>动态默认</td><td>字符串→text+keyword(256);整数→long、浮点→float;日期串→date;"42" 仍是文本</td></tr>
+          <tr><td>dynamic 四档</td><td>true 建;runtime 现算;false 只进 _source;strict 400</td></tr>
+          <tr><td>更新</td><td>merge 可加不可改;原文 mapper [x] cannot be changed…;自动更新保旧 mapper</td></tr>
+          <tr><td>护栏</td><td>total_fields.limit 默认 1000(9.4.0);换类型 = 新索引 + _reindex</td></tr>
+        </table>
+        <p><strong>心法:mapping 是第一篇文档替你签的合同——类型一旦签字,改要重签(新索引 + reindex);想让谁可聚合,先看它进的是哪半边词典。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch10.html">← 第 10 课:跟踪一次文档读取</a>
+          <a href="ch12.html">第 12 课:摄取管道 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch11.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

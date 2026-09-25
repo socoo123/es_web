@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 26 课:脚本引擎 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch26" data-ch="ch26">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 26 · 第六篇 · 高级专题</div>
+        <h1>脚本引擎</h1>
+        <div class="ch-meta-line">先过白名单再变字节码——不是 eval 一段字符串 · 约 15 分钟 · 前置:第 12、20 课 · 20 个实验 + 编译旅程动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>对两篇带 <code>popularity</code> 的文档发一条最小 <code>script_score</code>,先预测 <code>_score</code> 再对照:内层 <code>match_all</code> 是 1.0,popular 应得 <strong>1.0</strong>、cheap 应得 <strong>0.1</strong>;换成 <code>price * 0.9</code> 后分数是 <strong>90/72</strong>——完全替换内层分数,不是第 20 课 <code>function_score</code> 那种乘一层。</li>
+          <li>预测 <code>new java.io.File(...)</code> 会不会落盘、HTTP 400 还是 500;用 <code>POST /_scripts/painless/_execute</code> 对照 <code>compile error</code> + <code>caused_by: Not a type [java.io.File].</code>;再把同一句写进 <code>PUT _ingest/pipeline</code>,验证它在<strong>第一条文档到来之前</strong>就被拒。</li>
+          <li>打开 <code>PainlessPlugin.baseWhiteList</code> 与 <code>DefaultSemanticAnalysisPhase.visitNewObj</code>:说出白名单 txt 清单里没有 <code>java.io</code>、<code>Lookup</code> 返回 <code>null</code> 时为何走不到 ASM;并用 <code>def</code> 与静态类型的 <code>getClass()</code> 对照「运行期/编译期」两条拒绝路径。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:一段脚本先过一张表,再变 class</h2>
+        <p>Painless 的输入是一段源码字符串,产物是一个 JVM class。中间必须经过一张<strong>预先建好的表</strong>——哪些 Java 类、构造器、方法、字段允许出现。表里没有的名字,在语义分析阶段就失败,字节码生成器根本看不到它。拿旧课那句 <code>doc['price'].value * 0.9</code> 走一遍:编译器要确认 <code>doc[...]</code> 取值、<code>value</code>、乘法,都在当前 <code>ScriptContext</code> 的 <code>PainlessLookup</code> 里;全部在表,才有 <code>byte[]</code>,最后 <code>defineClass</code>。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 356" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch26f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="730" height="54" rx="9" class="fig-box"/>
+              <text x="380" y="37" text-anchor="middle" class="fig-name">输入:script_score 的 source —— doc['price'].value * 0.9</text>
+              <text x="380" y="59" text-anchor="middle" class="fig-sub">此刻只是一段 JSON 字符串:没有解析、没有查表、没有字节码</text>
+              <line x1="380" y1="69" x2="380" y2="83" class="fig-arrow" marker-end="url(#ch26f1-arrow)"/>
+              <rect x="15" y="83" width="730" height="54" rx="9" class="fig-box"/>
+              <text x="380" y="105" text-anchor="middle" class="fig-name">ANTLR 解析 → 用户树 SClass</text>
+              <text x="380" y="127" text-anchor="middle" class="fig-sub">纯语法层:java.io.File 在这里还只是普通字符,类型问题原封未动</text>
+              <line x1="380" y1="137" x2="380" y2="151" class="fig-arrow" marker-end="url(#ch26f1-arrow)"/>
+              <rect x="15" y="151" width="730" height="54" rx="9" class="fig-box-hot"/>
+              <text x="380" y="173" text-anchor="middle" class="fig-name">语义分析:逐个名字对照 PainlessLookup(txt 装出的类型宇宙)</text>
+              <text x="380" y="195" text-anchor="middle" class="fig-sub">查不到就返回 null——没有「再 Class.forName 找一个」的后路</text>
+              <line x1="380" y1="205" x2="380" y2="219" class="fig-arrow" marker-end="url(#ch26f1-arrow)"/>
+              <rect x="15" y="219" width="730" height="54" rx="9" class="fig-box"/>
+              <text x="380" y="241" text-anchor="middle" class="fig-name">降 IR + 常量折叠 → ASM 写出 byte[]</text>
+              <text x="380" y="263" text-anchor="middle" class="fig-sub">类名固定 PainlessScript$Script:产物是 class,不是解释器里的语法树</text>
+              <line x1="380" y1="273" x2="380" y2="287" class="fig-arrow" marker-end="url(#ch26f1-arrow)"/>
+              <rect x="15" y="287" width="730" height="54" rx="9" class="fig-box"/>
+              <text x="380" y="309" text-anchor="middle" class="fig-name">SecureClassLoader 加载 + ScriptCache 按 context+源码缓存</text>
+              <text x="380" y="331" text-anchor="middle" class="fig-sub">千篇文档只编译这一次,之后每篇调的已是生成好的 execute()</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 编译主路径:表里没有的名字在第 3 格就死,后面两格根本不会跑。</figcaption>
+        </figure>
+
+        <p>这张图证明一件事:<strong>Painless 不是 eval</strong>。eval 是运行时拿着源码字符串去找 <code>java.io.File</code>;这里源码先变成 AST、再对照 Lookup,通过之后才有字节码——类型名在表里不存在,编译在写出字节码<strong>之前</strong>就停了,磁盘 I/O 没有机会发生。默认语言就是 Painless(<code>Script.DEFAULT_SCRIPT_LANG = "painless"</code>),JSON 里可以省略 <code>"lang"</code>。同一段源码也不在所有地方通用:<code>script_score</code> 编进 <code>ScoreScript.CONTEXT</code>(名字 <code>"score"</code>),ingest 的 <code>script</code> processor 编进 <code>IngestScript.CONTEXT</code>(<code>"ingest"</code>)——上下文不同,Lookup 上多出来的绑定不同;<strong>基础白名单是共享的,<code>java.io.File</code> 在哪一张表里都没有</strong>。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>modules/lang-painless/.../painless/PainlessScriptEngine.java</code></td><td>引擎入口:每个 ScriptContext 一份 Lookup + Compiler;compile 调编译器再生成 factory</td></tr>
+          <tr><td><code>modules/lang-painless/.../painless/Compiler.java</code></td><td>主路径:ANTLR 树 → 语义分析 → IR → ASM byte[] → Loader.defineScript(SecureClassLoader)</td></tr>
+          <tr><td><code>modules/lang-painless/.../painless/PainlessPlugin.java</code></td><td><code>baseWhiteList()</code> 从哪些 txt 装表;清单里<strong>没有</strong> java.io.txt</td></tr>
+          <tr><td><code>modules/lang-painless/.../phase/DefaultSemanticAnalysisPhase.java</code></td><td><code>new java.io.File</code> 走 <code>visitNewObj</code>:Lookup 找不到类型 → <code>"Not a type [java.io.File]."</code></td></tr>
+          <tr><td><code>server/.../query/functionscore/ScriptScoreQueryBuilder.java</code></td><td>现行 script_score DSL:<code>query</code> + <code>script</code> 必填;<code>doToQuery</code> 编进 ScoreScript.CONTEXT</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>spi/Whitelist.java</code>(白名单数据结构)、<code>WhitelistLoader.java</code>(解析 txt)、<code>PainlessLookup.java</code>(txt → 运行时表)、<code>server/.../script/ScriptService.java</code> 与 <code>ScriptCache.java</code>(按 context 缓存,<code>computeIfAbsent</code>)、<code>ingest/common/ScriptProcessor.java</code>(ingest 的 script processor)、<code>ScoreScript.java</code>(<code>get_score()</code> 就是脚本里的 <code>_score</code>)、<code>PainlessExecuteAction</code>(<code>/_scripts/painless/_execute</code>)、<code>PainlessContextAction</code>(<code>/_scripts/painless/_context</code>)。Painless 在 <code>modules/lang-painless</code>,随发行版默认装载,不是可选 plugin。</p>
+
+        <h2>3. 一段源码怎样变成 byte[]</h2>
+        <p>入口在 <code>PainlessScriptEngine.compile</code>:先按 ScriptContext 取出<strong>这份上下文专用的</strong> Compiler——构造引擎时已经用该 context 的 whitelist 建好 Lookup,之后再冻住:</p>
+        <pre class="code-block"><code>// modules/lang-painless/src/main/java/org/elasticsearch/painless/PainlessScriptEngine.java(节选)
+for (Map.Entry&lt;ScriptContext&lt;?&gt;, List&lt;Whitelist&gt;&gt; entry : contexts.entrySet()) {
+    PainlessLookup lookup = PainlessLookupBuilder.buildFromWhitelists(entry.getValue(), dedup, filteredMethodCache);
+    mutableContextsToCompilers.put(context, new Compiler(context.instanceClazz, ..., lookup));
+    mutableContextsToLookups.put(context, lookup);
+}</code></pre>
+        <p><code>buildFromWhitelists</code> 把每份 Whitelist 里的类/构造器/方法/字段填进几张 Map。之后脚本里出现的每个类型名都只问 <code>PainlessLookup.canonicalTypeNameToType</code>——表里没有就返回 <code>null</code>。然后是主路径的四步:</p>
+        <pre class="code-block"><code>// modules/lang-painless/src/main/java/org/elasticsearch/painless/Compiler.java(节选)
+SClass root = Walker.buildPainlessTree(scriptName, source, settings);          // ① 解析
+new PainlessSemanticAnalysisPhase().visitClass(root, scriptScope);             // ② 对照 Lookup
+new PainlessUserTreeToIRTreePhase().visitClass(root, scriptScope);            // ③ 降 IR
+new DefaultConstantFoldingOptimizationPhase().visitClass(classNode, null);
+new DefaultIRTreeToASMBytesPhase().visitScript(classNode);                    // ④ ASM 写字节码
+byte[] bytes = classNode.getBytes();
+Class&lt;? extends PainlessScript&gt; clazz = loader.defineScript(CLASS_NAME, bytes);</code></pre>
+        <table class="ktable">
+          <tr><th>步骤</th><th>谁做</th><th>数据变成什么</th></tr>
+          <tr><td>① 解析</td><td><code>Walker.buildPainlessTree</code> → ANTLR <code>PainlessParser</code></td><td>源码字符串 → 用户树 <code>SClass</code>(节点带 Location,供报错画 ^---- HERE)</td></tr>
+          <tr><td>② 白名单检查</td><td><code>PainlessSemanticAnalysisPhase</code>(继承 DefaultSemanticAnalysisPhase)</td><td>每个类型名/方法/new 对照 Lookup;失败抛 IllegalArgumentException,到不了 ③</td></tr>
+          <tr><td>③ 降 IR + 优化</td><td><code>PainlessUserTreeToIRTreePhase</code>、常量折叠、字符串拼接优化</td><td>用户树 → IR <code>ClassNode</code></td></tr>
+          <tr><td>④ 写字节码</td><td><code>DefaultIRTreeToASMBytesPhase</code></td><td>IR → <code>byte[]</code>;类名 <code>PainlessScript$Script</code></td></tr>
+        </table>
+        <p><code>Loader</code> 继承 <code>SecureClassLoader</code>:<code>defineScript</code> 用一份指向 <code>BootstrapInfo.UNTRUSTED_CODEBASE</code> 的 CodeSource 做 <code>defineClass</code>,<code>findClass</code> 只从 Lookup 和 factory 需要的那几个类里找——即便有人设法在字节码里引用 <code>java.io.File</code>,这个 loader 也解析不到。编译失败不会漏成含糊的 500:<code>PainlessScriptEngine</code> 把异常收成 <code>ScriptException("compile error")</code>,具体原因在 <code>caused_by.reason</code>。编译结果按 context + 源码缓存在 <code>ScriptCache</code>(<code>computeIfAbsent</code>)——同一段 script_score 打 1000 篇文档只编一次,之后是调用生成类的 <code>execute</code>。这是「不是逐文档 eval」的第二条证据。</p>
+
+        <h2>4. 白名单:txt 装表,File 在编译期被挡</h2>
+        <p>白名单不是运行时拦一句 <code>SecurityManager.checkRead</code>。它是<strong>编译器用的类型宇宙</strong>:脚本能叫出名字的类,必须先写在资源文件里。<code>PainlessPlugin.baseWhiteList()</code> 装入这些 txt(都在 <code>modules/lang-painless/src/main/resources/org/elasticsearch/painless/</code>):</p>
+        <pre class="code-block"><code>// modules/lang-painless/.../PainlessPlugin.java(节选,清单逐项核对过)
+"org.elasticsearch.txt", "org.elasticsearch.net.txt", "org.elasticsearch.script.fields.txt",
+"java.lang.txt", "java.math.txt", "java.text.txt",
+"java.time.txt", "java.time.chrono.txt", "java.time.format.txt", "java.time.temporal.txt", "java.time.zone.txt",
+"java.util.txt", "java.util.function.txt", "java.util.regex.txt", "java.util.stream.txt",
+"java.nio.txt"</code></pre>
+        <p>对着清单能直接核对四件事:有 <code>java.lang.txt</code>、<code>java.util.txt</code>、<code>java.time*.txt</code>、<code>java.nio.txt</code>(里面是 Buffer 家族,<strong>没有</strong> <code>java.nio.file.Path</code>);<strong>没有 <code>java.io.txt</code></strong>;<code>java.lang.txt</code> 有 <code>RuntimeException</code>、没有 <code>java.lang.Runtime</code>——旧课的 <code>Runtime.exec</code> 和 <code>File</code> 是同一类拒绝;也没有 <code>java.lang.Class</code>。最后这条有个精确的实测对照(实验 14):<code>String s = "x"; s.getClass()</code> 是<strong>编译期</strong>的 <code>member method [java.lang.String, getClass/0] not found</code>(静态类型当场查表);换成 <code>def x = 1; x.getClass()</code> 则是<strong>运行期</strong>的 <code>dynamic method [java.lang.Integer, getClass/0] not found</code>(def 把解析推迟到动态分发)——两条路都在同一张表上死,反射入口不存在。</p>
+        <p>每个 ScriptContext 还会叠加一份 <code>org.elasticsearch.script.&lt;context&gt;.txt</code>(文件名把 context 名里的 <code>-</code> 换成 <code>_</code>):<code>score</code> 给 ScoreScript 加 <code>saturation</code> / <code>decayGeoGauss</code> 绑定,<code>ingest</code> 给 ctx 一侧加 <code>sha256()</code>、<code>Metadata.setRouting</code> 等。这些是<strong>加法</strong>,不会把 File 加回来。<code>new java.io.File("/tmp")</code> 走进 <code>visitNewObj</code>:</p>
+        <pre class="code-block"><code>// modules/lang-painless/.../phase/DefaultSemanticAnalysisPhase.java(节选)
+Class&lt;?&gt; valueType = scriptScope.getPainlessLookup().canonicalTypeNameToType(canonicalTypeName);
+if (valueType == null) {
+    throw userNewObjNode.createError(new IllegalArgumentException("Not a type [" + canonicalTypeName + "]."));
+}</code></pre>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 306" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch26f2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="730" height="50" rx="9" class="fig-box"/>
+              <text x="380" y="36" text-anchor="middle" class="fig-name">new java.io.File("/tmp/x") 进入 visitNewObj(语义分析)</text>
+              <text x="380" y="56" text-anchor="middle" class="fig-sub">"/tmp/x" 此刻只是字符串字面量,不是文件系统参数</text>
+              <line x1="380" y1="65" x2="380" y2="78" class="fig-arrow" marker-end="url(#ch26f2-arrow)"/>
+              <rect x="15" y="78" width="730" height="50" rx="9" class="fig-box"/>
+              <text x="380" y="99" text-anchor="middle" class="fig-name">canonicalTypeNameToType("java.io.File") 查表</text>
+              <text x="380" y="119" text-anchor="middle" class="fig-sub">只查 txt 装出来的 Map,没有 Class.forName 的后路</text>
+              <line x1="380" y1="128" x2="380" y2="141" class="fig-arrow" marker-end="url(#ch26f2-arrow)"/>
+              <rect x="15" y="141" width="730" height="50" rx="9" class="fig-box"/>
+              <text x="380" y="162" text-anchor="middle" class="fig-name">返回 null:java.io 不在任何 txt 里</text>
+              <text x="380" y="182" text-anchor="middle" class="fig-sub">基础白名单没有,任何 context 的叠加 txt 也没有</text>
+              <line x1="380" y1="191" x2="380" y2="204" class="fig-arrow" marker-end="url(#ch26f2-arrow)"/>
+              <rect x="15" y="204" width="730" height="50" rx="9" class="fig-box-hot"/>
+              <text x="380" y="225" text-anchor="middle" class="fig-name">Not a type [java.io.File]. → ScriptException("compile error") → HTTP 400</text>
+              <text x="380" y="245" text-anchor="middle" class="fig-sub">IR / ASM / defineClass 一行没跑;节点磁盘无事发生(实测 /tmp 无此文件)</text>
+              <rect x="15" y="266" width="730" height="32" rx="9" class="fig-box"/>
+              <text x="380" y="286" text-anchor="middle" class="fig-sub">声明写法 java.io.File f = null 走 visitDeclaration:cannot resolve type——同一张表,同一死法</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 拒绝发生在编译期:产物是异常,不是一个会打开文件的 class。</figcaption>
+        </figure>
+
+        <p>REST 上一层是 <code>reason: "compile error"</code>,<code>caused_by.reason</code> 才是那句原文;放进 <code>script_score</code> 会被包成 <code>search_phase_execution_exception</code>,往 <code>root_cause</code> 里挖还是同一句(实验 11)。ingest 更早一步:<code>ScriptProcessor</code> 在 <strong>PUT pipeline 时就 compile</strong>,所以坏脚本在第一条文档到来之前就 400(实验 12);stored 脚本故意不缓存 factory,以免集群里改了 stored 源码而 processor 还拿着旧 class。白名单允许的,是数学与字符串、集合、<code>doc['field'].value</code>、<code>params</code>、ingest/update 里的 <code>ctx._source</code>;不允许的是文件 I/O、网络套接字、反射、进程执行——不是靠运行时拦一句 exec,是这些类型从未进入 Lookup。</p>
+
+        <h2>5. 同一套编译器,接到三个 ScriptContext</h2>
+        <p>编译器只有一套,变化的是 context:接口不同(返回 double 还是改 ctx),Lookup 上多出来的绑定不同。9.4.0 这三处 API 名字都没换:</p>
+        <table class="ktable">
+          <tr><th>场景</th><th>REST / DSL</th><th>context</th><th>脚本里能摸到什么 · 编译时机</th></tr>
+          <tr><td>搜索评分</td><td>查询里的 <code>script_score</code></td><td><code>ScoreScript.CONTEXT</code>("score")</td><td><code>_score</code>(来自 get_score())、doc、params;execute 必须返回 double;搜索期编译</td></tr>
+          <tr><td>写入前改 JSON</td><td>ingest <code>"script"</code> processor</td><td><code>IngestScript.CONTEXT</code>("ingest")</td><td><code>ctx</code>(_source + metadata);execute 返回 void;<strong>PUT pipeline 时就编译</strong></td></tr>
+          <tr><td>更新已有文档</td><td><code>POST /{index}/_update/{id}</code></td><td><code>UpdateScript.CONTEXT</code>("update")</td><td><code>ctx._source</code>、<code>ctx._id</code> 等;改完重索引落盘(实验 6-7)</td></tr>
+        </table>
+        <p><code>script_fields</code> 是第四个 context("field",<code>FieldScript.CONTEXT</code>):算返回给命中的额外字段,不改 <code>_score</code> 也不改磁盘上的 <code>_source</code>(实验 5 一组对照)。<code>script_score</code> 的 JSON 形状由 <code>ScriptScoreQueryBuilder</code> 钉死:<code>query</code> 与 <code>script</code> 都必填——REST 缺 <code>query</code> 实测 400 <code>Required [query]</code>,Java 构造器传 null 则是 <code>script_score: query must not be null</code>;<code>doToQuery</code> 里第一件事查 expensive,然后才 compile:</p>
+        <pre class="code-block"><code>// server/src/main/java/org/elasticsearch/index/query/functionscore/ScriptScoreQueryBuilder.java(节选)
+protected Query doToQuery(SearchExecutionContext context) throws IOException {
+    if (context.allowExpensiveQueries() == false) {
+        throw new ElasticsearchException("[script score] queries cannot be executed when '"
+            + ALLOW_EXPENSIVE_QUERIES.getKey() + "' is set to false.");
+    }
+    ScoreScript.Factory factory = context.compile(script, ScoreScript.CONTEXT);
+    ScoreScript.LeafFactory scoreScriptFactory = factory.newFactory(script.getParams(), context.lookup());
+    Query query = this.query.toQuery(context);
+    return new ScriptScoreQuery(query, script, scoreScriptFactory, context.lookup(), minScore, ...);
+}</code></pre>
+        <p>设置键 <code>search.allow_expensive_queries</code>(默认 true)。关掉之后,白名单再干净、脚本再简单(<code>return 1.0;</code>),这条查询也不会跑(实验 16-17,实测包成 <code>query_shard_exception</code>)。这和「编译期挡 File」是两层:一层是<strong>安全宇宙</strong>,一层是<strong>集群愿不愿意付按文档执行脚本的代价</strong>。整条主路径走一遍:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="15" width="730" height="56" rx="9" class="fig-box-hot"/>
+              <text x="380" y="38" text-anchor="middle" class="fig-name">PainlessScriptEngine:同一套编译器 + 基础白名单</text>
+              <text x="380" y="60" text-anchor="middle" class="fig-sub">每个 context 一份 Lookup(基础 txt + 叠加 txt),构造时冻住</text>
+              <rect x="15" y="84" width="222" height="112" rx="9" class="fig-box"/>
+              <text x="126" y="106" text-anchor="middle" class="fig-name">score · script_score</text>
+              <text x="126" y="128" text-anchor="middle" class="fig-sub">_score、doc、params</text>
+              <text x="126" y="148" text-anchor="middle" class="fig-sub">execute 返回 double</text>
+              <text x="126" y="168" text-anchor="middle" class="fig-sub">搜索期编译</text>
+              <text x="126" y="188" text-anchor="middle" class="fig-sub">score.txt 加 saturation 等</text>
+              <rect x="269" y="84" width="222" height="112" rx="9" class="fig-box"/>
+              <text x="380" y="106" text-anchor="middle" class="fig-name">ingest · 管道 script</text>
+              <text x="380" y="128" text-anchor="middle" class="fig-sub">ctx(_source+metadata)</text>
+              <text x="380" y="148" text-anchor="middle" class="fig-sub">execute 返回 void</text>
+              <text x="380" y="168" text-anchor="middle" class="fig-sub">PUT pipeline 时编译</text>
+              <text x="380" y="188" text-anchor="middle" class="fig-sub">stored 不缓存 factory</text>
+              <rect x="523" y="84" width="222" height="112" rx="9" class="fig-box"/>
+              <text x="634" y="106" text-anchor="middle" class="fig-name">update · _update</text>
+              <text x="634" y="128" text-anchor="middle" class="fig-sub">ctx._source、ctx._id</text>
+              <text x="634" y="148" text-anchor="middle" class="fig-sub">改完重索引落盘</text>
+              <text x="634" y="168" text-anchor="middle" class="fig-sub">写入期编译</text>
+              <text x="634" y="188" text-anchor="middle" class="fig-sub">Map 新键直接放(实验 6)</text>
+              <rect x="15" y="212" width="730" height="72" rx="9" class="fig-box"/>
+              <text x="380" y="235" text-anchor="middle" class="fig-sub">叠加 txt 只加不减:score 的扩展不会放开 JDK,java.io.File 哪张表都没有</text>
+              <text x="380" y="257" text-anchor="middle" class="fig-sub">debug 不必建索引:POST /_scripts/painless/_execute 默认 painless_test context,返回 Object</text>
+              <text x="380" y="277" text-anchor="middle" class="fig-sub">GET /_scripts/painless/_context?context=score 把 Lookup 序列化成 classes(实验 15 的 404 个类)</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 一套编译器,三个(加 script_fields 是四个)context:接口与绑定不同,宇宙同源。</figcaption>
+        </figure>
+
+        <div class="fp-slot" data-flow="ch26-script-compile"></div>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>主线:两篇文档跑通最小 <code>script_score</code>(先猜分数),同构对照 <code>script_fields</code>(不落盘)与 <code>_update</code>(落盘);然后三连破坏实验用 <code>java.io.File</code> 钉死「编译期拒绝」——<code>_execute</code> 直测、塞进 script_score 看包装、写进 pipeline 看 PUT 当场失败;最后 <code>def</code>/静态类型对照两条拒绝路径,transient 关一次 expensive 开关再恢复。<strong>expensive 是集群级设置,课末 null 恢复必做。</strong></p>
+
+        <h3>实验 1-2:建数据</h3>
+        <div class="exp-slot" data-exp="ch26-01-setup"></div>
+        <div class="exp-slot" data-exp="ch26-02-bulk"></div>
+
+        <h3>实验 3-7:三个 context 同台</h3>
+        <div class="exp-slot" data-exp="ch26-03-score-pop"></div>
+        <div class="exp-slot" data-exp="ch26-04-score-price"></div>
+        <div class="exp-slot" data-exp="ch26-05-script-fields"></div>
+        <div class="exp-slot" data-exp="ch26-06-update"></div>
+        <div class="exp-slot" data-exp="ch26-07-get-cheap"></div>
+
+        <h3>实验 8-9:ingest 提前编译</h3>
+        <div class="exp-slot" data-exp="ch26-08-pipeline-put"></div>
+        <div class="exp-slot" data-exp="ch26-09-simulate"></div>
+
+        <h3>实验 10-12:破坏三连,File 钉死编译期拒绝</h3>
+        <div class="exp-slot" data-exp="ch26-10-file-execute"></div>
+        <div class="exp-slot" data-exp="ch26-11-file-search"></div>
+        <div class="exp-slot" data-exp="ch26-12-file-pipeline"></div>
+
+        <h3>实验 13-15:同一张表的其它入口</h3>
+        <div class="exp-slot" data-exp="ch26-13-decl"></div>
+        <div class="exp-slot" data-exp="ch26-14-getclass"></div>
+        <div class="exp-slot" data-exp="ch26-15-context-classes"></div>
+
+        <h3>实验 16-17:第二层开关——expensive</h3>
+        <div class="exp-slot" data-exp="ch26-16-expensive-off"></div>
+        <div class="exp-slot" data-exp="ch26-17-expensive-reject"></div>
+
+        <h3>清理(必做:18 恢复设置,19-20 删数据)</h3>
+        <div class="exp-slot" data-exp="ch26-18-restore"></div>
+        <div class="exp-slot" data-exp="ch26-19-cleanup"></div>
+        <div class="exp-slot" data-exp="ch26-20-cleanup-pipeline"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 把实验 10 的源码改成 <code>java.io.File f = null; return 1;</code> 发给 _execute。caused_by.reason 还是 Not a type 吗?节点会因此加载 java.io.File 这个 JVM 类吗?</summary>
+          <div class="answer">
+            <p>文案换成 <code>invalid declaration: cannot resolve type [java.io.File]</code>(visitDeclaration,Lookup 同样返回 null)。不会加载:<code>canonicalTypeNameToType</code> 只查 txt 填出来的 Map,不会 Class.forName;<code>Loader.findClass</code> 也只认 Lookup 里的类。visitNewObj 与 visitDeclaration 是同一张表的两个入口——文件里 grep "Not a type" 还会命中 visitNewArray / visitInstanceof,死法一致。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么必须在编译期用 Lookup 拒绝 File,而不是生成字节码之后靠运行时拦截 new File?改成运行时拦,哪条不变量破了?</summary>
+          <div class="answer">
+            <p>编译期拒绝保证:<strong>不存在一份引用了 File 的 byte[]</strong>。运行时拦截是第二道墙,前提是 class 已经 define、指令已经在执行,那时 "/tmp/x" 可能已经进了构造器参数。白名单的不变量是「生成类的常量池里根本没有这个类型」;再往下一层,Loader 对非白名单类名抛 ClassNotFoundException,是定义期的第二道。两层都在产物诞生前后把关,而不是等它跑起来——这正是「不是 eval」的安全含义。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. allow_expensive_queries=false 时 script_score 直接拒绝,哪怕脚本只是 return 1.0。为什么「已经白名单化的安全脚本」还要标成 expensive?这和 ScriptCache 解决的编译成本是同一笔账吗?</summary>
+          <div class="answer">
+            <p>不是同一笔账。ScriptCache 摊的是<strong>编译一次</strong>的 CPU;script_score 的 execute 仍按命中文档逐篇调用,热路径上的算术与 doc values 读取没法靠缓存消掉——大索引上一个 O(命中数) 的脚本可以把搜索线程吃满(第 8 课的 search 池)。expensive 开关管的就是这笔执行账;白名单解决安全宇宙,expensive 解决容量意愿,互不代替。doToQuery 里先查 expensive 再 compile,顺序也说明它是入口闸,不是对某段具体源码的判决。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 把 Painless 当 eval:</span>担心「运行时拿着字符串执行任意代码」。类型在 txt 宇宙里不存在,编译在写出字节码前就停了——<code>Not a type</code> 是 HTTP 400 的 compile error,不是 500,更不是运行时 SecurityException;磁盘路径从未被当成文件系统参数。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为 def 晚绑 = 不检查:</span>实测对照:<code>def x = 1; x.getClass()</code> 是运行期 <code>dynamic method [java.lang.Integer, getClass/0] not found</code>,静态类型 <code>String s</code> 是编译期 <code>member method ... not found</code>——def 只是把查表推迟到动态分发,同一张表,反射入口不存在。</div>
+        <div class="callout warn"><span class="co-title">🕳 script_score 忘写 query / 以为会乘一层:</span>REST 缺 query 是 400 <code>Required [query]</code>,连 match_all 都要显式;分数是<strong>整体替换</strong>内层(实验 4 的 90/72),和第 20 课 function_score 的乘一层不是一回事。</div>
+        <div class="callout warn"><span class="co-title">🕳 混淆两层开关:</span>白名单(File 能不能编译)与 <code>search.allow_expensive_queries</code>(集群愿不愿意按文档跑脚本)是两个维度。关掉后者,<code>return 1.0;</code> 也拒(query_shard_exception);开着前者,java.io.File 仍编不过。</div>
+        <div class="callout warn"><span class="co-title">🕳 等 ingest 坏脚本「写入时才爆」:</span>PUT pipeline 时就 compile,第一条文档之前就 400(实验 12)。反过来的坑:stored 脚本故意不缓存 factory——集群里改了 stored 源码,processor 不会拿着旧 class 继续跑。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>源码 → 白名单检查 → 字节码 → SecureClassLoader 加载缓存;不是 eval,产物是 class</td></tr>
+          <tr><td>类型宇宙</td><td>baseWhiteList() 的 txt(java.lang/util/time/nio 的 Buffer 家族)无 java.io、无 Runtime、无 Class;context 叠加 txt 只加不减</td></tr>
+          <tr><td>四步编译</td><td>ANTLR 用户树 → 语义分析对照 Lookup → IR+常量折叠 → ASM byte[](PainlessScript$Script)</td></tr>
+          <tr><td>拒绝文案三连</td><td>new 走 visitNewObj:Not a type;声明走 visitDeclaration:cannot resolve type;方法:member|dynamic method not found(静态编译期 / def 运行期)</td></tr>
+          <tr><td>三个 context</td><td>score(返回 double,_score/doc/params)、ingest(PUT 时编译,ctx)、update(ctx._source 落盘);script_fields 是第四个 "field"</td></tr>
+          <tr><td>缓存</td><td>ScriptCache 按 context+源码 computeIfAbsent:千篇文档只编一次,之后每篇调 execute()</td></tr>
+          <tr><td>两层开关</td><td>白名单=安全宇宙;search.allow_expensive_queries=容量意愿,doToQuery 里先查它再 compile</td></tr>
+        </table>
+        <p><strong>心法:先过表再变码——名字不在类型宇宙里,连字节码都不会诞生;安全靠编译期,性能靠缓存,容量靠 expensive 开关。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch25.html">← 第 25 课:熔断器与背压</a>
+          <a href="ch27.html">第 27 课:管道查询语言 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch26.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

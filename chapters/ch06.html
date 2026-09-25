@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 6 课:请求入口层 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch06" data-ch="ch06">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 06 · 第二篇 · 请求处理</div>
+        <h1>请求入口层</h1>
+        <div class="ch-meta-line">HTTP 到 Action 的第一公里 · 约 16 分钟 · 前置:第 1、5 课 · 10 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>拿 <code>GET /tut/_doc/1</code> 按路径段说出 PathTrie 的匹配过程:哪些段走命名通配符写进 params、哪个段必须字面量命中、叶子上挂的是什么。</li>
+          <li>用真实请求把三种失败配对:未注册路径 <strong>400</strong>(no handler found)、Method 不对 <strong>405</strong>(带 Allow)、文档不存在是 Handler 选的 <strong>404</strong>(found:false);并解释单段 <code>GET /missing-index</code> 为什么不是路由未命中。</li>
+          <li>说出 <code>RestGetAction.routes()</code> 注册了什么、<code>prepareRequest</code> 做了什么没做什么,并区分 <code>?fileds=</code>(拼错,未消费)与 <code>?fields=</code>(旧参数,显式拒绝)两种 400 的机制。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:一条 URL 怎么找到它的 Handler</h2>
+        <p>第一篇停在「配置怎么读」。从这一课起换挡:请求怎么进来。你敲下 <code>GET /tut/_doc/1</code>,最先接住它的是 REST 层——Netty 把 HTTP 字节解码成 ES 自己的 <code>HttpRequest</code>,再包成 <code>RestRequest</code>;而真正决定「这个 URL 交给谁」的是 <code>RestController</code>:它实现 <code>HttpServerTransport.Dispatcher</code>,手里握着一棵 <code>PathTrie&lt;MethodHandlers&gt;</code>。Netty pipeline 里的 SSL、压缩、pipelining 是传输细节,读 REST 层不必先啃那张管道图。</p>
+        <p>URL 先按 <code>/</code> 切段,再从树根逐段下走。<code>GET /tut/_doc/1</code> 一共四步:</p>
+        <table class="ktable">
+          <tr><th>段</th><th>树上发生的事</th><th>params</th></tr>
+          <tr><td><code>tut</code></td><td>children 里没有 <code>tut</code> 这个字面量,回落到通配 <code>*</code>(插入 <code>{index}</code> 时用的 key),名字记在节点的 <code>namedWildcard</code> 字段</td><td><code>index=tut</code></td></tr>
+          <tr><td><code>_doc</code></td><td>字面量命中,没有商量余地</td><td>不变</td></tr>
+          <tr><td><code>1</code></td><td>再走 <code>*</code>,<code>namedWildcard=id</code></td><td><code>id=1</code></td></tr>
+          <tr><td>叶子</td><td><code>node.value</code> 是 <code>MethodHandlers</code>,按 GET 取出 <code>RestGetAction</code></td><td>—</td></tr>
+        </table>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 292" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah06a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="320" y="14" width="120" height="38" rx="9" class="fig-box"/>
+              <text x="380" y="38" text-anchor="middle" class="fig-name">/ (root)</text>
+
+              <path d="M380,52 L380,64" class="fig-arrow"/>
+              <path d="M135,66 L517,66" class="fig-arrow"/>
+              <path d="M135,66 L135,84" class="fig-arrow" marker-end="url(#ah06a)"/>
+              <path d="M292,66 L292,84" class="fig-arrow" marker-end="url(#ah06a)"/>
+              <path d="M415,66 L415,84" class="fig-arrow" marker-end="url(#ah06a)"/>
+              <path d="M517,66 L517,84" class="fig-arrow" marker-end="url(#ah06a)"/>
+
+              <rect x="55" y="88" width="160" height="46" rx="9" class="fig-box-hot"/>
+              <text x="135" y="108" text-anchor="middle" class="fig-name">{index} 通配</text>
+              <text x="135" y="127" text-anchor="middle" class="fig-sub">tut 落此 → index=tut</text>
+
+              <rect x="245" y="88" width="95" height="46" rx="9" class="fig-box"/>
+              <text x="292" y="108" text-anchor="middle" class="fig-name">_cat</text>
+              <text x="292" y="127" text-anchor="middle" class="fig-sub">字面量</text>
+
+              <rect x="360" y="88" width="110" height="46" rx="9" class="fig-box"/>
+              <text x="415" y="108" text-anchor="middle" class="fig-name">_cluster</text>
+              <text x="415" y="127" text-anchor="middle" class="fig-sub">字面量</text>
+
+              <rect x="490" y="88" width="55" height="46" rx="9" class="fig-box"/>
+              <text x="517" y="112" text-anchor="middle" class="fig-name">…</text>
+
+              <rect x="575" y="160" width="175" height="46" rx="9" class="fig-box"/>
+              <text x="662" y="180" text-anchor="middle" class="fig-sub">插入时,key 存成 "*"</text>
+              <text x="662" y="199" text-anchor="middle" class="fig-sub">名字记在 namedWildcard</text>
+
+              <path d="M135,134 L135,146 L175,146 L175,154" class="fig-arrow" marker-end="url(#ah06a)"/>
+              <rect x="95" y="158" width="160" height="42" rx="9" class="fig-box"/>
+              <text x="175" y="178" text-anchor="middle" class="fig-name">_doc 字面量命中</text>
+              <text x="175" y="196" text-anchor="middle" class="fig-sub">中间段对不上即 miss</text>
+
+              <path d="M175,200 L180,224" class="fig-arrow" marker-end="url(#ah06a)"/>
+              <rect x="95" y="228" width="170" height="46" rx="9" class="fig-box"/>
+              <text x="180" y="248" text-anchor="middle" class="fig-name">{id} 通配</text>
+              <text x="180" y="267" text-anchor="middle" class="fig-sub">1 落此 → id=1</text>
+
+              <path d="M265,251 L326,251" class="fig-arrow" marker-end="url(#ah06a)"/>
+              <rect x="330" y="228" width="280" height="46" rx="9" class="fig-box-hot"/>
+              <text x="470" y="248" text-anchor="middle" class="fig-name">叶子:MethodHandlers</text>
+              <text x="470" y="267" text-anchor="middle" class="fig-sub">GET / HEAD → 同一个 RestGetAction</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 路由匹配的产物是「Handler + 从路径抠出来的 params」,不是一份已经读好的文档;同一路径上 GET/HEAD/PUT 由叶子上的 MethodHandlers 再分一次。</figcaption>
+        </figure>
+
+        <p><code>{index}</code>、<code>{id}</code> 叫<strong>命名通配符</strong>:一个模式可以匹配无穷多个具体 URL。业务执行要等 <code>prepareRequest</code> 之后的 <code>client.get()</code>,那是第 7 课的 Action 层——REST 层只负责路由和适配。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件(server/src/main/java/org/elasticsearch/…)</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>rest/action/document/RestGetAction.java</code></td><td><code>routes()</code> 声明 GET/HEAD;<code>prepareRequest</code> 只造 <code>GetRequest</code>,全文 76 行</td></tr>
+          <tr><td><code>common/path/PathTrie.java</code></td><td><code>{name}</code> 当通配符;<code>recordWildcardParam</code> 命中时把路径段写进 params</td></tr>
+          <tr><td><code>rest/RestController.java</code></td><td>实现 <code>Dispatcher</code>;<code>getAllHandlers</code>;400 / 405 / OPTIONS 的发出者</td></tr>
+          <tr><td><code>rest/RestRequest.java</code></td><td>method / path / params / body;<code>param()</code> 每次取值都记账</td></tr>
+          <tr><td><code>rest/BaseRestHandler.java</code></td><td><code>handleRequest</code> 是 <code>final</code>;未消费参数 → 400 + 拼写建议</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>RestHandler.java</code>(接口与内部类 <code>Route</code>)、<code>MethodHandlers.java</code>(同一路径按 Method + RestApiVersion 分发)、<code>ActionModule.java</code> 的 <code>initRestHandlers</code>(启动时 <code>new RestGetAction()</code> 注册进树)。HTTP 入口接口是 <code>http/HttpServerTransport.java</code> 里的 <code>Dispatcher</code>;Netty 实现在 <code>modules/transport-netty4/</code>,本课不展开。</p>
+
+        <h2>3. RestRequest:两类参数挤在同一张地图</h2>
+        <p><code>RestRequest</code> 把 ES 的 REST 层从 Netty 解耦出来:底层仍握着 <code>HttpRequest</code>/<code>HttpChannel</code>,对外只暴露自己的 method、path、params、body。工厂方法 <code>RestRequest.request(...)</code> 里,<code>params(httpRequest.uri())</code> 只解析<strong>查询串</strong>(<code>?</code> 后面);路径上的 <code>{index}</code>/<code>{id}</code> 此刻还不在 map 里——那是 PathTrie 匹配时 <code>recordWildcardParam</code> 写进去的。于是同一张 <code>Map&lt;String,String&gt;</code> 里最终并排躺着两类键:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 145" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah06b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="35" width="168" height="64" rx="9" class="fig-box-hot"/>
+              <text x="94" y="58" text-anchor="middle" class="fig-key">GET /tut/_doc/1</text>
+              <text x="94" y="78" text-anchor="middle" class="fig-sub">?realtime=false</text>
+              <line x1="178" y1="67" x2="204" y2="67" class="fig-arrow" marker-end="url(#ah06b)"/>
+              <rect x="208" y="35" width="168" height="64" rx="9" class="fig-box"/>
+              <text x="292" y="58" text-anchor="middle" class="fig-name">查询串先入</text>
+              <text x="292" y="78" text-anchor="middle" class="fig-sub">params(uri) 只看 ? 后面</text>
+              <line x1="376" y1="67" x2="402" y2="67" class="fig-arrow" marker-end="url(#ah06b)"/>
+              <rect x="406" y="35" width="168" height="64" rx="9" class="fig-box"/>
+              <text x="500" y="58" text-anchor="middle" class="fig-name">PathTrie 后入</text>
+              <text x="500" y="78" text-anchor="middle" class="fig-sub">写 index=tut、id=1</text>
+              <line x1="574" y1="67" x2="600" y2="67" class="fig-arrow" marker-end="url(#ah06b)"/>
+              <rect x="604" y="35" width="146" height="64" rx="9" class="fig-box-hot"/>
+              <text x="677" y="58" text-anchor="middle" class="fig-name">一张 params</text>
+              <text x="677" y="78" text-anchor="middle" class="fig-sub">index/id/realtime</text>
+              <text x="380" y="126" text-anchor="middle" class="fig-sub">Handler 眼里没有两种 API:request.param("index") 的值可能来自 URL 段,也可能来自 ?index=(issue #36785 的历史包袱)</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 读 <code>prepareRequest</code> 时别纠结某个 param 从哪来——路径参数和查询参数在 Handler 看来是同一张地图。</figcaption>
+        </figure>
+
+        <p>核心读取器每次取值都记账:</p>
+        <pre class="code-block"><code>// RestRequest.java
+public final String param(String key) {
+    consumedParams.add(key);   // 取一次,记一笔
+    return params.get(key);
+}</code></pre>
+        <p>用户写了 <code>?fileds=title</code>(拼错 fields),Handler 从没 <code>param("fileds")</code>,这个键就留在 <code>unconsumedParams()</code> 里;<code>BaseRestHandler</code> 在真正执行前检查它,返回 400 而不是默默忽略。<code>content()</code>/<code>contentStream()</code> 同样把 <code>contentConsumed</code> 置位:GET 不该带 body,带了又没被消费,也会 400。</p>
+        <p>HTTP 方法是枚举(<code>GET…CONNECT</code>),不是自由字符串;非法 method 抛 <code>IllegalArgumentException</code>,<code>RestController</code> 把它收成 405。<code>rawPath()</code> 是未解码路径——匹配必须用它,才接得住 <code>_id</code> 是 <code>http%3A%2F%2F…</code> 这种 URL;<code>path()</code> 才是解码后的。四个查询参数被所有 Handler 自动放行(<code>BaseRestHandler.ALWAYS_SUPPORTED</code>):<code>format</code>、<code>filter_path</code>、<code>pretty</code>、<code>human</code>——不必每个 Handler 自己 <code>param()</code>。<code>RestResponse.RESPONSE_PARAMS</code> 目前只有 <code>error_trace</code>。</p>
+
+        <h2>4. BaseRestHandler:final 的模板方法</h2>
+        <p><code>RestHandler</code> 是 <code>@FunctionalInterface</code>,核心一个 <code>handleRequest</code>;<code>Route</code> 是它的内部类,最常见的构造就是 <code>new Route(GET, "/{index}/_doc/{id}")</code>。需要弃用或替换旧路径时走 builder——<code>deprecatedForRemoval</code>(即将删除,响应带警告)、<code>replaces</code>(旧路径也注册成弃用包装)、<code>deprecateAndKeep</code>(弃用但保留)——用到再查,不用背。</p>
+        <p>几乎所有内置 Handler 继承 <code>BaseRestHandler</code>,而 <code>handleRequest</code> 在这里是 <code>final</code>:先做 <code>supportedQueryParameters()</code> 白名单校验(没覆盖时默认 null、整段跳过),然后 <code>prepareRequest</code>,再检查未消费参数,通过才 <code>usageCount.increment()</code>、<code>action.accept(channel)</code> 真正发走:</p>
+        <pre class="code-block"><code>// BaseRestHandler.java(骨架,有删节)
+public final void handleRequest(RestRequest request, RestChannel channel, NodeClient client) {
+    // …白名单校验 allSupportedParameters…
+    try (var action = prepareRequest(request, client)) {
+        var unconsumed = request.unconsumedParams();      // 排除 RESPONSE_PARAMS / responseParams
+        if (unconsumed.isEmpty() == false) {
+            throw new IllegalArgumentException(unrecognized(request, unconsumed, …));
+        }
+        usageCount.increment();
+        action.accept(channel);                           // 这一行才真正执行
+    }
+}</code></pre>
+        <p>子类唯一必须实现的是 <code>prepareRequest</code>;javadoc 写明:实现必须在返回 runnable <strong>之前</strong>消费完请求参数,响应阶段才用的参数(少见)放进 <code>responseParams()</code>。有 body 却没被 <code>content()</code> 消费,会在 accept 之前抛「does not support having a body」。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 145" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah06c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="10" y="35" width="168" height="64" rx="9" class="fig-box"/>
+              <text x="94" y="58" text-anchor="middle" class="fig-name">handleRequest</text>
+              <text x="94" y="78" text-anchor="middle" class="fig-sub">final,子类不能覆盖</text>
+              <line x1="178" y1="67" x2="204" y2="67" class="fig-arrow" marker-end="url(#ah06c)"/>
+              <rect x="208" y="35" width="168" height="64" rx="9" class="fig-box"/>
+              <text x="292" y="58" text-anchor="middle" class="fig-name">prepareRequest</text>
+              <text x="292" y="78" text-anchor="middle" class="fig-sub">读参数,造 GetRequest</text>
+              <line x1="376" y1="67" x2="402" y2="67" class="fig-arrow" marker-end="url(#ah06c)"/>
+              <rect x="406" y="35" width="168" height="64" rx="9" class="fig-box"/>
+              <text x="500" y="58" text-anchor="middle" class="fig-name">未消费检查</text>
+              <text x="500" y="78" text-anchor="middle" class="fig-sub">漏网 ?参数 → 400+建议</text>
+              <line x1="574" y1="67" x2="600" y2="67" class="fig-arrow" marker-end="url(#ah06c)"/>
+              <rect x="604" y="35" width="146" height="64" rx="9" class="fig-box-hot"/>
+              <text x="677" y="58" text-anchor="middle" class="fig-name">consumer.accept</text>
+              <text x="677" y="78" text-anchor="middle" class="fig-sub">client.get() 起飞</text>
+              <text x="380" y="126" text-anchor="middle" class="fig-sub">校验在 Action 执行之前:先让子类消费参数,再对剩下的键问责——拼错不会被静默忽略</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 模板顺序本身就是不变量:参数校验发生在 <code>client.get()</code> 之前,任何子类都逃不掉这段检查。</figcaption>
+        </figure>
+
+        <p>拼写建议用的是 Lucene 的 <code>LevenshteinDistance</code>,阈值 &gt;0.5;<code>unrecognized()</code> 拼出的句子形如 <code>request [/idx/_doc/1] contains unrecognized parameter: [realtimee] -&gt; did you mean [realtime]?</code>,多个候选时是 <code>any of [a, b]?</code>。注意它被包进标准 REST 错误对象(<code>error.type</code>/<code>error.reason</code>/<code>status:400</code>),和「路径未注册」那种扁平的 <code>{"error":"no handler found …"}</code> 不是一种东西——实验 1、5 对照看。</p>
+
+        <h2>5. RestController:分发、注册与 400 / 405</h2>
+        <p><code>RestController</code> 的树就一棵字段:<code>PathTrie&lt;MethodHandlers&gt; handlers</code>,构造时传入 <code>RestUtils.REST_DECODER</code>(通配符捕获路径段时做 URL 解码)。注册用 <code>insertOrUpdate</code>:同一路径的 GET 和 HEAD 合并进<strong>同一个</strong> <code>MethodHandlers</code>,再按 Method 分到同一个 Handler 实例;<code>addMethod</code> 不允许覆盖已存在的 (method, version) 组合,重复注册直接抛;OPTIONS 禁止注册,由内部处理。对外入口是 <code>registerHandler(RestHandler)</code>:遍历 <code>handler.routes()</code>。启动时 <code>ActionModule.initRestHandlers</code> 里那行 <code>registerHandler.accept(new RestGetAction())</code> 你要能指认;插件走同一函数——循环 <code>actionPlugins</code> 调 <code>ActionPlugin.getRestHandlers(...)</code>,被 filter 掉的也会注册一个 placeholder,好让错误信息仍从 <code>RestController</code> 发出。</p>
+        <p>匹配比想象的执拗:<code>getAllHandlers(params, rawPath)</code> 用的是 <strong>rawPath</strong>(注释原话:不解码才能处理 <code>my_index/_doc/http%3A%2F%2Fwww.google.com</code> 这种 id),且每轮迭代前<strong>重置 params</strong>——因为 PathTrie 会往这张 map 里写通配符。<code>retrieveAll</code> 对四种 <code>TrieMatchingMode</code> 各试一次(只显式节点 / 允许根通配 / 允许叶通配 / 全允许),Controller 按迭代顺序取第一个能 <code>getHandler(method, version)</code> 的就返回;全部落空才 <code>handleBadRequest</code>。<code>MethodHandlers.getHandler</code> 先按请求的 API 版本取,取不到回落 <code>RestApiVersion.current()</code>(minor 新加的 API 视为兼容)。</p>
+        <p>失败路径用表,不画分叉图:</p>
+        <table class="ktable">
+          <tr><th>情况</th><th>谁决定</th><th>HTTP</th><th>响应要点</th></tr>
+          <tr><td>路径一个 Handler 都配不上</td><td><code>handleBadRequest</code></td><td><strong>400</strong></td><td>扁平 JSON:<code>"error": "no handler found for uri […] and method […]"</code>(不是 404)</td></tr>
+          <tr><td>路径存在,Method 不在表里</td><td><code>handleUnsupportedHttpMethod</code></td><td><strong>405</strong></td><td><code>Allow</code> 头列出合法方法</td></tr>
+          <tr><td>OPTIONS,路径有别的方法</td><td><code>handleOptionsRequest</code></td><td><strong>200</strong></td><td>body 空,<code>Allow</code> 头</td></tr>
+          <tr><td>路由命中,文档不存在</td><td>Handler 的状态码函数</td><td><strong>404</strong></td><td><code>found: false</code>,业务结果</td></tr>
+        </table>
+        <p>两个易踩的坑。其一:单段 <code>GET /some-missing-index</code> <strong>会命中</strong> <code>RestGetIndicesAction</code> 的 <code>GET /{index}</code>,得到的是 index_not_found 的 404,不是 no handler found——想复现「路由未命中」必须用多段、对不上任何模式的路径。其二:<code>GET /</code> 返回的是集群版本和 tagline(<code>RestMainAction</code>),不是「所有 REST 端点清单」;路由只活在那棵 PathTrie 里,想看它得靠实验 8 的 per-route 统计。</p>
+        <p>命中 Handler 之后、进 <code>handleRequest</code> 之前还有三件事:校验 Content-Type;按 <code>canTripCircuitBreaker()</code> 向 <code>IN_FLIGHT_REQUESTS</code> 熔断器预留 <strong>contentLength 字节</strong>(9.4.0 不再乘 2;GET 无 body 预留 0,这是记账,不是「每个 GET 都占一大块堆」);过 <code>RestInterceptor</code>(安全插件在这里拦)。<code>canTripCircuitBreaker()==false</code> 的 Handler 走 <code>addWithoutBreaking</code>:仍记账,但不允许这次请求把 breaker 打爆。</p>
+
+        <h2>6. RestGetAction 走读:REST 到此为止</h2>
+        <p>最典型也最短,全文 76 行。先看它声明了哪些入口:</p>
+        <pre class="code-block"><code>// RestGetAction.java
+@Override
+public String getName() { return "document_get_action"; }   // 给 _nodes/usage 用,不是类名
+
+@Override
+public List&lt;Route&gt; routes() {
+    return List.of(new Route(GET, "/{index}/_doc/{id}"),
+                   new Route(HEAD, "/{index}/_doc/{id}"));
+}</code></pre>
+        <p>9.4.0 里<strong>没有</strong>旧映射 <code>/{index}/{type}/{id}</code>——那是 7.x 时代的 type 段,已被 <code>replaces</code> 清掉。HEAD 和 GET 共用这一个类:HTTP 语义不同(HEAD 不要 body),取文档的方式相同。<code>prepareRequest</code> 主干:</p>
+        <pre class="code-block"><code>GetRequest getRequest = new GetRequest(request.param("index"), request.param("id"));
+getRequest.refresh(request.paramAsBoolean("refresh", getRequest.refresh()));
+getRequest.routing(request.param("routing"));
+getRequest.preference(request.param("preference"));
+getRequest.realtime(request.paramAsBoolean("realtime", getRequest.realtime()));
+if (request.param("fields") != null) {
+    throw new IllegalArgumentException("the parameter [fields] is no longer supported, …");
+}
+// 之后:stored_fields、FetchSourceContext.parseFromRestRequest 的 _source 过滤等
+return channel -&gt; client.get(getRequest,
+    new RestToXContentListener&lt;&gt;(channel, r -&gt; r.isExists() ? OK : NOT_FOUND));</code></pre>
+        <p><code>GetRequest</code> 的构造只是把 index/id 存进 Action 请求对象,此刻<strong>没有</strong>访问任何分片;可选参数全来自查询串,默认值跟 <code>GetRequest</code> 字段一致(refresh 默认 false、realtime 默认 true)。注意 <code>fields</code> 那个 throw:参数<strong>先被 <code>param()</code> 消费、再立刻拒绝</strong>——所以它不走「未消费参数」的拼写建议,是明确赶人去用 <code>stored_fields</code> 或 <code>_source</code>(实验 6)。</p>
+        <p>真正离开 REST 层的是返回的那个 lambda。<code>client</code> 是 <code>NodeClient</code>,<code>get</code> 会按 ActionType <code>indices:data/read/get</code> 找到 <code>TransportGetAction</code>——第 7 课的表。<code>RestToXContentListener</code> 在回调里调 <code>GetResponse.toXContent</code>,状态码用 <code>isExists()</code> 在 OK 和 NOT_FOUND 之间选。</p>
+        <p>HEAD 为什么还能共用?Handler 照样序列化一份响应,剥 body 发生在更外面的 <code>DefaultRestChannel</code>:<code>isHeadRequest</code> 时把 <code>content</code> 换成 <code>BytesArray.EMPTY</code>。所以「HEAD 与 GET 共用一个 Action」的不变量是:存在性、版本、realtime 语义必须一致;差别只在 HTTP 要不要消息体。实测印证:<code>curl -I</code> 同一 URL,200 的 Content-Length 照报(比如 134)但线路上没有 body;换成不存在的 id,HEAD 也是 404、无 body——只看状态码就知道文档在不在。Handler 从不直接写 TCP:<code>RestChannel</code> 只有 <code>newBuilder</code>/<code>sendResponse</code> 这类方法,JSON/YAML/CBOR 按 Accept 选。本课停在 listener 把 <code>GetResponse</code> 变成 <code>RestResponse</code>。</p>
+
+        <h2>7. 设计对照</h2>
+        <table class="ktable">
+          <tr><th>设计</th><th>常见做法</th><th>ES 的做法</th><th>换来的</th></tr>
+          <tr><td>路由</td><td>线性扫或精确 HashMap</td><td>PathTrie,<code>{name}</code> 通配</td><td>按路径深度匹配,一个模式接无穷 URL</td></tr>
+          <tr><td>参数校验</td><td>手动 if</td><td><code>param()</code> 消费跟踪 + Levenshtein</td><td>拼错不会被静默丢弃</td></tr>
+          <tr><td>内存</td><td>无上限收 body</td><td>in-flight breaker 按 contentLength 预留</td><td>大请求进 Handler 前可被拒</td></tr>
+          <tr><td>弃用</td><td>只写文档</td><td><code>Route</code> builder 的弃用/替换</td><td>运行时警告头,旧路径可并行一段</td></tr>
+          <tr><td>统计</td><td>外部探针</td><td><code>MethodHandlers</code> 懒创建 statsTracker</td><td><code>_nodes/stats/http</code> 按 route 归账</td></tr>
+          <tr><td>入口复用</td><td>REST 里直接查 Lucene</td><td>只造 <code>GetRequest</code> + <code>client.get()</code></td><td>HTTP、节点间 Transport、Java client 共用同一 Action</td></tr>
+        </table>
+        <p>最后一个是第 7 课的伏笔,也是这一层最重要的取舍:REST 适配得越薄,Action 层越能同时服务多种入口。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>在同一个小节点上,把「路由未命中 / 方法不对 / 文档没有」三种失败各踩一遍,再看一眼路由树本身。索引名 <code>tut-l06-docs</code>。</p>
+
+        <h3>实验 0:建索引并写入一篇文档</h3>
+        <div class="exp-slot" data-exp="ch06-00-setup"></div>
+
+        <h3>实验 1:多段未注册路径 → 400</h3>
+        <div class="exp-slot" data-exp="ch06-01-nohandler"></div>
+
+        <h3>实验 2:对照——单段路径命中 GET /{index}</h3>
+        <div class="exp-slot" data-exp="ch06-02-single-segment"></div>
+
+        <h3>实验 3:Method 不对 → 405 + Allow</h3>
+        <div class="exp-slot" data-exp="ch06-03-405"></div>
+
+        <h3>实验 4:全局参数 pretty / filter_path</h3>
+        <div class="exp-slot" data-exp="ch06-04-pretty"></div>
+
+        <h3>实验 5:拼错参数 → 400 + did you mean</h3>
+        <div class="exp-slot" data-exp="ch06-05-typo"></div>
+
+        <h3>实验 6:对照——旧参数 fields 是显式拒绝</h3>
+        <div class="exp-slot" data-exp="ch06-06-fields"></div>
+
+        <h3>实验 7:文档不存在 → Handler 的 404</h3>
+        <div class="exp-slot" data-exp="ch06-07-doc404"></div>
+
+        <h3>实验 8:从 _nodes/stats/http 看见路由模式</h3>
+        <div class="exp-slot" data-exp="ch06-08-routes"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch06-09-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 对一个<strong>存在的</strong>索引发 <code>GET /tut-l06-docs</code>(没有 /_doc/1)会返回什么?换成三段 <code>GET /tut-l06-docs/missing-type/1</code> 呢?</summary>
+          <div class="answer">
+            <p>前者 <strong>200</strong>:命中 <code>RestGetIndicesAction</code> 的 <code>GET /{index}</code>,返回 mappings/settings 元数据——和实验 2 同一条路由,只是索引这次存在。后者 <strong>400 no handler found</strong>:9.4.0 没有 <code>/{index}/{type}/{id}</code>,中间段必须是字面量 <code>_doc</code> 才进 <code>RestGetAction</code>,<code>missing-type</code> 对不上任何三段模式。猜「三段一定是取文档」的人,是把 7.x 的 type 段当成了还活着的路由。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. <code>handleRequest</code> 为什么必须 final、校验为什么必须放在 <code>prepareRequest</code> <strong>之后</strong>?若挪到之前会发生什么?</summary>
+          <div class="answer">
+            <p>final 是让「未知参数必须失败」「不支持的 body 必须失败」成为所有 Handler 的不变量,而不是每个子类的自觉——跳过检查,<code>?fileds=</code> 会被静默忽略,用户以为过滤生效了、实际全字段返回,这是协议层在撒谎。校验必须在之后:路径上的 index/id 是 PathTrie 写进 params 的,只有 <code>prepareRequest</code> 里的 <code>request.param("index")</code> 才把它们标成已消费;若先查 unconsumed,路径参数全部「未消费」,每个合法 GET 都会 400。模板顺序本身就是不变量:先让子类消费,再对剩下的键问责。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 为什么不在 <code>RestGetAction</code> 里直接读 Lucene/IndexShard,而要 <code>new GetRequest</code> + <code>client.get()</code>?这和「HEAD 由 Channel 去 body」是同一类设计吗?</summary>
+          <div class="answer">
+            <p>Action 才是传输无关的「取一篇文档」:节点间走 Transport 帧和 ActionType 名字(<code>indices:data/read/get</code>),不套 HTTP;Java 客户端同样构造 <code>GetRequest</code>。把 Lucene 读放进 REST 层,等于强迫所有入口假装自己是 HTTP,换传输实现也会碰坏业务代码。多一跳的代价是多一个对象、一次分发;换来 Action 层同时服务 REST、复制、内部调用。HEAD 去 body 是<strong>另一类</strong>决策:业务结果必须与 GET 相同(所以共用 GetRequest),字节要不要上线是 HTTP 语义(所以放 Channel)。前者是层间切分,后者是同一层内按 method 剥响应。</p>
+          </div>
+        </details>
+        <details>
+          <summary>4. 用 <code>curl -I</code>(HEAD)分别请求存在与不存在的文档:状态码和 body 各是什么?不看 body 怎么知道文档在不在?</summary>
+          <div class="answer">
+            <p>存在:200,无 body,但 Content-Length 仍照报——<code>DefaultRestChannel</code> 对 HEAD 把 content 换成 <code>BytesArray.EMPTY</code>,只是不发送,长度信息保留。不存在:404、无 body。所以存在性判断只看状态码即可(这正是 HEAD 的用途);而 GET 版本的 404 带 <code>found:false</code> 的 JSON。两条路由指向同一个 <code>prepareRequest</code>,不存在「HEAD 只查路由表」的捷径——不执行 <code>client.get()</code> 就无法知道文档在不在(realtime、routing 都得算)。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 「URL 打错就是 404」:</span>PathTrie 未命中是 <strong>400 no handler found</strong>;而且单段 <code>GET /missing-index</code> 会命中 <code>/{index}</code>,得到的是 index_not_found 的 404。排障先看错误体形状:扁平 error 字符串 = 路由没接住;结构化 error.type = 接住了、后面出的错。</div>
+        <div class="callout warn"><span class="co-title">🕳 「400 都是路由没匹配上」:</span>路由命中之后照样有 400——拼错参数(未消费)、旧参数 fields(显式拒绝)、GET 带 body 未消费,都发生在 <code>BaseRestHandler.handleRequest</code> 或 <code>prepareRequest</code> 内部。看 error.reason 区分,别急着改 URL。</div>
+        <div class="callout warn"><span class="co-title">🕳 旧资料写 in-flight breaker 预留 contentLength×2:</span>9.4.0 只预留 <code>contentLength</code> 字节,GET 无 body 预留 0。读二手资料里的数字,先对着当前版本核一遍。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>职责</td><td>REST 层 = 路由 + 适配:收 HTTP、匹配 Handler、抠 params、造内部 Request;不取文档、不跑查询</td></tr>
+          <tr><td>路由</td><td>PathTrie 逐段匹配;<code>{name}</code> 通配写入 params;叶子的 MethodHandlers 再按 Method + 版本分发</td></tr>
+          <tr><td>参数</td><td>路径参数和查询参数同一张 map;<code>param()</code> 记账,未消费 → 400 + Levenshtein 建议</td></tr>
+          <tr><td>模板</td><td><code>handleRequest</code> final:prepareRequest → 查未消费 → accept;子类只写 prepareRequest</td></tr>
+          <tr><td>失败</td><td>未注册 400(no handler found);Method 不对 405 + Allow;文档没有 = Handler 选的 404</td></tr>
+          <tr><td>注册</td><td>启动时 <code>ActionModule.initRestHandlers</code> 逐个 new;插件走 <code>ActionPlugin.getRestHandlers</code> 同一棵树</td></tr>
+        </table>
+        <p><strong>心法:REST 层只回答「这个请求归谁、参数是什么」;归谁之后的事,从 client.get() 那一行才刚开始。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch05.html">← 第 5 课:配置框架</a>
+          <a href="ch07.html">第 7 课:动作框架 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch06.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+# 第 29 课专用:开安全的单节点 Elasticsearch 9.4.0(端口 9201)
+# 启动:bash docker/start-secure.sh
+# 说明:
+#  - xpack.security.enabled=true,内置 superuser 账号 elastic / elastic-password
+#  - 学习环境显式关 HTTP TLS(xpack.security.http.ssl.enabled=false),保持纯 HTTP 便于 CORS 直连
+#  - 自动生成的节点证书继续保障传输层;数据卷独立,与 9200 的学习互不影响
+services:
+  elasticsearch-secure:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    container_name: es-study-secure
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=elastic-password
+      - http.cors.enabled=true
+      # 引号与正则口径见 docker-compose.yml:只放行本机页面和 file://
+      - 'http.cors.allow-origin="/^https?:\\/\\/(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$|^null$/"'
+      - http.cors.allow-headers=X-Requested-With,Content-Type,Content-Length,Authorization
+      - http.cors.allow-methods=OPTIONS,HEAD,GET,POST,PUT,DELETE
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "127.0.0.1:9201:9200"
+    volumes:
+      - es-study-secure-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -u elastic:elastic-password http://localhost:9200/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  es-study-secure-data:

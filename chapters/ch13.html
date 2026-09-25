@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 13 课:批量写入 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch13" data-ch="ch13">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 13 · 第三篇 · 数据写入</div>
+        <h1>批量写入</h1>
+        <div class="ch-meta-line">bulk 协议 · 逐条路由 · 条级成败 · 约 22 分钟 · 前置:第 10、12 课 · 13 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>发一次混着 <code>index</code>/<code>create</code>/<code>update</code>/<code>delete</code> 和坏条目的 <code>_bulk</code>,逐项预测 status;并区分「NDJSON 结构坏 → 整请求 400」与「某一条在 primary 上失败 → HTTP 200 + <code>errors: true</code>」。</li>
+          <li>对 2 主分片的索引,用 <code>Murmur3HashFunction.hash</code> + <code>Math.floorMod(hash, 2)</code> 说出 <code>_id="1"</code> 与 <code>_id="3"</code> 各落哪个 shard,并用 <code>_search_shards?routing=…</code> 与 <code>_cat/shards</code> 的 docs 列核对。</li>
+          <li>打开 <code>BulkOperation</code> 的分组代码与 <code>ReplicationOperation.execute</code> 的执行顺序,说出不变量「primary 先成功,再带 seq_no 复制到 replica」,以及 <code>items[]</code> 为什么按原始行序对齐。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:协调节点的活是「分组」,不是「写 Lucene」</h2>
+        <p>生产里文档几乎不靠一条条 <span class="mth mth-put">PUT</span> <code>/_doc</code>——一次 <span class="mth mth-post">POST</span> <code>/_bulk</code> 塞几百上千条,常常跨索引、跨 shard、跨节点。这一课只盯协调节点(接到这条 HTTP 的节点)在中间干了什么:把 NDJSON 切成条目、给每条算出 shard 号、按 <code>ShardId</code> 分堆、并行发给各 shard 当前的 primary。primary 内部怎么写 Lucene 和 translog 是下一课的事,本课停在「一份 <code>BulkShardRequest</code> 交到 primary 手上」。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah13a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="15" y="25" width="166" height="72" rx="9" class="fig-box-hot"/>
+              <text x="98" y="48" text-anchor="middle" class="fig-name">NDJSON 进入</text>
+              <text x="98" y="68" text-anchor="middle" class="fig-sub">POST /_bulk</text>
+              <text x="98" y="86" text-anchor="middle" class="fig-sub">两行一组 × N 条</text>
+              <line x1="181" y1="61" x2="201" y2="61" class="fig-arrow" marker-end="url(#ah13a)"/>
+              <rect x="205" y="25" width="166" height="72" rx="9" class="fig-box"/>
+              <text x="288" y="48" text-anchor="middle" class="fig-name">切成条目</text>
+              <text x="288" y="68" text-anchor="middle" class="fig-sub">BulkRequestParser</text>
+              <text x="288" y="86" text-anchor="middle" class="fig-sub">source 先不解析</text>
+              <line x1="371" y1="61" x2="391" y2="61" class="fig-arrow" marker-end="url(#ah13a)"/>
+              <rect x="395" y="25" width="166" height="72" rx="9" class="fig-box"/>
+              <text x="478" y="48" text-anchor="middle" class="fig-name">逐条算 shard</text>
+              <text x="478" y="68" text-anchor="middle" class="fig-sub">Murmur3 + floorMod</text>
+              <text x="478" y="86" text-anchor="middle" class="fig-sub">有效键 routing ?? _id</text>
+              <line x1="561" y1="61" x2="581" y2="61" class="fig-arrow" marker-end="url(#ah13a)"/>
+              <rect x="585" y="25" width="166" height="72" rx="9" class="fig-box-hot"/>
+              <text x="668" y="48" text-anchor="middle" class="fig-name">按 ShardId 分组</text>
+              <text x="668" y="68" text-anchor="middle" class="fig-sub">BulkShardRequest</text>
+              <text x="668" y="86" text-anchor="middle" class="fig-sub">并行发往各 primary</text>
+              <text x="380" y="128" text-anchor="middle" class="fig-sub">协调节点不写 Lucene:它把整批条目切给正确的 primary——分组,不是写索引</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 协调节点的流水线:切条目 → 算路由 → 按 ShardId 分堆。每一步都发生在「条」的粒度上,「批」只是运输包装。</figcaption>
+        </figure>
+
+        <p>一句话:<strong>bulk 的协调工作是分组,不是在协调节点写 Lucene</strong>。混批的四种操作在切条目之后就没有「批」的概念了——剩下的只有「条」和「堆」。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件(server/src/main/java/org/elasticsearch/…)</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>rest/action/document/RestBulkAction.java</code></td><td><code>routes()</code>:POST/PUT <code>/_bulk</code> 与 <code>/{index}/_bulk</code>;body 是 NDJSON,收成 <code>BulkRequest</code></td></tr>
+          <tr><td><code>action/bulk/TransportBulkAction.java</code></td><td><code>TYPE = "indices:data/write/bulk"</code>;ingest 之后 <code>doInternalExecute</code> → 补建缺失索引 → <code>new BulkOperation(...).run()</code></td></tr>
+          <tr><td><code>action/bulk/BulkOperation.java</code></td><td><strong>按 shard 分组的真实位置</strong>:逐条 <code>route(indexRouting)</code> → <code>computeIfAbsent(new ShardId(...))</code></td></tr>
+          <tr><td><code>cluster/routing/IndexRouting.java</code></td><td>普通索引 <code>Unpartitioned.shardId</code>:<code>floorMod(Murmur3(有效键), numberOfShards)</code>;有 routing 就只 hash routing</td></tr>
+          <tr><td><code>action/bulk/TransportShardBulkAction.java</code></td><td>shard 级执行:<code>performOnPrimary</code> 逐项写;<code>performOnReplica</code> 跳过未领 seq_no 的失败项</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>TransportAbstractBulkAction</code>(ingest 在分组之前)、<code>Murmur3HashFunction</code>(hash 实现)、<code>ReplicationOperation</code>(primary 成功再复制)、<code>TransportReplicationAction</code>(<code>wait_for_active_shards</code> 的 DEFAULT 解析)、<code>BulkResponse</code>(<code>errors</code> 来自 <code>hasFailures()</code>)、<code>BulkRequestParser</code>(NDJSON 切行)、<code>BulkPrimaryExecutionContext</code>(失败项仍 <code>advance()</code>)。</p>
+
+        <h2>3. NDJSON 协议:两行一组,逐条独立</h2>
+        <p>入口有四条路径,但 body 格式只有一种——NDJSON,一行 JSON 加一个换行符:</p>
+        <pre class="code-block"><code>// RestBulkAction.routes()
+new Route(POST, "/_bulk"),  new Route(PUT, "/_bulk"),
+new Route(POST, "/{index}/_bulk"),  new Route(PUT, "/{index}/_bulk")
+
+// body:两行一组,action 行 + source 行
+{"index": {"_index": "t", "_id": "1"}}     ← 奇数行:做什么、写到哪
+{"title": "A"}                              ← 偶数行:文档本身
+{"delete": {"_index": "t", "_id": "3"}}    ← delete 没有 source 行</code></pre>
+        <p>四种子操作各管一段:<code>index</code> 无条件写(同 <code>_id</code> 覆盖);<code>create</code> 只在 <code>_id</code> 不存在时写(存在即 409);<code>update</code> 的 source 行是部分文档或 script,会被翻译成 index 或 delete;<code>delete</code> 单行成项。三个纪律:每一行(包括最后一行)必须以 <code>\n</code> 结尾;action 行此刻就被解析,不是合法 JSON 对象 → <strong>整请求 400</strong>;source 行只按字节切片交给 <code>IndexRequest.source()</code>,<strong>不解析 JSON</strong>——解析推迟到 primary 上,这是「条级失败」的伏笔(第 6 节)。</p>
+        <div class="callout tip"><span class="co-title">💡 Content-Type:</span>本站实验运行器对整段 JSON 发 <code>application/json</code>,对按行的 NDJSON(包括故意写坏、留给 ES 报错的 body)发 <code>application/x-ndjson</code>。两种类型 ES 的 bulk 解析都接受;curl 直发 NDJSON 时用后者。</div>
+        <p><strong>refresh 是每请求一份的粒度</strong>。<code>?refresh=true|false|wait_for</code> 是 query 参数,一次 <code>_bulk</code> 一份策略,写进每一份 <code>BulkShardRequest</code>——没有「条级 refresh」。默认 <code>false</code>:返回时文档只在 translog/buffer。未改 <code>refresh_interval</code> 且分片仍在被搜索时,大约 1 秒内的自动 refresh 才会把它编进可搜视图;分片进入 search idle 后这只钟会停,下一次搜索可能自己触发 refresh(第 1 课的近实时)。<code>wait_for</code> 让这次写入搭「下一班自动 refresh」的车,返回即可搜,通常比 <code>true</code>(自己强制立刻 refresh)便宜。实验 9、10 做这个对照。</p>
+        <h2>4. 逐条路由:一把哈希钥匙</h2>
+        <p>分组之前,每条要先生成一个 shard 号。普通索引(<code>IndexRouting.Unpartitioned</code>)的公式:</p>
+        <pre class="code-block"><code>// IndexRouting.java
+protected int shardId(String id, @Nullable String routing) {
+    return hashToShardId(effectiveRoutingToHash(routing == null ? id : routing));
+}
+protected final int hashToShardId(int hash) {
+    return Math.floorMod(hash, numberOfShards);   // 新索引;老索引进另一分支
+}
+// Murmur3HashFunction.hash(String):char 按小端 UTF-16 写成字节,murmurhash3_x86_32,seed=0</code></pre>
+        <p><strong>有效键</strong> = <code>routing != null</code> 则只用 <code>routing</code>,否则用 <code>_id</code>。三个「不要」:不要写成 <code>hash % N</code>——Java 的 <code>%</code> 对负数向零截断,而 Murmur3 经常是负数,<code>Math.floorMod</code> 才保证落在 <code>[0, N)</code>;不要发明「<code>hash('1')=1793</code>」这类假数字——仓库测试 <code>Murmur3HashFunctionTests.testKnownValues</code> 钉死了输出;不要把 <code>_id</code> 当整数取模——键是<strong>字符串</strong>。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah13b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="15" y="15" width="166" height="64" rx="9" class="fig-box"/>
+              <text x="98" y="40" text-anchor="middle" class="fig-name">_id = "1"</text>
+              <text x="98" y="62" text-anchor="middle" class="fig-sub">无 routing,键="1"</text>
+              <line x1="181" y1="47" x2="201" y2="47" class="fig-arrow" marker-end="url(#ah13b)"/>
+              <rect x="205" y="15" width="166" height="64" rx="9" class="fig-box"/>
+              <text x="288" y="40" text-anchor="middle" class="fig-key">Murmur3("1")</text>
+              <text x="288" y="62" text-anchor="middle" class="fig-sub">-126235597</text>
+              <line x1="371" y1="47" x2="391" y2="47" class="fig-arrow" marker-end="url(#ah13b)"/>
+              <rect x="395" y="15" width="166" height="64" rx="9" class="fig-box"/>
+              <text x="478" y="40" text-anchor="middle" class="fig-key">floorMod(…, 2)</text>
+              <text x="478" y="62" text-anchor="middle" class="fig-sub">Java % 负数截断</text>
+              <line x1="561" y1="47" x2="581" y2="47" class="fig-arrow" marker-end="url(#ah13b)"/>
+              <rect x="585" y="15" width="166" height="64" rx="9" class="fig-box-hot"/>
+              <text x="668" y="47" text-anchor="middle" class="fig-name">shard 1</text>
+
+              <rect x="15" y="105" width="166" height="64" rx="9" class="fig-box"/>
+              <text x="98" y="130" text-anchor="middle" class="fig-name">_id = "3"</text>
+              <text x="98" y="152" text-anchor="middle" class="fig-sub">无 routing,键="3"</text>
+              <line x1="181" y1="137" x2="201" y2="137" class="fig-arrow" marker-end="url(#ah13b)"/>
+              <rect x="205" y="105" width="166" height="64" rx="9" class="fig-box"/>
+              <text x="288" y="130" text-anchor="middle" class="fig-key">Murmur3("3")</text>
+              <text x="288" y="152" text-anchor="middle" class="fig-sub">-1151172406</text>
+              <line x1="371" y1="137" x2="391" y2="137" class="fig-arrow" marker-end="url(#ah13b)"/>
+              <rect x="395" y="105" width="166" height="64" rx="9" class="fig-box"/>
+              <text x="478" y="130" text-anchor="middle" class="fig-key">floorMod(…, 2)</text>
+              <text x="478" y="152" text-anchor="middle" class="fig-sub">= 0</text>
+              <line x1="561" y1="137" x2="581" y2="137" class="fig-arrow" marker-end="url(#ah13b)"/>
+              <rect x="585" y="105" width="166" height="64" rx="9" class="fig-box-hot"/>
+              <text x="668" y="137" text-anchor="middle" class="fig-name">shard 0</text>
+
+              <text x="380" y="200" text-anchor="middle" class="fig-sub">同一公式换钥匙:落点跟字符串哈希走,不跟数字走;主分片数一改全部重排,所以 number_of_shards 是 Final</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 同一条路由公式、两把钥匙:"1" 余 1、"3" 余 0。别的时间自己查表:</figcaption>
+        </figure>
+
+        <table class="ktable">
+          <tr><th>_id(无 routing)</th><th>Murmur3HashFunction.hash</th><th>floorMod(…, 2)</th><th>floorMod(…, 5)</th></tr>
+          <tr><td><code>"1"</code></td><td><code>-126235597</code></td><td><strong>1</strong></td><td>3</td></tr>
+          <tr><td><code>"2"</code></td><td><code>-303927213</code></td><td><strong>1</strong></td><td>2</td></tr>
+          <tr><td><code>"3"</code></td><td><code>-1151172406</code></td><td><strong>0</strong></td><td>4</td></tr>
+          <tr><td><code>"abc"</code></td><td><code>1118836419</code></td><td>1</td><td>4</td></tr>
+          <tr><td><code>"xyz"</code></td><td><code>365979180</code></td><td>0</td><td>0</td></tr>
+          <tr><td><code>"user1"</code></td><td><code>449578252</code></td><td>0</td><td>2</td></tr>
+        </table>
+        <p>为什么是 Murmur3:非加密、CPU 便宜、分布相对均匀(减轻热点 shard)、<strong>确定性</strong>——同一有效键永远同一 shard。主分片数在创建时定死,所以 <code>floorMod</code> 的除数不能事后改(第 1 课:把 <code>number_of_shards</code> 从 2 改 3,旧文档 GET 就找错地方)。带自定义 <code>routing</code> 时,有效键<strong>整体换成</strong> routing 字符串,不混入 <code>_id</code>:同一 <code>routing=user1</code> 的多篇进同一 shard(父子文档、同用户局部性的来源),代价是这把键可能把某用户做成热点;SEARCH 不带 routing 打全部 shard 仍能找到,GET by id 不带 routing 只打 <code>hash(id)</code> 那个 shard,经常 <code>found: false</code>(第 10 课的 404)。写路径不经过读侧的 <code>OperationRouting.shardId</code>——<code>BulkOperation</code> 直接 <code>docWriteRequest.route(indexRouting)</code>,普通索引殊途同归到 <code>Unpartitioned.shardId</code>。核对落点用 <code>_search_shards?routing=…</code>(带 routing 时等价于写路径选片);<strong>不带</strong> routing 的 <code>_search_shards</code> 返回全部 shard,别拿它当写路由的答案。</p>
+
+        <h2>5. 协调节点:按 ShardId 分组</h2>
+        <p>执行骨架在基类 <code>TransportAbstractBulkAction.doExecute</code>:先挂 indexing pressure,再 <code>applyPipelines</code>——有 pipeline 时先跑第 12 课的 <code>IngestService.executeBulkRequest</code>,跑完才进 <code>doInternalExecute</code>。<strong>分组发生在 ingest 之后</strong>,所以 pipeline 改 <code>_routing</code> 会真实改变 <code>route()</code> 的结果。<code>doInternalExecute</code> 自己不算 hash,只做「缺的目标能不能先建出来」(<code>populateMissingTargets</code>:index 请求在目标不存在时可自动创建;<strong>普通 delete 不会</strong>为了删一篇不存在的文档去建索引),然后把球交给 <code>new BulkOperation(...).run()</code>。分组的核心几行:</p>
+        <pre class="code-block"><code>// BulkOperation.java(分组方法内)
+IndexRouting indexRouting = concreteIndices.routing(concreteIndex);
+docWriteRequest.preRoutingProcess(indexRouting);
+int shardId = docWriteRequest.route(indexRouting);
+docWriteRequest.postRoutingProcess(indexRouting);
+List&lt;BulkItemRequest&gt; shardRequests = requestsByShard.computeIfAbsent(
+    new ShardId(concreteIndex, shardId), shard -&gt; new ArrayList&lt;&gt;());
+shardRequests.add(bulkItemRequest);</code></pre>
+        <p><code>route()</code> 按操作类型进 <code>IndexRouting</code> 的不同入口,普通索引最终都落到同一套 <code>Unpartitioned.shardId</code>:</p>
+        <table class="ktable">
+          <tr><th>请求</th><th>route() 走哪</th></tr>
+          <tr><td><code>IndexRequest</code></td><td><code>indexRouting.indexShard(this)</code></td></tr>
+          <tr><td><code>DeleteRequest</code></td><td><code>indexRouting.deleteShard(id, routing)</code></td></tr>
+          <tr><td><code>UpdateRequest</code></td><td><code>indexRouting.updateShard(id, routing)</code></td></tr>
+        </table>
+        <p>某一项在这里就抛了(缺 routing 且 mapping 要求、索引已关闭),<code>addFailureAndDiscardRequest</code> 记下失败,<strong>其它项继续进 map</strong>——「条独立」的第一层,还没到 shard。之后每个 <code>ShardId</code> 的列表打成一个 <code>BulkShardRequest</code>(带上 refresh 策略 / <code>waitForActiveShards</code> / timeout),<code>client.executeLocally(TransportShardBulkAction.TYPE, …)</code> 发出。注意:<code>executeLocally</code> <strong>不是</strong>「primary 一定在本节点」——它只是在本节点启动这个 action,<code>TransportReplicationAction</code> 的 <code>ReroutePhase</code> 再按 ClusterState 把请求发到 primary 所在节点;跨节点时帧头里的 action 是 <code>"indices:data/write/bulk[s]"</code>(shard 子动作,与第 9、10 课 <code>get[s]</code> 同一套命名)。多个 <code>ShardId</code> 并行发出,<code>RefCountingRunnable</code> 等所有 shard 的 listener 都结束再拼响应——响应数组按<strong>原始条目的下标</strong>回填,不是按 shard 号排序,你看到的 <code>items[0]</code> 永远是 NDJSON 的第一项。把整条链连起来看:</p>
+        <div class="fp-slot" data-flow="ch13-bulk-group"></div>
+
+        <h2>6. 条级成败:HTTP 200 不是「全成了」</h2>
+        <p>Bulk 不是数据库事务,不变量是<strong>每一项独立出结果</strong>。<code>BulkResponse.toXContentChunked</code> 写出的第一件事就是 <code>"errors": hasFailures()</code>——扫一遍 items,任何一项 <code>isFailed()</code> 就为 true;HTTP 状态码不是这个字段。两层失败不要混:</p>
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah13c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="15" y="15" width="225" height="72" rx="9" class="fig-box"/>
+              <text x="127" y="38" text-anchor="middle" class="fig-name">请求级:NDJSON 坏</text>
+              <text x="127" y="58" text-anchor="middle" class="fig-sub">缺末尾 \n / action 行非法</text>
+              <text x="127" y="76" text-anchor="middle" class="fig-sub">(BulkRequestParser 切行)</text>
+              <line x1="127" y1="87" x2="127" y2="107" class="fig-arrow" marker-end="url(#ah13c)"/>
+              <rect x="15" y="110" width="225" height="52" rx="9" class="fig-box"/>
+              <text x="127" y="130" text-anchor="middle" class="fig-key">HTTP 400</text>
+              <text x="127" y="150" text-anchor="middle" class="fig-sub">整批未被受理,没有 items</text>
+
+              <rect x="265" y="15" width="225" height="72" rx="9" class="fig-box"/>
+              <text x="377" y="38" text-anchor="middle" class="fig-name">条级:某项在 primary 失败</text>
+              <text x="377" y="58" text-anchor="middle" class="fig-sub">坏 source / create 撞 _id</text>
+              <text x="377" y="76" text-anchor="middle" class="fig-sub">或 delete 不存在的索引</text>
+              <line x1="377" y1="87" x2="377" y2="107" class="fig-arrow" marker-end="url(#ah13c)"/>
+              <rect x="265" y="110" width="225" height="52" rx="9" class="fig-box-hot"/>
+              <text x="377" y="130" text-anchor="middle" class="fig-key">HTTP 200 + errors:true</text>
+              <text x="377" y="150" text-anchor="middle" class="fig-sub">坏项自带 status,好项仍 201</text>
+
+              <rect x="515" y="15" width="225" height="72" rx="9" class="fig-box"/>
+              <text x="627" y="38" text-anchor="middle" class="fig-name">shard 级:整份失败</text>
+              <text x="627" y="58" text-anchor="middle" class="fig-sub">primary 不可用 / 索引关闭</text>
+              <text x="627" y="76" text-anchor="middle" class="fig-sub">落在该 shard 的项全记失败</text>
+              <line x1="627" y1="87" x2="627" y2="107" class="fig-arrow" marker-end="url(#ah13c)"/>
+              <rect x="515" y="110" width="225" height="52" rx="9" class="fig-box"/>
+              <text x="627" y="130" text-anchor="middle" class="fig-key">HTTP 200</text>
+              <text x="627" y="150" text-anchor="middle" class="fig-sub">其它 shard 的项不受牵连</text>
+
+              <text x="380" y="184" text-anchor="middle" class="fig-sub">错误码阶梯在条级同样成立:索引不在=404、体坏=400——区别只在这笔账记在哪一层</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 三层失败,三张账单。第 1 列发生在「请求被切成条目之前」,后两列都返回 HTTP 200,失败记在 items 里。</figcaption>
+        </figure>
+        <table class="ktable">
+          <tr><th>失败发生在哪</th><th>客户端看见什么</th><th>其它项</th></tr>
+          <tr><td>NDJSON <strong>结构</strong>坏了:缺末尾 <code>\n</code>、action 行不是 JSON 对象</td><td>整请求进不了 <code>TransportBulkAction</code>,HTTP <strong>400</strong></td><td>没有「其它项」——请求没被切成 items</td></tr>
+          <tr><td>某项 source 字节原样到 primary 才解析失败(<code>IndexRequest.source()</code> 不解析 JSON)</td><td>HTTP <strong>200</strong>,<code>"errors": true</code>,该项 status 400 一类</td><td>继续,201</td></tr>
+          <tr><td><code>create</code> 撞已存在 <code>_id</code>(版本冲突)</td><td>HTTP 200,该项 <strong>409</strong></td><td>继续,201</td></tr>
+          <tr><td>某 shard 整份 <code>BulkShardRequest</code> 失败(primary 不可用等)</td><td>这份里的项都失败</td><td>其它 shard 的项按自己的结果返回</td></tr>
+        </table>
+        <p>这套设计的好处:一批 1000 条里 1 条 mapping 冲突,不该浪费另外 999 条已经算好路由、甚至已经写进其它 shard 的工作。风险对称:客户端必须扫 <code>items[]</code>——很多脚本只判断 curl 退出码或 HTTP 200,等于把失败项悄悄丢掉。</p>
+
+        <h2>7. Primary 先成功,再复制到 replica</h2>
+        <p>每份 <code>BulkShardRequest</code> 到了 primary 之后,顺序由 <code>ReplicationOperation.execute</code> 写死:</p>
+        <pre class="code-block"><code>final String activeShardCountFailure = checkActiveShardCount();  // ① 先查 active 拷贝数
+if (activeShardCountFailure != null) throw new UnavailableShardsException(...);
+primary.perform(request, ...delegateFailureAndWrap((l, primaryResult) -&gt; {
+    handlePrimaryResult(primaryResult, l, ...);                    // ② primary 成功之后
+}));                                                              //    才 performOnReplicas</code></pre>
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah13d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="15" y="25" width="166" height="72" rx="9" class="fig-box"/>
+              <text x="98" y="48" text-anchor="middle" class="fig-name">BulkShardRequest</text>
+              <text x="98" y="68" text-anchor="middle" class="fig-sub">某个 shard 的整批条目</text>
+              <text x="98" y="86" text-anchor="middle" class="fig-sub">wait_for_active 先查</text>
+              <line x1="181" y1="61" x2="201" y2="61" class="fig-arrow" marker-end="url(#ah13d)"/>
+              <rect x="205" y="25" width="166" height="72" rx="9" class="fig-box-hot"/>
+              <text x="288" y="48" text-anchor="middle" class="fig-name">primary 逐项执行</text>
+              <text x="288" y="68" text-anchor="middle" class="fig-sub">成功项领 seq_no</text>
+              <text x="288" y="86" text-anchor="middle" class="fig-sub">失败项也 advance()</text>
+              <line x1="371" y1="61" x2="391" y2="61" class="fig-arrow" marker-end="url(#ah13d)"/>
+              <rect x="395" y="25" width="166" height="72" rx="9" class="fig-box"/>
+              <text x="478" y="48" text-anchor="middle" class="fig-name">复制到 replica</text>
+              <text x="478" y="68" text-anchor="middle" class="fig-sub">重放同一 seq_no</text>
+              <text x="478" y="86" text-anchor="middle" class="fig-sub">未领号的失败项跳过</text>
+              <line x1="561" y1="61" x2="581" y2="61" class="fig-arrow" marker-end="url(#ah13d)"/>
+              <rect x="585" y="25" width="166" height="72" rx="9" class="fig-box-hot"/>
+              <text x="668" y="48" text-anchor="middle" class="fig-name">返回条目结果</text>
+              <text x="668" y="68" text-anchor="middle" class="fig-sub">条目成败只跟 primary</text>
+              <text x="668" y="86" text-anchor="middle" class="fig-sub">successful 可小于 total</text>
+              <text x="380" y="128" text-anchor="middle" class="fig-sub">不变量:顺序由 primary 单点决定,replica 只重放不发音;Engine 内部(Lucene/translog)留给下一课</text>
+            </svg>
+          </div>
+          <figcaption>图 4 · 写入一致性的不变量:primary 单点定序,replica 重放。动画第 5 步演示的就是这条链。</figcaption>
+        </figure>
+        <p><code>handlePrimaryResult</code> 在 primary 成功<strong>之后</strong>才取样 replication group 再 <code>performOnReplicas</code>——注释写明:recovery 可能在 primary 写入之后才开始,必须用写完之后的副本集合。客户端会等这些 replica RPC 结束(成功或失败)才拿到 bulk 项结果,但 <strong>replica 复制失败不会把这一项改成失败</strong>——primary 已经成功。失败的副本从 in-sync 集合摘掉(stale),节点回来后靠 Peer Recovery + translog 追赶;响应里 <code>_shards.successful</code> 可能小于 <code>_shards.total</code>。别把「等 RPC 结束」和「成功判据」混为一谈。</p>
+        <p><code>wait_for_active_shards</code> 的检查发生在 <code>primary.perform</code> 之前,要的是「现在已经有足够多副本 active」。请求里是 <code>ActiveShardCount.DEFAULT</code> 时,<code>TransportReplicationAction.resolveRequest</code> 把它换成索引设置 <code>index.write.wait_for_active_shards</code>(默认 <code>"1"</code>,只要 primary);不够数就等(超时来自请求的 timeout,bulk 常用 1m),仍不够则 <code>UnavailableShardsException</code>:</p>
+        <table class="ktable">
+          <tr><th>参数值</th><th>含义</th></tr>
+          <tr><td>不传 / <code>DEFAULT</code></td><td>用索引设置,默认 <strong>1</strong>(只需 primary 已 active)</td></tr>
+          <tr><td><code>1</code></td><td>至少 1 个 active 拷贝(通常就是 primary)</td></tr>
+          <tr><td><code>2</code></td><td>primary + 至少 1 个 replica 已 active</td></tr>
+          <tr><td><code>all</code></td><td>该 shard 的全部拷贝都 active</td></tr>
+          <tr><td><code>0</code> / <code>NONE</code></td><td>不等</td></tr>
+        </table>
+        <p>Primary 上真正逐项执行的是 <code>TransportShardBulkAction.performOnPrimary</code>:<code>while (context.hasMoreOperationsToExecute())</code> 逐项跑,update 先被 <code>UpdateHelper.prepare</code> 翻译成 index 或 delete;动态 mapping 要等 master 时这个 while <strong>暂停</strong>,确认后从同一项重试。一项 SUCCESS 或 FAILURE 都走 <code>markOperationAsExecuted</code> → <code>advance()</code> 进下一项——一项失败不会 return 掉整份 <code>BulkShardRequest</code>。Replica 侧镜像「primary 已经决定的事」:<code>performOnReplica</code> 里,primary 失败且 <code>seq_no == UNASSIGNED_SEQ_NO</code> 的项 <code>continue</code>(没领号就不占号);已领号但失败的项用 <code>markSeqNoAsNoop</code> 占住序号,否则副本在该序号上出现空洞;成功项调 <code>applyIndexOperationOnReplica(seqNo, primaryTerm, version, …)</code>——序号来自 primary 的响应,不是 replica 自己 <code>generateSeqNo()</code>。</p>
+        <p>三个数记住顺序对齐这件事:</p>
+        <table class="ktable">
+          <tr><th>名字</th><th>含义</th><th>写路径上谁更新</th></tr>
+          <tr><td><code>seq_no</code></td><td>这条操作在该 shard 上的序号</td><td>primary 生成(<code>LocalCheckpointTracker</code>),复制时原样带给 replica</td></tr>
+          <tr><td>Local Checkpoint</td><td>本副本已处理完的、从 0 起连续的最大序号</td><td>每个副本自己推进</td></tr>
+          <tr><td>Global Checkpoint</td><td>所有 in-sync 副本都追上的连续最大序号</td><td>primary 按各副本汇报的 local checkpoint 计算</td></tr>
+        </table>
+        <p><code>GET _doc</code> 返回的 <code>_seq_no</code>/<code>_primary_term</code> 就是这条操作在 primary 上领到的那对值;<code>primary_term</code> 在一次 primary 任期内不变,重新选举后递增,replica 用 <code>(seq_no, primary_term)</code> 拒绝过期 primary 的旧复制。Engine 内部怎么写 Lucene/translog,是下一课。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>索引名 <code>tut-l13-*</code>。先预测每一项的 status 再点运行——bulk 的惊喜全在 <code>items[]</code> 里。实验 1-4 证明「条级独立」,实验 5-8 核对路由哈希,实验 9-10 对照 refresh 粒度。</p>
+
+        <h3>实验 0:建索引 tut-l13-items(2 主分片 0 副本)</h3>
+        <div class="exp-slot" data-exp="ch13-00-setup"></div>
+
+        <h3>实验 1:混合操作同批,条级响应各管各</h3>
+        <div class="exp-slot" data-exp="ch13-01-mixed"></div>
+
+        <h3>实验 2:坏 source 行夹在好文档中间</h3>
+        <div class="exp-slot" data-exp="ch13-02-bad-source"></div>
+
+        <h3>实验 3:向不存在的索引 delete(条级 404 的样子)</h3>
+        <div class="exp-slot" data-exp="ch13-03-unknown-index"></div>
+
+        <h3>实验 4:缺末尾换行——整请求 400 的另一类失败</h3>
+        <div class="exp-slot" data-exp="ch13-04-malformed"></div>
+
+        <h3>实验 5:建路由实验索引 tut-l13-routed</h3>
+        <div class="exp-slot" data-exp="ch13-05-setup-routed"></div>
+
+        <h3>实验 6:写入 _id=1/2/3 三篇(?refresh=true)</h3>
+        <div class="exp-slot" data-exp="ch13-06-bulk-write"></div>
+
+        <h3>实验 7:_search_shards 核对路由</h3>
+        <div class="exp-slot" data-exp="ch13-07-search-shards"></div>
+
+        <h3>实验 8:_cat/shards 看每个 shard 的 docs</h3>
+        <div class="exp-slot" data-exp="ch13-08-cat-shards"></div>
+
+        <h3>实验 9:?refresh=wait_for 写入</h3>
+        <div class="exp-slot" data-exp="ch13-09-waitfor"></div>
+
+        <h3>实验 10:立刻计数,验证「返回即可搜」</h3>
+        <div class="exp-slot" data-exp="ch13-10-count"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch13-11-cleanup-items"></div>
+        <div class="exp-slot" data-exp="ch13-12-cleanup-routed"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 单节点集群、1 主 1 副(yellow):<code>?wait_for_active_shards=all</code> 的 bulk 会怎样?同一批里写到另一个 green 索引的条目会跟着失败吗?</summary>
+          <div class="answer">
+            <p>replica 从未 STARTED,凑不齐「全部拷贝 active」,这个 shard 的 <code>BulkShardRequest</code> 等到超时后以 <code>UnavailableShardsException</code> 失败。检查发生在<strong>每个 shard 自己的</strong> <code>ReplicationOperation.execute</code> 开头(<code>checkActiveShardCount</code>),不是整份 HTTP bulk 一次。写到另一个索引的条目走另一个 <code>ShardId</code> 的 <code>BulkShardRequest</code>,不受牵连。默认(不传)只要求 1 个 active(通常即 primary),写入成功、集群仍 yellow。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么 seq_no 只能由 primary 发号、replica 重放?拆掉这层改成「各副本自己发号」或「并行写、谁快听谁」,哪条不变量破了?</summary>
+          <div class="answer">
+            <p>seq_no 是该 shard 操作日志的全局顺序。单点发号,副本重放同一序列,Local/Global Checkpoint 的「连续最大序号」才有含义。各副本自己发号:同一逻辑写在不同副本序号不同,checkpoint 无法比较,recovery 说不出「从 17 之后补给我」。先写 replica 再写 primary:primary 失败时副本上已有幽灵文档而协调节点把项标失败,读写永久分叉。「谁快听谁」连 version 和 mapping 以谁为准都定不下来。这就是 <code>performOnReplica</code> 对「失败但已领号」的项要 <code>markSeqNoAsNoop</code> 占号的原因——防副本序列出现空洞。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 客户端「任一项失败就整批重发」,会撞上什么?日志采集和转账流水谁适合这套「条级独立」?</summary>
+          <div class="answer">
+            <p>已经 201 的项再写一遍:用 <code>index</code> 是覆盖(多写一次,version 涨);用 <code>create</code> 是 409。要么自己带幂等键,要么按 <code>_id</code> 只重发失败项。日志/指标采集适合条级独立:吞吐优先,失败项由采集器重试;代价是必须扫 <code>errors</code> 和每项 status。转账流水不适合拿 <code>_bulk</code> 当事务:全有或全无要靠应用层补偿。<code>wait_for_active_shards=all</code> 把「等所有副本 active」的延迟摊给这次写入,换「当时至少这些拷贝都在」的同步耐久——是延迟和耐久性的交换,不是正确性的魔法。</p>
+          </div>
+        </details>
+        <details>
+          <summary>4. 为什么不能用不带 routing 的 <code>_search_shards</code> 推断一篇文档的写路由?<code>_id=1</code> 落 shard 1,是因为「数字 1」吗?</summary>
+          <div class="answer">
+            <p>不带 routing 的 <code>_search_shards</code> 返回该索引<strong>全部</strong> shard(搜索的 fan-out 集合);带 <code>routing=x</code> 时它等价于写路径对有效键 <code>x</code> 的选片。落点是 <code>floorMod(Murmur3("1"), 2)=1</code>——对字符串 "1" 哈希的余数,恰好等于 1 是巧合,反例是 <code>_id="3"</code> 余 0。同理,连续自增 id 的分布是哈希分布,不是 round-robin,3 篇写成 2:1 完全正常。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 只看 HTTP 200 / curl 退出码:</span>200 只说明整批被受理执行,失败记在 <code>errors:true</code> 和各项 <code>status</code> 里。只盯状态码的脚本等于把失败项悄悄丢掉。</div>
+        <div class="callout warn"><span class="co-title">🕳 把「一条坏 JSON」当「整批 400」:</span>坏 <strong>source</strong> 行是条级(HTTP 200 + errors:true);缺末尾 <code>\n</code>、action 行非法才是请求级 400。两层分不清,重试策略会放错层。</div>
+        <div class="callout warn"><span class="co-title">🕳 路由幻觉:</span>_id 不是整数取模、bulk 不做均匀轮转——是字符串 Murmur3 的余数,连续 id 也会倾斜。带 routing 写入就得带 routing 读(GET 忘带经常 404);ingest 改 _routing 在分组之前生效(第 12 课)。</div>
+        <div class="callout warn"><span class="co-title">🌀 wait_for_active_shards 不是「复制必须成功」:</span>它在 primary 执行<strong>之前</strong>检查「已经 active」的拷贝数(默认 1)。replica 复制失败不改变条目成败,只体现在 <code>_shards</code> 里;单节点 + 1 副本时 <code>all</code> 会一直等到超时。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>协议</td><td>NDJSON 两行一组(action + source),末行也要 <code>\n</code>;delete 无 source 行</td></tr>
+          <tr><td>路由</td><td>有效键 = routing ?? _id;<code>floorMod(Murmur3(键), N)</code>;不是 %,不是 round-robin</td></tr>
+          <tr><td>分组</td><td><code>BulkOperation</code> 按 ShardId 归堆;ingest 在分组之前;多 shard 并行</td></tr>
+          <tr><td>条级独立</td><td>HTTP 200 ≠ 全成;扫 <code>items[]</code>;版本冲突 409 在条上报</td></tr>
+          <tr><td>复制</td><td>primary 先成功再带 seq_no 复制;replica 失败不改条目结果</td></tr>
+          <tr><td>refresh</td><td>每请求一份:默认 false;wait_for 返回即可搜;true 自己强制</td></tr>
+        </table>
+        <p><strong>心法:_bulk 是一组各自负责的条目,不是一个事务;200 只说请求被受理,对错要逐条问 items。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch12.html">← 第 12 课:摄取管道</a>
+          <a href="ch14.html">第 14 课:存储引擎 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch13.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

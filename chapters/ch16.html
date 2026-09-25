@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 16 课:搜索流程总览 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch16" data-ch="ch16">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 16 · 第四篇 · 搜索查询</div>
+        <h1>搜索流程总览</h1>
+        <div class="ch-meta-line">Query Then Fetch:先比分,再搬正文 · 约 16 分钟 · 前置:第 8、10 课 · 14 个实验</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>用「3 个 shard、<code>size=10</code>」这组数字说出:Query 阶段网上走 30 条 <code>(docId, score)</code>,协调节点截全局 Top-10,Fetch 只搬 10 篇 <code>_source</code>。</li>
+          <li>打开 <code>SearchPhaseController.getTopDocsSize</code> 与 <code>QueryPhaseCollectorManager</code>,写出每个 shard 必回 <code>from + size</code> 条;预测 <code>from=10000&amp;size=10</code> 会被 <code>index.max_result_window</code> 拦在哪一步。</li>
+          <li>读 <code>profile:true</code> 的响应,分出 <code>searches</code>(query 段)与 <code>fetch</code> 段;并说出 SEARCH 与 GET 的三处分野:打几个 shard、看哪份快照、单程还是两阶段。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:SEARCH 不是「放大的 GET」</h2>
+        <p>第 10 课把 GET 钉死了:按 <code>_id</code> 只打<strong>一个</strong> shard,Realtime 走 VersionMap / translog,不必等 refresh。SEARCH 从第一步就分岔:<code>POST /{index}/_search</code> 默认打该索引的<strong>每一个</strong> shard 组,而且看的是 refresh 之后的 <strong>EXTERNAL</strong> searcher——刚写入还没 refresh 的文档,GET 能命中,SEARCH 可能 0 hits。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="20" width="355" height="140" rx="10" class="fig-box"/>
+              <text x="192" y="46" text-anchor="middle" class="fig-name">GET(第 10 课)</text>
+              <text x="192" y="76" text-anchor="middle" class="fig-sub">按 _id 只打 1 个 shard</text>
+              <text x="192" y="102" text-anchor="middle" class="fig-sub">Realtime:未 refresh 也读得到</text>
+              <text x="192" y="128" text-anchor="middle" class="fig-sub">返回这一篇 _source,一次往返</text>
+              <rect x="390" y="20" width="355" height="140" rx="10" class="fig-box-hot"/>
+              <text x="567" y="46" text-anchor="middle" class="fig-name">SEARCH(本课)</text>
+              <text x="567" y="76" text-anchor="middle" class="fig-sub">默认打全部 shard 组</text>
+              <text x="567" y="102" text-anchor="middle" class="fig-sub">只看已 refresh 的 EXTERNAL 快照</text>
+              <text x="567" y="128" text-anchor="middle" class="fig-sub">先比分,再取正文:两阶段</text>
+              <text x="380" y="182" text-anchor="middle" class="fig-sub">两列之间没有箭头:SEARCH 不是放大的 GET,也不是「对每个命中再 GET 一次」</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 同一篇刚写入、尚未 refresh 的文档:GET 能读到,SEARCH 搜不到。贵的不在搬正文,在「所有 shard 都要参与排名」。</figcaption>
+        </figure>
+
+        <p>如果每个 shard 都把本地 Top-10 的完整 <code>_source</code> 送回协调节点,3 个 shard 就是 30 篇正文,而客户端只要全局 Top-10——大部分带宽浪费在永远进不了响应的文档上。ES 的默认解法是 <strong>Query Then Fetch</strong>:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="20" width="355" height="110" rx="10" class="fig-box"/>
+              <text x="192" y="44" text-anchor="middle" class="fig-name">一阶段:搬正文</text>
+              <text x="192" y="68" text-anchor="middle" class="fig-sub">30 篇 _source 全部回协调节点</text>
+              <text x="192" y="90" text-anchor="middle" class="fig-sub">客户端只要全局 10 篇</text>
+              <text x="192" y="112" text-anchor="middle" class="fig-sub">约 20 篇白搬,KB 级 × 冗余</text>
+              <rect x="390" y="20" width="355" height="110" rx="10" class="fig-box-hot"/>
+              <text x="567" y="44" text-anchor="middle" class="fig-name">Query Then Fetch(默认)</text>
+              <text x="567" y="68" text-anchor="middle" class="fig-sub">Query:30 条 (docId,score)</text>
+              <text x="567" y="90" text-anchor="middle" class="fig-sub">Fetch:只搬全局 Top-10 的正文</text>
+              <text x="567" y="112" text-anchor="middle" class="fig-sub">hits 恰好 = size</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 两阶段的账单:<code>(docId, score)</code> 每条十几到几十字节,<code>_source</code> 是 KB 级——先定全局名次,再加载正文。</figcaption>
+        </figure>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>action/search/TransportSearchAction.java</code></td><td>REST 之后的协调入口:<code>TYPE = "indices:data/read/search"</code>;<code>executeSearch</code> 按 SearchType 选出 QTF 或 DFS</td></tr>
+          <tr><td><code>action/search/SearchQueryThenFetchAsyncAction.java</code></td><td>默认搜索类型的 Query 阶段:<code>executePhaseOnShard</code> → <code>sendExecuteQuery</code>;下一阶段是 <code>FetchSearchPhase</code></td></tr>
+          <tr><td><code>action/search/AbstractSearchAsyncAction.java</code></td><td>扇出框架:<code>doRun</code> 的 for 循环发完就返回;<code>outstandingShards</code> 倒数到 0 才 <code>onPhaseDone</code></td></tr>
+          <tr><td><code>action/search/SearchPhaseController.java</code></td><td><code>getTopDocsSize</code> = <code>from + size</code>;<code>fillDocIdsToLoad</code> 按 shard 分组;<code>merge</code> 组装最终 hits</td></tr>
+          <tr><td><code>action/search/FetchSearchPhase.java</code></td><td>Query 合并之后,只向仍持有全局 Top-N 的 shard 发 Fetch;单 shard 可跳过第二次往返</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>RestSearchAction</code>(<code>GET|POST /{index}/_search</code>)、<code>SearchTransportService</code>(<code>[phase/query]</code> / <code>[phase/fetch/id]</code>)、<code>SearchService</code>(数据节点两阶段,第 17 课主场)、<code>QueryPhaseCollectorManager</code>(collector 的 <code>numDocs = from + size</code>)、<code>QueryPhaseResultConsumer</code>(增量 reduce)、<code>SearchType</code>(只剩 QTF 与 DFS 两个值)。</p>
+
+        <h2>3. REST 停在造 SearchRequest</h2>
+        <p>和第 10 课的 <code>RestGetAction</code> 同一模式:REST 只适配,不跑 Lucene。真正离开 REST 的是 <code>TransportSearchAction.TYPE</code>(<code>"indices:data/read/search"</code>,GET 是 <code>"indices:data/read/get"</code>)。<code>executeRequest</code> 解析索引、处理 PIT / CCS 之后落到 <code>executeSearch</code>:合并 shard 迭代器、<code>adjustSearchType</code>,再构造异步动作——</p>
+        <pre class="code-block"><code>// TransportSearchAction.AsyncSearchActionProvider.runNewSearchPhase
+if (searchRequest.searchType() == DFS_QUERY_THEN_FETCH) {
+    searchPhase = new SearchDfsQueryThenFetchAsyncAction(/* ... */);
+} else {
+    assert searchRequest.searchType() == QUERY_THEN_FETCH : searchRequest.searchType();
+    searchPhase = new SearchQueryThenFetchAsyncAction(/* ... */);
+}
+searchPhase.start();</code></pre>
+        <p>两条纪律藏在 <code>SearchType</code> 枚举里:默认值就是 <code>QUERY_THEN_FETCH</code>;老的 <strong>Query-And-Fetch 搜索类型已经不存在</strong>(字节值 2、3 已删,<code>fromId</code> 碰到直接抛)。单 shard 时「Query 阶段顺便 Fetch」仍然会发生,但那是 <code>SearchService</code> 的优化,不是一种 SearchType——见第 5 节。另外 <code>adjustSearchType</code> 会在单 shard 组时把类型归一成 QTF(kNN 除外,反向<strong>强制</strong> DFS,见第 7 节)。</p>
+
+        <h2>4. Query 阶段 · 协调侧:发完即返回</h2>
+        <p><code>SearchQueryThenFetchAsyncAction</code> 的阶段名是 <code>"query"</code>,它继承 <code>AbstractSearchAsyncAction</code>:构造时 <code>outstandingShards = new AtomicInteger(iterators.size())</code>,3 个 shard 就是 3。<code>start() → run() → doRun</code>:</p>
+        <pre class="code-block"><code>// AbstractSearchAsyncAction.doRun(节选)
+for (int i = 0; i &lt; shardsIts.size(); i++) {
+    final SearchShardIterator shardRoutings = shardsIts.get(i);
+    final SearchShardTarget routing = shardRoutings.nextOrNull();
+    if (routing == null) {
+        failOnUnavailable(shardIndex, shardRoutings);
+    } else {
+        performPhaseOnShard(shardIndex, shardRoutings, routing);
+    }
+}</code></pre>
+        <p>循环结束方法就返回——没有 <code>Future.get()</code>,没有 <code>CountDownLatch.await()</code>。这是第 8 课的同一条不变量:<strong>扇出本身不是阻塞点</strong>。某个副本不可用会 <code>nextOrNull()</code> 换下一个副本;同一 shard 组的副本全失败才算这个 shard 组失败。成功路径上每份应答都走 <code>finishOneShard</code>:</p>
+        <pre class="code-block"><code>private void finishOneShard() {
+    final int outstanding = outstandingShards.decrementAndGet();
+    if (outstanding == 0) {
+        onPhaseDone();   // → getNextPhase() → FetchSearchPhase
+    }
+}</code></pre>
+        <p>3 个 shard 就倒数 3 次,<strong>任意一次回调都可能发生在任意一条刚处理完该响应的线程上</strong>——归并永远在最后一份回调的线程上发生。不要把生产路径想成 latch:<code>await()</code> 会把调用线程堵死,恰好违反第 8 课。真正占 <code>search</code> 线程池的是数据节点上的查询 CPU(handler 先挂 DIRECT,再 <code>runAsync</code> 进 <code>Names.SEARCH</code>)。</p>
+        <div class="callout tip"><span class="co-title">💡 9.x 的批量查询优化:</span><code>searchService.batchQueryPhase()</code> 让同一数据节点上的多个 shard 打成一条 <code>[query][n]</code> 批量帧,减少跨节点往返。它不改变「先 Query 再 Fetch、每 shard <code>from+size</code> 条候选」这条数据模型;本地 shard 仍然不批(没有网络延迟)。</div>
+        <p>失败路径一句话:<code>allow_partial_search_results</code> 默认 <code>true</code>——某个 shard 组彻底失败时,若允许部分结果,响应里 <code>_shards.failed &gt; 0</code>,hits 仍可能返回;若不允许,<code>onPhaseFailure("Partial shards failure")</code> 并取消任务。</p>
+
+        <h2>5. Query 阶段 · 数据侧:Lucene 只收 from + size 条</h2>
+        <p>数据节点 <code>SearchService.executeQueryPhase</code> 创建 SearchContext(第 17 课细讲)、跑 <code>QueryPhase</code>;只要 <code>numberOfShards() &gt; 1</code>,回给协调节点的就只有 <code>QuerySearchResult</code>,<strong>不含 _source</strong>。collector 收多少条,写在 <code>QueryPhaseCollectorManager</code>:</p>
+        <pre class="code-block"><code>final int totalNumDocs = Math.max(1, reader.numDocs());
+if (searchContext.scrollContext() == null) {
+    int numDocs = Math.min(searchContext.from() + searchContext.size(), totalNumDocs);
+    return new WithHits(..., numDocs, ...);   // → TopScoreDocCollector(numHits=numDocs)
+}</code></pre>
+        <p>协调侧同一个公式,给合并缓冲区用(<code>QueryPhaseResultConsumer</code> 构造时 <code>topNSize = getTopDocsSize(request)</code>):</p>
+        <pre class="code-block"><code>// SearchPhaseController.getTopDocsSize(节选)
+return (source.size() == -1 ? DEFAULT_SIZE : source.size())
+     + (source.from() == -1 ? SearchService.DEFAULT_FROM : source.from());</code></pre>
+        <p><code>DEFAULT_SIZE = 10</code>、<code>DEFAULT_FROM = 0</code>。所以缺省搜索(<code>from=0, size=10</code>)每个 shard 回 10 条、3 个 shard 共 30 条候选——不是「每 shard 回 10/3」,也不是「只回最终那页」。网上走的 <code>QuerySearchResult</code> 是真的会序列化的一包字段:</p>
+        <table class="ktable">
+          <tr><th>字段</th><th>为什么这一阶段就要带</th><th>量级</th></tr>
+          <tr><td><code>topDocs</code>(<code>doc</code> + <code>score</code>)</td><td>给协调节点做全局排序</td><td>每条很小;条数 = <code>from + size</code></td></tr>
+          <tr><td><code>from</code> / <code>size</code></td><td>合并时知道窗口</td><td>两个 int</td></tr>
+          <tr><td><code>totalHits</code> / <code>maxScore</code></td><td>响应里的 <code>hits.total</code> 与 <code>max_score</code></td><td>很小</td></tr>
+          <tr><td><code>aggregations</code></td><td>桶必须在 Query 阶段算——Fetch 看不到没进 Top-N 的文档</td><td>可能很大</td></tr>
+          <tr><td><code>suggest</code></td><td>补全建议同样等不了 Fetch</td><td>可能有</td></tr>
+          <tr><td><code>timedOut</code> / <code>profileShardResults</code></td><td>部分超时仍可出结果;profile 调试段</td><td>标志位 / 仅调试</td></tr>
+        </table>
+        <div class="callout warn"><span class="co-title">⚠ doc 不是 _id:</span><code>doc</code> 是 shard 内 Lucene 段的文档号,不是 <code>_id</code>。不同 shard 的 <code>doc=5</code> 是两篇文档。协调节点排序用 <code>(shardIndex, doc, score)</code> 三元组;Fetch 时必须回到<strong>同一个 shard</strong>用同一个 <code>doc</code> 加载 <code>_source</code>——这就是下一节分组的意义。</div>
+        <p>shard 很多、又带聚合时,<code>QueryPhaseResultConsumer</code> 不会把所有结果堆到最后一刻再 reduce:<code>batched_reduce_size</code>(默认 512)满了就做一次 partial reduce,只保留仍可能进 Top-N 的候选与已合并的聚合树;聚合内存按 circuit breaker 记账,爆了抛 <code>CircuitBreakingException</code>(第 25 课)。对本课的 3 shard × size=10:30 条很小,一次最终 reduce 就够。另外 can-match 预过滤只对 QTF 开——能 rewrite 成 <code>match_none</code> 的查询可以少打一些 shard;DFS 必须打全部 shard 收词频,所以直接关掉这扇门。</p>
+
+        <h2>6. Fetch 阶段:只搬全局 Top-N 的正文</h2>
+        <p>倒数到 0 之后,<code>FetchSearchPhase.innerRun</code> 先 <code>reduce()</code> 拿到 <code>ReducedQueryPhase</code>(全局排好的 <code>sortedTopDocs</code>),然后:</p>
+        <pre class="code-block"><code>final List&lt;Integer&gt;[] docIdsToLoad = SearchPhaseController.fillDocIdsToLoad(numShards, scoreDocs);
+// 按 ScoreDoc.shardIndex 把全局 Top-10 的 doc 分到各 shard 的列表:
+// 某个 shard 一条都没进 → 槽位是 null → 不发 Fetch,只释放它的 reader context</code></pre>
+        <p>有列表的才 <code>sendExecuteFetch</code>,动作名 <code>indices:data/read/search[phase/fetch/id]</code>,请求体是 docId 列表,不是「再搜一遍」。数据节点 <code>executeFetchPhase</code> 用这些 id 跑 Fetch 子阶段(<code>_source</code>、stored fields、highlight……),最后 <code>SearchPhaseController.merge</code> 按全局顺序组装 <code>hits.hits</code>,每条带 <code>_index/_id/_score/_source</code>。客户端看到的条数是 <code>size</code>(或不足一页时更少),<strong>不是 30</strong>。</p>
+        <div class="callout tip"><span class="co-title">💡 单 shard 的 query-and-fetch 优化:</span><code>numberOfShards() == 1</code> 时,数据节点在 Query 阶段直接 <code>addFetchResult()</code> 返回 <code>QueryFetchSearchResult</code>,协调端不再发第二次往返——Fetch 的 id 用 <code>shortcutDocIdsToLoad</code>:按 <code>from</code> 跳过、只取 <code>size</code> 条,因为没有别的 shard 来竞争名次。这是 <code>SearchService</code> 里的优化路径,<code>SearchType.QUERY_AND_FETCH</code> 这个枚举本身已经删掉,别再去 <code>search_type</code> 里找它。</div>
+        <p>把整条链连起来看——注意每一步「谁在网上走、走多少」:</p>
+        <div class="fp-slot" data-flow="ch16-qtf"></div>
+
+        <h2>7. from + size:深分页贵在哪,DFS 何时开</h2>
+        <p>每个 shard 在 Query 阶段必须返回的条数:<code>topDocsSize = (size ?? 10) + (from ?? 0)</code>。用数字走一遍:</p>
+        <table class="ktable">
+          <tr><th>请求</th><th>每 shard 回几条 (docId,score)</th><th>3 shard 候选总数</th><th>Fetch _source</th></tr>
+          <tr><td><code>from=0, size=10</code>(默认)</td><td>10</td><td>30</td><td>10</td></tr>
+          <tr><td><code>from=10, size=10</code>(第二页)</td><td>20</td><td>60</td><td>10</td></tr>
+          <tr><td><code>from=10000, size=10</code></td><td><strong>10010</strong></td><td>30030</td><td>本该 10,但通常到不了 Fetch</td></tr>
+        </table>
+        <p>第三行是深分页的代价:跳过前面 10000 条,每个 shard 也得先拿出自己的前 10010 名,否则协调节点无法知道「全局第 10001 名」在哪——网络与协调内存随 <code>from</code> 涨,不随「这一页只要 10 条」恒定。还有一道闸:</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 295" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah16a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="230" y="15" width="300" height="46" rx="9" class="fig-box"/>
+              <text x="380" y="36" text-anchor="middle" class="fig-key">from=10000 size=10</text>
+              <text x="380" y="56" text-anchor="middle" class="fig-sub">客户端只要第 10001 名起的 10 条</text>
+              <line x1="380" y1="61" x2="380" y2="75" class="fig-arrow" marker-end="url(#ah16a)"/>
+              <rect x="230" y="79" width="300" height="50" rx="9" class="fig-box"/>
+              <text x="380" y="100" text-anchor="middle" class="fig-name">公式:每 shard 回 10010 条</text>
+              <text x="380" y="122" text-anchor="middle" class="fig-sub">没有前 10010 名,就没有全局名次</text>
+              <line x1="380" y1="129" x2="380" y2="143" class="fig-arrow" marker-end="url(#ah16a)"/>
+              <rect x="230" y="147" width="300" height="50" rx="9" class="fig-box"/>
+              <text x="380" y="168" text-anchor="middle" class="fig-key">max_result_window = 10000</text>
+              <text x="380" y="190" text-anchor="middle" class="fig-sub">DefaultSearchContext.preProcess 的闸</text>
+              <line x1="380" y1="197" x2="380" y2="211" class="fig-arrow" marker-end="url(#ah16a)"/>
+              <rect x="230" y="215" width="300" height="52" rx="9" class="fig-box-hot"/>
+              <text x="380" y="238" text-anchor="middle" class="fig-name">10010 &gt; 10000:分片拒绝</text>
+              <text x="380" y="260" text-anchor="middle" class="fig-key">400 illegal_argument_exception</text>
+              <text x="380" y="284" text-anchor="middle" class="fig-sub">贵的是 Query 窗口,不是 Fetch 的 10 篇正文</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 「公式要 10010」和「闸门卡 10000」分开记:闸门保护的是 <code>from+size</code> 窗口,不是 hits 最终长度。<code>from=9990&amp;size=10</code> 恰好过闸。</figcaption>
+        </figure>
+
+        <p>深翻页的正解不是调大 <code>index.max_result_window</code>(默认 10000,Dynamic,IndexScope),而是换翻页方式:</p>
+        <table class="ktable">
+          <tr><th>方式</th><th>每 shard Query 回多少</th><th>服务端上下文</th><th>何时用</th></tr>
+          <tr><td><code>from</code>/<code>size</code></td><td><code>from + size</code></td><td>无</td><td>浅页(前几页)</td></tr>
+          <tr><td><code>search_after</code></td><td>约 <code>size</code>(from 保持 0,带上一页末条的 sort values)</td><td>无</td><td>深翻页、导出</td></tr>
+          <tr><td><code>scroll</code></td><td>批量 <code>size</code></td><td>有,占用 reader</td><td>旧路径;新代码优先 PIT</td></tr>
+          <tr><td>PIT + <code>search_after</code></td><td>约 <code>size</code></td><td>PIT 是可释放快照</td><td>要稳定快照的深翻页</td></tr>
+        </table>
+        <p>两段附注。其一,CCS(跨集群搜索)里 <code>createSearchResponseMerger</code> 会把发往各远程集群的 source 改成 <code>from(0); size(from+size)</code>——每个远程集群回一个 <code>from+size</code> 窗口、发起方二次截取,和「每 shard 回 <code>from+size</code>」是同一思想的另一层,不是本地路径的主公式。其二,<strong>DFS</strong>:默认 QTF 里每个 shard 用本地词频算 IDF,数据极少且严重倾斜时评分会不可比;<code>search_type=dfs_query_then_fetch</code> 在 Query 之前多一次 <code>[phase/dfs]</code> 扇出收集全局词频。代价是多一轮网络,数据量大、词频趋于一致时几乎白付——kNN 搜索会被 <code>adjustSearchType</code> 强制改成 DFS(向量检索需要全局信息),关键词搜索不要为了「更准」默认打开。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>本课索引 <code>tut-l16-qtf</code>:3 主分片、30 篇文档,并故意把 <code>refresh_interval</code> 冻结成 <code>-1</code>——让「可搜 = 显式 refresh」这条分界线完全可控,实验 9-12 专门用它做 GET/SEARCH 的可见性对照。</p>
+
+        <h3>实验 0:建索引(3 分片 + 冻结自动 refresh)</h3>
+        <div class="exp-slot" data-exp="ch16-00-setup"></div>
+
+        <h3>实验 1:30 篇文档一次性写入</h3>
+        <div class="exp-slot" data-exp="ch16-01-bulk"></div>
+
+        <h3>实验 2:三个 primary 的文档分布</h3>
+        <div class="exp-slot" data-exp="ch16-02-shards"></div>
+
+        <h3>实验 3:from=0&amp;size=10 的搜索(hits 是 10,不是 30)</h3>
+        <div class="exp-slot" data-exp="ch16-03-search"></div>
+
+        <h3>实验 4:profile:true 看见 query 与 fetch 两段</h3>
+        <div class="exp-slot" data-exp="ch16-04-profile"></div>
+
+        <h3>实验 5:size=1,谁的 fetch 消失了</h3>
+        <div class="exp-slot" data-exp="ch16-05-profile-size1"></div>
+
+        <h3>实验 6:from=10000&amp;size=10 踩 max_result_window</h3>
+        <div class="exp-slot" data-exp="ch16-06-deep-fail"></div>
+
+        <h3>实验 7:from=9990&amp;size=10 恰好过闸</h3>
+        <div class="exp-slot" data-exp="ch16-07-window-edge"></div>
+
+        <h3>实验 8:from=20&amp;size=10,30 篇里的最后一页</h3>
+        <div class="exp-slot" data-exp="ch16-08-last-page"></div>
+
+        <h3>实验 9-12:同一篇文档,GET 可见 / SEARCH 不可见</h3>
+        <div class="exp-slot" data-exp="ch16-09-nrt-write"></div>
+        <div class="exp-slot" data-exp="ch16-10-nrt-get"></div>
+        <div class="exp-slot" data-exp="ch16-11-nrt-count"></div>
+        <div class="exp-slot" data-exp="ch16-12-refresh"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch16-13-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 仍是 3 个 shard,请求 from=100&amp;size=10(未超 max_result_window):每 shard 的 Query 阶段回几条?Fetch 几篇?客户端最多几条?</summary>
+          <div class="answer">
+            <p>每 shard 回 <code>100+10=110</code> 条,3 shard 最多 330 条候选;协调节点取全局第 101–110 名,<strong>Fetch 10 篇</strong>;客户端 <code>hits.hits</code> 最多 10 条(总命中不足 110 时更少)。<code>from</code> 加大只膨胀 Query 窗口,不膨胀最终 hits。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么每个 shard 必须回 from+size 条,不能只回 size 条让协调节点「自己翻页」?破了哪条不变量?</summary>
+          <div class="answer">
+            <p>不变量是:<strong>全局第 <code>from+size</code> 名,一定出现在某 shard 的本地前 <code>from+size</code> 名里</strong>。反例:shard-0 包办全局前 20,shard-1 的本地 Top-10 全是全局 21 名开外——若每 shard 只回 10 条,第二页(<code>from=10</code>)会把 shard-1 的第 1–10 名误当候选,而真正的全局 11–20 还留在 shard-0 没送上来。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. query_then_fetch 与 dfs_query_then_fetch 各在付什么、换什么?kNN 为什么不让你选?</summary>
+          <div class="answer">
+            <p>QTF 付「各 shard 用本地 IDF,评分可能略不可比」,换「少一轮往返」。DFS 付多一次 <code>phase/dfs</code> 扇出,换全局词频后再打分。小索引、shard 间词频极不均时 DFS 有意义;文档量和词频都大时本地 IDF 已接近全局,多一轮几乎白付。kNN 需要跨 shard 的邻居信息,<code>adjustSearchType</code> 直接改成 DFS,不是用户偏好。别把 DFS 当「更正确所以永远打开」——默认 QTF 是为在线延迟选的。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 SEARCH 0 hits ≠ 写丢了:</span>未 refresh 的文档在 buffer 里,GET(Realtime)读得到、SEARCH(EXTERNAL 快照)看不到。先 <code>_refresh</code> 或写入带 <code>refresh=true/wait_for</code> 再下结论——顺序反了会冤枉自己的写入。</div>
+        <div class="callout warn"><span class="co-title">🕳 把 hits 当成「shard 数 × size」:</span>每 shard 回的 <code>from+size</code> 条只是<strong>候选</strong>,全局窗口截完才是 hits。反过来,单 shard 索引「一次往返就出正文」是 <code>SearchService</code> 的优化,不是一种 SearchType——<code>QUERY_AND_FETCH</code> 枚举已经删了。</div>
+        <div class="callout warn"><span class="co-title">🕳 深分页去调大 max_result_window:</span>闸门拦的是 <code>from+size</code>,贵的是每 shard 的 Query 窗口与协调内存——调大闸门只是把代价放进来。深翻页换 <code>search_after</code> / PIT,别把 <code>from</code> 加到五位数。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>vs GET</td><td>SEARCH 打全部 shard · 只看已 refresh 快照 · 两阶段;GET 单 shard · Realtime · 单程</td></tr>
+          <tr><td>Query 网上走</td><td>(docId,score) × (from+size)/shard;doc 是 shard 内文档号,排序靠 (shardIndex,doc,score)</td></tr>
+          <tr><td>异步骨架</td><td>doRun 发完即返回;outstandingShards 倒数 0 → 归并 → FetchSearchPhase</td></tr>
+          <tr><td>Fetch</td><td>fillDocIdsToLoad 按 shardIndex 分组;空槽不发请求;只搬全局 Top-N 的 _source</td></tr>
+          <tr><td>深分页</td><td>每 shard 窗口 from+size;max_result_window 默认 10000,preProcess 拦截</td></tr>
+          <tr><td>替代与例外</td><td>深翻页 search_after/PIT;单 shard 顺便 Fetch;DFS 默认不开,kNN 强制</td></tr>
+        </table>
+        <p><strong>心法:先比名次,再搬正文——from 涨的是 Query 窗口,从来不是 hits。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch15.html">← 第 15 课:索引分片</a>
+          <a href="ch17.html">第 17 课:搜索服务与搜索上下文 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch16.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

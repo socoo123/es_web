@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 24 课:分片恢复与快照 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch24" data-ch="ch24">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 24 · 第五篇 · 分布式机制</div>
+        <h1>分片恢复与快照</h1>
+        <div class="ch-meta-line">先拷 Lucene segment,再重放缺失 translog · 约 16 分钟 · 前置:第 14、15、23 课 · 20 个实验 + peer recovery 旗舰动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>对 <code>tut-l24-rec</code> 跑 <code>GET /{index}/_recovery</code>:新建读出 <code>type: EMPTY_STORE</code>、<code>stage: DONE</code>,<code>_close</code> 再 <code>_open</code> 变成 <code>EXISTING_STORE</code>、reused 上涨;并说出 <code>index.files</code> / <code>translog</code> 各对应两阶段里的哪一块。</li>
+          <li>打开 <code>RecoverySourceHandler</code>:指出 <strong>phase1 拷 safe commit 里的 Lucene 文件、phase2 按 seqNo 发送 translog operations</strong>;再说出 peer 目标走 <code>openEngineAndSkipTranslogRecovery</code>(origin <code>PEER_RECOVERY</code>)、本地走 <code>recoverFromTranslogInternal</code>(从 <code>localCheckpoint+1</code> 起)——仓库里<strong>没有</strong>叫 <code>RecoverFromTranslog</code> 的类。</li>
+          <li>说出快照是仓库里的<strong>增量文件</strong>(同 checksum 的 blob 直接 reuse);并解释 start-local 没配 <code>path.repo</code> 时注册 fs 仓库为什么失败——如实呈现这条失败,不假装快照成功。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. 心智模型:拷文件,再补操作</h2>
+        <p>第 23 课停在「R0 被 same_shard 拒绝,RoutingTable 写着 UNASSIGNED」。分片一旦落到某个节点,<strong>数据从哪来</strong>?第 14 课已经钉死:写入是 Lucene 再 translog、refresh ≠ flush——磁盘上能打开的是 last commit,commit 之后的操作躺在 translog。恢复就是沿着这条缝把对端补齐,两步:<strong>已 commit 的 Lucene segment 按文件拷(快、可校验 checksum、目标立刻有一份能打开的 Directory);commit 点之后的操作按 ops 增量重放(少,且与写入路径同一套 apply)</strong>。用一份具体输入:primary 的 shard 0 已 flush,commit 覆盖 seqNo 0–9(commit user data 里 <code>local_checkpoint=9</code>);之后又写了 3 条还没再 flush,translog 里躺着 seqNo 10、11、12——SEARCH 可能已经看见这 3 条(refresh 换了 searcher),但它们<strong>不在</strong>那个 commit 里。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch24f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="340" height="88" rx="10" class="fig-box-hot"/>
+              <text x="185" y="38" text-anchor="middle" class="fig-name">primary 磁盘:last commit</text>
+              <text x="185" y="62" text-anchor="middle" class="fig-sub">seqNo 0–9,segment 文件 + checksum</text>
+              <text x="185" y="84" text-anchor="middle" class="fig-sub">local_checkpoint = 9</text>
+              <rect x="15" y="120" width="340" height="88" rx="10" class="fig-box"/>
+              <text x="185" y="143" text-anchor="middle" class="fig-name">primary 的 translog</text>
+              <text x="185" y="167" text-anchor="middle" class="fig-sub">seqNo 10、11、12(refresh 已可见)</text>
+              <text x="185" y="189" text-anchor="middle" class="fig-sub">但还没进任何 commit</text>
+              <rect x="405" y="15" width="340" height="88" rx="10" class="fig-box-hot"/>
+              <text x="575" y="38" text-anchor="middle" class="fig-name">phase1:拷 Lucene 文件</text>
+              <text x="575" y="62" text-anchor="middle" class="fig-sub">目标打开同样的 last commit</text>
+              <text x="575" y="84" text-anchor="middle" class="fig-sub">走限速;同 checksum 文件 reuse</text>
+              <rect x="405" y="120" width="340" height="88" rx="10" class="fig-box"/>
+              <text x="575" y="143" text-anchor="middle" class="fig-name">phase2:重放缺失 ops</text>
+              <text x="575" y="167" text-anchor="middle" class="fig-sub">从 startingSeqNo=10 到 maxSeqNo</text>
+              <text x="575" y="189" text-anchor="middle" class="fig-sub">不走限速;目标不重新分配 seqNo</text>
+              <line x1="355" y1="59" x2="397" y2="59" class="fig-arrow" marker-end="url(#ch24f1-arrow)"/>
+              <line x1="355" y1="164" x2="397" y2="164" class="fig-arrow" marker-end="url(#ch24f1-arrow)"/>
+              <rect x="15" y="218" width="730" height="18" rx="9" class="fig-box"/>
+              <text x="380" y="231" text-anchor="middle" class="fig-sub">恢复不是「重新 index 一遍」,也不是「只拷 translog」——和第 14 课「commit + commit 之后」是同一条缝</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 两阶段与第 14 课的缝一一对应:文件那半来自 flush 之后,ops 那半来自 flush 没盖住的 uncommitted。</figcaption>
+        </figure>
+
+        <p>恢复的「来源」有六种,先把它们和文件从哪来分开记(两阶段只属于 PEER):</p>
+        <table class="ktable">
+          <tr><th>场景</th><th>RecoverySource.Type</th><th>文件从哪来</th><th>Engine 怎么起来(第 15 课)</th></tr>
+          <tr><td>新索引首次分配 primary</td><td><code>EMPTY_STORE</code></td><td>空 Directory + 空 translog</td><td><code>openEngineAndRecoverFromTranslog</code>(没什么可放)</td></tr>
+          <tr><td>节点重启,本地磁盘还在</td><td><code>EXISTING_STORE</code></td><td>本机 last commit</td><td>先 createEngine,再 replay 未 commit 的 translog</td></tr>
+          <tr><td>replica / relocation 目标</td><td><code>PEER</code></td><td>从 primary 拷 segment,再收缺失 ops</td><td><code>openEngineAndSkipTranslogRecovery</code>(本地 .tlog 不再放)</td></tr>
+          <tr><td>从仓库恢复</td><td><code>SNAPSHOT</code></td><td>仓库里的增量文件落到 Store</td><td>文件就绪后同样开 Engine</td></tr>
+          <tr><td>shrink / split</td><td><code>LOCAL_SHARDS</code></td><td>同节点上别的 shard</td><td>本课不展开</td></tr>
+          <tr><td>resharding 分裂</td><td><code>RESHARD_SPLIT</code></td><td>同节点分裂源</td><td>9.4.0 新增</td></tr>
+        </table>
+        <p>集群全面重启时,Master 上的 <code>GatewayService</code> 先挂 <code>STATE_NOT_RECOVERED_BLOCK</code> 挡住读写,等够数据节点再 reroute——那是 <strong>ClusterState 何时解封</strong>,不是第三套拷文件协议。解封之后 primary 走 <code>EXISTING_STORE</code>(本地磁盘),缺的 replica 再走 <code>PEER</code>。</p>
+
+        <h2>2. 关键源码文件</h2>
+        <table class="ktable">
+          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
+          <tr><td><code>cluster/routing/RecoverySource.java</code></td><td>恢复来源枚举六种;<code>_recovery</code> 的 <code>type</code> 就是 <code>getType()</code></td></tr>
+          <tr><td><code>indices/recovery/RecoverySourceHandler.java</code></td><td><strong>源端</strong>两阶段:<code>phase1</code> 拷 segment 文件,<code>phase2</code> 按 seqNo 发 operations</td></tr>
+          <tr><td><code>indices/recovery/PeerRecoveryTargetService.java</code></td><td><strong>目标端</strong>注册的内部动作:<code>FILES_INFO</code> / <code>FILE_CHUNK</code> / <code>PREPARE_TRANSLOG</code> / <code>TRANSLOG_OPS</code> / <code>FINALIZE</code></td></tr>
+          <tr><td><code>index/shard/IndexShard.java</code></td><td>本地 <code>openEngineAndRecoverFromTranslog</code> vs peer <code>openEngineAndSkipTranslogRecovery</code>;都要求已经是 RECOVERING</td></tr>
+          <tr><td><code>repositories/blobstore/BlobStoreRepository.java</code></td><td>快照一个 shard:按文件 checksum <strong>reuse 仓库已有 blob</strong>,只上传增量</td></tr>
+        </table>
+        <p>对照时打开即可、不必进表:<code>InternalEngine.recoverFromTranslogInternal</code>(从 <code>localCheckpoint+1</code> 建 snapshot 再 run)、<code>RecoveryTarget.prepareForTranslogOperations</code>(peer 路径在这开 Engine)、<code>Engine.recoverFromTranslog</code>(抽象 API;<strong>没有</strong> <code>RecoverFromTranslog</code> 这个类)、<code>RestRecoveryAction</code>(<code>GET /_recovery</code>)、<code>RecoveryState</code>(JSON 里的 <code>stage</code> / <code>index.files</code> / <code>translog</code>)、<code>StoreRecovery.recoverFromStore</code>(EMPTY/EXISTING 的本地入口)、<code>FsRepository</code>(path.repo 未配则拒绝)、<code>SnapshotsService.createSnapshot</code>。</p>
+
+        <h2>3. <code>_recovery</code> 读什么:type、stage 与两个计数块</h2>
+        <p>REST 入口 <code>RestRecoveryAction</code>:<code>GET /_recovery</code> 和 <code>GET /{index}/_recovery</code>。<code>RecoveryState.toXContent</code> 原样写出 <code>type</code>(RecoverySource.Type)和 <code>stage</code>,再加上两个计数块:<code>index.files</code>(total / reused / recovered,对应 phase1)和 <code>translog</code>(recovered / total / percent,对应 phase2)。注意 <code>stage</code> 不是 IndexShardState、也不是 _cat/shards 的 ShardRoutingState,它是<strong>这次恢复自己的进度条</strong>:</p>
+        <table class="ktable">
+          <tr><th>RecoveryState.Stage</th><th>这一步在干什么</th></tr>
+          <tr><td><code>INIT</code></td><td>刚开始</td></tr>
+          <tr><td><code>INDEX</code></td><td>恢复 Lucene 文件:reuse 本地的,或从 primary / 仓库拷新的</td></tr>
+          <tr><td><code>VERIFY_INDEX</code></td><td>可选 check index</td></tr>
+          <tr><td><code>TRANSLOG</code></td><td>打开 Engine,重放 translog / 收 peer ops</td></tr>
+          <tr><td><code>FINALIZE</code></td><td>translog 放完之后的收尾</td></tr>
+          <tr><td><code>DONE</code></td><td>结束。实验里你几乎总是看见它——空索引的恢复只有几十毫秒</td></tr>
+        </table>
+        <p><code>?detailed=true</code> 才会在 <code>index.files.details</code> 里列出每个文件;<code>?active_only=true</code> 只返回还没 DONE 的。yaml 测试 <code>indices.recovery/10_basic.yml</code> 对新建索引断言 <code>type: EMPTY_STORE</code>、<code>stage: DONE</code>,对 close 再开的索引断言 <code>EXISTING_STORE</code>——实验 1-6 就是把这两条在本地跑一遍。<code>PEER</code> 时 JSON 会多一个 <code>source</code> 节点(对端 primary);SNAPSHOT 的 source 带 repository / snapshot。单节点上你<strong>抓不住</strong>正在跑的 PEER 恢复——那要第二台节点接 replica;本课用 _recovery 看字段、用动画和源码钉两阶段。</p>
+
+        <h2>4. Peer recovery:phase1 拷文件,phase2 发 ops</h2>
+        <p>源端真正干活的是 <code>RecoverySourceHandler</code>。<code>recoverToTarget</code> 先决定走<strong>文件恢复</strong>还是<strong>纯序号恢复</strong>:目标已有 startingSeqNo、历史 UUID 相同、retention lease 罩得住历史时可以跳过拷文件(<code>SendFileResult.EMPTY</code>)——这是优化不是另一套模型:文件阶段可以为空,ops 阶段照发。走不通就退回文件恢复:</p>
+        <pre class="code-block"><code>// indices/recovery/RecoverySourceHandler.recoverToTarget(节选)
+final Engine.IndexCommitRef safeCommitRef = acquireSafeCommit(shard);
+startingSeqNo = Long.parseLong(
+    safeCommitRef.getIndexCommit().getUserData().get(SequenceNumbers.LOCAL_CHECKPOINT_KEY)
+) + 1L;   // local_checkpoint=9 → startingSeqNo=10
+phase1(safeCommitRef.getIndexCommit(), startingSeqNo, () -&gt; estimateNumOps, sendFileStep);</code></pre>
+        <p>phase1 拷的是<strong>这份 IndexCommit 里的文件</strong>,不是 IndexWriter 缓冲里没 commit 的 NRT segment——refresh 看见但没 flush 的文档,只能靠 phase2 的 ops 补(和第 14 课同一条缝)。phase1 的 javadoc 把「缺什么才拷、什么能 reuse」钉死:对比目标节点上已有的 segment 文件,<strong>只有 size 和 checksum 都相同的才能 reuse</strong>,缺的才传(节点离开又回来、目录没清干净时省钱)。文件拷完,源端调 <code>prepareTargetForTranslog</code>:不是「再造一份 .tlog 拷过去」,而是让目标<strong>打开 Engine</strong>准备收 ops(动作 <code>internal:index/shard/recovery/prepare_translog</code>)。然后 phase2:</p>
+        <pre class="code-block"><code>// RecoverySourceHandler.phase2(节选)
+logger.trace("recovery [phase2]: sending transaction log operations
+              (from [" + startingSeqNo + "] to [" + endingSeqNo + "]");
+final OperationBatchSender sender = new OperationBatchSender(
+    startingSeqNo, endingSeqNo, snapshot, sendListener);
+sender.start();   // 分批调 recoveryTarget.indexTranslogOperations(...)</code></pre>
+        <p><strong>没有把 .tlog 文件整份 scp 过去</strong>——传的是已解码的 Translog.Operation 列表。目标收到后 <code>indexShard.applyTranslogOperation(op, Engine.Operation.Origin.PEER_RECOVERY)</code>:origin 是 PEER_RECOVERY 不是写入路径的 PRIMARY,因为这些 ops 在 primary 上已分配过 seqNo,副本不能再生成一份。两阶段对照:</p>
+        <table class="ktable">
+          <tr><th></th><th>phase1</th><th>phase2</th></tr>
+          <tr><td>搬的是什么</td><td>Lucene <strong>文件</strong>(safe commit)</td><td>translog <strong>operations</strong>(seqNo ≥ startingSeqNo)</td></tr>
+          <tr><td>内部动作</td><td><code>FILES_INFO</code> / <code>FILE_CHUNK</code> / <code>CLEAN_FILES</code></td><td><code>PREPARE_TRANSLOG</code> 之后 <code>TRANSLOG_OPS</code></td></tr>
+          <tr><td>_recovery 里看</td><td><code>index.files</code>:total / reused / recovered</td><td><code>translog</code>:recovered / total / percent</td></tr>
+          <tr><td>限速</td><td>走 recovery RateLimiter(<code>indices.recovery.max_bytes_per_sec</code>)</td><td><strong>不走</strong>——ops 必须尽快追上,不和大文件抢阀门</td></tr>
+          <tr><td>和第 14 课</td><td>对应 flush 之后磁盘那份 commit</td><td>对应 flush 没盖住的 <code>uncommitted_operations</code></td></tr>
+        </table>
+        <p>ops 发完才 <code>finalizeRecovery</code>:同步 global checkpoint、必要时 force flush、目标 <code>finalizeRecovery()</code> 收尾。整场两阶段连起来:</p>
+        <div class="fp-slot" data-flow="ch24-peer-recovery"></div>
+
+        <h2>5. 目标端何时 createEngine:两个入口,同一扇窗</h2>
+        <p>第 15 课的不变量这里不变:<code>innerOpenEngineAndTranslog</code> 要求 <code>state == RECOVERING</code> 且 <code>currentEngine == null</code>。peer 和本地走<strong>两个入口</strong>,汇合到同一段 createEngine:</p>
+        <pre class="code-block"><code>// index/shard/IndexShard.java(节选)
+public void openEngineAndRecoverFromTranslog(ActionListener&lt;Void&gt; listener) {
+    recoveryState.validateCurrentStage(RecoveryState.Stage.INDEX);
+    innerOpenEngineAndTranslog(replicationTracker);
+    getEngine().recoverFromTranslog(translogRecoveryRunner, Long.MAX_VALUE, listener);
+}
+
+public void openEngineAndSkipTranslogRecovery() throws IOException {
+    assert routingEntry().recoverySource().getType() == RecoverySource.Type.PEER
+        : "not a peer recovery [" + routingEntry() + "]";
+    recoveryState.validateCurrentStage(RecoveryState.Stage.TRANSLOG);
+    innerOpenEngineAndTranslog(replicationTracker);
+    getEngine().skipTranslogRecovery();
+}</code></pre>
+        <p>peer 为什么 skip?缺失 ops 已经(或即将)经 <code>PEER_RECOVERY</code> origin 写进这个刚打开的 Engine,本地磁盘那份 .tlog <strong>不是</strong>要 replay 的来源。顺序是:<strong>先拷完文件(INDEX 阶段),再 PREPARE_TRANSLOG 打开 Engine(仍是 RECOVERING),再 TRANSLOG_OPS 往 Engine 里放 ops</strong>——不是「先建 Engine 再等文件」。第 15 课的 <code>assert currentEngine.get() == null</code> 保护的就是这扇窗:拷文件时 Directory 上不能已经挂着 IndexWriter。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch24f3-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <text x="192" y="18" text-anchor="middle" class="fig-name">本地:EXISTING_STORE(节点重启)</text>
+              <rect x="15" y="30" width="355" height="66" rx="9" class="fig-box"/>
+              <text x="192" y="52" text-anchor="middle" class="fig-sub">StoreRecovery.recoverFromStore</text>
+              <text x="192" y="74" text-anchor="middle" class="fig-sub">本机 commit 文件登记为 reused</text>
+              <rect x="15" y="110" width="355" height="88" rx="9" class="fig-box-hot"/>
+              <text x="192" y="134" text-anchor="middle" class="fig-sub">openEngineAndRecoverFromTranslog</text>
+              <text x="192" y="156" text-anchor="middle" class="fig-sub">recoverFromTranslogInternal:</text>
+              <text x="192" y="176" text-anchor="middle" class="fig-sub">从 localCheckpoint+1 建 snapshot 重放</text>
+              <text x="192" y="192" text-anchor="middle" class="fig-sub">origin = LOCAL_TRANSLOG_RECOVERY</text>
+              <line x1="192" y1="96" x2="192" y2="106" class="fig-arrow" marker-end="url(#ch24f3-arrow)"/>
+              <text x="567" y="18" text-anchor="middle" class="fig-name">peer:PEER(replica / relocation)</text>
+              <rect x="390" y="30" width="355" height="66" rx="9" class="fig-box"/>
+              <text x="567" y="52" text-anchor="middle" class="fig-sub">phase1 文件先到位(INDEX 阶段)</text>
+              <text x="567" y="74" text-anchor="middle" class="fig-sub">同 size+checksum 的 reuse,缺的才传</text>
+              <rect x="390" y="110" width="355" height="88" rx="9" class="fig-box-hot"/>
+              <text x="567" y="134" text-anchor="middle" class="fig-sub">PREPARE_TRANSLOG → openEngineAndSkip</text>
+              <text x="567" y="156" text-anchor="middle" class="fig-sub">断言 recoverySource 类型是 PEER</text>
+              <text x="567" y="176" text-anchor="middle" class="fig-sub">本地 .tlog 不 replay(可能过期/不全)</text>
+              <text x="567" y="192" text-anchor="middle" class="fig-sub">ops 的 origin = PEER_RECOVERY</text>
+              <line x1="567" y1="96" x2="567" y2="106" class="fig-arrow" marker-end="url(#ch24f3-arrow)"/>
+              <rect x="15" y="212" width="730" height="30" rx="9" class="fig-box-hot"/>
+              <text x="380" y="231" text-anchor="middle" class="fig-sub">两个入口都要求 RECOVERING + currentEngine==null:先文件后 Engine——第 15 课的窗,这一课没破</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · Engine 的两个开启入口:本地 replay 自己的 translog,peer skip 本地的、收网络上发来的 ops。</figcaption>
+        </figure>
+
+        <p>本地 EXISTING_STORE 的重放里,<code>pendingTranslogRecovery.set(false)</code> 之后才允许 flush——恢复中途不能把半成品 commit 出去;放完还会 <code>flush(false, true, ...)</code> 一次。<code>StoreRecovery.recoverFromStore</code> 对空目录走 <code>store.createEmpty()</code> + 空 translog(EMPTY_STORE),磁盘上已有 commit 就把 Lucene 文件登记为 reused 再一律 <code>openEngineAndRecoverFromTranslog</code>——所以 close/open 之后 <code>index.files.reused</code> 会上去:文件没从别人那拷,是本机已有的。</p>
+
+        <h2>6. 快照:索引变成仓库里的增量文件</h2>
+        <p>Peer recovery 的对端是另一份 live shard;快照的对端是 <strong>Repository</strong>(S3 / GCS / Azure / fs 同一套接口)。Master 上 <code>SnapshotsService.createSnapshot</code> 把这次快照记进 ClusterState 的 <code>SnapshotsInProgress</code>,数据节点按 shard 调 <code>snapshotShard</code>,全部返回后 Master <code>finalizeSnapshot</code> 写仓库级元数据。blob 仓库的实现<strong>不是把索引打成一个 zip</strong>:它列出当前 Lucene commit 的每个文件,拿 <code>StoreFileMetadata</code> 去已有快照里找「物理名 + size + checksum」都相同的 blob——</p>
+        <pre class="code-block"><code>// repositories/blobstore/BlobStoreRepository.doSnapshotShard(节选)
+BlobStoreIndexShardSnapshot.FileInfo existingFileInfo = snapshots.findPhysicalIndexFile(md);
+if (existingFileInfo == null) {
+    indexIncrementalFileCount++;   // 仓库里没有:上传
+    filesToSnapshot.add(snapshotFileInfo);
+} else {
+    // a commit point file with the same name, size and checksum
+    // was already copied to repository — we will reuse it for this snapshot
+    indexCommitPointFiles.add(existingFileInfo);
+}</code></pre>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 235" xmlns="http://www.w3.org/2000/svg">
+              <defs><marker id="ch24f2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
+              <rect x="15" y="15" width="355" height="92" rx="10" class="fig-box"/>
+              <text x="192" y="38" text-anchor="middle" class="fig-name">第一次快照</text>
+              <text x="192" y="62" text-anchor="middle" class="fig-sub">commit:_0.si + _0.cfs + segments_N</text>
+              <text x="192" y="84" text-anchor="middle" class="fig-sub">仓库里什么都没有 → 三个文件都上传</text>
+              <text x="192" y="102" text-anchor="middle" class="fig-sub">incremental_file_count = 3</text>
+              <rect x="390" y="15" width="355" height="92" rx="10" class="fig-box"/>
+              <text x="567" y="38" text-anchor="middle" class="fig-name">中间:再写入 + flush</text>
+              <text x="567" y="62" text-anchor="middle" class="fig-sub">新 commit:_1.si + _1.cfs</text>
+              <text x="567" y="84" text-anchor="middle" class="fig-sub">segments 换成 segments_M</text>
+              <text x="567" y="102" text-anchor="middle" class="fig-sub">_0.* 没变:checksum 相同</text>
+              <line x1="370" y1="61" x2="382" y2="61" class="fig-arrow" marker-end="url(#ch24f2-arrow)"/>
+              <rect x="15" y="122" width="730" height="66" rx="10" class="fig-box-hot"/>
+              <text x="380" y="146" text-anchor="middle" class="fig-name">第二次快照:只上传新文件</text>
+              <text x="380" y="170" text-anchor="middle" class="fig-sub">_1.si / _1.cfs / segments_M 上传;_0.si / _0.cfs 直接 reuse——新快照的元数据引用同一份 blob</text>
+              <text x="380" y="208" text-anchor="middle" class="fig-sub">增量单位是 Lucene 文件,不是文档,也不是整个目录;删快照不能 rm「它传过的文件」——别的快照可能还指着同一份 blob</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 快照的增量:同 checksum 的 segment 直接被新快照引用,只为仓库里没有的文件付钱。</figcaption>
+        </figure>
+
+        <p>恢复快照:<code>RestoreService</code> 给 primary 的 RecoverySource 标成 SNAPSHOT,<code>restoreShard</code> 按清单把文件写进 Store,然后走和第 15 课一样的「文件就绪 → createEngine」;缺的 replica 仍走 peer recovery,不会每个副本都去仓库拉一遍。fs 仓库在 9.4.0 仍要求节点配置 <code>path.repo</code>:<code>FsRepository</code> 构造时 <code>environment.resolveRepoDir(location)</code> 对不上就抛 <code>RepositoryException</code>,文案直说 <code>... doesn't match any of the locations specified by path.repo because this setting is empty</code>。start-local 通常没配——实验 15-16 会如实打到这条错误,<strong>不要改 elasticsearch.yml 去凑一个假的快照成功 Demo</strong>。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>两条线:① <code>tut-l24-rec</code> 用 <code>_recovery</code> 看 EMPTY_STORE → 写入 flush → close/open → EXISTING_STORE 的字段变化,再用「加副本」验证单节点不会出现 PEER 行;② <code>tut-l24-gap</code> 复刻第 14 课那条缝——flush 打底、写一篇不 flush,看 <code>uncommitted_operations</code> 就是 phase2 要补的那截,refresh 救不了它;③ fs 仓库如实失败。</p>
+
+        <h3>实验 0-6:tut-l24-rec 的 type 变奏</h3>
+        <div class="exp-slot" data-exp="ch24-00-setup"></div>
+        <div class="exp-slot" data-exp="ch24-01-recovery-empty"></div>
+        <div class="exp-slot" data-exp="ch24-02-doc"></div>
+        <div class="exp-slot" data-exp="ch24-03-flush"></div>
+        <div class="exp-slot" data-exp="ch24-04-close"></div>
+        <div class="exp-slot" data-exp="ch24-05-open"></div>
+        <div class="exp-slot" data-exp="ch24-06-recovery-existing"></div>
+
+        <h3>实验 7-8:单节点加副本,不会有 PEER 行</h3>
+        <div class="exp-slot" data-exp="ch24-07-replicas-1"></div>
+        <div class="exp-slot" data-exp="ch24-08-no-peer-row"></div>
+
+        <h3>实验 9-10:fs 仓库如实失败</h3>
+        <div class="exp-slot" data-exp="ch24-09-fs-repo-put"></div>
+        <div class="exp-slot" data-exp="ch24-10-fs-repo-list"></div>
+
+        <h3>实验 11-18:tut-l24-gap,uncommitted 就是 phase2 的那截</h3>
+        <div class="exp-slot" data-exp="ch24-11-gap-setup"></div>
+        <div class="exp-slot" data-exp="ch24-12-gap-flush"></div>
+        <div class="exp-slot" data-exp="ch24-13-gap-doc"></div>
+        <div class="exp-slot" data-exp="ch24-14-gap-stats"></div>
+        <div class="exp-slot" data-exp="ch24-15-gap-search0"></div>
+        <div class="exp-slot" data-exp="ch24-16-gap-refresh"></div>
+        <div class="exp-slot" data-exp="ch24-17-gap-search1"></div>
+        <div class="exp-slot" data-exp="ch24-18-gap-stats2"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch24-19-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 两节点集群,索引 1 主 1 副已 Green。停掉持有 replica 的那台,写入 _id=2 并 _refresh(不 _flush),再把节点拉起来:新 replica 的 _recovery 里 type 是什么?_id=2 在 phase1 的文件里还是 phase2 的 ops 里?若节点回来前先 _flush 了,答案哪格会变?</summary>
+          <div class="answer">
+            <p><code>type: PEER</code>(replica 从活着的 primary 拷)。只 refresh 没 flush:_id=2 不在 safe commit 里,phase1 拷走的文件没有它,它走 phase2,计数落在 <code>translog.recovered</code>。先 _flush 再让节点回来:这篇进了新的 IndexCommit,phase1 把它当文件拷(或目标 reuse),translog 从新的 local_checkpoint+1 起,不再为这篇付一次 ops。可见 ≠ 已 commit——与实验 14-18、第 14 课同一不变量。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 为什么必须「先拷 commit 文件再重放缺失 ops」,不能「从 seqNo 0 重放全部 translog」,也不能「把 .tlog 整份拷过去当 Directory」?若对调成「先开 Engine 再拷文件」,第 15 课哪条断言先破?peer 目标为什么 skip,本地 EXISTING_STORE 为什么不能 skip?</summary>
+          <div class="answer">
+            <p>从 seqNo 0 全量重放等于丢掉 Lucene 已整理好的 segment(压缩、已删文档清理、列存),恢复时间从「拷文件」退化成「重新 index 整个历史」,translog 也根本存不下那么长的窗口。整份拷 .tlog 更不行:Translog 不是 Lucene 索引,IndexWriter 打不开它。先开 Engine 再拷文件:<code>currentEngine == null</code> 的断言破掉,已打开的 IndexWriter 和正在写入 Store 的文件流抢同一份 Directory。peer skip 本地 translog,因为 ops 已(将)经网络以 PEER_RECOVERY origin 写进这个 Engine,本地 .tlog 可能过期或不完整,再放一遍是重复;本地 EXISTING_STORE 没有对端发 ops,未 commit 的历史只活在本地 translog 里,不能 skip。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 快照按文件增量、peer recovery 在历史完整时可以完全跳过 phase1 只发 ops:为什么不把「只发 ops」当快照的默认路径?retention lease 把历史留得更久,谁在为谁付磁盘?若去掉第 23 课的 THROTTLE,80 个 replica 同时 phase1,代价落在哪?</summary>
+          <div class="answer">
+            <p>快照必须在 primary 已经不在时仍能还原出一份可打开的 Lucene 目录:仓库里只能放文件(加 shard 元数据),不能假设将来还有一台引擎能 replay ops。retention lease 拉长「只发 ops」的窗口,代价是 primary 不能过早 trim translog / soft-deletes——用 primary 的磁盘换网络带宽。80 路同时 phase1 会打满磁盘和 indices.recovery.max_bytes_per_sec,恢复互相拖死;第 23 课用 THROTTLE 而不是 NO,就是为了排队而不是把 replica 永久留在 UNASSIGNED。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 单节点加副本就想看 PEER:</span>_recovery 不会多出 PEER 行——第 23 课 same_shard 已把唯一节点剔除,replica 停在 UNASSIGNED,根本没开始恢复。「需要 peer recovery」不等于「正在 peer recovery」。</div>
+        <div class="callout warn"><span class="co-title">🕳 拿旧课的 RecoverFromTranslog 类名去源码里找:</span>9.4.0 没有这个类。本地是 Engine.recoverFromTranslog → InternalEngine.recoverFromTranslogInternal(从 localCheckpoint+1);peer 是 openEngineAndSkipTranslogRecovery(断言 Type.PEER)。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为 refresh 过的文档会随 phase1 拷走:</span>phase1 拷的是 safe commit(IndexCommit)里的文件;refresh 只换 searcher 不推进 commit。flush 之前,可见的文档只能靠 phase2 的 ops 补——uncommitted_operations 就是那截(实验 14-18)。</div>
+        <div class="callout warn"><span class="co-title">🕳 把 stage 当分片状态:</span>stage 是这次恢复的进度条(INIT→INDEX→…→DONE),不是 IndexShardState,也不是 _cat/shards 的 ShardRoutingState。空索引几十毫秒就 DONE,你抓不住中间档。</div>
+        <div class="callout warn"><span class="co-title">🕳 在没配 path.repo 的 start-local 上假装快照成功:</span>注册 fs 仓库会失败,错误文案直说 path.repo is empty。这是预期行为:增量语义读 findPhysicalIndexFile + indexIncrementalFileCount,不要改配置硬凑 Demo,更不要照抄「创建成功再 restore」的旧示例。</div>
+        <div class="callout warn"><span class="co-title">🕳 以为删快照就是删它上传的文件:</span>blob 按 checksum 跨快照共享,新快照的元数据引用旧 blob;删除要等没有任何快照引用才能物理清理。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>本课位置</td><td>第 23 课给了节点,这一课给数据:phase1 拷 commit 文件,phase2 重放缺失 ops——第 14 课那条缝的两半</td></tr>
+          <tr><td>六种来源</td><td>EMPTY_STORE / EXISTING_STORE / PEER / SNAPSHOT / LOCAL_SHARDS / RESHARD_SPLIT;_recovery 的 type 就是它</td></tr>
+          <tr><td>phase1 vs phase2</td><td>文件(FILES_INFO/FILE_CHUNK,走限速,对应 index.files)vs ops(TRANSLOG_OPS,不走限速,对应 translog)</td></tr>
+          <tr><td>Engine 时机</td><td>先文件后 Engine;peer 用 openEngineAndSkipTranslogRecovery(origin PEER_RECOVERY),本地 recoverFromTranslogInternal(localCheckpoint+1)</td></tr>
+          <tr><td>reuse 条件</td><td>物理名 + size + checksum 全同:phase1 的文件如此,快照的 blob 也如此</td></tr>
+          <tr><td>快照</td><td>增量单位是 Lucene 文件;blob 跨快照共享,删快照不能直接 rm;fs 仓库要 path.repo</td></tr>
+          <tr><td>Gateway</td><td>STATE_NOT_RECOVERED_BLOCK 解的是「何时开始」,不是第三套拷文件协议;解封后 primary 走本地、replica 走 PEER</td></tr>
+        </table>
+        <p><strong>心法:恢复沿着第 14 课那条缝走——commit 之前拷文件,commit 之后重放 ops;快照只是把「拷文件」的对端从 primary 换成仓库,增量单位永远是文件。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <a href="ch23.html">← 第 23 课:分片分配</a>
+          <a href="ch25.html">第 25 课:熔断器与背压 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch24.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>

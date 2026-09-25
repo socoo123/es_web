@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第 1 课:Elasticsearch 是什么 — ES 源码精读站</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
+    <nav class="tnav">
+      <a href="../index.html">课程</a>
+      <a href="../console.html">控制台</a>
+      <a href="../cheatsheet.html">速查表</a>
+    </nav>
+    <span class="spacer"></span>
+    <button class="theme-toggle" type="button">🌙 深色</button>
+  </header>
+
+  <main class="wrap">
+    <article class="chapter" id="ch01" data-ch="ch01">
+      <header class="ch-header">
+        <div class="ch-kicker">LESSON 01 · 第一篇 · 全局认知</div>
+        <h1>Elasticsearch 是什么</h1>
+        <div class="ch-meta-line">概念模型与使用场景 · 约 12 分钟 · 无前置 · 11 个实验 · 1 个动画</div>
+      </header>
+
+      <section class="goal">
+        <h2>学习目标</h2>
+        <ul>
+          <li>用 <code>_analyze</code> 说清楚一段文本会被切成哪些 token,以及为什么搜 <code>FOX</code> 能命中 <code>fox</code>。</li>
+          <li>看懂 <code>_cat/shards</code> 里的 primary / replica,并解释单节点集群为什么是 Yellow。</li>
+          <li>解释「刚写入的文档,GET 拿得到、SEARCH 可能搜不到」背后的机制差异。</li>
+        </ul>
+      </section>
+
+      <section class="lesson">
+        <h2>1. ES 快在哪:倒排,不是扫得快</h2>
+        <p>在大量日志里找 <code>OutOfMemoryError</code>:关系库的 <code>LIKE '%…%'</code> 和 grep 都是正向扫全集,耗时随数据量线性涨;倒排索引把查找方向反了过来,从「文档 → 词」变成「词 → 文档」,命中只取决于这个词的倒排表有多长。具体要几毫秒,取决于分片数、段数和查询本身,不能当成固定承诺。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <!-- 左:正向 -->
+              <text x="123" y="30" text-anchor="middle" class="fig-sub">正向索引:文档 → 词</text>
+              <rect x="8" y="45" width="230" height="34" rx="7" class="fig-box"/>
+              <text x="123" y="67" text-anchor="middle" class="fig-name">Doc1 "the quick brown fox"</text>
+              <rect x="8" y="87" width="230" height="34" rx="7" class="fig-box"/>
+              <text x="123" y="109" text-anchor="middle" class="fig-name">Doc2 "the quick blue rabbit"</text>
+              <rect x="8" y="129" width="230" height="34" rx="7" class="fig-box"/>
+              <text x="123" y="151" text-anchor="middle" class="fig-name">Doc3 "the brown lazy dog"</text>
+              <rect x="8" y="185" width="230" height="40" rx="7" class="fig-box"/>
+              <text x="123" y="203" text-anchor="middle" class="fig-sub">搜 brown = 逐篇读完全集</text>
+              <text x="123" y="219" text-anchor="middle" class="fig-key">慢</text>
+
+              <!-- 中间箭头 -->
+              <line x1="242" y1="125" x2="300" y2="125" class="fig-arrow" marker-end="url(#ah1)"/>
+              <text x="271" y="112" text-anchor="middle" class="fig-sub">换个方向</text>
+
+              <!-- 右:倒排词典 -->
+              <text x="607" y="30" text-anchor="middle" class="fig-sub">倒排索引:词 → 文档列表</text>
+              <rect x="304" y="45" width="104" height="34" rx="7" class="fig-box"/>
+              <text x="356" y="67" text-anchor="middle" class="fig-name">the</text>
+              <line x1="411" y1="62" x2="458" y2="62" class="fig-arrow" marker-end="url(#ah1)"/>
+              <rect x="462" y="45" width="290" height="34" rx="7" class="fig-box"/>
+              <text x="607" y="67" text-anchor="middle" class="fig-name">[1, 2, 3]</text>
+
+              <rect x="304" y="87" width="104" height="34" rx="7" class="fig-box"/>
+              <text x="356" y="109" text-anchor="middle" class="fig-name">quick</text>
+              <line x1="411" y1="104" x2="458" y2="104" class="fig-arrow" marker-end="url(#ah1)"/>
+              <rect x="462" y="87" width="290" height="34" rx="7" class="fig-box"/>
+              <text x="607" y="109" text-anchor="middle" class="fig-name">[1, 2]</text>
+
+              <rect x="304" y="129" width="104" height="34" rx="7" class="fig-box-hot"/>
+              <text x="356" y="151" text-anchor="middle" class="fig-name">brown</text>
+              <line x1="411" y1="146" x2="458" y2="146" class="fig-arrow" marker-end="url(#ah1)"/>
+              <rect x="462" y="129" width="290" height="34" rx="7" class="fig-box-hot"/>
+              <text x="607" y="151" text-anchor="middle" class="fig-name">[1, 3]  ← 一步命中</text>
+
+              <rect x="304" y="171" width="104" height="34" rx="7" class="fig-box"/>
+              <text x="356" y="193" text-anchor="middle" class="fig-name">blue</text>
+              <line x1="411" y1="188" x2="458" y2="188" class="fig-arrow" marker-end="url(#ah1)"/>
+              <rect x="462" y="171" width="290" height="34" rx="7" class="fig-box"/>
+              <text x="607" y="193" text-anchor="middle" class="fig-name">[2]</text>
+
+              <rect x="304" y="215" width="448" height="28" rx="7" class="fig-box"/>
+              <text x="528" y="234" text-anchor="middle" class="fig-sub">词典本身有压缩(FST 一类),倒排表在磁盘上</text>
+            </svg>
+          </div>
+          <figcaption>图 1 · 搜 brown:正向要翻 3 篇,倒排只查词典一格。ES 做的是「查词典」,不是「翻全书」——就像书后的索引页。</figcaption>
+        </figure>
+
+        <p>真实倒排表里除了文档列表,还挂着统计信息,后面评分和短语搜索都会用到:</p>
+        <table class="ktable">
+          <tr><th>挂的信息</th><th>干什么用</th></tr>
+          <tr><td>词频 TF</td><td>一篇里出现越多,通常越相关</td></tr>
+          <tr><td>文档频率 DF</td><td><code>the</code> 几乎每篇都有 → 权重低</td></tr>
+          <tr><td>位置 Position</td><td>短语搜索:<code>quick</code> 和 <code>brown</code> 是否相邻</td></tr>
+          <tr><td>偏移 Offset</td><td>高亮 <code>&lt;em&gt;brown&lt;/em&gt;</code></td></tr>
+        </table>
+
+        <div class="callout warn"><span class="co-title">别当主库用:</span>ES 没有传统事务、没有传统 JOIN。常见架构是 MySQL 做主存储与事务,ES 做搜索和分析——两者并存,不是替代。</div>
+
+        <table class="ktable">
+          <tr><th>关系数据库</th><th>Elasticsearch</th><th>说明</th></tr>
+          <tr><td>Table</td><td>Index</td><td>一类文档的集合</td></tr>
+          <tr><td>Row</td><td>Document</td><td>一条 JSON</td></tr>
+          <tr><td>Column</td><td>Field</td><td>文档里的一个字段</td></tr>
+          <tr><td>Schema</td><td>Mapping</td><td>字段类型</td></tr>
+          <tr><td>Primary Key</td><td><code>_id</code></td><td>文档唯一标识</td></tr>
+          <tr><td>B+Tree 索引</td><td>倒排索引</td><td>优化目标不同:按列值找行 vs 按词找文档</td></tr>
+        </table>
+
+        <h2>2. 倒排表里存的是 token,不是原句</h2>
+        <p>下面这张图不是内置 <code>standard</code> 的默认行为,而是显式的 <code>standard</code> tokenizer + <code>lowercase</code> + <code>stop</code>:<code>"The Quick Brown FOX"</code> 变成小写、去掉停用词后的 token。字段可以另设 <code>search_analyzer</code>,写入和查询<strong>不保证配置完全相同</strong>,只要两边产出能对上的 token 就能命中——这里搜 <code>FOX</code> 命中,是因为两边最后比的都是 <code>fox</code>,不是原始字符串。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="15" y="55" width="150" height="52" rx="8" class="fig-box"/>
+              <text x="90" y="77" text-anchor="middle" class="fig-name">The Quick</text>
+              <text x="90" y="96" text-anchor="middle" class="fig-name">Brown FOX</text>
+              <text x="90" y="30" text-anchor="middle" class="fig-sub">原文</text>
+
+              <line x1="165" y1="81" x2="215" y2="81" class="fig-arrow" marker-end="url(#ah2)"/>
+              <text x="190" y="46" text-anchor="middle" class="fig-key">tokenizer</text>
+              <text x="190" y="128" text-anchor="middle" class="fig-sub">切词</text>
+
+              <rect x="220" y="55" width="160" height="52" rx="8" class="fig-box"/>
+              <text x="300" y="77" text-anchor="middle" class="fig-name">the | quick |</text>
+              <text x="300" y="96" text-anchor="middle" class="fig-name">brown | fox</text>
+              <text x="300" y="30" text-anchor="middle" class="fig-sub">切出的词元</text>
+
+              <line x1="380" y1="81" x2="430" y2="81" class="fig-arrow" marker-end="url(#ah2)"/>
+              <text x="405" y="46" text-anchor="middle" class="fig-key">filters</text>
+              <text x="405" y="128" text-anchor="middle" class="fig-sub">小写 + 停用词</text>
+
+              <rect x="435" y="55" width="310" height="52" rx="8" class="fig-box-hot"/>
+              <text x="590" y="77" text-anchor="middle" class="fig-name">quick | brown | fox</text>
+              <text x="590" y="96" text-anchor="middle" class="fig-sub">进倒排表的是这三个 token</text>
+              <text x="590" y="30" text-anchor="middle" class="fig-sub">搜索也走同一条链:搜 FOX → fox → 命中</text>
+            </svg>
+          </div>
+          <figcaption>图 2 · 显式示例:standard tokenizer + lowercase + stop。不是内置 standard 的默认链(它不去停用词)。Char filter 本例用不到。</figcaption>
+        </figure>
+
+        <div class="callout warn"><span class="co-title">陷阱:</span>ES 内置的 <code>standard</code> 分析器<strong>默认不去停用词</strong>。源码 <code>StandardAnalyzerProvider.java</code> 里默认停用词表是 <code>CharArraySet.EMPTY_SET</code>——所以只写 <code>"analyzer": "standard"</code> 时,<code>the</code> 还在。别把 Lucene 教科书里默认带停用词的 <code>StandardAnalyzer</code> 和它混为一谈。实验 2 会让你亲眼看到差别。</div>
+
+        <h2>3. 六个核心概念与分片放置</h2>
+        <table class="ktable">
+          <tr><th>概念</th><th>定义</th><th>源码里会见到的类</th></tr>
+          <tr><td><strong>Cluster</strong></td><td>共用一个集群名、一起干活的一组节点</td><td><code>ClusterState.java</code></td></tr>
+          <tr><td><strong>Node</strong></td><td>一个 ES 进程,可兼多种角色</td><td><code>DiscoveryNode.java</code></td></tr>
+          <tr><td><strong>Index</strong></td><td>一类文档的逻辑集合</td><td><code>Index.java</code></td></tr>
+          <tr><td><strong>Document</strong></td><td>一条 JSON,最小数据单元</td><td><code>ParsedDocument.java</code></td></tr>
+          <tr><td><strong>Shard</strong></td><td>索引的物理分片,每片是独立的 Lucene 索引</td><td><code>IndexShard.java</code></td></tr>
+          <tr><td><strong>Replica</strong></td><td>某一片的副本:故障可顶上,也能分担读</td><td><code>ShardRouting.java</code></td></tr>
+        </table>
+
+        <p>一个节点可以同时是 master-eligible、data、ingest,每个节点都能做 coordinating(路由请求、合并结果);生产上常把 master 和 data 分开,免得搜索把集群管理拖垮。现在记住:data 存数据、master 管状态。要分片,是为了三件事:单机放不下(水平扩展)、搜索各片并行(吞吐)、主分片挂了有副本(高可用)。</p>
+
+        <figure class="fig">
+          <div class="fig-canvas">
+            <svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
+                </marker>
+              </defs>
+              <rect x="280" y="10" width="200" height="38" rx="8" class="fig-box"/>
+              <text x="380" y="34" text-anchor="middle" class="fig-name">索引 tut-l01-docs</text>
+              <line x1="340" y1="48" x2="230" y2="78" class="fig-arrow" marker-end="url(#ah3)"/>
+              <line x1="420" y1="48" x2="530" y2="78" class="fig-arrow" marker-end="url(#ah3)"/>
+
+              <!-- 两个主分片 -->
+              <rect x="140" y="80" width="180" height="34" rx="7" class="fig-box-hot"/>
+              <text x="230" y="102" text-anchor="middle" class="fig-name">P0(primary 0)</text>
+              <rect x="440" y="80" width="180" height="34" rx="7" class="fig-box-hot"/>
+              <text x="530" y="102" text-anchor="middle" class="fig-name">P1(primary 1)</text>
+              <line x1="230" y1="114" x2="230" y2="140" class="fig-arrow" marker-end="url(#ah3)"/>
+              <line x1="530" y1="114" x2="530" y2="140" class="fig-arrow" marker-end="url(#ah3)"/>
+              <rect x="140" y="142" width="180" height="34" rx="7" class="fig-box"/>
+              <text x="230" y="164" text-anchor="middle" class="fig-name">R0(replica 0)</text>
+              <rect x="440" y="142" width="180" height="34" rx="7" class="fig-box"/>
+              <text x="530" y="164" text-anchor="middle" class="fig-name">R1(replica 1)</text>
+
+              <!-- 节点放置 -->
+              <rect x="20" y="190" width="350" height="42" rx="8" class="fig-box"/>
+              <text x="195" y="209" text-anchor="middle" class="fig-sub">节点 n1 放:</text>
+              <text x="195" y="225" text-anchor="middle" class="fig-key">P0、R1</text>
+              <rect x="390" y="190" width="350" height="42" rx="8" class="fig-box"/>
+              <text x="565" y="209" text-anchor="middle" class="fig-sub">节点 n2 放:</text>
+              <text x="565" y="225" text-anchor="middle" class="fig-key">R0、P1</text>
+            </svg>
+          </div>
+          <figcaption>图 3 · 2 主分片 × 1 副本的一种合法放置:同号 P/R 永远不在同一节点(否则副本的高可用就没意义了)。</figcaption>
+        </figure>
+
+        <p>只有一台机器时,R0、R1 无处可放,副本是 <code>UNASSIGNED</code>,集群状态 <strong>Yellow</strong>:主分片都在、能读写,但没有副本可切——实验 4 你会亲眼看到。另外,文档落在哪一片是创建时就定死的:源码 <code>IndexRouting.java</code> 里 <code>hashToShardId()</code> 用 murmur3 哈希后 <code>floorMod(hash, numberOfShards)</code> 取模,除数就是创建时的主分片数(<code>_routing</code> 默认取 <code>_id</code>)。所以<strong>主分片数不能事后改</strong>——<code>hash % 2</code> 和 <code>hash % 3</code> 不是同一个格子,旧文档会找错片;要改只能建新索引再 <code>_reindex</code>。</p>
+
+        <h2>4. ES 与 Lucene 的分工</h2>
+        <p>一句话:<strong>Lucene 是单机搜索库,ES 把它变成分布式搜索系统。</strong> ES 9.4.0 用的 Lucene 是 10.4.0(<code>build-tools-internal/version.properties</code> 与 <code>GET /</code> 的 <code>lucene_version</code> 一致)。</p>
+        <table class="ktable">
+          <tr><th>职责</th><th>Lucene</th><th>Elasticsearch</th></tr>
+          <tr><td>倒排索引的构建与查询</td><td>核心实现</td><td>调用 Lucene</td></tr>
+          <tr><td>文本分词(Analysis)</td><td>分析器框架</td><td>包装并扩展</td></tr>
+          <tr><td>单机搜索</td><td><code>IndexSearcher</code></td><td>封装后再对外</td></tr>
+          <tr><td>分布式 / 分片 / 副本</td><td>不支持</td><td>负责</td></tr>
+          <tr><td>REST API</td><td>不支持</td><td>HTTP 接口</td></tr>
+          <tr><td>集群管理、选主</td><td>不支持</td><td>负责</td></tr>
+        </table>
+        <p>写入:文档先到主分片,再复制到副本(怎么落盘是第 14 课)。搜索:先在各分片找候选,再取回真正要展示的文档(为什么分两阶段是第 16 课)。</p>
+
+        <h2>5. 近实时:GET 和 SEARCH 不是同一件事</h2>
+        <div class="fp-slot" data-flow="ch01-nrt"></div>
+        <p>写入成功 ≠ 已经可被搜索。<strong>GET</strong> 按 <code>_id</code> 取这一篇,写入成功后立刻能拿到(realtime,细节在第 10 课);<strong>SEARCH</strong> 走倒排表,而倒排表要等一次 <strong>refresh</strong> 才把新文档编进去。未改 <code>index.refresh_interval</code> 时默认是 1 秒(<code>IndexSettings.DEFAULT_REFRESH_INTERVAL</code>),但分片若长时间没有搜索会进入 search idle,不再按这个间隔后台 refresh,下一次搜索可能自己触发一次 refresh。所以「最多晚约 1 秒」只在分片仍被搜索、时钟还在走时成立。<code>?refresh=true</code> 能让这条写入立刻可搜,但那是拿写入延迟换可见性,生产路径别滥用。这就是「近实时(Near Real-Time)」的含义。</p>
+      </section>
+
+      <section class="drills">
+        <h2>动手实验</h2>
+        <p>索引名 <code>tut-l01-docs</code>,创建时故意关掉自动 refresh(<code>refresh_interval: -1</code>),否则实验 3 会变成「手慢就搜到了」的竞态。<strong>每个实验都先预测再点运行</strong>。</p>
+
+        <h3>实验 0:建索引</h3>
+        <div class="exp-slot" data-exp="ch01-00-setup"></div>
+
+        <h3>实验 1:看见分词(对应图 2)</h3>
+        <div class="exp-slot" data-exp="ch01-01-analyze-chain"></div>
+        <div class="exp-slot" data-exp="ch01-02-analyze-standard"></div>
+
+        <h3>实验 2:看见分片(对应图 3)</h3>
+        <div class="exp-slot" data-exp="ch01-03-shards"></div>
+        <div class="exp-slot" data-exp="ch01-04-health"></div>
+
+        <h3>实验 3:看见近实时(对应动画)</h3>
+        <div class="exp-slot" data-exp="ch01-05-nrt-put"></div>
+        <div class="exp-slot" data-exp="ch01-06-nrt-get"></div>
+        <div class="exp-slot" data-exp="ch01-07-nrt-search-miss"></div>
+        <div class="exp-slot" data-exp="ch01-08-refresh"></div>
+        <div class="exp-slot" data-exp="ch01-09-nrt-search-hit"></div>
+
+        <h3>清理</h3>
+        <div class="exp-slot" data-exp="ch01-10-cleanup"></div>
+
+        <h2>思考题</h2>
+        <details>
+          <summary>1. 索引里已有数据,把 number_of_shards 从 2 改成 3,旧文档 _id=1 还能 GET 到吗?</summary>
+          <div class="answer">
+            <p>不能(或不可预测)。路由公式 <code>floorMod(hash, numberOfShards)</code> 的除数是创建时定死的;即便设置项允许改,旧文档按 <code>% 3</code> 会算出另一片,GET 会去错误的 shard 上找。要改分片数只能新索引 + <code>_reindex</code>。</p>
+          </div>
+        </details>
+        <details>
+          <summary>2. 倒排擅长「词 → 文档」,那按 price 排序为什么别扭?ES 用什么结构补上?</summary>
+          <div class="answer">
+            <p>排序需要的是「文档 → 字段值」,方向和倒排相反,倒着扫倒排表非常亏。ES 在索引时另建 <strong>Doc Values</strong>(按文档排列的列式存储),专门服务排序和聚合。</p>
+          </div>
+        </details>
+        <details>
+          <summary>3. 为什么默认 1 秒 refresh 一次,而不是每条写入都 refresh?谁在为谁付出延迟?</summary>
+          <div class="answer">
+            <p>refresh 要把刚写入的文档做成可搜索的新视图(segment),有 CPU 和文件成本。默认 1 秒是在写入吞吐和搜索可见性之间折中,而且只在分片没有进入 search idle 时按这个间隔走;若每写一条就 refresh,写入延迟会显著变差。<code>?refresh=true</code> 是把这笔成本转嫁给那一次写入的调用方。</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="pitfalls">
+        <h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 「标准分析器一定会去掉 the」:</span>ES 内置 <code>standard</code> 默认停用词表为空,<code>the</code> 会留在 token 里。要停用词得显式拼 <code>filter: ["lowercase", "stop"]</code>(实验 1 对比)。</div>
+        <div class="callout warn"><span class="co-title">🕳 单节点 Yellow 不是故障:</span>副本分片找不到第二台机器可放,<code>UNASSIGNED</code> 是正常现象;要么加节点,要么把 <code>number_of_replicas</code> 设为 0。</div>
+        <div class="callout warn"><span class="co-title">🕳 搜不到 ≠ 没写进去:</span>先 GET 确认(realtime),再怀疑 refresh。别一搜不到就重复写入。</div>
+      </section>
+
+      <section class="recap">
+        <h2>速记</h2>
+        <table class="ktable">
+          <tr><th>一句话</th><th>内容</th></tr>
+          <tr><td>快的原因</td><td>倒排:查词典,不扫全集</td></tr>
+          <tr><td>分析链</td><td>char filter → tokenizer → token filter;写入与查询同链</td></tr>
+          <tr><td>结构</td><td>Index = N primary + 每片 M replica;同号 P/R 不同节点</td></tr>
+          <tr><td>路由</td><td><code>floorMod(murmur3(_routing), numberOfShards)</code>,除数创建后不可变</td></tr>
+          <tr><td>分工</td><td>Lucene 管单机倒排;ES 管分布式、副本、REST、选主</td></tr>
+          <tr><td>近实时</td><td>GET 立即可见;SEARCH 等 refresh(默认 1s,search idle 时可能停表)</td></tr>
+        </table>
+        <p><strong>心法:凡是「搜」,先想倒排表里有没有这个 token;凡是「没有」,先想 refresh 过没过。</strong></p>
+      </section>
+
+      <footer class="ch-footer">
+        <button class="read-toggle" type="button">标记本课已读</button>
+        <div class="pager">
+          <span class="disabled">← 已是第一课</span>
+          <a href="ch02.html">第 2 课:项目结构全景 →</a>
+        </div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../experiments/ch01.js"></script>
+  <script src="../assets/js/nav.js"></script>
+  <script src="../assets/js/es-client.js"></script>
+  <script src="../assets/js/flow-player.js"></script>
+  <script src="../assets/js/experiments.js"></script>
+  <script src="../assets/js/progress.js"></script>
+</body>
+</html>
