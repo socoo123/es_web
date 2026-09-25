@@ -63,6 +63,21 @@ bash docker/start.sh                        # 本地 ES 9.4.0 @ 127.0.0.1:9200
 bash docker/start-secure.sh                 # 安全节点 @ 127.0.0.1:9201(ch29 用)
 ```
 
+## 部署到 GitHub Pages
+
+本站纯静态、零构建,可直接托管:
+
+1. 仓库 **Settings → Pages**,Source 选 **Deploy from a branch**,分支 `main`、目录 `/(root)`,Save
+2. 约 1 分钟后访问:**https://socoo123.github.io/es_web/**
+
+阅读与实验要分清:
+
+- **阅读**(30 课、架构总览、动画、速查表):托管后完整可用,双主题、进度都在
+- **实验**:页面请求要连你本机的 `localhost:9200`——
+  - docker compose 的 CORS 白名单已包含 Pages 域;改过 compose 后用 `docker compose up -d` 重建容器才生效
+  - 浏览器对「公网页面 → 本机回环」有本地网络权限管控(Chrome/Edge 会弹一次授权;ES 9.4.0 的 `CorsHandler` 不回 PNA 响应头,严格模式的浏览器可能直接拦截)
+  - 被拦时退回本地环境:`open index.html`,实验零阻力
+
 ## 仓库约定
 
 - `es-src/`(453MB 的 v9.4.0 源码参考库)与 `tutorial/`(原始教程)**不入库**,见 `.gitignore`。需要源码对照时自行下载:

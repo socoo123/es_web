@@ -56,6 +56,11 @@
 
 ## 会话日志
 
+### 2026-09-25(GitHub Pages 部署准备)
+- 可部署性结论:纯静态零构建,Pages 完整托管阅读体验;实验连本机 9200 受两层管控——① CORS 白名单需含 Pages 域,② 浏览器本地网络权限(实测 ES 9.4.0 `CorsHandler` 不回 `Access-Control-Allow-Private-Network` 头,严格模式浏览器会拦)。
+- 改动:两份 compose 的 `http.cors.allow-origin` 加入 `https://socoo123.github.io`(需 `docker compose up -d` 重建容器生效,尚未在跑容器上应用);根目录加 `.nojekyll`;README 增「部署到 GitHub Pages」章节(开关步骤 + 实验限制 + 本地兜底)。
+- 开通动作在仓库网页端:Settings → Pages → Deploy from branch → main /(root),本机无 gh CLI 故未代开。
+
 ### 2026-09-25(架构总览页 + README)
 - 新增 `architecture.html`:全景大图(fig-wide 变体,放宽至 1000px)——纵向数据流(客户端→入口层 L06-09→写入路 L13→15→12→11→14 / 搜索路 L10→16→17→18→19/20→汇于 Lucene 底座→集群平面 L21-25)+ 横向六篇行(L01-05 地基、L26-30 横切);**30 课方块全部 SVG `<a>` 可点击直达**。图下:四条走读路线(写一篇/搜一次/集群自愈/系统搭建,含排序理由)+ 源码地图 ktable(19 行,目录与入口类逐一对照本地 es-src 校验:RestController/ActionModule/ThreadPool/TransportService/ShardGetService/MapperService/IngestService/TransportBulkAction/InternalEngine/IndexShard/OperationRouting/SearchService/ClusterState/MasterService/Coordinator/AllocationService/CircuitBreaker/ScriptService/AstBuilder/IndexLifecycleRunner/Security)。
 - 导航:全站 33 页 topbar 统一加「架构」入口(console 的 class="here" 分支单独处理);index CTA 加「看架构总览」按钮。style.css 增 `figure.fig.fig-wide svg` 上限与 `figure.fig a:hover` 描边反馈。

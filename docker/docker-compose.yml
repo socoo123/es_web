@@ -12,8 +12,8 @@ services:
       - xpack.security.enabled=false
       - http.cors.enabled=true
       # 值两侧的引号会原样进镜像生成的 overrides.yml;不加引号时裸 * 会被 YAML 当成 alias。
-      # 正则只放行 localhost / 127.0.0.1 以及 file:// 的 Origin: null。
-      - 'http.cors.allow-origin="/^https?:\\/\\/(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$|^null$/"'
+      # 正则放行 localhost / 127.0.0.1、file:// 的 Origin: null,以及 GitHub Pages 站(实验深链用)。
+      - 'http.cors.allow-origin="/^https?:\\/\\/(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$|^https:\\/\\/socoo123\\.github\\.io$|^null$/"'
       - http.cors.allow-headers=X-Requested-With,Content-Type,Content-Length,Authorization
       - http.cors.allow-methods=OPTIONS,HEAD,GET,POST,PUT,DELETE
       - ES_JAVA_OPTS=-Xms1g -Xmx1g
