@@ -153,6 +153,7 @@
   /* 滚入视口自动播一遍 */
   Player.prototype.watch = function () {
     var self = this;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (!('IntersectionObserver' in window)) return;
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {

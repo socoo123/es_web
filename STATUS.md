@@ -53,8 +53,27 @@
 | ch28 | 课末清理用 `DELETE /tut-l28-*`(通配符) | 默认 **400** `Wildcard expressions or all indices are not allowed`——`action.destructive_requires_name` 默认 true,清理须显式点名;网站将该 400 做成实验(桥接 ch29) | 本地 9.4.0 实测 |
 | ch29 | 暗示 401 只带一个 `WWW-Authenticate: Basic realm="security", charset="UTF-8"` | 9.4.0 实测为**双挑战**:`Basic realm="security", charset="UTF-8"` + `ApiKey` 两个响应头 | 本地 9.4.0(9201)实测 |
 | ch01/02/20 | tutorial 与网页写 Lucene **10.3.2**、JDK **25.0.2+10**、Netty **4.1.130.Final** | Lucene **10.4.0**、bundled JDK **26.0.1+8**(节点 API 显示 `26.0.1`)、Netty **4.1.132.Final**。Jackson 2.15.0 / Log4j 2.19.0 / ANTLR 4.13.1 与 tag 一致,未改 | [v9.4.0 version.properties](https://github.com/elastic/elasticsearch/blob/v9.4.0/build-tools-internal/version.properties) |
+| ch01 | 网页旧文案暗示当前 Lucene 的 StandardAnalyzer 默认去停用词 | ES standard 与 Lucene 10.4.0 无参 StandardAnalyzer 都默认使用空停用词表；显式 stop 才移除 the | [Lucene 10.4.0 StandardAnalyzer](https://github.com/apache/lucene/blob/releases/lucene/10.4.0/lucene/core/src/java/org/apache/lucene/analysis/standard/StandardAnalyzer.java#L50-L53) |
+| ch01 | 网页写改主分片数只能 reindex，思考题推断直接改后 GET 找错片 | _settings 直接改 number_of_shards 会被拒，已有 GET 不受影响；满足条件时可 split/shrink 到目标索引，或 reindex。本章公式限定 9.4.0 新建普通非分区路由索引 | [IndexMetadata](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/IndexMetadata.java#L222-L239)、[IndexRouting](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java#L147-L175) |
+| ch01 | 网页倒排表说明易被理解为默认保存字符 offsets，refresh 默认 1s 被表述为延迟上限 | 默认 text 保存词频和位置、不保存 offsets；高亮可按需存储偏移或重分析。默认刷新间隔是调度周期，不保证可见性时限 | [TextFieldMapper](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/TextFieldMapper.java#L127-L136)、[IndexShard](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L4438-L4464) |
 
 ## 会话日志
+
+### 2026-10-10(第一章内容复查与 GitHub 提交)
+- 补充 ES 的定义与应用场景；改正把关系数据库查询一概视为全扫描、把倒排成本只归因于列表长度的表述。补充单文档原子性与跨文档事务的区别，以及 match / term 的分析行为差异。
+- 依据 v9.4.0 / Lucene 10.4.0 官方源码修正默认停用词、offsets 默认存储、集群定义、主分片设置与 resize、路由公式适用范围、refresh 间隔非延迟上限等结论；正文新增可折叠的源码依据，勘误表登记网页旧说法。
+- 保留 11 个实验操作：显式设置 body 字段 standard；说明 _analyze 不会改变 mapping、acknowledged 与 shards_acknowledged 的区别；健康检查仅针对 tut-l01-docs；补充「清理 → 创建 → 重做」流程，避免旧文档使近实时对照失效；修正实验编号引用。
+- 修复 ESClient.consoleLink 从章节页跳到不存在的 chapters/console.html 的问题，使用脚本位置定位站点根，保留 Pages 子路径、file:// 和深链参数。
+- 三幅 Archify 图从修改后的 JSON 重新生成；原生 validate/deliver/strict check 为 9/9、零错误/警告，file:// browser-check 仍受管理策略阻塞，如实保留失败收据。最终 HTML 哈希对应的独立 HTTP 检查通过：四种桌面尺寸、三图嵌入、主题、暂停重播、节点探索、NRT 步进、390px 布局、reduced motion，以及章节/Pages 前缀下控制台跳转。
+- 本轮仅审阅第一章内容；11 个实验的真实 ES 请求仍未执行，云运行时阻塞原因不变。代码沿用 main 根目录的 Pages 自动部署方式；图源、许可及验证记录随代码提交，详见 .archify/README.md 与 REVIEW.md。
+
+### 2026-10-10(第一章 Archify 交互图解试读)
+- 使用官方 Archify 3.0.1 CLI 从 `.archify/` 内的 JSON 图源生成三幅自包含 HTML：倒排索引(Architecture)、显式分析链(Workflow v2)、双节点分片放置(Architecture)。第一章相对路径嵌入图解，保留 11 个实验和五步近实时播放器；新增图解跳转、节点探索、展开查看、主题同步和重播。仍是零构建、零 CDN，可静态托管到 Pages，尚未发布。
+- 三幅图显式启用 trace 动画，可暂停和重播；系统减少动态效果设置优先。已有 flow-player 在减少动态效果模式下不再自动播放，手动步进保留。
+- 图义修正：standard tokenizer 的输出保留 The / Quick / Brown / FOX，lowercase 随后才小写，stop 再移除 the；速记改为写入与查询 token 对齐，不保证分析链相同。近实时文案改为 refresh 发布新的可搜索视图，不与持久化提交/flush 混同。
+- 检查：站点 `check.mjs` 通过；三幅 Archify validate/deliver/strict check 均 9/9 showcase、零错误/警告。Archify 原生 browser-check 因云浏览器策略禁止 file:// 报 ERR_BLOCKED_BY_ADMINISTRATOR，保持真实失败记录，未修改策略。
+- 独立 HTTP Chromium 检查通过：三图 × 四种桌面宽度无横向溢出，三 iframe 初始化、深浅主题同步、暂停后重播、节点探索/关闭、NRT 步进、390px 整页包含、减少动态效果。实际查看了整页嵌入图截图。原生 browser-check 失败与 HTTP 检查通过分别记录，后者不替代前者。
+- 真实 ES 请求本轮未跑(当前云运行时缺少 ES 9.4.0 必需的 /proc/self/coredump_filter)。阅读、图解和动画不依赖 ES。
 
 ### 2026-09-25(GitHub Pages 上线 ✅)
 - 本机装了 gh CLI 2.95.0(brew),用户已 `gh auth login`(socoo123)。API 查 Pages 已开通(用户网页端点过):main /(root),status=**built**。

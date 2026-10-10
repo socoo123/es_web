@@ -7,10 +7,10 @@
   var SUBS = ['PUT _doc/1', 'GET _doc/1', 'match: brown', 'POST _refresh', 'match: brown'];
   var RESULTS = ['201 Created', 'found: true', 'hits.total: 0', '新 segment', 'hits.total: 1'];
   var NOTES = [
-    '文档写入成功:进了 translog 和内存 buffer,但还没编进倒排表。',
+    '文档写入成功:进了 translog 和内存 buffer,但还没进入当前可搜索视图。',
     'GET 是 realtime:按 _id 直接定位这一篇,写完立刻拿得到。',
-    'SEARCH 走倒排表:新文档还没被编进去,brown 查不到——写入成功 ≠ 可搜索。',
-    'refresh 把内存 buffer 变成一个新的可搜索 segment(注意:不是落盘,落盘是 flush)。',
+    'SEARCH 走倒排表:新文档尚未对当前搜索视图可见,brown 查不到——写入成功 ≠ 可搜索。',
+    'refresh 让新的 segment 对搜索可见，发布新的可搜索视图。它不等于持久化提交，不能与 flush 混为一谈。',
     '倒排表里现在有 brown → Doc1 了。未改 refresh_interval 且分片仍被搜索时约每 1 秒 refresh;进入 search idle 后这只钟会停。'
   ];
 
@@ -68,10 +68,13 @@
         number_of_shards: 2,
         number_of_replicas: 1,
         refresh_interval: -1
+      },
+      mappings: {
+        properties: { body: { type: 'text', analyzer: 'standard' } }
       }
     },
-    predict: '为什么 refresh_interval 要设 -1?不关的话,实验 3 的「搜不到」窗口只有 1 秒,会变成手慢就搜到了。',
-    expect: 'acknowledged: true。这一步只是建壳:分片就位,还没有任何文档。'
+    predict: '为什么 refresh_interval 要设 -1?不关闭周期性 refresh，下一次刷新可能很快发生，实验 3 会变成「手慢就搜到了」的竞态。',
+    expect: 'acknowledged: true 表示索引创建变更已确认；shards_acknowledged 表示所要求的活跃分片条件已达到，默认只需主分片。它不保证副本已分配。这里还没有文档，body 字段显式用 standard。'
   };
   window.ESEXPERIMENTS['ch01-01-analyze-chain'] = {
     version: 1, id: 'ch01-01-analyze-chain',
@@ -83,7 +86,7 @@
       text: 'The Quick Brown FOX'
     },
     predict: '先猜:"The Quick Brown FOX" 走完这条链,留下哪些 token?the 还在吗?',
-    expect: '留下 quick、brown、fox 三个 token——和图 2 一致。'
+    expect: '留下 quick、brown、fox 三个 token，和图 2 一致。这是本次请求的分析结果，不会更改 body 字段的 analyzer。'
   };
   window.ESEXPERIMENTS['ch01-02-analyze-standard'] = {
     version: 1, id: 'ch01-02-analyze-standard',
@@ -94,7 +97,7 @@
       text: 'The Quick Brown FOX'
     },
     predict: '同样一句话,只写 analyzer: standard,the 会被去掉吗?',
-    expect: 'the 还在!ES 内置 standard 的默认停用词表是空的(StandardAnalyzerProvider 里是 EMPTY_SET)。谁说一定会去 the,谁就是把 Lucene 的 StandardAnalyzer 和 ES 的 standard 弄混了。'
+    expect: '得到 the、quick、brown、fox。ES 内置 standard 默认停用词表为空，当前 Lucene 10.4.0 无参 StandardAnalyzer() 也是如此；显式加 stop 才会移除 the。'
   };
   window.ESEXPERIMENTS['ch01-03-shards'] = {
     version: 1, id: 'ch01-03-shards',
@@ -105,10 +108,10 @@
   };
   window.ESEXPERIMENTS['ch01-04-health'] = {
     version: 1, id: 'ch01-04-health',
-    title: '实验 2b · 集群健康(Yellow 的由来)',
-    method: 'GET', path: '/_cluster/health?v',
-    predict: '主分片全在、副本没处放:status 是 green 还是 yellow?',
-    expect: 'yellow。green=主副本全就位;red=有主分片都丢了。单节点带副本,只能是 yellow——这是结构问题,不是故障。'
+    title: '实验 2b · 本索引健康(Yellow 的由来)',
+    method: 'GET', path: '/_cluster/health/tut-l01-docs',
+    predict: '单个数据节点、主分片已启动、副本没处放:本索引 status 是 green 还是 yellow?',
+    expect: 'yellow：主分片已分配，仍有副本未分配。green 表示全部分片已分配，red 表示至少一个主分片未分配。这里仅检查本索引，不会被其他索引的健康状态干扰；多节点时可能为 green。'
   };
   window.ESEXPERIMENTS['ch01-05-nrt-put'] = {
     version: 1, id: 'ch01-05-nrt-put',
@@ -116,7 +119,7 @@
     method: 'PUT', path: '/tut-l01-docs/_doc/1',
     body: { body: 'The Quick Brown FOX' },
     predict: '写入会成功吗?result 字段是 created 还是 updated?',
-    expect: 'result: created。文档进了 translog 和内存 buffer,但索引 refresh_interval=-1,倒排表不会自动更新。'
+    expect: '新建空索引中首次写入时 result: created；不自动 refresh，所以搜索视图尚不可见。若显示 updated，说明不是第一次写入；请清理并重建索引后重做实验 3。'
   };
   window.ESEXPERIMENTS['ch01-06-nrt-get'] = {
     version: 1, id: 'ch01-06-nrt-get',
@@ -138,7 +141,7 @@
     title: '实验 3 · 第 4 步:手动 refresh',
     method: 'POST', path: '/tut-l01-docs/_refresh',
     predict: '_refresh 会把什么变成什么?',
-    expect: '把内存 buffer 里的文档生成新的可搜索 segment。_shards 里每个分片各成功一次。'
+    expect: '让新的 segment 对搜索可见，发布新的可搜索视图；并非持久化提交。检查 _shards.failed 是否为 0，未分配的副本不会参与这次刷新。'
   };
   window.ESEXPERIMENTS['ch01-09-nrt-search-hit'] = {
     version: 1, id: 'ch01-09-nrt-search-hit',
@@ -153,6 +156,6 @@
     title: '清理 · 删除实验索引',
     method: 'DELETE', path: '/tut-l01-docs',
     predict: '删索引会连带删掉什么?',
-    expect: 'acknowledged: true。索引及其所有分片数据(包括 translog 与 segment)一并删除,不可恢复。'
+    expect: 'acknowledged: true。本章实验索引及其分片数据被删除，不能靠 refresh 恢复。若索引已不存在则返回 404；重做时可继续实验 0。'
   };
 })();

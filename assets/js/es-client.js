@@ -18,6 +18,8 @@
   var LS_ENDPOINT = 'es-web:endpoint';
   var LS_AUTH = 'es-web:auth';
   var DEFAULT_ENDPOINT = 'http://localhost:9200';
+  /* 从脚本位置定位站点根,兼容 chapters/、Pages 子路径和 file://。 */
+  var CONSOLE_URL = new URL('../../console.html', document.currentScript.src).href;
   /* 学习机口令只在内存里按别名解析,深链不携带明文 */
   var LAB_AUTH = {
     anon: '',
@@ -192,7 +194,7 @@
     if (opts.allowInvalid) q.push('raw=1');
     var hash = '#run=' + encodeURIComponent(method) + '|' +
       encodeURIComponent(path) + '|' + encodeURIComponent(body || '');
-    return 'console.html' + (q.length ? '?' + q.join('&') : '') + hash;
+    return CONSOLE_URL + (q.length ? '?' + q.join('&') : '') + hash;
   }
 
   window.ESClient = {

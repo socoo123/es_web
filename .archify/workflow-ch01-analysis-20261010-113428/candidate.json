@@ -1,0 +1,168 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "第一章 · 文本如何变成 token",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "文本分析阶段"
+        },
+        "external": {
+          "label": "输入文本"
+        }
+      }
+    },
+    "output": ".archify/workflow-ch01-analysis-20261010-113428/analysis-chain.html"
+  },
+  "lanes": [
+    {
+      "id": "analysis",
+      "label": "显式分析链 · 每一步保留自己的职责"
+    }
+  ],
+  "mainPath": [
+    "source-text",
+    "standard-split",
+    "lowercase-filter",
+    "stop-filter"
+  ],
+  "semanticChecks": {
+    "allowedRoots": [
+      "source-text"
+    ],
+    "allowedTerminals": [
+      "stop-filter"
+    ],
+    "requiredEdges": [
+      {
+        "from": "source-text",
+        "to": "standard-split"
+      },
+      {
+        "from": "standard-split",
+        "to": "lowercase-filter"
+      },
+      {
+        "from": "lowercase-filter",
+        "to": "stop-filter"
+      }
+    ],
+    "requiredPaths": [
+      {
+        "from": "source-text",
+        "to": "stop-filter"
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "source-text",
+      "lane": "analysis",
+      "col": 1,
+      "type": "external",
+      "label": "The Quick Brown FOX",
+      "sublabel": "原文 · 大小写仍然保留",
+      "width": 290,
+      "height": 66,
+      "yOffset": -174
+    },
+    {
+      "id": "standard-split",
+      "lane": "analysis",
+      "col": 1,
+      "type": "backend",
+      "label": "① standard tokenizer",
+      "sublabel": "The / Quick / Brown / FOX",
+      "tag": "只切词 · 不负责小写",
+      "width": 290,
+      "height": 80,
+      "yOffset": -58
+    },
+    {
+      "id": "lowercase-filter",
+      "lane": "analysis",
+      "col": 1,
+      "type": "backend",
+      "label": "② lowercase",
+      "sublabel": "the / quick / brown / fox",
+      "tag": "转为小写 · the 仍然存在",
+      "width": 290,
+      "height": 80,
+      "yOffset": 58
+    },
+    {
+      "id": "stop-filter",
+      "lane": "analysis",
+      "col": 1,
+      "type": "backend",
+      "label": "③ stop",
+      "sublabel": "quick / brown / fox",
+      "tag": "显式移除停用词 the · 最终 token",
+      "width": 290,
+      "height": 80,
+      "yOffset": 174
+    }
+  ],
+  "edges": [
+    {
+      "id": "split-words",
+      "from": "source-text",
+      "to": "standard-split",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "label": "切词",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "normalize-case",
+      "from": "standard-split",
+      "to": "lowercase-filter",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "label": "小写",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "remove-stopword",
+      "from": "lowercase-filter",
+      "to": "stop-filter",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "label": "停用词过滤",
+      "role": "main",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "切词与小写是两件事",
+      "items": [
+        "standard tokenizer 只切分词元；The、Quick、Brown、FOX 的大小写在这一步不变。",
+        "lowercase 随后把它们归一化为 the、quick、brown、fox。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "显式 stop，不等于内置 standard",
+      "items": [
+        "本例显式设置 filter: [lowercase, stop]，因此最终去掉 the。",
+        "Elasticsearch 内置 standard 分析器默认不去停用词，the 会保留。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "FOX 为什么能命中 fox？",
+      "items": [
+        "match 查询 FOX 经含 lowercase 的分析器得到 fox，与索引中的 fox 对齐。",
+        "字段可以配置不同的 search_analyzer；关键是 token 对齐，不保证写入与查询分析链相同。"
+      ]
+    }
+  ]
+}

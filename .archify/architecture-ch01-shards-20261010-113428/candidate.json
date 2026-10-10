@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "分片放置：主副本分居两个节点",
+    "locale": "zh-CN",
+    "output": ".archify/architecture-ch01-shards-20261010-113428/shard-placement.html",
+    "quality_profile": "showcase",
+    "animation": "trace"
+  },
+  "components": [
+    {
+      "id": "logical-index",
+      "type": "cloud",
+      "label": "逻辑索引 tut-l01-docs",
+      "sublabel": "2 个主片 · 每片 1 个副本",
+      "icon": "none",
+      "pos": [
+        400,
+        40
+      ],
+      "size": [
+        270,
+        80
+      ]
+    },
+    {
+      "id": "primary-0",
+      "type": "database",
+      "label": "P0 · 分片 0 主片",
+      "sublabel": "独立 Lucene 索引",
+      "tag": "PRIMARY",
+      "pos": [
+        100,
+        270
+      ],
+      "size": [
+        230,
+        85
+      ]
+    },
+    {
+      "id": "replica-0",
+      "type": "database",
+      "label": "R0 · 分片 0 副本",
+      "sublabel": "P0 的冗余副本",
+      "tag": "REPLICA",
+      "pos": [
+        700,
+        270
+      ],
+      "size": [
+        230,
+        85
+      ]
+    },
+    {
+      "id": "replica-1",
+      "type": "database",
+      "label": "R1 · 分片 1 副本",
+      "sublabel": "P1 的冗余副本",
+      "tag": "REPLICA",
+      "pos": [
+        100,
+        540
+      ],
+      "size": [
+        230,
+        85
+      ]
+    },
+    {
+      "id": "primary-1",
+      "type": "database",
+      "label": "P1 · 分片 1 主片",
+      "sublabel": "独立 Lucene 索引",
+      "tag": "PRIMARY",
+      "pos": [
+        700,
+        540
+      ],
+      "size": [
+        230,
+        85
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "n1 · 独立 Elasticsearch 进程",
+      "wraps": [
+        "primary-0",
+        "replica-1"
+      ],
+      "pad": 38
+    },
+    {
+      "kind": "region",
+      "label": "n2 · 独立 Elasticsearch 进程",
+      "wraps": [
+        "replica-0",
+        "primary-1"
+      ],
+      "pad": 38
+    }
+  ],
+  "connections": [
+    {
+      "id": "index-primary-0",
+      "from": "logical-index",
+      "to": "primary-0",
+      "label": "主片 0",
+      "variant": "default",
+      "fromSide": "left",
+      "toSide": "top"
+    },
+    {
+      "id": "index-primary-1",
+      "from": "logical-index",
+      "to": "primary-1",
+      "label": "主片 1",
+      "variant": "default",
+      "fromSide": "right",
+      "toSide": "right"
+    },
+    {
+      "id": "replicate-shard-0",
+      "from": "primary-0",
+      "to": "replica-0",
+      "label": "复制分片 0",
+      "variant": "emphasis"
+    },
+    {
+      "id": "replicate-shard-1",
+      "from": "primary-1",
+      "to": "replica-1",
+      "label": "复制分片 1",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "先分片，再放置",
+      "items": [
+        "逻辑索引把文档分到 2 个主片，主片数量在创建索引时配置。",
+        "每个分片都是一个独立的 Lucene 索引；副本是同一分片的复制。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "同号主副本必须跨节点",
+      "items": [
+        "P0 与 R0 不能放在同一节点，P1 与 R1 也一样。",
+        "图中有 2 个主片和 2 个副本，共 4 份分片数据，分布在两个独立 ES 进程内。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "只有一个节点时",
+      "items": [
+        "副本没有第二个数据节点可放，会处于 UNASSIGNED；主片均已分配时，本索引为 Yellow。",
+        "只要所有主片已分配，索引仍可读写；冗余尚未就绪。"
+      ]
+    }
+  ]
+}

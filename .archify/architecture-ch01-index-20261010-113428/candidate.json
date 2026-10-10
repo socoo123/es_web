@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "倒排索引：从 brown 找到文档",
+    "locale": "zh-CN",
+    "output": ".archify/architecture-ch01-index-20261010-113428/inverted-index.html",
+    "quality_profile": "showcase",
+    "animation": "trace"
+  },
+  "components": [
+    {
+      "id": "source-doc1",
+      "type": "database",
+      "label": "Doc1",
+      "sublabel": "the quick brown fox",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        220,
+        78
+      ]
+    },
+    {
+      "id": "source-doc2",
+      "type": "database",
+      "label": "Doc2",
+      "sublabel": "the quick blue rabbit",
+      "pos": [
+        340,
+        40
+      ],
+      "size": [
+        220,
+        78
+      ]
+    },
+    {
+      "id": "source-doc3",
+      "type": "database",
+      "label": "Doc3",
+      "sublabel": "the brown lazy dog",
+      "pos": [
+        640,
+        40
+      ],
+      "size": [
+        220,
+        78
+      ]
+    },
+    {
+      "id": "build-index",
+      "type": "backend",
+      "label": "预先构建倒排索引",
+      "sublabel": "整理每个词出现在哪些文档",
+      "pos": [
+        340,
+        225
+      ],
+      "size": [
+        220,
+        78
+      ]
+    },
+    {
+      "id": "query-brown",
+      "type": "external",
+      "label": "查询 brown",
+      "sublabel": "从词出发找文档",
+      "pos": [
+        40,
+        420
+      ],
+      "size": [
+        180,
+        78
+      ]
+    },
+    {
+      "id": "term-dictionary",
+      "type": "database",
+      "label": "词典中的 brown",
+      "sublabel": "定位这个词的倒排表",
+      "pos": [
+        340,
+        420
+      ],
+      "size": [
+        220,
+        78
+      ]
+    },
+    {
+      "id": "brown-postings",
+      "type": "database",
+      "label": "Posting 列表 [1, 3]",
+      "sublabel": "brown 出现在 Doc1、Doc3",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        240,
+        78
+      ]
+    },
+    {
+      "id": "matched-documents",
+      "type": "frontend",
+      "label": "命中 Doc1 / Doc3",
+      "sublabel": "Doc2 没有 brown，不命中",
+      "pos": [
+        700,
+        615
+      ],
+      "size": [
+        240,
+        78
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "index-doc1",
+      "from": "source-doc1",
+      "to": "build-index",
+      "label": "提取词",
+      "variant": "dashed"
+    },
+    {
+      "id": "index-doc2",
+      "from": "source-doc2",
+      "to": "build-index",
+      "label": "提取词",
+      "variant": "dashed"
+    },
+    {
+      "id": "index-doc3",
+      "from": "source-doc3",
+      "to": "build-index",
+      "label": "提取词",
+      "variant": "dashed"
+    },
+    {
+      "id": "store-term-map",
+      "from": "build-index",
+      "to": "term-dictionary",
+      "label": "词 → 文档",
+      "variant": "dashed"
+    },
+    {
+      "id": "look-up-brown",
+      "from": "query-brown",
+      "to": "term-dictionary",
+      "label": "查词典",
+      "variant": "emphasis"
+    },
+    {
+      "id": "read-brown-postings",
+      "from": "term-dictionary",
+      "to": "brown-postings",
+      "label": "读取倒排表",
+      "variant": "emphasis"
+    },
+    {
+      "id": "resolve-matches",
+      "from": "brown-postings",
+      "to": "matched-documents",
+      "label": "得到命中文档",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "把查找方向反过来",
+      "items": [
+        "逐篇扫描：依次读 Doc1、Doc2、Doc3，判断是否包含 brown。",
+        "倒排查询：先查 brown，再读取 [1, 3]；无需逐篇匹配原文。",
+        "本图是教程概念示例，省略分片、段与评分细节。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "评分与定位会用到什么",
+      "items": [
+        "TF：词在单篇文档出现几次；示例中 brown 在 Doc1 和 Doc3 各 1 次。",
+        "DF：词出现于多少篇文档；brown 的 DF = 2。",
+        "Position：词的位置，短语查询需要；是否记录取决于字段设置。",
+        "Offset：字符偏移，可用于高亮；默认 text 倒排不保存，需按需配置。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "快在哪，取决于什么",
+      "items": [
+        "核心收益是按词定位候选文档，避免逐篇全文扫描。",
+        "耗时还与倒排表长度、分片数、段数和查询内容有关。",
+        "此示例不承诺恒定耗时；点击节点可查看其连接。"
+      ]
+    }
+  ]
+}
