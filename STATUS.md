@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|
 | ch01 | Elasticsearch 是什么 | ✅ | 11 | 1(近实时) | ✅ 第一章基线 |
 | ch02 | 项目结构全景 | ✅ | 2 | — | ✅ 源码导航（2 图） |
-| ch03 | 节点启动全流程 | ✅ | 2 | 1(启动时序) | 待改造 |
+| ch03 | 节点启动全流程 | ✅ | 2 | 1(启动八步) | ✅ 启动与生命周期（2 图） |
 | ch04 | 插件体系 | ✅ | 2 | — | 待改造 |
 | ch05 | 配置框架 | ✅ | 8 | — | 待改造 |
 | ch06 | 请求入口层 | ✅ | 10 | — | 待改造 |
@@ -65,7 +65,20 @@
 | ch02 | SearchPhaseController 放在 search/；放任意 build.gradle 即自动发现项目 | 控制器在 action/search/；addSubProjects 只扫描指定入口，每层需 build.gradle，并有停止和排除条件 | [SearchPhaseController](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java#L71)、[settings.gradle](https://github.com/elastic/elasticsearch/blob/v9.4.0/settings.gradle#L128-L167) |
 | ch02 | 角色与 JDK 实验预期未注明可配置条件，暗示整个 API 不带构建号 | 角色与 JVM 随配置/环境变化；jvm.version 是 java.version，vm_version 可返回完整 JVM 版本，using_bundled_jdk 标识是否使用捆绑 JVM | [JvmInfo](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/monitor/jvm/JvmInfo.java#L408-L415) |
 
+| ch03 | server-cli 直接 fork 服务器并写 stdin | 9.4.0 由 ServerLauncher 启动 preparer 与 server；ServerCli 生成 LaunchDescriptor，launcher 把 ServerArgs 写进服务器 stdin 并等待 stderr READY | [ServerLauncher](https://github.com/elastic/elasticsearch/blob/v9.4.0/distribution/tools/server-launcher/src/main/java/org/elasticsearch/server/launcher/ServerLauncher.java#L54-L77)、[startServer](https://github.com/elastic/elasticsearch/blob/v9.4.0/distribution/tools/server-launcher/src/main/java/org/elasticsearch/server/launcher/ServerLauncher.java#L269-L325) |
+| ch03 | HTTP 打开说明已入群；HTTP 是绝对最后一步，与 READY 同时 | 初始等待默认 30s，超时告警继续、0 跳过；HTTP 后仍有可选 readiness、端口文件及插件回调，启动返回后入口才发送 READY；不能替代集群健康判断 | [Node.start](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/Node.java#L374-L452)、[initPhase3](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java#L436-L446) |
+| ch03 | localhost / single-node 下所有检查失败只 WARN；只看绑定地址 | 自动强制同时看 Transport bind/publish、snapshot 和发现模式；显式 es.enforce.bootstrap.checks=true 与单项 alwaysEnforce 可另行强制 | [BootstrapChecks](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/bootstrap/BootstrapChecks.java#L113-L197) |
+| ch03 | 三态简写、省略 STOPPED；关闭严格逆序、HTTP 必定第一停；CLOSED 等于锁已释放 | 保留四标志与 INITIALIZED 直接 close 分支；STARTED / STOPPED / CLOSED 先变再执行动作。HTTP 较早停，前面仍有其他组件；NodeEnvironment 在 close 后段实际释放锁 | [Lifecycle](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/component/Lifecycle.java#L103-L173)、[Node 清理](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/Node.java#L462-L629) |
+| ch03 | CAT http 是 bind 地址；mlockall=false 就是未配置内存锁 | CAT http 取 HTTP publishAddress；mlockall 报实际锁定结果，false 不能单独反推配置，PID 还可能属于容器命名空间 | [CAT nodes](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/cat/RestNodesAction.java#L373-L380)、[ProcessProbe](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/monitor/process/ProcessProbe.java#L122-L124) |
+
 ## 会话日志
+
+### 2026-10-10(第三章按统一规范重写)
+- 按“进程入口 → 构造锁盘 → 启动门禁 → 检查条件 → 生命周期”重写第三章，补齐 v9.4.0 的 ServerLauncher / preparer 关系、初始入群等待超时、显式强制检查与 alwaysEnforce、状态标志先变及关闭后处理等边界。
+- 新增 Archify Sequence 启动时序与 Lifecycle v2 状态图，均带有限 trace、固定源码提交与真实 checkout 核验；复用共用主题/重播控制和 880px 阅读列。时序图采用 spread 列布局；生命周期按两列三行排布，修复初版手机裁切。
+- 保留两个稳定实验 ID，校正 publishAddress、实际内存锁状态与 PID 命名空间解释，说明只读重复与观测范围；保留 ch03-boot ID，将旧六步快照更新为八步并改为每行两段文字，消除并排长文本挤压。增加源码检索任务和五道折叠思考题。
+- 原生 validate / deliver / strict check 均通过 showcase 9/9、零错误/警告；file:// browser-check 因 ERR_BLOCKED_BY_ADMINISTRATOR 失败，finalize 整体保留失败。云端 127.0.0.1:9200 无连接，两个真实 ES 请求未执行；源码校验不能代替 API 实测。
+- 独立 HTTP Chromium 验收通过：两图各四种桌面尺寸 / 双主题，第三章六种宽度 / 双主题，边界差 ≤1px、阅读列 ≤880px、页面/iframe 无横向溢出；节点探索/关闭及源码链接、暂停后重播、键盘、展开、主题、目录/进度、实验深链与 Pages 前缀正常。减少动态效果优先，八步手动动画及 SVG 文字范围通过。实际查看独立、嵌入、浅深、手机和逐步动画截图；收据与哈希见 .archify/CH03-REVIEW.md。站点结构与修改的 JS 语法检查通过。
 
 ### 2026-10-10(第二章按统一规范重构)
 - 以“源码区域 → GET 定位 → 发布与构建”重排第二章，保留两张只读 HTTP 卡及稳定 ID；增加可折叠课内目录、源码检索任务、四道思考题与固定 v9.4.0 文件/方法链接。

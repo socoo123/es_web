@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>第 3 课:节点启动全流程 — ES 源码精读站</title>
   <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
 </head>
-<body>
+<body class="chapter-visual-page">
   <header class="topbar">
     <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
     <nav class="tnav">
@@ -18,186 +19,170 @@
     <button class="theme-toggle" type="button">🌙 深色</button>
   </header>
 
-  <main class="wrap">
+  <main class="wrap chapter-visual">
     <article class="chapter" id="ch03" data-ch="ch03">
       <header class="ch-header">
         <div class="ch-kicker">LESSON 03 · 第一篇 · 全局认知</div>
+        <div class="visual-badge">ARCHIFY · 启动与生命周期</div>
         <h1>节点启动全流程</h1>
-        <div class="ch-meta-line">从 main() 到 ready · 约 14 分钟 · 前置:第 2 课 · 2 个实验 · 1 个动画</div>
+        <div class="ch-meta-line">从启动器到对外服务 · 约 18 分钟 · 前置:第 2 课 · 2 个只读 HTTP 操作 · 2 幅交互图（均含路径动效）· 1 个逐步机制动画</div>
+        <p class="ch-intro">节点启动不是把 9200 端口打开就结束。它先接收配置、取得数据目录锁，再启动通信、检查运行条件并发起入群。本课沿着这些副作用读代码，同时区分“HTTP 可访问”“启动方法返回”和“集群健康”。</p>
+        <nav class="diagram-jumps" aria-label="本章图解">
+          <a href="#fig-startup"><span>01</span>启动时序</a><a href="#boot-steps"><span>02</span>逐步走读</a><a href="#fig-node-lifecycle"><span>03</span>生命周期</a>
+        </nav>
+        <details class="chapter-outline"><summary>本课目录</summary><nav aria-label="本课目录">
+          <a href="#goals">学习目标</a><a href="#entry">1. 谁启动服务器</a><a href="#construction">2. 构造与数据目录锁</a>
+          <a href="#start-order">3. Node.start 的门禁</a><a href="#checks">4. 检查何时强制</a><a href="#lifecycle">5. 状态与清理</a>
+          <a href="#practice">实验与源码任务</a><a href="#questions">思考题</a><a href="#pitfalls">陷阱</a><a href="#recap">速记</a>
+        </nav></details>
       </header>
 
       <section class="goal">
-        <h2>学习目标</h2>
+        <h2 id="goals">学习目标</h2>
         <ul>
-          <li>说出启动四站(加载插件 → 锁数据目录 → 加入集群 → 打开 HTTP)各自对世界做了什么。</li>
-          <li>解释为什么 <code>HttpServerTransport</code> 必须是 <code>Node.start()</code> 里最后启动的服务。</li>
-          <li>说出两个进程指向同一 <code>path.data</code> 时,谁在哪个阶段失败、为什么走不到绑端口。</li>
+          <li>从 <code>ServerLauncher.run()</code> 找到准备器与服务器两个子进程，追踪 <code>ServerArgs</code> 的 stdin 输入和 READY 的 stderr 通知。</li>
+          <li>在 <code>Node.start()</code> 中定位目录元数据、启动检查、入群等待与 HTTP 的顺序，并解释超时后继续启动的条件。</li>
+          <li>根据 <code>Lifecycle</code> 和 <code>Node.close()</code> 区分状态标志与资源释放，判断同一数据目录为何不能同时运行两个节点。</li>
         </ul>
       </section>
 
       <section class="lesson">
-        <h2>1. 心智模型:四站,不是一张类名网</h2>
-        <p>类名是车站,要记的是每站<strong>对世界做了什么</strong>。客户端能打到 9200 时,插件已加载、<code>node.lock</code> 已拿到、节点已在加入(或组成)集群——HTTP 是最后一扇门,不是第一扇。</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 160" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah03a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="10" y="35" width="160" height="78" rx="9" class="fig-box-hot"/>
-              <text x="90" y="56" text-anchor="middle" class="fig-name">① 加载插件</text>
-              <text x="90" y="78" text-anchor="middle" class="fig-sub">PluginsLoader</text>
-              <text x="90" y="97" text-anchor="middle" class="fig-sub">(Phase 2)</text>
-              <line x1="170" y1="74" x2="198" y2="74" class="fig-arrow" marker-end="url(#ah03a)"/>
-              <rect x="202" y="35" width="160" height="78" rx="9" class="fig-box-hot"/>
-              <text x="282" y="56" text-anchor="middle" class="fig-name">② 锁数据目录</text>
-              <text x="282" y="78" text-anchor="middle" class="fig-sub">NodeEnvironment</text>
-              <text x="282" y="97" text-anchor="middle" class="fig-sub">拿到 node.lock</text>
-              <line x1="362" y1="74" x2="390" y2="74" class="fig-arrow" marker-end="url(#ah03a)"/>
-              <rect x="394" y="35" width="160" height="78" rx="9" class="fig-box-hot"/>
-              <text x="474" y="56" text-anchor="middle" class="fig-name">③ 加入集群</text>
-              <text x="474" y="78" text-anchor="middle" class="fig-sub">Coordinator</text>
-              <text x="474" y="97" text-anchor="middle" class="fig-sub">startInitialJoin()</text>
-              <line x1="554" y1="74" x2="582" y2="74" class="fig-arrow" marker-end="url(#ah03a)"/>
-              <rect x="586" y="35" width="164" height="78" rx="9" class="fig-box"/>
-              <text x="668" y="56" text-anchor="middle" class="fig-name">④ 打开 HTTP</text>
-              <text x="668" y="78" text-anchor="middle" class="fig-sub">HttpServerTransport</text>
-              <text x="668" y="97" text-anchor="middle" class="fig-sub">.start() 绑 9200</text>
-              <text x="380" y="140" text-anchor="middle" class="fig-sub">四站对应的关键类:Bootstrap(袋子)/ NodeEnvironment / Node.start() 里的调用顺序</text>
-            </svg>
+        <h2 id="entry">1. 谁启动服务器：先分清进程，再找 main</h2>
+        <p>本课锚定 <strong>Elasticsearch 9.4.0 / Lucene 10.4.0</strong> 的普通节点启动路径。9.4.0 的启动脚本先进入 <code>ServerLauncher</code>：启动准备器 <code>server-cli</code>，读取它生成的 <code>LaunchDescriptor</code>，再创建服务器 JVM。准备器负责配置、安全设置与 JVM 参数等准备工作；启动器负责进程创建、参数管道和启动结果监视。</p>
+        <p>服务器入口是 <code>org.elasticsearch.bootstrap.Elasticsearch.main()</code>。这里不重新解析用户的 <code>-E</code> 参数；<code>initPhase1()</code> 从 <code>System.in</code> 反序列化 <code>ServerArgs</code>。READY 走另一条通道：服务器向 stderr 写特殊标记，启动器的 <code>ErrorPumpThread</code> 等待它。<strong>stdin 是启动参数及后续关闭通知通道，stderr 承载日志和启动标记。</strong></p>
+        <figure class="fig archify-figure" id="fig-startup">
+          <div class="archify-shell">
+            <div class="archify-tools"><span class="archify-label">01 · 进程与节点启动时序</span><div class="archify-actions">
+              <button type="button" data-replay-diagram="diagram-startup">↻ 重新播放</button>
+              <a href="../.archify/sequence-ch03-startup-20261010-165543/startup.html" target="_blank" rel="noopener">展开图解 ↗</a>
+            </div></div>
+            <iframe class="archify-frame" id="diagram-startup" title="9.4.0 启动器、准备器、服务器与 Node 的正常启动时序" loading="lazy" src="../.archify/sequence-ch03-startup-20261010-165543/startup.html?theme=light&amp;present=1" style="--diagram-height: 1060px; --diagram-mobile-height: 650px;"></iframe>
           </div>
-          <figcaption>图 1 · 启动 = 四个副作用。注意 <code>Bootstrap</code> 不是阶段执行器,是装着 ServerArgs、Environment、已加载 PluginsLoader 的临时袋子。</figcaption>
+          <figcaption>图 1 · 从上向下读调用顺序；返回箭头表示结果通知。Node 是服务器 JVM 内的对象，“内部组件”聚合其调用目标。省略完整服务装配、失败清理与关机中断；入群等待超时后仍可继续打开 HTTP。<span class="figure-tip">点击节点查看关系与源码；可暂停、重播或展开图解。手机上可展开后放大阅读。</span></figcaption>
         </figure>
-
-        <h2>2. 真正的 main:argv 是空的,参数在 stdin</h2>
-        <p>JVM 入口是 <code>org.elasticsearch.bootstrap.Elasticsearch</code>。<code>main</code> 很短,分三个阶段:</p>
-        <pre class="code-block"><code>public static void main(final String[] args) {
-    Bootstrap bootstrap = initPhase1();
-    try {
-        initPhase2(bootstrap);
-        initPhase3(bootstrap);
-    } catch (NodeValidationException e) { bootstrap.exitWithNodeValidationException(e); }
-    catch (Throwable t) { bootstrap.exitWithUnknownException(t); }
-}</code></pre>
-        <p><code>String[] args</code> 几乎用不上:脚本/<code>server-cli</code> 先解析 <code>-E</code>、配置路径、keystore,再 fork 服务器进程,把解析好的 <code>ServerArgs</code> 写进子进程的 <strong>stdin</strong>。IDE 里搜 main 别被 <code>CliToolLauncher</code>、<code>JarHell</code>、<code>Version</code> 这些工具入口带走。</p>
         <table class="ktable">
-          <tr><th>阶段</th><th>约束</th><th>原因</th></tr>
-          <tr><td>Phase 1</td><td>不能用 logger</td><td>日志系统未 configure,失败只能打 stderr;日志必须是本阶段<strong>最后一步</strong></td></tr>
-          <tr><td>Phase 2</td><td>不能 new Node</td><td>沙箱、JarHell、插件层未就绪;这里加载 modules/plugins、禁 root、试 mlockall</td></tr>
-          <tr><td>Phase 3</td><td>可以构造并启动</td><td>checkLucene → new Node → start() → 给 CLI 发 READY</td></tr>
+          <tr><th>服务器阶段</th><th>本阶段解决什么</th><th>读代码时抓住的边界</th></tr>
+          <tr><td><code>initPhase1()</code></td><td>接收 ServerArgs，建立初始环境，配置日志</td><td>日志配置必须留在本阶段最后；更早的异常直接写 stderr</td></tr>
+          <tr><td><code>initPhase2()</code></td><td>原生初始化、root 检查、JarHell、插件模块层与 Entitlements</td><td>先准备加载环境和权限，再进入节点构造；此处的插件 bundle 加载不等于所有插件服务已启动</td></tr>
+          <tr><td><code>initPhase3()</code></td><td>核对 Lucene，构造 Node，关闭已读取的安全设置，启动并通知 READY</td><td>READY 在启动返回及必要后处理之后发送</td></tr>
         </table>
-        <div class="callout tip"><span class="co-title">Settings 谁覆盖谁:</span><code>InternalSettingsPreparer</code> 先读 <code>elasticsearch.yml</code>(顺手做 <code>${ENV}</code> 替换),后放命令行覆盖,最后放进程传入的 Settings——<strong>后写的赢</strong>。优先级:进程传入 &gt; 命令行 &gt; yml &gt; 代码默认值。</div>
+        <p>本阶段配置合并的关键顺序是 <code>yml → properties 覆盖 → input Settings</code>，随后还有 forced settings 和占位符处理。不要把它推广成所有配置源、所有阶段的统一优先级；<code>ServerArgs</code> 里也不是只有路径。依据见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/InternalSettingsPreparer.java#L42-L64" target="_blank" rel="noopener">InternalSettingsPreparer.prepareEnvironment()</a>。</p>
 
-        <h2>3. Node 构造:先锁盘子,再装配服务</h2>
-        <p>构造函数立刻把活交给 <code>NodeConstruction.prepareConstruction()</code>:创建线程池、脚本、分析器、集群服务,用 Guice 装配上百个组件——<code>start()</code> 里那一串 <code>injector.getInstance(Xxx.class).start()</code> 就是按这张装配图往外拉。对磁盘的副作用很早:</p>
-        <pre class="code-block"><code>nodeEnvironment = new NodeEnvironment(envSettings, environment);
-// 每个 path.data 上:locks[dirIndex] = luceneDir.obtainLock(NODE_LOCK_FILENAME);</code></pre>
-        <p>拿不到锁直接启动失败,异常文案:「failed to obtain node locks … maybe these locations are not writable or multiple nodes were started on the same data path?」这就是「一块数据目录只能跑一个进程」的不变量:<strong>第二个进程在构造阶段就死,走不到 start(),更不会去绑 9201</strong>。</p>
-        <pre class="code-block"><code>${path.data}/
-├── _state/                 # 节点级元数据(节点 ID)
-├── indices/
-│   └── &lt;index-uuid&gt;/
-│       ├── _state/         # 索引元数据
-│       └── 0/              # shard 0:Lucene + translog(第 14 课进去)
-└── node.lock               # 进程锁,在根上</code></pre>
+        <h2 id="construction">2. 构造：先取得目录所有权，再进入 start</h2>
+        <p><code>Node</code> 构造函数委托 <code>NodeConstruction.prepareConstruction()</code>。这里加载插件实例、合并设置、建立线程池与服务，并使用 injector 装配对象。<code>NodeEnvironment</code> 在设置校验后创建，通过 Lucene 的 <code>NativeFSLockFactory</code> 在每个数据路径取得 <code>node.lock</code>。</p>
+        <p>假设第一个节点仍持有目录锁，第二个节点即使改用另一个 HTTP 端口，也会在构造阶段取得锁失败，尚未进入 <code>Node.start()</code>。异常提示还包含目录不可写的可能原因，因此排障要看底层 cause；不能见到“failed to obtain node locks”就一律认定双开。</p>
+        <pre class="code-block"><code>Node 构造
+  → NodeConstruction.prepareConstruction(...)
+  → 设置校验 / new NodeEnvironment(...)
+  → FSDirectory.open(..., NativeFSLockFactory.INSTANCE)
+  → obtainLock("node.lock")</code></pre>
+        <p><code>node.lock</code> 文件留在磁盘上不代表仍有人持有锁。互斥依赖实际锁状态，正常 <code>NodeEnvironment.close()</code> 会释放锁；进程退出时操作系统也会释放进程持有的文件锁。排障应检查进程、权限与锁异常，不能靠删除锁文件来判断或解除占用。数据目录还包含 <code>_state/</code>、<code>indices/&lt;index-uuid&gt;/</code> 等持久化内容，本课只追节点级所有权，不展开 Lucene 和 translog 文件格式。</p>
+        <details><summary>构造与目录锁的源码依据</summary><div class="answer">
+          <p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/Node.java#L189-L190" target="_blank" rel="noopener">Node 构造委托</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/NodeConstruction.java#L550-L573" target="_blank" rel="noopener">设置校验与 NodeEnvironment</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/env/NodeEnvironment.java#L220-L292" target="_blank" rel="noopener">取得锁与异常包装</a>；释放位置见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/env/NodeEnvironment.java#L1265-L1278" target="_blank" rel="noopener">NodeEnvironment.close()</a>。</p>
+        </div></details>
 
-        <h2>4. Node.start():HTTP 是最后一扇门</h2>
-        <p>构造完成时服务对象都在,但<strong>没有对外端口</strong>。<code>start()</code> 按依赖点亮它们:</p>
+        <h2 id="start-order">3. Node.start：HTTP 前面有哪些门禁</h2>
+        <p><code>start()</code> 开头先把生命周期移到 <code>STARTED</code>，再启动插件及索引、搜索等内部服务。随后启动 <code>TransportService</code>，确定节点通信地址；<code>GatewayMetaState</code> 读取磁盘元数据，把持久化集群状态交给启动检查。读盘放在检查前，是为了让检查及插件能根据恢复的元数据判断前置条件。</p>
+        <p>通过这里的校验流程后，代码启动 coordinator 与 cluster service，调用 <code>acceptIncomingRequests()</code> 接收 Transport 请求，再执行 <code>startInitialJoin()</code> 发起选主或入群。<strong>发起入群不等于已经入群成功。</strong>本课保留逐步播放器，把关键调用逐站解释；它省略部分内部服务与可选后处理。</p>
+        <h3 id="boot-steps">八步走读：标志、检查、等待与 HTTP</h3>
         <div class="fp-slot" data-flow="ch03-boot"></div>
-        <p>源码用一行注释把这扇门焊死:</p>
-        <pre class="code-block"><code>// ------- DO NOT ADD NEW START CALLS BELOW HERE -------
-injector.getInstance(HttpServerTransport.class).start();</code></pre>
-        <table class="ktable">
-          <tr><th>必须先</th><th>才能后</th><th>否则</th></tr>
-          <tr><td><code>TransportService.start()</code></td><td>Coordinator 选主/入群</td><td>没有节点间通信</td></tr>
-          <tr><td><code>GatewayMetaState.start()</code></td><td>Bootstrap Checks</td><td>Checks 看不到盘上的元数据</td></tr>
-          <tr><td><code>Coordinator.startInitialJoin()</code></td><td><code>HttpServerTransport</code></td><td>客户端打到尚未入群的节点</td></tr>
-        </table>
-        <p><code>GatewayMetaState</code> 在 Checks <strong>之前</strong>,源码自己说了:先把磁盘上上次的集群元数据读出来(<em>to pass it to the bootstrap checks</em>),Checks 和插件才能按「这个节点以前管过什么」做前置判断。HTTP 打开后,initPhase3 才给 CLI 发 READY——对外 ready 和内部 ready 是同一时刻的两面。</p>
+        <p><code>discovery.initial_state_timeout</code> 默认是 <strong>30s</strong>。若等待启用且当前没有 master，观察器等待含 master 的状态；<strong>等待超时只告警并放行</strong>，不是抛出入群失败。设置为 0 时跳过等待；启动过程中收到关闭通知则另有提前返回分支。</p>
+        <p>接着才调用 <code>HttpServerTransport.start()</code>。熟悉的 <code>DO NOT ADD NEW START CALLS BELOW HERE</code> 注释强调对外入口的顺序，但 9.4.0 在 HTTP 后仍可能启动 <code>ReadinessService</code>，写端口文件并执行插件 <code>onNodeStarted</code> 回调。<code>Node.start()</code> 返回后，入口还完成自己的后处理，才发 READY。因此 HTTP 可访问、启动器收到 READY、集群达到 yellow/green 不能画成同一瞬间。</p>
+        <div class="callout tip"><span class="co-title">端口默认值不是状态定义：</span>HTTP 常用 9200、Transport 常用 9300，但实际绑定端口可配置。9200 可访问只能说明对应 HTTP 入口可用；是否有 master、是否分片恢复完成，应另外检查集群状态、健康与启动日志。</div>
+        <details><summary>启动与等待的源码依据</summary><div class="answer">
+          <p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/Node.java#L277-L374" target="_blank" rel="noopener">Node.start：服务、元数据、Checks、Transport 接收与初始入群</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/Node.java#L375-L452" target="_blank" rel="noopener">等待、超时、HTTP 与后处理</a>；默认值见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/Node.java#L151-L155" target="_blank" rel="noopener">INITIAL_STATE_TIMEOUT_SETTING</a>；READY 见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java#L418-L446" target="_blank" rel="noopener">initPhase3()</a>。</p>
+        </div></details>
 
-        <h3>Bootstrap Checks:绑定非 loopback 才强制</h3>
-        <p>三条同时成立(绑定地址不都是 loopback、非 snapshot 构建、<code>discovery.type</code> 非 <code>single-node</code>)→ 检查失败就<strong>拒绝启动</strong>;开发时绑 127.0.0.1 同一批检查只打 WARN。<code>network.host: 0.0.0.0</code> 会让节点离开 loopback 进入强制模式。常见检查:堆 <code>Xms==Xmx</code>、文件描述符(≥65535)、mlockall 是否真锁上、<code>vm.max_map_count</code>、系统调用沙箱(seccomp,8.0 起不可关)。</p>
-
-        <h2>5. 生命周期:三态就够</h2>
-        <p>源码枚举是 <code>INITIALIZED → STARTED → STOPPED → CLOSED</code>,对外记三条:构造完、在服务、资源已还。<code>close()</code> 若发现还在 STARTED 会先 <code>stop()</code>——所以别从 STARTED 直接画到 CLOSED。关闭顺序与启动<strong>相反</strong>:HTTP 最先停(不接新请求),<code>IndicesService</code> 最后停(让进行中的搜索/恢复跑完);<code>node.lock</code> 要到 CLOSED 才还——这就是「杀不干净的旧进程会挡住新进程」的原因。</p>
+        <h2 id="checks">4. Bootstrap Checks：看 Transport 地址，也看例外</h2>
+        <p>普通检查自动强制执行，需要同时满足：<strong>Transport 绑定地址或发布地址存在非 loopback、非 snapshot 构建、discovery.type 不是 single-node</strong>。判断对象是节点间通信的 Transport 地址，不是 HTTP 地址；仅改 <code>http.host</code> 不能据此推出生产检查模式。</p>
+        <p>还有两条不能省略的路径：JVM 系统属性 <code>-Des.enforce.bootstrap.checks=true</code> 可显式强制；检查自身的 <code>alwaysEnforce()</code> 也可要求失败必须阻止启动。只有这三种强制条件都不适用时，该项失败才作为告警。<code>single-node</code> 不是关闭所有检查的开关；root 等更早的初始化错误也不会被它豁免。</p>
         <table class="ktable">
-          <tr><th></th><th>启动后半</th><th>关闭前半</th></tr>
-          <tr><td>HTTP</td><td>最后打开</td><td>最先关闭</td></tr>
-          <tr><td>集群</td><td>先入群再对外</td><td>先对外关门再退群</td></tr>
-          <tr><td>索引</td><td>很早就 <code>IndicesService.start()</code></td><td>最后 <code>IndicesService.stop()</code></td></tr>
+          <tr><th>条件</th><th>普通失败检查的处理</th></tr>
+          <tr><td>非 loopback Transport + 非 snapshot + 非 single-node</td><td>收集失败并抛出 <code>NodeValidationException</code></td></tr>
+          <tr><td>显式 <code>es.enforce.bootstrap.checks=true</code></td><td>即使 loopback 或 single-node 也强制执行</td></tr>
+          <tr><td>单项 <code>alwaysEnforce()</code> 为 true</td><td>这一项失败仍会阻止启动</td></tr>
+          <tr><td>以上均不适用</td><td>该项失败记录 WARN；不表示其他启动错误也被忽略</td></tr>
         </table>
+        <p>检查覆盖堆设置、文件描述符、请求的内存锁定、线程数与适用的 mmap 条件等。具体项目与阈值有操作系统、存储设置等适用范围，本课不把一组数字当作跨环境通用清单。依据见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/bootstrap/BootstrapChecks.java#L113-L165" target="_blank" rel="noopener">BootstrapChecks.check()</a> 与 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/bootstrap/BootstrapChecks.java#L189-L197" target="_blank" rel="noopener">enforceLimits()</a>。</p>
+
+        <h2 id="lifecycle">5. 生命周期：四个标志不等于四个完成时刻</h2>
+        <p>四个状态都要保留：<code>INITIALIZED</code>、<code>STARTED</code>、<code>STOPPED</code>、<code>CLOSED</code>。正常已启动节点执行 <code>close()</code> 时先 <code>stop()</code>，再转为 CLOSED 并释放资源；尚未启动的节点允许 INITIALIZED 直接 close。STOPPED 或 CLOSED 后不能重新 start。</p>
+        <figure class="fig archify-figure" id="fig-node-lifecycle">
+          <div class="archify-shell">
+            <div class="archify-tools"><span class="archify-label">02 · 状态与资源释放</span><div class="archify-actions">
+              <button type="button" data-replay-diagram="diagram-node-lifecycle">↻ 重新播放</button>
+              <a href="../.archify/lifecycle-ch03-node-lifecycle-20261010-165543/node-lifecycle.html" target="_blank" rel="noopener">展开图解 ↗</a>
+            </div></div>
+            <iframe class="archify-frame" id="diagram-node-lifecycle" title="Node 的四个生命周期标志、未启动关闭分支与后续资源清理" loading="lazy" src="../.archify/lifecycle-ch03-node-lifecycle-20261010-165543/node-lifecycle.html?theme=light&amp;present=1" style="--diagram-height: 650px; --diagram-mobile-height: 460px;"></iframe>
+          </div>
+          <figcaption>图 2 · 箭头表示状态转移。STARTED、STOPPED、CLOSED 均在相应方法前段设置，不能据此断言启动或清理已完成。虚线是尚未 start 的 Node 直接 close；省略幂等调用与进程崩溃。<span class="figure-tip">点击节点查看关系与源码；可暂停、重播或展开图解。手机上可展开后放大阅读。</span></figcaption>
+        </figure>
+        <p><code>stop()</code> 先改变标志，再依次停止已启动组件；HTTP 较早停止，但前面还有可选 readiness 和周期服务等。协调、集群与传输服务随后停下，<code>IndicesService</code> 最后 stop，为索引相关资源释放安排顺序。它不是把每一项 start 调用机械倒放。</p>
+        <p><code>close()</code> 同样先设 CLOSED，再按列表关闭资源。线程池在后段 shutdown，随后关闭 <code>GatewayMetaState</code> 与 <code>NodeEnvironment</code>；实际目录锁在后者的 close 中释放。等待线程池有效终止另见 <code>awaitClose()</code>。因此“看见 CLOSED 标志”并不等于所有资源已释放，更不能据此保证另一个进程已能立即取锁。</p>
+        <details><summary>生命周期与清理的源码依据</summary><div class="answer">
+          <p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/component/Lifecycle.java#L103-L173" target="_blank" rel="noopener">Lifecycle：允许与拒绝的转移</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/Node.java#L462-L532" target="_blank" rel="noopener">Node.stop / close 开头</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/Node.java#L604-L659" target="_blank" rel="noopener">关闭后段与 awaitClose</a>。</p>
+        </div></details>
       </section>
 
       <section class="drills">
-        <h2>动手实验</h2>
-        <p>原课的「找 main」「双开抢盘」两个仓库实验改编成了思考题;HTTP 侧做两面镜子。</p>
-
-        <h3>实验 1:curl 得通 = 最后一扇门已开</h3>
+        <h2 id="practice">实验：观察启动结果，再回源码找原因</h2>
+        <p>前提：连接到已运行的 ES 9.4.0；多节点会返回多行或多个节点对象。使用当前控制台端点及所需认证。以下两张卡都只读，不创建资源，也无需清理，可重复执行；它们观察运行后的快照，不能还原本次启动的全部时序。</p>
+        <h3>实验 1：节点身份与 HTTP 发布地址</h3>
         <div class="exp-slot" data-exp="ch03-01-nodes"></div>
-
-        <h3>实验 2:看进程号与 mlockall</h3>
+        <p>成功响应表示这次集群节点信息请求可完成。<code>http</code> 列实际取 <strong>HTTP publishAddress</strong>，不是全部 bind 地址；代理入口、容器映射端口也可能与它不同。地址字段来自 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/cat/RestNodesAction.java#L373-L380" target="_blank" rel="noopener">RestNodesAction.buildTable()</a>。要判断分片健康，另查 <code>GET /_cluster/health</code>；本卡不能证明 green。</p>
+        <h3>实验 2：实际进程号与内存锁定结果</h3>
         <div class="exp-slot" data-exp="ch03-02-process"></div>
-
-        <h2>思考题(= 原课的仓库实验)</h2>
-        <details>
-          <summary>1. 服务器进程的 main 是哪个?ServerArgs 从哪来?</summary>
-          <div class="answer">
-            <p><code>Elasticsearch.java</code> 的 <code>main</code>(三阶段)。<code>ServerArgs</code> 从 <strong>System.in</strong> 反序列化——CLI 进程先解析参数再 fork,把结果写进子进程 stdin。以为「main 里读 argv / 直接读 elasticsearch.yml」的错觉,来自把 CLI 进程和服务器进程当成同一个。</p>
-          </div>
-        </details>
-        <details>
-          <summary>2. 两个进程指向同一 path.data(HTTP 端口改成 9201),谁失败?在哪一步?</summary>
-          <div class="answer">
-            <p>第二个进程在 <strong>new Node → NodeConstruction → new NodeEnvironment</strong> 就失败(Lucene <code>LockObtainFailedException</code>,文案提到 multiple nodes on the same data path),走不到 <code>start()</code>。「端口冲突才失败」的错觉来自把 HTTP 绑定当唯一互斥;真正的互斥是数据目录锁。</p>
-          </div>
-        </details>
-        <details>
-          <summary>3. yml 里写 network.host: 0.0.0.0、文件描述符只有 1024,能启动吗?</summary>
-          <div class="answer">
-            <p>大概率失败。<code>0.0.0.0</code> 非 loopback → <code>enforceLimits</code> 为 true(除非 snapshot 或 single-node),fd 检查不过就 <code>NodeValidationException</code>。绑 127.0.0.1 同一检查只 WARN——「开发模式 vs 生产模式」的分界是绑定地址,没有 <code>production: true</code> 这种开关。</p>
-          </div>
-        </details>
+        <p><code>process.mlockall</code> 报告实际内存锁定状态。false 可能是没请求锁定，也可能是请求后未成功，不能单凭这个值反推出配置；应结合 <code>bootstrap.memory_lock</code>、运行限制与启动日志。PID 来自服务器 JVM，在容器中可能属于容器 PID 命名空间；见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/monitor/process/ProcessProbe.java#L122-L124" target="_blank" rel="noopener">ProcessProbe.processInfo()</a>。</p>
+        <h3>源码任务：把三个信号放回各自位置</h3>
+        <p>在 v9.4.0 checkout 中执行下面两次检索，分别找到“先设置 STARTED”“打开 HTTP”“返回后发 READY”。再阅读初始等待的 onTimeout 分支，说明为何 READY 不是集群健康探针。这些命令只检索目标文件，不要求启动第二个进程或共用真实数据目录。</p>
+        <pre class="code-block"><code>rg -n 'moveToStarted|startInitialJoin|onTimeout|HttpServerTransport|onNodeStarted' \
+  server/src/main/java/org/elasticsearch/node/Node.java
+rg -n 'INSTANCE.start|SERVER_READY_MARKER' \
+  server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java</code></pre>
+        <details><summary>启动器的源码导航</summary><div class="answer">
+          <p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/distribution/tools/server-launcher/src/main/java/org/elasticsearch/server/launcher/ServerLauncher.java#L54-L77" target="_blank" rel="noopener">ServerLauncher.run()</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/distribution/tools/server-cli/src/main/java/org/elasticsearch/server/cli/ServerCli.java#L238-L264" target="_blank" rel="noopener">ServerCli.prepareLaunch()</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/distribution/tools/server-launcher/src/main/java/org/elasticsearch/server/launcher/ServerLauncher.java#L269-L325" target="_blank" rel="noopener">startServer / sendServerArgs</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java#L127-L151" target="_blank" rel="noopener">initPhase1()</a>。</p>
+        </div></details>
+        <h2 id="questions">思考题</h2>
+        <details><summary>1. 为什么在 Elasticsearch.main 里找不到用户的 -E 参数解析？</summary><div class="answer"><p>准备器已处理配置并把序列化 ServerArgs 放入 LaunchDescriptor；启动器创建服务器进程并写入其 stdin。服务器 main 消费这条管道，而不是重复解析用户 argv。准备器与启动器的职责也不能混为一个进程。</p></div></details>
+        <details><summary>2. 第二个节点换了 HTTP 端口，却仍用正在占用的 path.data，会在哪里失败？</summary><div class="answer"><p>目录锁不能取得时，在 Node 构造中的 NodeEnvironment 阶段失败；尚未进入 Node.start 的 HTTP 绑定。看完整 cause 区分锁冲突与目录权限错误；不要通过删 node.lock 文件恢复运行。</p></div></details>
+        <details><summary>3. single-node 或 loopback 是否保证所有启动检查失败都只告警？</summary><div class="answer"><p>不保证。普通自动强制规则可不触发，但显式 es.enforce.bootstrap.checks=true 和单项 alwaysEnforce() 仍会强制。判断地址时要看 Transport 的绑定与发布地址；root 等更早的错误另有约束。</p></div></details>
+        <details><summary>4. HTTP 能响应而没有 master，是否与本章启动顺序矛盾？</summary><div class="answer"><p>不矛盾。startInitialJoin 是发起动作，初始等待可能超时告警，或设为 0 跳过，然后 HTTP 仍可打开。具体 API 是否依赖 master、是否受到集群 block 限制另行判断；用健康、状态和日志核对，不能只测端口。</p></div></details>
+        <details><summary>5. CLOSED 标志已经设置，为什么不能说 node.lock 此刻已释放？</summary><div class="answer"><p>Node.close 先设置 CLOSED，后面才执行关闭列表；NodeEnvironment.close 位于后段，并在那里释放锁。生命周期标志用于控制转移与幂等性，不能代替实际清理完成的证据。</p></div></details>
       </section>
 
       <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 「能 curl 通 = 还没做检查」:</span>反了。HTTP 是最后一扇门,curl 得通说明 Transport、读盘、Checks、入群都已做完。</div>
-        <div class="callout warn"><span class="co-title">🕳 双开失败 ≠ 端口冲突:</span>同一 <code>path.data</code> 的 <code>node.lock</code> 才是第一道互斥,死在构造阶段,连端口都不会去绑。</div>
-        <div class="callout warn"><span class="co-title">🕳 grep main 找到好几个:</span><code>CliToolLauncher</code>/<code>JarHell</code>/<code>Version</code> 是工具入口;数据节点的 main 只在 <code>bootstrap/Elasticsearch.java</code>。</div>
+        <h2 id="pitfalls">陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 HTTP / READY / green 混成一件事：</span>HTTP 可达不保证入群或分片恢复；READY 在入口启动返回后发送；green 是另一层集群健康结果。</div>
+        <div class="callout warn"><span class="co-title">🕳 把状态名当作完成证据：</span>STARTED 在 Node.start 开头设置，CLOSED 在关闭列表执行前设置。状态和完成时刻要分开读。</div>
+        <div class="callout warn"><span class="co-title">🕳 只看 HTTP 地址推断检查模式：</span>自动规则检查 Transport 的 bind / publish 地址，还受 snapshot、single-node 影响；显式强制和 alwaysEnforce 另有路径。</div>
       </section>
 
       <section class="recap">
-        <h2>速记</h2>
+        <h2 id="recap">速记</h2>
         <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>四站</td><td>加载插件 → 锁数据目录 → 加入集群 → 打开 HTTP</td></tr>
-          <tr><td>入口</td><td>Elasticsearch.main 三阶段;参数在 stdin 的 ServerArgs</td></tr>
-          <tr><td>互斥</td><td>node.lock:一块 path.data 一个进程,构造期就死</td></tr>
-          <tr><td>顺序</td><td>HTTP 最后开、最先关;注释禁止再往下加 start()</td></tr>
-          <tr><td>Checks</td><td>非 loopback 且非 single-node 才强制;localhost 只 WARN</td></tr>
-          <tr><td>生命周期</td><td>INITIALIZED → STARTED → CLOSED(close 先 stop)</td></tr>
+          <tr><th>问题</th><th>记住什么</th></tr>
+          <tr><td>谁启动</td><td>launcher 启动 preparer 和 server；ServerArgs 进 stdin，READY 回 stderr</td></tr>
+          <tr><td>谁占盘</td><td>构造期 NodeEnvironment 获得 node.lock；改端口不能绕过目录互斥</td></tr>
+          <tr><td>启动门禁</td><td>Transport → 磁盘元数据 → Checks → 接收通信 / 发起入群 → 初始等待 → HTTP</td></tr>
+          <tr><td>等待边界</td><td>默认 30s；超时告警继续，0 跳过；HTTP 之后仍有可选后处理</td></tr>
+          <tr><td>检查模式</td><td>Transport 非 loopback + 非 snapshot + 非 single-node；还要看显式强制与 alwaysEnforce</td></tr>
+          <tr><td>生命周期</td><td>正常 INITIALIZED → STARTED → STOPPED → CLOSED；未启动也可直接 close；标志先变、动作随后</td></tr>
         </table>
-        <p><strong>心法:对外服务之前,内部必须已经自洽——启动顺序和关闭顺序都是这句话的展开。</strong></p>
+        <p><strong>心法：沿副作用理解顺序，用独立证据判断完成——端口、标志和健康回答的是不同问题。</strong></p>
       </section>
 
       <footer class="ch-footer">
         <button class="read-toggle" type="button">标记本课已读</button>
-        <div class="pager">
-          <a href="ch02.html">← 第 2 课:项目结构全景</a>
-          <a href="ch04.html">第 4 课:插件体系 →</a>
-        </div>
+        <div class="pager"><a href="ch02.html">← 第 2 课:项目结构全景</a><a href="ch04.html">第 4 课:插件体系 →</a></div>
       </footer>
     </article>
   </main>
-
   <script src="../experiments/ch03.js"></script>
   <script src="../assets/js/nav.js"></script>
   <script src="../assets/js/es-client.js"></script>
   <script src="../assets/js/flow-player.js"></script>
   <script src="../assets/js/experiments.js"></script>
   <script src="../assets/js/progress.js"></script>
+  <script src="../assets/js/chapter-diagrams.js"></script>
 </body>
 </html>

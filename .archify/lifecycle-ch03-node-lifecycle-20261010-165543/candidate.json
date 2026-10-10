@@ -1,0 +1,183 @@
+{
+  "schema_version": 2,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Node 生命周期：状态先变，清理随后执行",
+    "locale": "zh-CN",
+    "output": ".archify/lifecycle-ch03-node-lifecycle-20261010-165543/node-lifecycle.html",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "start": {
+          "label": "构造后的状态"
+        },
+        "active": {
+          "label": "启动标志"
+        },
+        "neutral": {
+          "label": "停止标志"
+        },
+        "success": {
+          "label": "关闭标志"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "构造与启动标志"
+    },
+    {
+      "id": "stopping",
+      "label": "停止标志"
+    },
+    {
+      "id": "terminal",
+      "label": "关闭标志与后续清理"
+    }
+  ],
+  "states": [
+    {
+      "id": "initialized",
+      "type": "start",
+      "label": "INITIALIZED",
+      "sublabel": "已构造、持有目录锁",
+      "lane": "main",
+      "col": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/component/Lifecycle.java",
+          "line": 57,
+          "end_line": 64,
+          "label": "初始状态"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/env/NodeEnvironment.java",
+          "line": 220,
+          "end_line": 292,
+          "label": "构造期获得锁"
+        }
+      ]
+    },
+    {
+      "id": "started",
+      "type": "active",
+      "label": "STARTED",
+      "sublabel": "start() 开头设置",
+      "lane": "main",
+      "col": 1,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/node/Node.java",
+          "line": 277,
+          "end_line": 286,
+          "label": "先设置标志再启动服务"
+        }
+      ]
+    },
+    {
+      "id": "stopped",
+      "type": "neutral",
+      "label": "STOPPED",
+      "sublabel": "随后依次停服务",
+      "lane": "stopping",
+      "col": 1,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/node/Node.java",
+          "line": 462,
+          "end_line": 502,
+          "label": "停止标志与服务顺序"
+        }
+      ]
+    },
+    {
+      "id": "closed",
+      "type": "success",
+      "label": "CLOSED",
+      "sublabel": "随后释放资源与锁",
+      "lane": "terminal",
+      "col": 1,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/node/Node.java",
+          "line": 522,
+          "end_line": 532,
+          "label": "先设关闭标志"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/node/Node.java",
+          "line": 604,
+          "end_line": 629,
+          "label": "线程池与目录环境清理"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/env/NodeEnvironment.java",
+          "line": 1265,
+          "end_line": 1278,
+          "label": "关闭时释放目录锁"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "begin-start",
+      "from": "initialized",
+      "to": "started",
+      "label": "start()"
+    },
+    {
+      "id": "begin-stop",
+      "from": "started",
+      "to": "stopped",
+      "label": "close() 先 stop"
+    },
+    {
+      "id": "begin-close",
+      "from": "stopped",
+      "to": "closed",
+      "label": "继续 close"
+    },
+    {
+      "id": "never-started-close",
+      "from": "initialized",
+      "to": "closed",
+      "label": "未启动也可 close",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "状态不是验收结果",
+      "items": [
+        "STARTED 在端口与检查之前设置；不能当作 HTTP 已可用的证据。",
+        "STOPPED 与 CLOSED 也先改变标志，随后执行停服务与释放资源。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "清理顺序",
+      "items": [
+        "HTTP 较早停止，但前面还有可选 readiness、周期服务等。",
+        "IndicesService 最后 stop；NodeEnvironment 在 close 后段释放 node.lock。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "其他路径",
+      "items": [
+        "未启动的 Node 可以从 INITIALIZED 直接 close。",
+        "启动中失败也可能已有 STARTED 标志；已启动组件按实际状态清理。",
+        "STOPPED / CLOSED 不能重新 start；图未画幂等调用和进程崩溃。"
+      ]
+    }
+  ]
+}

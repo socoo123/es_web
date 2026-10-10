@@ -1,6 +1,6 @@
 # 章节 Archify 图解
 
-第一、二章的图由 [Archify 3.0.1](https://github.com/tt-a1i/archify/tree/v3.0.1/archify) 正式 CLI 从 JSON 生成。每个目录的 `candidate.json` 是可编辑的图源，HTML 是自包含的静态交互图。章节使用相对路径嵌入，复用 `chapter-diagrams.css/js`；仓库已有 `.nojekyll`，保持 GitHub Pages 零构建和零 CDN。
+第一、二、三章的图由 [Archify 3.0.1](https://github.com/tt-a1i/archify/tree/v3.0.1/archify) 正式 CLI 从 JSON 生成。每个目录的 `candidate.json` 是可编辑的图源，HTML 是自包含的静态交互图。章节使用相对路径嵌入，复用 `chapter-diagrams.css/js`；仓库已有 `.nojekyll`，保持 GitHub Pages 零构建和零 CDN。
 
 | 图 | 类型 | 图源目录 |
 | --- | --- | --- |
@@ -9,8 +9,10 @@
 | 主分片与副本 | Architecture | `architecture-ch01-shards-20261010-113428` |
 | 第二章：五大源码区域 | Architecture（静态） | `architecture-ch02-source-map-20261010-143543` |
 | 第二章：GET 源码阅读路线 | Architecture（trace） | `architecture-ch02-get-navigation-20261010-162448` |
+| 第三章：进程与节点启动时序 | Sequence（trace） | `sequence-ch03-startup-20261010-165543` |
+| 第三章：Node 生命周期 | Lifecycle v2（trace） | `lifecycle-ch03-node-lifecycle-20261010-165543` |
 
-第一章三图与第二章 GET 导航图启用 `meta.animation: "trace"`。默认一遍路径动效后回到完整静态图；图内可暂停，章节外层可重播。系统减少动态效果设置优先于播放指令。第二章区域图仅展示静态依赖，未提供重播。点击节点可查看关系与源码证据，展开图解可使用完整查看器和说明卡。
+第一章三图、第二章 GET 导航图与第三章两图启用 `meta.animation: "trace"`。默认一遍路径动效后回到完整静态图；图内可暂停，章节外层可重播。系统减少动态效果设置优先于播放指令。第二章区域图仅展示静态依赖，未提供重播。点击节点可查看关系与源码证据，展开图解可使用完整查看器和说明卡。
 
 ## 再生成
 
@@ -39,3 +41,5 @@ node /path/to/archify/bin/archify.mjs finalize architecture \
 
 完整图源与 HTML 哈希、收据位置及视觉审阅范围见 [REVIEW.md](REVIEW.md)。
 第二章的验证范围与结果另见 [CH02-REVIEW.md](CH02-REVIEW.md)，第一章记录保持原始交付证据。
+
+第三章的源码、原生门禁、HTTP 浏览器验收与视觉审阅见 [CH03-REVIEW.md](CH03-REVIEW.md)。第三章两图同样需要上述固定 ES 提交和真实 `--repo-root`；用 `sequence` / `lifecycle` 对应其图类型。

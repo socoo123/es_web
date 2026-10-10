@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "节点启动：从进程管道到 HTTP",
+    "locale": "zh-CN",
+    "output": ".archify/sequence-ch03-startup-20261010-165543/startup.html",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "default": {
+          "label": "调用 / 有序步骤"
+        },
+        "emphasis": {
+          "label": "参数与对外入口"
+        },
+        "security": {
+          "label": "启动检查"
+        },
+        "return": {
+          "label": "返回 / 结果通知"
+        }
+      }
+    },
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "launcher",
+      "type": "backend",
+      "label": "启动器",
+      "sublabel": "launcher",
+      "sources": [
+        {
+          "path": "distribution/tools/server-launcher/src/main/java/org/elasticsearch/server/launcher/ServerLauncher.java",
+          "line": 54,
+          "end_line": 77,
+          "label": "启动准备器与服务器"
+        },
+        {
+          "path": "distribution/tools/server-launcher/src/main/java/org/elasticsearch/server/launcher/ServerLauncher.java",
+          "line": 269,
+          "end_line": 325,
+          "label": "stdin 参数与 READY 等待"
+        }
+      ]
+    },
+    {
+      "id": "preparer",
+      "type": "backend",
+      "label": "准备器",
+      "sublabel": "server-cli",
+      "sources": [
+        {
+          "path": "distribution/tools/server-cli/src/main/java/org/elasticsearch/server/cli/ServerCli.java",
+          "line": 232,
+          "end_line": 264,
+          "label": "生成 LaunchDescriptor"
+        }
+      ]
+    },
+    {
+      "id": "server",
+      "type": "backend",
+      "label": "服务器",
+      "sublabel": "main()",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java",
+          "line": 123,
+          "end_line": 151,
+          "label": "stdin 参数与日志"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java",
+          "line": 168,
+          "end_line": 232,
+          "label": "原生初始化与插件层"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java",
+          "line": 418,
+          "end_line": 446,
+          "label": "构造、启动与 READY"
+        }
+      ]
+    },
+    {
+      "id": "node",
+      "type": "backend",
+      "label": "节点对象",
+      "sublabel": "Node",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/node/Node.java",
+          "line": 277,
+          "end_line": 428,
+          "label": "启动门禁、入群等待与 HTTP"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/node/NodeConstruction.java",
+          "line": 550,
+          "end_line": 573,
+          "label": "构造期数据目录环境"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/env/NodeEnvironment.java",
+          "line": 220,
+          "end_line": 292,
+          "label": "获得 node.lock"
+        }
+      ]
+    },
+    {
+      "id": "components",
+      "type": "backend",
+      "label": "内部组件",
+      "sublabel": "聚合角色",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/node/Node.java",
+          "line": 277,
+          "end_line": 428,
+          "label": "Lifecycle、服务与初始状态观察器"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java",
+          "line": 127,
+          "end_line": 232,
+          "label": "日志、原生与插件加载"
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "id": "boot-1",
+      "from": "launcher",
+      "to": "preparer",
+      "y": 180,
+      "label": "启动准备器",
+      "variant": "default"
+    },
+    {
+      "id": "boot-2",
+      "from": "preparer",
+      "to": "launcher",
+      "y": 232,
+      "label": "LaunchDescriptor",
+      "variant": "return"
+    },
+    {
+      "id": "boot-3",
+      "from": "launcher",
+      "to": "server",
+      "y": 284,
+      "label": "ServerArgs → stdin",
+      "variant": "emphasis"
+    },
+    {
+      "id": "boot-4",
+      "from": "server",
+      "to": "components",
+      "y": 336,
+      "label": "日志、原生、插件层",
+      "variant": "default"
+    },
+    {
+      "id": "boot-5",
+      "from": "server",
+      "to": "node",
+      "y": 388,
+      "label": "构造、锁盘、装配",
+      "variant": "emphasis"
+    },
+    {
+      "id": "boot-6",
+      "from": "node",
+      "to": "server",
+      "y": 440,
+      "label": "INITIALIZED",
+      "variant": "return"
+    },
+    {
+      "id": "boot-7",
+      "from": "server",
+      "to": "node",
+      "y": 492,
+      "label": "start()",
+      "variant": "default"
+    },
+    {
+      "id": "boot-8",
+      "from": "node",
+      "to": "components",
+      "y": 544,
+      "label": "标志 → STARTED",
+      "variant": "default"
+    },
+    {
+      "id": "boot-9",
+      "from": "node",
+      "to": "components",
+      "y": 596,
+      "label": "Transport → 读元数据",
+      "variant": "default"
+    },
+    {
+      "id": "boot-10",
+      "from": "node",
+      "to": "components",
+      "y": 648,
+      "label": "Bootstrap Checks",
+      "variant": "security"
+    },
+    {
+      "id": "boot-11",
+      "from": "node",
+      "to": "components",
+      "y": 700,
+      "label": "接收传输、发起入群",
+      "variant": "default"
+    },
+    {
+      "id": "boot-12",
+      "from": "node",
+      "to": "components",
+      "y": 752,
+      "label": "等到 master 或超时",
+      "variant": "default"
+    },
+    {
+      "id": "boot-13",
+      "from": "node",
+      "to": "components",
+      "y": 804,
+      "label": "启动 HTTP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "boot-14",
+      "from": "node",
+      "to": "server",
+      "y": 856,
+      "label": "start() 返回",
+      "variant": "return"
+    },
+    {
+      "id": "boot-15",
+      "from": "server",
+      "to": "launcher",
+      "y": 908,
+      "label": "READY → stderr",
+      "variant": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "谁在做什么",
+      "items": [
+        "launcher 创建准备器与服务器两个进程；server-cli 产出启动描述。",
+        "Node 是服务器 JVM 内的对象；内部组件聚合日志、原生、Lifecycle 和节点服务，箭头概括实际调用。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "图的范围",
+      "items": [
+        "只画正常启动主路径，省略具体服务装配、失败清理与关机中断。",
+        "初始等待默认 30s；看到 master、超时，或显式设为 0 都可能结束等待。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "可用性的边界",
+      "items": [
+        "HTTP 开启前检查已返回，但普通检查可能仅告警。",
+        "HTTP、READY、集群健康是不同信号；入群等待超时并不阻止这里继续。",
+        "HTTP 后仍有可选 ReadinessService、插件回调，返回后才发 READY。"
+      ]
+    }
+  ]
+}
