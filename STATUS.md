@@ -13,7 +13,7 @@
 | ch05 | 配置框架 | ✅ | 12 | — | ✅ 配置契约与动态传播（2 图） |
 | ch06 | 请求入口层 | ✅ | 17 | — | ✅ REST 路由与响应边界（2 图，2 路径动画） |
 | ch07 | 动作框架 | ✅ | 15 | — | ✅ 动作登记与执行边界（2 图，2 路径动画） |
-| ch08 | 异步编程模型 | ✅ | 10 | 1(线程池 429) | 待改造 |
+| ch08 | 异步编程模型 | ✅ | 15 | 1(线程池背压) | ✅ 回调与调度边界（2 图，2 路径动画） |
 | ch09 | 传输层 | ✅ | 7 | — | 待改造 |
 | ch10 | 跟踪一次文档读取 | ✅ | 19 | 1(realtime GET) | 待改造 |
 | ch11 | 映射系统 | ✅ | 19 | 1(动态映射) | 待改造 |
@@ -118,7 +118,30 @@
 | ch07 | 实验只看累计计数与一次任务快照，缺少比较基线和重复语义 | 保留原 9 ID，增 6 卡；显式 mapping / 刷新 / 本课健康检查，GET 前后基线、精确 / 通配对照、完成后 Task 与缺文档。清理点名，重做重新记录 N，注明重复创建 / 写入 / 清理差异 | [experiments/ch07.js](experiments/ch07.js)、[CH07-REVIEW](.archify/CH07-REVIEW.md)；本轮 API 未实测 |
 | ch07 | B5 未注册 URL 的 400 预期写成 reason 含 no handler found | 该分支直接生成顶层 error 字符串，没有 error.reason；按 HTTP 状态和 error 字段对照，正文同步增加方法依据 | [RestController.handleBadRequest](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L743-L753)；复核源码，API 未实测 |
 
+### 第八章重构校对
+
+| 课 | 网页旧说法 | 修正 | 依据 |
+|---|---|---|---|
+| ch08 | void + listener 必发出后立即返回并换线程，DIRECT 用于尽快离开当前线程 | 异步接口可同步完成；DIRECT / map / wrap 不 fork，耗时工作仍占当前线程 | EsExecutors.DirectExecutorService、SubscribableListener.addListener；固定版本链接见正文 |
+| ch08 | rewrite 显式提交到 search_coordination，合并发生在最后一帧回调 | rewrite 的参数是 responseExecutor，已完成订阅可同步接续；results.consumeResult 完成后才倒数，后续调度另查 | Rewriteable.rewriteAndFetch、SubscribableListener.newForked / addListener、AbstractSearchAsyncAction.onShardResult |
+| ch08 | doRun 已把每个 shard 都发到网络；单分片也固定两阶段 | 每节点并发限制可暂存待发任务；普通单分片无 rank 可合并 query/fetch，单节点不证明网络往返 | AbstractSearchAsyncAction.performPhaseOnShard、SearchTransportService.sendExecuteQuery |
+| ch08 | notifyOnce 保证恰好一次；生产发布包 assertOnce 必不生效 | notifyOnce 只保证至多一次，不保证完成活性；assertOnce 按 Assertions.ENABLED 生效，关闭时直接委托 | ActionListenerImplementations.NotifyOnceActionListener、ActionListener.assertOnce |
+| ch08 | search 排满时 write / cluster_coordination 不受牵连；上下文只由线程池保存 | 分池仍共享 CPU / 堆 / 磁盘；任务包装和专门的 listener 包装都可保存上下文 | EsThreadPoolExecutor.wrapRunnable、SubscribableListener.preserveContext；隔离范围正文已限定 |
+| ch08 | 默认公式不写取整 / 部署条件，defaults 都是代码默认，改 size 队列随之变 | 限默认自管 9.4.0、N 取向上取整 allocated_processors、整数除法；defaults 可含本地配置，size / queue_size 独立 | EsExecutors.allocatedProcessors、OsInfo.toXContent、DefaultBuiltInExecutorBuilders、FixedExecutorBuilder |
+| ch08 | refresh=true 使 refresh 池 completed +1；一次搜索固定增加协调计数，write 必不动 | 刷新是可见性语义；completed 为全节点累计任务，需写后 / 搜索前基线，不作精确归因 | PostWriteRefresh → IndexShard.externalRefresh → Engine.externalRefresh；RestThreadPoolAction |
+| ch08 | rejected 必全 0，generic 永不 429，拒绝必直接 throw 且顶层 HTTP 429 | rejected 可含历史；Scaling 不因有界满拒绝不保证整请求不报错；AbstractRunnable 可转 onRejection，顶层 / 部分失败 / 单项状态分别读 | EsThreadPoolExecutor.execute、EsAbortPolicy、EsExecutors.ForceQueuePolicy、ExceptionsHelper.status |
+| ch08 | 创建索引即整个集群 green，自动 ID 重复写仍命中 1，清理后 transient 必空 | 显式 mapping / 固定 ID / 健康等待 / 基线；比较本课失败更新前后键，重复运行区分 created/updated，删除不清统计 | 15 卡请求与前提；源码已核对，当前 API 未实测 |
+
 ## 会话日志
+
+### 2026-10-11(第八章按统一规范重构)
+
+- 本地时间 Asia/Shanghai，图目录在 2026-10-10 创建，跨零点于本日交付。固定 ES v9.4.0 目标源码 23 文件逐一比对提交字节一致；按“返回与完成 → 回调组合 → 完成协议 → 默认线程池 → 背压与观测”重写，不重复阅读原教程。新增勘误见上表。
+- 保留原 10 个实验 ID 与六步 ESFLOWS，补 5 卡，共 2 组 / 15 张操作卡；显式 mapping / 固定 ID / 关闭周期刷新 / 显式 refresh / 本课健康等待 / 写后搜索前基线 / 更新前后读回。清理、重复与统计不归零的条件写清。全站 30 正式页 / 436 卡 / 22 机制播放器，Archify trace 另计。
+- 官方 Archify 3.0.1 的两幅 Workflow v2 从首次即传真实固定源码 checkout。只改 JSON 修正主路径、逻辑列留白与手机裁切；当前原生收据 async-search 为 review-4，listener-map 为 review-9。两图 validate / deliver / strict check 均 showcase 9/9、零错误 / 警告、provenance current；原生 browser-check 仍因 file URL 管理策略失败，finalize 整体如实 fail，旧收据保留。
+- 最终独立 HTTP Chromium 检查通过：两图四档桌面尺寸，章节六档宽度与双主题，880px 列 / ≤1px 对齐，页面与 iframe 容纳，额外逐图确认所有实际 SVG 节点可见；探索 / 源码 / 关闭 / 展开、暂停后重播 / 键盘、目录 / 已读、15 张卡实际控制台请求字段、端点 / 认证别名 / raw 与 Pages 前缀、reduced motion 及六步机制播放器。手机机制图在自身容器内滚动，共享 CSS / JS 未改。实际查看本轮 24 张最终截图。
+- 站点、JS 语法、旧 SVG 文字估宽、稳定 ID 与 diff 检查通过。9200 探测拒绝连接，环境仍缺 /proc/self/coredump_filter，真实 ES 首次与清理后重做未执行，未模拟 API。完整验收见 [.archify/CH08-REVIEW.md](.archify/CH08-REVIEW.md)；按持续授权提交并推送 origin/main。
+
 
 ### 2026-10-10(第七章复核与实验预期修正)
 

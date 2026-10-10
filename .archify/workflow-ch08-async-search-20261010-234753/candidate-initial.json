@@ -1,0 +1,253 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "远程查询：调度返回与结果回调",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch08-async-search-20261010-234753/async-search.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "执行与转换"
+        },
+        "messagebus": {
+          "label": "回调与交接"
+        },
+        "security": {
+          "label": "失败与程序错误"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "send",
+      "label": "协调侧 · 调度分片请求，不阻塞等待"
+    },
+    {
+      "id": "shard",
+      "label": "数据侧 · DIRECT 接入，再提交查询"
+    },
+    {
+      "id": "collect",
+      "label": "协调侧 · 消费结果后推进阶段"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "send",
+      "lane": "send",
+      "col": 0,
+      "type": "messagebus",
+      "label": "调度并发送 query",
+      "sublabel": "并发上限可让后续请求暂存",
+      "width": 240,
+      "height": 52,
+      "yOffset": -35,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/AbstractSearchAsyncAction.java",
+          "line": 249,
+          "end_line": 280
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchTransportService.java",
+          "line": 210,
+          "end_line": 237
+        }
+      ]
+    },
+    {
+      "id": "returned",
+      "lane": "send",
+      "col": 1,
+      "type": "backend",
+      "label": "调度调用返回",
+      "sublabel": "网络等待不以 get / await 占线程",
+      "width": 240,
+      "height": 52,
+      "yOffset": -35,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/AbstractSearchAsyncAction.java",
+          "line": 249,
+          "end_line": 280
+        }
+      ]
+    },
+    {
+      "id": "submit",
+      "lane": "shard",
+      "col": 0,
+      "type": "messagebus",
+      "label": "query handler · DIRECT",
+      "sublabel": "executeQueryPhase → runAsync",
+      "width": 240,
+      "height": 52,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchTransportService.java",
+          "line": 569,
+          "end_line": 579
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 833,
+          "end_line": 841
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 964,
+          "end_line": 970
+        }
+      ]
+    },
+    {
+      "id": "query",
+      "lane": "shard",
+      "col": 0,
+      "type": "backend",
+      "label": "普通索引 · search executor",
+      "sublabel": "执行查询并完成结果 listener",
+      "width": 240,
+      "height": 52,
+      "yOffset": 44,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 1362,
+          "end_line": 1372
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 964,
+          "end_line": 970
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionRunnable.java",
+          "line": 72,
+          "end_line": 82
+        }
+      ]
+    },
+    {
+      "id": "consume",
+      "lane": "collect",
+      "col": 0,
+      "type": "messagebus",
+      "label": "消费结果并倒数",
+      "sublabel": "consumeResult 完成后 finishOneShard",
+      "width": 240,
+      "height": 52,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/AbstractSearchAsyncAction.java",
+          "line": 506,
+          "end_line": 526
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/AbstractSearchAsyncAction.java",
+          "line": 441,
+          "end_line": 447
+        }
+      ]
+    },
+    {
+      "id": "next",
+      "lane": "collect",
+      "col": 0,
+      "type": "backend",
+      "label": "onPhaseDone · 下一阶段",
+      "sublabel": "outstanding 归零后才继续",
+      "width": 240,
+      "height": 52,
+      "yOffset": 44,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/AbstractSearchAsyncAction.java",
+          "line": 441,
+          "end_line": 447
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/AbstractSearchAsyncAction.java",
+          "line": 758,
+          "end_line": 765
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "send-returned",
+      "from": "send",
+      "to": "returned",
+      "role": "branch",
+      "variant": "dashed",
+      "label": "返回"
+    },
+    {
+      "id": "send-submit",
+      "from": "send",
+      "to": "submit",
+      "role": "async",
+      "variant": "default",
+      "label": "请求"
+    },
+    {
+      "id": "submit-query",
+      "from": "submit",
+      "to": "query",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "query-consume",
+      "from": "query",
+      "to": "consume",
+      "role": "async",
+      "variant": "default",
+      "label": "响应"
+    },
+    {
+      "id": "consume-next",
+      "from": "consume",
+      "to": "next",
+      "role": "main",
+      "variant": "default",
+      "label": "归零"
+    }
+  ],
+  "mainPath": [
+    "send",
+    "submit",
+    "query",
+    "consume",
+    "next"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "图的范围",
+      "items": [
+        "ES 9.4.0：普通索引的远程 query 成功路径。",
+        "箭头表示调用或结果交接，不是所有节点共享的同步调用栈。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "省略的分支",
+      "items": [
+        "未展开 rewrite、can-match、缓存、失败重试、fetch 与最终 HTTP。",
+        "本地路径或已经完成的 listener 可同步回调；不能据此图推断每步都换线程。"
+      ]
+    }
+  ]
+}

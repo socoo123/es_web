@@ -1,0 +1,195 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "map 回调：转换失败与下游错误",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch08-listener-map-20261010-234753/listener-map.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "执行与转换"
+        },
+        "messagebus": {
+          "label": "回调与交接"
+        },
+        "security": {
+          "label": "失败与程序错误"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "mapping",
+      "label": "转换阶段 · 捕获 fn 的 Exception"
+    },
+    {
+      "id": "delegate",
+      "label": "委托阶段 · 下游须处理自身异常"
+    },
+    {
+      "id": "done",
+      "label": "终态 · 正常返回或失败回调"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "map",
+      "lane": "mapping",
+      "col": 0,
+      "type": "backend",
+      "label": "fn.apply(response)",
+      "sublabel": "转换函数运行在当前回调线程",
+      "width": 240,
+      "height": 52,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionListenerImplementations.java",
+          "line": 92,
+          "end_line": 109
+        }
+      ]
+    },
+    {
+      "id": "failure",
+      "lane": "mapping",
+      "col": 1,
+      "type": "security",
+      "label": "delegate.onFailure",
+      "sublabel": "fn 抛 Exception 时转失败",
+      "width": 240,
+      "height": 52,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionListenerImplementations.java",
+          "line": 102,
+          "end_line": 109
+        }
+      ]
+    },
+    {
+      "id": "delegate",
+      "lane": "delegate",
+      "col": 0,
+      "type": "messagebus",
+      "label": "delegate.onResponse(mapped)",
+      "sublabel": "转换成功后交给下游",
+      "width": 240,
+      "height": 52,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionListenerImplementations.java",
+          "line": 110,
+          "end_line": 115
+        }
+      ]
+    },
+    {
+      "id": "bug",
+      "lane": "delegate",
+      "col": 1,
+      "type": "security",
+      "label": "expectNoException · bug",
+      "sublabel": "下游 RuntimeException 不转失败",
+      "width": 240,
+      "height": 52,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionListenerImplementations.java",
+          "line": 110,
+          "end_line": 115
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionListener.java",
+          "line": 151,
+          "end_line": 167
+        }
+      ]
+    },
+    {
+      "id": "done",
+      "lane": "done",
+      "col": 0,
+      "type": "backend",
+      "label": "下游正常返回",
+      "sublabel": "此包装不增加线程切换或去重",
+      "width": 240,
+      "height": 52,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionListenerImplementations.java",
+          "line": 102,
+          "end_line": 116
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "map-delegate",
+      "from": "map",
+      "to": "delegate",
+      "role": "main",
+      "variant": "default",
+      "label": "成功"
+    },
+    {
+      "id": "map-failure",
+      "from": "map",
+      "to": "failure",
+      "role": "error",
+      "variant": "security",
+      "label": "转换失败"
+    },
+    {
+      "id": "delegate-done",
+      "from": "delegate",
+      "to": "done",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "delegate-bug",
+      "from": "delegate",
+      "to": "bug",
+      "role": "error",
+      "variant": "security",
+      "label": "下游抛错"
+    }
+  ],
+  "mainPath": [
+    "map",
+    "delegate",
+    "done"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "与 wrap 对照",
+      "items": [
+        "wrap 的成功 consumer 抛 Exception 会转给失败 consumer。",
+        "map 分开处理转换错误与下游自身的程序错误。两者都不负责切线程。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "恰好一次由协议保障",
+      "items": [
+        "notifyOnce 运行时竞争去重，只保证至多一次，不保证一定有人完成。",
+        "assertOnce 只在断言开启时抓重复完成；关闭时直接返回 delegate。"
+      ]
+    }
+  ]
+}
