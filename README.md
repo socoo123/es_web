@@ -92,5 +92,5 @@ bash docker/start-secure.sh                 # 安全节点 @ 127.0.0.1:9201(ch29
     | tar xz --strip-components=1 -C es-src
   ```
 
-- 进度与勘误的唯一真相在 `STATUS.md`;规范在 `PLAN.md`
+- 进度与勘误的唯一真相在 `STATUS.md`；基础规范在 `PLAN.md`，后续逐章重构统一遵循 [CHAPTER_STANDARD.md](CHAPTER_STANDARD.md)，协作入口为 [AGENTS.md](AGENTS.md)
 - 端口只绑 `127.0.0.1`,CORS 放行配置中的本机页面、`file://` 和本站 Pages 域——这是学习机配置,别暴露到局域网
