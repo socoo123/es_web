@@ -9,7 +9,7 @@
 | ch01 | Elasticsearch 是什么 | ✅ | 11 | 1(近实时) | ✅ 第一章基线 |
 | ch02 | 项目结构全景 | ✅ | 2 | — | ✅ 源码导航（2 图） |
 | ch03 | 节点启动全流程 | ✅ | 2 | 1(启动八步) | ✅ 启动与生命周期（2 图） |
-| ch04 | 插件体系 | ✅ | 2 | — | 待改造 |
+| ch04 | 插件体系 | ✅ | 2 | — | ✅ 插件边界与注册（2 图，1 路径动画） |
 | ch05 | 配置框架 | ✅ | 8 | — | 待改造 |
 | ch06 | 请求入口层 | ✅ | 10 | — | 待改造 |
 | ch07 | 动作框架 | ✅ | 9 | — | 待改造 |
@@ -71,7 +71,20 @@
 | ch03 | 三态简写、省略 STOPPED；关闭严格逆序、HTTP 必定第一停；CLOSED 等于锁已释放 | 保留四标志与 INITIALIZED 直接 close 分支；STARTED / STOPPED / CLOSED 先变再执行动作。HTTP 较早停，前面仍有其他组件；NodeEnvironment 在 close 后段实际释放锁 | [Lifecycle](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/component/Lifecycle.java#L103-L173)、[Node 清理](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/Node.java#L462-L629) |
 | ch03 | CAT http 是 bind 地址；mlockall=false 就是未配置内存锁 | CAT http 取 HTTP publishAddress；mlockall 报实际锁定结果，false 不能单独反推配置，PID 还可能属于容器命名空间 | [CAT nodes](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/cat/RestNodesAction.java#L373-L380)、[ProcessProbe](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/monitor/process/ProcessProbe.java#L122-L124) |
 
+| ch04 | modules / plugins / X-Pack 三分，X-Pack 一概商业；内置模块删目录即可，删除 reindex 后仍能启动且路由 404 | 区分源码区域、发行目录、扩展 API 与许可；X-Pack 含 Basic 与更高等级功能。内置模块有依赖，不保证删除后可启动；9.4.0 无 handler 分支为 400，方法冲突可为 405 | [加载目录](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java#L134-L164)、[许可](https://github.com/elastic/elasticsearch/blob/v9.4.0/x-pack/plugin/core/src/main/java/org/elasticsearch/license/XPackLicenseState.java#L117-L133)、[无 handler](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L743-L751) |
+| ch04 | 每插件一个相同 ClassLoader，扩展只可见 SPI；不同 Guava 只要不撞 server 就必能启动 | 有模块化、Classic URLClassLoader、Stable 合成模块分支；扩展有独立 SPI 时暴露 SPI，无 SPI 时使用实现层。JarHell 检查本 bundle、核心与扩展传递依赖，其他兼容与运行条件仍适用 | [加载分支与暴露层](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java#L289-L377)、[JarHell](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsUtils.java#L314-L368) |
+| ch04 | createComponents 全按对象自身类型绑定，Reindex 仅返回 SSL 与 Metrics 两个组件 | 9.4.0 可返回组件对象、待注入的类和 PluginComponentBinding；Reindex 另有 Update/Delete Metrics 与 relocation picker binding。正文改为按真实装配与生命周期收集解释 | [组件装配](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/NodeConstruction.java#L1065-L1100)、[Reindex 组件](https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/reindex/src/main/java/org/elasticsearch/reindex/ReindexPlugin.java#L109-L115) |
+| ch04 | Stable 只写“升级友好”，未说明向前与跨 major 限制 | 正常语义版本构建中，Classic 要求描述 ES 版本等于当前版本；Stable 要求同 major 且插件构建目标不晚于运行版本，仍检查 Java 及其他加载条件 | [verifyCompatibility](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsUtils.java#L84-L156) |
+| ch04 | plugins 数组必为空，POST /_reindex 空对象得到 400 就能证明路由存在 | 数组由各节点安装状态决定；卡片保留节点名及失败数。空对象预期参数验证 400，应核对 action_request_validation_exception 与 reason；无 handler 也可返回 400，不能单凭状态判断 | [Reindex 验证](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/reindex/ReindexRequest.java#L97-L115)、[无 handler](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L743-L751) |
+
 ## 会话日志
+
+### 2026-10-10(第四章按统一规范重写)
+- 按“分类轴 → 可见性 → 接口装配 → mapper-size 副作用 → Classic / Stable 兼容范围”重写。校正 X-Pack、删除模块、加载分支与扩展暴露层、组件绑定以及仅凭 400 判断路由等表述；补齐固定 v9.4.0 文件/方法链接、源码检索任务、五道思考题和四条陷阱。
+- 新增 Archify Architecture 静态隔离图与 Workflow v2 Reindex 启动注册图（有限 trace）；真实 ES checkout 与固定提交核验。原生流程图首次发现共享路由段，调整相连节点/端口后修复；根据截图改为两列并测量图框高度。复用共用脚本与 880px 阅读列，无共享文件或前三章代码改动。
+- 两张实验卡保持稳定 ID；GET 增加节点名称与失败信息，预期随安装情况判断。POST 保持无效空对象，不创建资源；说明认证、错误正文、重复运行与无需清理。当前 127.0.0.1:9200 连接拒绝，两个真实 ES 请求及重复运行未执行。
+- 两图原生 validate / deliver / strict check 均 showcase 9/9、零错误/警告，源码证据通过、provenance current。file:// browser-check 仍因 ERR_BLOCKED_BY_ADMINISTRATOR 失败，finalize 整体如实保留失败。
+- 独立 HTTP Chromium 验收通过：两图四种桌面尺寸/双主题；章节六种宽度/双主题，同列边界差 ≤1px、最大 880px、页面与 iframe 无横向溢出，初始 SVG 未裁切。探索/关闭/固定提交源码、展开、路径图暂停后重播及键盘、主题、目录/进度、实验请求填充与 Pages 前缀正常；减少动态效果优先，静态图无可见播放入口。实际查看独立、嵌入、浅深、390px 与章节首屏截图；手机图提供总览，通过放大/探索及正文阅读细节。站点结构、JS 语法与源码链接路径/行号检查通过；哈希及收据见 .archify/CH04-REVIEW.md。
 
 ### 2026-10-10(第三章按统一规范重写)
 - 按“进程入口 → 构造锁盘 → 启动门禁 → 检查条件 → 生命周期”重写第三章，补齐 v9.4.0 的 ServerLauncher / preparer 关系、初始入群等待超时、显式强制检查与 alwaysEnforce、状态标志先变及关闭后处理等边界。

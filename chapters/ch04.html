@@ -5,234 +5,126 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>第 4 课:插件体系 — ES 源码精读站</title>
   <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
 </head>
-<body>
+<body class="chapter-visual-page">
   <header class="topbar">
     <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
-    <nav class="tnav">
-      <a href="../index.html">课程</a>
-      <a href="../architecture.html">架构</a><a href="../console.html">控制台</a>
-      <a href="../cheatsheet.html">速查表</a>
-    </nav>
-    <span class="spacer"></span>
-    <button class="theme-toggle" type="button">🌙 深色</button>
+    <nav class="tnav"><a href="../index.html">课程</a><a href="../architecture.html">架构</a><a href="../console.html">控制台</a><a href="../cheatsheet.html">速查表</a></nav>
+    <span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button>
   </header>
-
-  <main class="wrap">
+  <main class="wrap chapter-visual">
     <article class="chapter" id="ch04" data-ch="ch04">
       <header class="ch-header">
         <div class="ch-kicker">LESSON 04 · 第一篇 · 全局认知</div>
+        <span class="visual-badge">ARCHIFY · 插件边界与装配</span>
         <h1>插件体系</h1>
-        <div class="ch-meta-line">核心精简,功能外挂 · 约 14 分钟 · 前置:第 2、3 课 · 2 个实验</div>
+        <div class="ch-meta-line">核心定义接口，插件提供实现 · 约 17 分钟 · 前置:第 2、3 课 · 2 张 HTTP 操作卡 · 2 幅交互图 · 1 段路径动画</div>
+        <p class="ch-intro">server 不编译依赖 ReindexPlugin，为什么启动后仍有 POST /_reindex？沿着“发现 bundle → 建立加载层 → 创建实例 → 按接口注册”走一遍，就能区分插件的打包位置、运行时可见性和真正生效的扩展点。</p>
+        <div class="diagram-jumps"><a href="#fig-plugin-isolation"><span>01</span>隔离与显式扩展</a><a href="#fig-reindex-registration"><span>02</span>Reindex 注册路径</a><a href="#practice"><span>LAB</span>观察节点与路由</a></div>
+        <details class="chapter-outline"><summary>本课目录</summary><nav aria-label="本课目录"><a href="#goals">学习目标</a><a href="#bundles">三种分类轴</a><a href="#isolation">加载与隔离边界</a><a href="#registration">接口与路由注册</a><a href="#mapper-size">追踪 mapper-size</a><a href="#stable">Classic 与 Stable</a><a href="#practice">实验与源码任务</a><a href="#questions">思考题</a><a href="#pitfalls">陷阱</a><a href="#recap">速记</a></nav></details>
       </header>
-
       <section class="goal">
-        <h2>学习目标</h2>
-        <ul>
-          <li>说出插件体系的隔离不变量,并解释 A 插件的第三方依赖为什么砸不到 B。</li>
-          <li>解释 <code>server</code> 编译时看不见 <code>ReindexPlugin</code>,运行时却能提供 <code>POST /_reindex</code> 的机制。</li>
-          <li>对照 <code>mapper-size</code> 说出描述文件 <code>classname</code> 是怎么来的、指向谁。</li>
-        </ul>
+        <h2 id="goals">学习目标</h2>
+        <ul><li>区分源码区域、运行时 modules / plugins 目录与 Classic / Stable API，避免把 X-Pack 当作第三种加载协议。</li><li>解释独立插件的默认隔离，并指出 extended.plugins、SPI 暴露层和 JarHell 如何改变判断。</li><li>从 ReindexPlugin 或 MapperSizePlugin 找到“实现对象进入核心注册表”的具体调用点，结合 API 的响应正文验证自己的推断。</li></ul>
       </section>
-
       <section class="lesson">
-        <h2>1. 心智模型:默认看不见彼此</h2>
-        <p>插件体系要记的不是 12 个接口名,是这条隔离不变量:<strong>每个插件一块独立 ClassLoader;A 的第三方库,B 默认加载不到。</strong></p>
+        <h2 id="bundles">1. 先分清：源码在哪里、怎么安装、用什么 API</h2>
+        <p>“模块”“插件”“X-Pack”容易被放在一张三分表里，其实它们回答不同的问题。<strong>modules / plugins 是发行目录与安装方式；x-pack 是源码区域；Classic / Stable 是扩展 API 与描述文件协议。</strong>一个功能可以同时属于几条分类轴。</p>
+        <table class="ktable"><tr><th>分类轴</th><th>本课例子</th><th>如何确认</th></tr><tr><td>源码区域</td><td>modules/reindex、plugins/mapper-size、x-pack/plugin</td><td>固定 tag 的构建文件与实现类</td></tr><tr><td>运行时目录</td><td>内置 modules；另外安装的 plugins</td><td>发行目录及 _nodes/plugins 的两组数组</td></tr><tr><td>扩展 API</td><td>Classic 的 Plugin / ActionPlugin；Stable 分析组件 API</td><td>描述文件类型、入口类或命名组件</td></tr><tr><td>功能许可</td><td>X-Pack 包含 Basic 可用和更高许可等级功能</td><td>具体功能的许可判断，不能由目录名推断</td></tr></table>
+        <p>标准发行版通常把 reindex 作为内置 module 提供；mapper-size 是需要另外安装的 Classic plugin。许多 x-pack/plugin 项目也作为模块随发行版打包。运行时加载的是发行产物中的目录，不能把源码目录直接当成已加载功能清单。插件安装、移除或升级后需要按对应版本要求重启节点；本课实验只观察现有节点，不修改安装状态。</p>
+        <p>加载目录的入口见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java#L134-L164" target="_blank" rel="noopener">loadModulesBundles / loadPluginsBundles</a>；X-Pack 的许可等级区分见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/x-pack/plugin/core/src/main/java/org/elasticsearch/license/XPackLicenseState.java#L117-L133" target="_blank" rel="noopener">XPackLicenseState 许可等级</a>。<strong>不要为了验证路由归属手动删除内置 modules 目录</strong>：其他模块可能声明依赖它，发行版完整性和可启动性不能由这一幅概念图保证。</p>
 
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah04a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="230" y="12" width="300" height="46" rx="9" class="fig-box-hot"/>
-              <text x="380" y="32" text-anchor="middle" class="fig-name">server 的 ClassLoader(parent)</text>
-              <text x="380" y="50" text-anchor="middle" class="fig-sub">核心类 + 扩展接口(ActionPlugin…)</text>
-
-              <line x1="290" y1="58" x2="200" y2="98" class="fig-arrow" marker-end="url(#ah04a)"/>
-              <line x1="470" y1="58" x2="560" y2="98" class="fig-arrow" marker-end="url(#ah04a)"/>
-              <text x="185" y="85" class="fig-sub">parent</text>
-              <text x="555" y="85" class="fig-sub">parent</text>
-              <line x1="330" y1="150" x2="430" y2="150" stroke="rgb(var(--warn))" stroke-width="2.5" stroke-dasharray="6 5"/>
-              <text x="380" y="140" text-anchor="middle" style="fill: rgb(var(--warn))" class="fig-sub">看不见 ✗</text>
-
-              <rect x="30" y="100" width="330" height="92" rx="10" class="fig-box"/>
-              <text x="195" y="124" text-anchor="middle" class="fig-name">modules/repository-s3</text>
-              <text x="195" y="146" text-anchor="middle" class="fig-sub">自己的 ClassLoader</text>
-              <text x="195" y="168" text-anchor="middle" class="fig-key">自带一份 AWS SDK</text>
-
-              <rect x="400" y="100" width="330" height="92" rx="10" class="fig-box"/>
-              <text x="565" y="124" text-anchor="middle" class="fig-name">plugins/analysis-icu</text>
-              <text x="565" y="146" text-anchor="middle" class="fig-sub">自己的 ClassLoader</text>
-              <text x="565" y="168" text-anchor="middle" class="fig-key">分词逻辑,不被 SDK 污染</text>
-
-              <text x="380" y="222" text-anchor="middle" class="fig-sub">依赖冲突被关在各自的 ClassLoader 里,不靠「全集群只用一个 Guava」;父子是 server → 插件,不是插件 ↔ 插件</text>
-            </svg>
+        <h2 id="isolation">2. 隔离的是类可见性，不是所有风险</h2>
+        <p>普通独立插件不会把所有 JAR 摊平放进一个 classpath。PluginsLoader 为每个 bundle 建立自己的实现加载器或 Java 模块层；它可以沿父路径访问核心的可见类，默认无法直接加载另一个无关插件的私有实现与第三方库。模块化 bundle、非模块化 Classic 和 Stable 走不同分支，因此“所有插件都是一个 URLClassLoader”也不准确。</p>
+        <figure class="fig archify-figure" id="fig-plugin-isolation">
+          <div class="archify-shell">
+            <div class="archify-tools"><span class="archify-label">01 · Classic 插件的隔离与扩展</span><div class="archify-actions"><a href="../.archify/architecture-ch04-plugin-isolation-20261010-172141/plugin-isolation.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+            <iframe class="archify-frame" id="diagram-plugin-isolation" title="Classic 插件的隔离与扩展" loading="lazy" style="--diagram-height: 820px; --diagram-mobile-height: 640px" src="../.archify/architecture-ch04-plugin-isolation-20261010-172141/plugin-isolation.html?theme=light&amp;present=1"></iframe>
           </div>
-          <figcaption>图 1 · 唯一例外:描述文件写 <code>extended.plugins=security</code> 时,子插件的 parent 变成 server + 被扩展插件 SPI 层的并集——不声明就看不见。</figcaption>
+          <figcaption>图 01 · 箭头由使用方指向可访问层。A 与 B 默认互相不可见；E 声明扩展后可访问 B 的暴露层，父路径仍包含核心。此图概括机制，未逐个绘制 ClassLoader / ModuleLayer。<span class="figure-tip">静态关系图；点击节点查看关系与源码，窄屏可展开并放大阅读。</span></figcaption>
         </figure>
+        <p>图中的 A、B、E 是机制角色。A、B 未声明扩展时，二者可以携带各自的第三方依赖版本；但这<strong>不保证插件一定能启动或运行</strong>。本插件内部、核心可见类、显式扩展依赖仍要接受重复类与重复 codebase 检查；模块可见性、版本兼容、构造器和插件代码本身也可能失败。ClassLoader 隔离不能替代权限约束或错误处理。</p>
+        <p>若 E 的 Classic 描述文件声明 <code>extended.plugins=B</code>，父路径会合并核心和 B 的可暴露层：B 有单独 SPI 时使用 SPI；没有单独 SPI 时可使用实现层。它不是任意互通开关：B 的插件实例还必须实现 <code>ExtensiblePlugin</code>。全部实例创建后，PluginsService 才调用扩展加载回调，把声明扩展者的 SPI 实现交给被扩展插件。</p>
+        <details><summary>可见性、JarHell 与扩展的源码依据</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java#L269-L377" target="_blank" rel="noopener">PluginsLoader：父路径、SPI 与加载分支</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsUtils.java#L314-L368" target="_blank" rel="noopener">checkBundleJarHell：核心与传递扩展依赖</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsService.java#L219-L236" target="_blank" rel="noopener">loadPluginBundles / loadExtensions</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsService.java#L378-L385" target="_blank" rel="noopener">被扩展插件的接口检查</a>。图省略中间父加载器、模块层及 Lucene SPI 刷新；箭头表示可访问关系，不表示先后调用，也不承诺绕过 Java 模块导出限制。</p></div></details>
 
-        <p>第 2 课的依赖箭头在<strong>编译期</strong>,这一课的 ClassLoader 在<strong>运行期</strong>。两条合起来:server 既不能 <code>api project(':modules:reindex')</code>,也不会把所有插件 JAR 倒进同一个 classpath。</p>
-
-        <h2>2. Plugin 基类:先挂钩,再选接口</h2>
-        <p><code>Plugin</code> 是抽象类,提供<strong>每个插件都有的</strong>生命周期钩子;想加 REST、分词器、字段类型,再 implements 对应接口(完整列表在 <code>Plugin.java</code> 文件头 javadoc,打开就能数):</p>
-        <table class="ktable">
-          <tr><th>你想加的</th><th>实现</th></tr>
-          <tr><td>REST 端点 / Action</td><td><code>ActionPlugin</code></td></tr>
-          <tr><td>分析器 / 分词器</td><td><code>AnalysisPlugin</code></td></tr>
-          <tr><td>字段类型 / <code>_size</code> 这类元数据字段</td><td><code>MapperPlugin</code></td></tr>
-          <tr><td>查询 / 聚合</td><td><code>SearchPlugin</code></td></tr>
-          <tr><td>写入前处理器</td><td><code>IngestPlugin</code></td></tr>
-          <tr><td>脚本引擎</td><td><code>ScriptPlugin</code></td></tr>
-          <tr><td>快照仓库</td><td><code>RepositoryPlugin</code></td></tr>
-        </table>
-        <table class="ktable">
-          <tr><th>基类常用钩子</th><th>干什么</th></tr>
-          <tr><td><code>createComponents(PluginServices)</code></td><td>创建自己的服务;返回 <code>LifecycleComponent</code> 的会被 Node 托管生命周期</td></tr>
-          <tr><td><code>getSettings()</code></td><td>声明插件自己的 Setting,让 ES 识别并校验</td></tr>
-          <tr><td><code>getNamedWriteables()</code> / <code>getNamedXContent()</code></td><td>注册节点间序列化类型 / 请求体命名 JSON 解析器</td></tr>
-          <tr><td><code>getExecutorBuilders()</code></td><td>要独立线程池时用(ML 这类)</td></tr>
-          <tr><td><code>getBootstrapChecks()</code></td><td>给第 3 课的生产检查加一条</td></tr>
-          <tr><td><code>onIndexModule(IndexModule)</code></td><td>索引创建时挂钩(自定义 Engine 走这里)</td></tr>
-        </table>
-        <p>精读一个钩子就能看懂「插件不是挂在旁边的 JAR,而是把对象交进 Node」——<code>ReindexPlugin</code> 覆盖 <code>createComponents</code>,用 Node 借来的 <code>PluginServices</code>(Environment、指标注册表…)造出自己的组件,返回的对象被 Guice 绑到自身类型:</p>
-        <pre class="code-block"><code>public Collection&lt;?&gt; createComponents(PluginServices services) {
-    return List.of(
-        new ReindexSslConfig(services.environment().settings(), services.environment(),
-            services.resourceWatcherService()),
-        new ReindexMetrics(services.telemetryProvider().getMeterRegistry()));
-}</code></pre>
-        <div class="callout warn"><span class="co-title">构造器只能有一个,签名三选一:</span><code>(Settings, Path)</code> / <code>(Settings)</code> / <code>()</code>。<code>PluginsService.loadPlugin</code> 发现多个 public 构造器直接抛 <code>IllegalStateException</code>——不是「按优先级依次尝试」。</div>
-
-        <h2>3. 加载顺序:发现 → 实例化 → 注入</h2>
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 152" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah04b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="10" y="35" width="168" height="78" rx="9" class="fig-box"/>
-              <text x="94" y="56" text-anchor="middle" class="fig-name">① 发现</text>
-              <text x="94" y="78" text-anchor="middle" class="fig-sub">读 plugin-descriptor</text>
-              <text x="94" y="97" text-anchor="middle" class="fig-sub">.properties</text>
-              <line x1="178" y1="74" x2="204" y2="74" class="fig-arrow" marker-end="url(#ah04b)"/>
-              <rect x="208" y="35" width="168" height="78" rx="9" class="fig-box"/>
-              <text x="292" y="56" text-anchor="middle" class="fig-name">② 实例化</text>
-              <text x="292" y="78" text-anchor="middle" class="fig-sub">独立 ClassLoader</text>
-              <text x="292" y="97" text-anchor="middle" class="fig-sub">反射 new 出实例</text>
-              <line x1="376" y1="74" x2="402" y2="74" class="fig-arrow" marker-end="url(#ah04b)"/>
-              <rect x="406" y="35" width="168" height="78" rx="9" class="fig-box"/>
-              <text x="490" y="56" text-anchor="middle" class="fig-name">③ 注入</text>
-              <text x="490" y="78" text-anchor="middle" class="fig-sub">filterPlugins</text>
-              <text x="490" y="97" text-anchor="middle" class="fig-sub">按接口收集</text>
-              <line x1="574" y1="74" x2="600" y2="74" class="fig-arrow" marker-end="url(#ah04b)"/>
-              <rect x="604" y="35" width="146" height="78" rx="9" class="fig-box-hot"/>
-              <text x="677" y="56" text-anchor="middle" class="fig-name">生效</text>
-              <text x="677" y="78" text-anchor="middle" class="fig-sub">mapping 可写 _size</text>
-              <text x="380" y="134" text-anchor="middle" class="fig-sub">server 只认接口,不认 ReindexPlugin 这个类名;新 ClassLoader 可能带自定义 Codec,实例化前后会 reloadLuceneSPI</text>
-            </svg>
+        <h2 id="registration">3. 从加载到生效：核心只认扩展接口</h2>
+        <p>第三章看到的启动过程可以再切细一点。Bootstrap 读取 modules / plugins 的 bundle 描述，按扩展依赖排序，检查 JarHell 与版本兼容并建立加载层；Node 构造时创建 PluginsService，Classic 分支通过 classname 找到入口类并反射创建实例。<strong>建立加载层与创建插件实例属于不同步骤。</strong></p>
+        <figure class="fig archify-figure" id="fig-reindex-registration">
+          <div class="archify-shell">
+            <div class="archify-tools"><span class="archify-label">02 · Reindex 插件启动注册路径</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-reindex-registration">↻ 重新播放</button><a href="../.archify/workflow-ch04-reindex-registration-20261010-172141/reindex-registration.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+            <iframe class="archify-frame" id="diagram-reindex-registration" title="Reindex 插件启动注册路径" loading="lazy" style="--diagram-height: 840px; --diagram-mobile-height: 680px" src="../.archify/workflow-ch04-reindex-registration-20261010-172141/reindex-registration.html?theme=light&amp;present=1"></iframe>
           </div>
-          <figcaption>图 2 · 以 mapper-size 为例:注入走 <code>MapperPlugin.getMetadataMappers()</code>,往 metadata mapper 表里加一行——插件没改 Engine。</figcaption>
+          <figcaption>图 02 · Bootstrap 的加载检查通过后，Node 创建 Classic 入口实例并按 ActionPlugin 装配。随后获取并正常注册 POST /_reindex；检查失败阻止加载。本图展示装配过程，不是一次 HTTP 请求的执行链。<span class="figure-tip">点击节点查看关系与源码；可暂停、重播或展开图解。</span></figcaption>
         </figure>
-        <p>注入分两层:① <strong>接口方法</strong>——Node 装配时按接口收集插件交给对应模块,<code>ActionModule</code> 吃到的就是 <code>pluginsService.filterPlugins(ActionPlugin.class)</code> 的结果;② <strong>插件扩展插件</strong>——全部实例化后调 <code>loadExtensions()</code>,实现了 <code>ExtensiblePlugin</code> 的插件(如 x-pack security)通过 SPI 收到声明了 <code>extended.plugins=&lt;我&gt;</code> 的那些实现(自定义 Realm 就是这么挂上的)。</p>
+        <p>ReindexPlugin 实现 ActionPlugin。NodeConstruction 调用 <code>filterPlugins(ActionPlugin.class)</code>，把匹配实例交给 ActionModule。ActionModule 既收集 <code>getActions()</code> 的 Action / Transport 处理类，也在初始化 REST 时调用 <code>getRestHandlers()</code>；ReindexPlugin 返回 RestReindexAction，其 <code>routes()</code> 声明 <code>POST /_reindex</code>，随后注册到 RestController。<strong>注册发生在 Node 构造期，HTTP 开放在 Node.start 后段。</strong></p>
+        <p>这解释了第二章的编译依赖方向：核心定义接口，模块实现接口；核心装配时接收这些实例，而不需要直接引用 ReindexPlugin。图里的动画展示启动装配路径，实际请求到达后还有参数解析、Action 执行等步骤，第 6、7 课再追。REST 扩展还可过滤 handler 并注册占位处理器，图示限定正常允许的 Reindex 注册路径。</p>
+        <details><summary>从启动入口到 POST 路由的源码导航</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java#L231-L254" target="_blank" rel="noopener">initPhase2：扫描与创建加载器</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/NodeConstruction.java#L501-L503" target="_blank" rel="noopener">Node 构造 PluginsService</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsService.java#L423-L438" target="_blank" rel="noopener">Classic 反射入口</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsService.java#L503-L528" target="_blank" rel="noopener">唯一构造器</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsService.java#L545-L548" target="_blank" rel="noopener">filterPlugins</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/NodeConstruction.java#L1107-L1117" target="_blank" rel="noopener">ActionModule 接收 ActionPlugin</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/reindex/src/main/java/org/elasticsearch/reindex/ReindexPlugin.java#L73-L104" target="_blank" rel="noopener">ReindexPlugin 的 Action 与 REST 扩展</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/ActionModule.java#L1032-L1042" target="_blank" rel="noopener">initRestHandlers 收集插件处理器</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/ActionModule.java#L841-L858" target="_blank" rel="noopener">REST 过滤与注册</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/reindex/src/main/java/org/elasticsearch/reindex/RestReindexAction.java#L52-L55" target="_blank" rel="noopener">RestReindexAction.routes</a>。</p></div></details>
+        <table class="ktable"><tr><th>扩展目标</th><th>Classic 接口</th><th>交给核心的内容</th></tr><tr><td>REST / Action</td><td>ActionPlugin</td><td>REST handlers、Action 与 Transport 类</td></tr><tr><td>分析</td><td>AnalysisPlugin</td><td>分析器、分词器与过滤器工厂</td></tr><tr><td>字段与元数据字段</td><td>MapperPlugin</td><td>类型解析器与 metadata mapper</td></tr><tr><td>查询 / 聚合</td><td>SearchPlugin</td><td>命名的查询与聚合扩展</td></tr><tr><td>摄取 / 脚本 / 仓库</td><td>IngestPlugin / ScriptPlugin / RepositoryPlugin</td><td>处理器工厂、脚本引擎、仓库实现</td></tr></table>
+        <p>Plugin 抽象基类还提供 <code>getSettings()</code>、<code>getNamedWriteables()</code>、<code>getNamedXContent()</code>、<code>getExecutorBuilders()</code>、<code>getBootstrapChecks()</code> 与 <code>onIndexModule()</code> 等钩子。<code>createComponents(PluginServices)</code> 可用 Node 提供的服务创建组件；9.4.0 也接受待注入的组件类和 PluginComponentBinding，返回值不能一概解释为“全按对象自身类型绑定”。其中实际实现 LifecycleComponent 的组件会被 Node 收集管理。依据见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/NodeConstruction.java#L1065-L1100" target="_blank" rel="noopener">createComponents 与注入装配</a>、<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/NodeConstruction.java#L1588-L1598" target="_blank" rel="noopener">LifecycleComponent 收集</a> 与 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/Plugin.java#L240-L338" target="_blank" rel="noopener">Plugin 基类钩子</a>。</p>
+        <div class="callout warn"><span class="co-title">Classic 入口构造器：</span>必须有且只有一个 public 构造器，签名为 <code>()</code>、<code>(Settings)</code> 或 <code>(Settings, Path)</code>。加载器不会按三种签名的优先级逐个尝试；这条规则不用于 Stable 命名组件的入口。</div>
 
-        <h2>4. 三类插件:代码一样,差在打包</h2>
-        <table class="ktable">
-          <tr><th>对比项</th><th>Modules</th><th>Plugins</th><th>X-Pack</th></tr>
-          <tr><td>仓库位置</td><td><code>modules/</code></td><td><code>plugins/</code></td><td><code>x-pack/plugin/</code></td></tr>
-          <tr><td>加载入口</td><td><code>loadModulesBundles</code></td><td><code>loadPluginsBundles</code></td><td>打进发行版后按 module 加载</td></tr>
-          <tr><td>安装</td><td>随 ES 发布</td><td><code>elasticsearch-plugin install</code></td><td>随发行版</td></tr>
-          <tr><td>可否拿掉</td><td>删目录</td><td><code>elasticsearch-plugin remove</code></td><td>视发行版而定</td></tr>
-          <tr><td>ClassLoader</td><td>独立</td><td>独立</td><td>独立</td></tr>
-        </table>
-        <p><code>reindex</code> 是 module(默认就有 <code>POST /_reindex</code>);<code>mapper-size</code> 是 plugin(要装才有 <code>_size</code>);x-pack security 同时实现多个扩展点,第 29 课再进。</p>
+        <h2 id="mapper-size">4. 用 mapper-size 把注册追到副作用</h2>
+        <p>源码中先看 <code>plugins/mapper-size/build.gradle</code> 的 esplugin 配置：<code>classname</code> 指向 <code>org.elasticsearch.plugin.mapper.MapperSizePlugin</code>。打包任务使用模板生成 Classic 的 <code>plugin-descriptor.properties</code>；因此在源码目录找不到同名文件，不能据此判断插件没有描述文件。</p>
+        <pre class="code-block"><code>// MapperSizePlugin 的核心注册方法
+@Override
+public Map&lt;String, MetadataFieldMapper.TypeParser&gt; getMetadataMappers() {
+    return Collections.singletonMap(SizeFieldMapper.NAME, SizeFieldMapper.PARSER);
+}</code></pre>
+        <p>它把 <code>_size</code> 对应的解析器交给 MapperPlugin 扩展点。NodeConstruction 收集 MapperPlugin 后，IndicesModule 合并 metadata mapper 注册表；与已有名称冲突会失败。这里先建立“能解析 _size 的能力”，并不会自动给所有索引启用该字段。</p>
+        <p>在已安装 mapper-size 的节点上，索引 mapping 中显式设置 <code>"_size": {"enabled": true}</code> 才启用记录。SizeFieldMapper.postParse 取本次解析的源字节长度写入整数数值字段，可用于相应字段查询与排序。它表示文档源的字节大小，<strong>不是字符数，也不是 Lucene 压缩后的磁盘占用</strong>。本节通过源码验证机制；动手演示 _size 需要先安装匹配版本的 mapper-size。</p>
+        <details><summary>构建、注册与写入依据</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/plugins/mapper-size/build.gradle#L13-L16" target="_blank" rel="noopener">esplugin.classname</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/build-tools/src/main/java/org/elasticsearch/gradle/plugin/GeneratePluginPropertiesTask.java#L106-L147" target="_blank" rel="noopener">生成描述文件任务</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/plugins/mapper-size/src/main/java/org/elasticsearch/plugin/mapper/MapperSizePlugin.java#L21-L26" target="_blank" rel="noopener">getMetadataMappers</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/node/NodeConstruction.java#L856-L865" target="_blank" rel="noopener">Node 收集 MapperPlugin</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/indices/IndicesModule.java#L303-L333" target="_blank" rel="noopener">合并 metadata mapper 注册表</a> → <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/plugins/mapper-size/src/main/java/org/elasticsearch/index/mapper/size/SizeFieldMapper.java#L103-L110" target="_blank" rel="noopener">postParse 源字节长度</a>。</p></div></details>
 
-        <h2>5. 描述文件与最小插件</h2>
-        <p>每个插件<strong>运行时目录</strong>必须有 <code>plugin-descriptor.properties</code>,但源码树里通常没有——它是 <code>esplugin{}</code> Gradle 插件打包时从模板生成的:</p>
-        <pre class="code-block"><code>esplugin {
-  description = 'The Mapper Size plugin allows document to record their uncompressed size at index time.'
-  classname ='org.elasticsearch.plugin.mapper.MapperSizePlugin'
-}</code></pre>
-        <pre class="code-block"><code>// plugins/mapper-size/ 入口类的全部有效逻辑:
-public class MapperSizePlugin extends Plugin implements MapperPlugin {
-    @Override
-    public Map&lt;String, MetadataFieldMapper.TypeParser&gt; getMetadataMappers() {
-        return Collections.singletonMap(SizeFieldMapper.NAME, SizeFieldMapper.PARSER); // "_size"
-    }
-}</code></pre>
-        <p>mapping 里 <code>"_size": { "enabled": true }</code> 时,索引时把未压缩文档大小记成整数,之后可取回可排序。Classic 插件描述文件必须写 <code>classname</code>;Stable 插件走 <code>stable-plugin-descriptor.properties</code>,<code>classname</code> 为空,靠稳定 SPI 注册(权衡见思考题 3)。</p>
+        <h2 id="stable">5. Classic 与 Stable：兼容范围与扩展能力一起看</h2>
+        <p>Classic 使用 plugin-descriptor.properties，要求 classname，并继承 Plugin。对正常语义版本构建，加载兼容性检查要求描述中的 ES 版本与当前构建版本一致，同时检查 Java 版本。内部接口可能变化，插件发布者需要提供匹配版本的产物。</p>
+        <p>Stable 使用 <code>stable-plugin-descriptor.properties</code>，不声明 Classic 入口 classname；PluginsService 扫描命名组件注册到 StablePluginsRegistry，并放入 StablePluginPlaceHolder 表示插件已加载。命名组件通过稳定扩展接口提供分析能力，不是把 Classic 的 createComponents 或 REST 钩子原样搬过来。</p>
+        <table class="ktable"><tr><th>9.4.0 的比较</th><th>Classic</th><th>Stable</th></tr><tr><td>入口</td><td>classname → Plugin 实例</td><td>命名组件扫描，无 Classic 入口类</td></tr><tr><td>主要能力</td><td>REST、字段、查询、服务等扩展接口</td><td>稳定分析组件 API</td></tr><tr><td>ES 版本检查</td><td>描述版本与当前构建版本相同</td><td>同一 major，构建目标版本不得高于当前版本</td></tr><tr><td>仍要检查</td><td colspan="2">Java 要求、JarHell、产物与运行配置；版本检查通过不能证明任意插件代码正确</td></tr></table>
+        <p>所以“升级友好”有明确边界：Stable 不能跨 major 自动兼容，也不能把面向未来 ES 版本构建的产物装到更早节点。这些版本规则以正常 ES 9.4.0 语义版本构建为前提；不把开发构建的例外当成发布兼容承诺。依据见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsUtils.java#L84-L156" target="_blank" rel="noopener">verifyCompatibility</a>、<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginDescriptor.java#L164-L208" target="_blank" rel="noopener">描述文件类型与入口约束</a>、<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsService.java#L409-L420" target="_blank" rel="noopener">Stable 组件扫描与占位</a> 与 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/scanners/StablePluginsRegistry.java#L20-L56" target="_blank" rel="noopener">命名组件注册表</a>。</p>
       </section>
 
       <section class="drills">
-        <h2>动手实验</h2>
-        <p>两个 HTTP 实验:看这个节点把什么当 module 加载、验证一条 REST 路由的归属。原课的「数 javadoc 扩展点」「对照 mapper-size 源码」并进思考题。</p>
-
-        <h3>实验 1:modules 数组里找 reindex</h3>
+        <h2 id="practice">实验：先观察清单，再验证路由</h2>
+        <p>前提：使用控制台连接到已运行的 ES 9.4.0，并设置该端点需要的认证。先执行实验 1，再执行实验 2。多节点逐个核对返回的节点 ID 与名称；权限不足的 401 / 403 不能用于判断插件是否存在。两个操作均不创建索引或文档，无需清理，可重复执行；第二张是故意无效的 POST 请求，应保留空对象 <code>{}</code>，不要填入真实 reindex 参数。</p>
+        <h3>实验 1：节点分别加载了什么</h3>
         <div class="exp-slot" data-exp="ch04-01-loaded"></div>
-
-        <h3>实验 2:空 body 打 /_reindex,看路由在不在</h3>
+        <p>标准发行版通常能在 modules 数组中找到 reindex、analysis-common、lang-painless 等；plugins 是否为空取决于节点安装状态，不是固定预期。请求额外保留节点名称和失败数量，避免把过滤后的空响应直接解释为“没有模块”。<code>GET /_cat/plugins?v</code> 只遍历 plugins，不列 modules，见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/cat/RestPluginsAction.java#L91-L115" target="_blank" rel="noopener">CAT 只遍历 pluginInfos</a>；默认发行版模块存在也可能没有 CAT 插件行。</p>
+        <h3>实验 2：空对象到达 Reindex 后会发生什么</h3>
         <div class="exp-slot" data-exp="ch04-02-reindex-400"></div>
-
-        <h2>思考题(含原课仓库实验)</h2>
-        <details>
-          <summary>1. 插件 A、B 各带不同版本 Guava,节点能启动吗?A 的代码 new ImmutableList 会用到 B 那份吗?</summary>
-          <div class="answer">
-            <p>能启动(只要没和 <strong>server 的 classpath</strong> 撞车)。JarHell 查的是「插件 vs server、插件 vs 它声明扩展的插件」,不是两两互比;A 加载类只问自己的 loader 和 parent(server),问不到 B。以为「两个 Guava 必 JarHell」的错觉来自把所有 JAR 当成扁平 classpath。</p>
-          </div>
-        </details>
-        <details>
-          <summary>2. server 编译期看不见 ReindexPlugin,运行期却能提供 POST /_reindex,怎么做到的?</summary>
-          <div class="answer">
-            <p>接口(<code>Plugin</code>/<code>ActionPlugin</code>/<code>RestHandler</code>)定义在 server,实现在 module 里,启动时反射加载再 <code>filterPlugins</code> 注入——依赖倒置:核心稳定,功能外挂。把 ReindexPlugin 塞进 server/src,server 就编译依赖 reindex 的一切,没装这功能的发行版连核心都编译不了,第 2 课的不变量就破了。</p>
-          </div>
-        </details>
-        <details>
-          <summary>3. Classic Plugin 与 Stable Plugin 各在换什么?</summary>
-          <div class="answer">
-            <p>Classic 换来能力(createComponents、自定义 REST、碰内部 API),代价是内部 API 一变就得改、和 ES 版本绑死。Stable 只依赖 <code>plugin-api</code>、无入口类(server 放 <code>StablePluginPlaceHolder</code> 占位),换来升级友好,代价是暂时没有那套生命周期钩子。引入它是让第三方插件不必每个小版本重新编译。</p>
-          </div>
-        </details>
+        <p>在 Reindex 正常加载、权限允许且请求进入处理器的前提下，<code>{}</code> 可以解析为 ReindexRequest，随后因缺少源索引上下文和目标索引而验证失败，预期 400。对照错误正文里的 <code>action_request_validation_exception</code> 与具体原因，例如 <code>index must be specified</code>；它比状态码更能证明经过了 Reindex 的参数检查。参数验证依据见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/reindex/ReindexRequest.java#L97-L115" target="_blank" rel="noopener">ReindexRequest.validate</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/reindex/ReindexRequest.java#L409-L412" target="_blank" rel="noopener">fromXContent</a>。</p>
+        <p><strong>400 本身无法证明路由已加载。</strong>9.4.0 的无 handler 分支也返回 400；如果路径又命中别的路由但 HTTP 方法不支持，还可能返回 405。404 常用于命中 handler 后资源不存在等情况。结合实验 1、错误类型与 reason 判断，不通过删除模块重做实验。无 handler 的源码见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L743-L751" target="_blank" rel="noopener">handleBadRequest 返回 BAD_REQUEST</a>。</p>
+        <h3>源码任务：自己完成两条定位链</h3>
+        <p>在 v9.4.0 checkout 中检索以下目标文件。先连接“返回 handler”和“核心收集 handler”，再说明 _size 从注册到写入之间还缺少哪项显式 mapping 配置。这些命令仅阅读源码，不改变节点或数据。</p>
+        <pre class="code-block"><code>rg -n 'getRestHandlers|RestReindexAction'   modules/reindex/src/main/java/org/elasticsearch/reindex/ReindexPlugin.java
+rg -n 'getRestHandlers|registerHandler'   server/src/main/java/org/elasticsearch/action/ActionModule.java
+rg -n 'getMetadataMappers|postParse|sourceToParse'   plugins/mapper-size/src/main/java/org/elasticsearch/plugin/mapper/MapperSizePlugin.java   plugins/mapper-size/src/main/java/org/elasticsearch/index/mapper/size/SizeFieldMapper.java</code></pre>
+        <h2 id="questions">思考题</h2>
+        <details><summary>1. A、B 带不同版本的同名第三方库，是否一定 JarHell？</summary><div class="answer"><p>未声明扩展的独立 bundle 不把所有私有库放到同一个 classpath；它们可以隔离各自版本。仍要检查本插件、核心可见类以及显式扩展的传递依赖，不能只凭两个版本不同就断言能启动或必失败。</p></div></details>
+        <details><summary>2. E 声明 extended.plugins=B 后，能否访问 B 的所有实现？</summary><div class="answer"><p>要看 B 的暴露层：有独立 SPI 时使用 SPI，没有时使用实现层；Java 模块导出也影响可见性。B 还必须实现 ExtensiblePlugin，相关依赖仍接受 JarHell 检查。描述项不是随意绕过边界的开关。</p></div></details>
+        <details><summary>3. server 看不见 ReindexPlugin 的编译类名，为何还能注册路由？</summary><div class="answer"><p>核心定义 Plugin / ActionPlugin，模块提供实现；Classic 加载器按描述文件反射创建实例。Node 筛选 ActionPlugin，ActionModule 调用接口取得 RestReindexAction，再注册其 routes。这是启动装配路径；实际请求执行另追 Action 链。</p></div></details>
+        <details><summary>4. plugins 数组有 mapper-size，但某索引读不到 _size，应该先查什么？</summary><div class="answer"><p>核对相关节点的安装状态和索引 mapping 是否显式启用 _size，再核对写入时机及字段取回方式。插件存在提供解析能力，不会自动启用所有索引；_size 也不是压缩后的磁盘统计值。</p></div></details>
+        <details><summary>5. 为 ES 9.5 构建的 Stable 插件，能直接装到 ES 9.4 吗？</summary><div class="answer"><p>不能按兼容规则这样推断。9.4.0 对正常语义版本要求 major 相同，插件构建目标不能高于运行版本；Classic 则要求描述中的 ES 版本与当前构建版本相同。Java 和其他加载检查依然适用。</p></div></details>
       </section>
-
       <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 _cat/plugins 判断不了 module:</span>它只列 plugin;start-local 上经常是空的。判断 module 用 <code>_nodes/plugins</code> 的 <code>modules</code> 数组(实验 1)。</div>
-        <div class="callout warn"><span class="co-title">🕳 源码树里找不到 plugin-descriptor.properties:</span>它是打包产物,由 <code>esplugin{}</code> 从模板生成;别把运行时目录和源码目录当同一个。</div>
-        <div class="callout warn"><span class="co-title">🕳 「内置」≠「编译进 server」:</span>拿掉 modules/reindex 目录,节点照常启动,只是 <code>POST /_reindex</code> 变 404——路由来自插件的 <code>getRestHandlers</code>,不在 server 核心路由表里。</div>
+        <h2 id="pitfalls">陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 把不同分类轴混为三类插件：</span>X-Pack 是源码区域与功能集合，包含不同许可等级；它不是与 Classic / Stable 并列的加载协议。</div>
+        <div class="callout warn"><span class="co-title">🕳 只看清单或状态码：</span>_cat/plugins 不列 modules；plugins 不保证为空；无 handler 也可返回 400。核对节点清单、错误正文和源码归属。</div>
+        <div class="callout warn"><span class="co-title">🕳 通过删模块来证明“可插拔”：</span>发布模块可能有依赖关系。用清单和注册点验证归属，不把移除目录后必能启动写成通用结论。</div>
+        <div class="callout warn"><span class="co-title">🕳 装好了就等于功能已启用：</span>加载插件提供能力；索引 mapping、功能配置与权限仍决定具体行为。_size 必须显式启用。</div>
       </section>
-
       <section class="recap">
-        <h2>速记</h2>
-        <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>隔离</td><td>每插件独立 ClassLoader,默认互相看不见</td></tr>
-          <tr><td>挂钩</td><td>Plugin 基类给钩子;REST/分词/字段是按需 implements 的接口</td></tr>
-          <tr><td>加载</td><td>发现 descriptor → 反射实例化 → filterPlugins/loadExtensions 注入</td></tr>
-          <tr><td>三类</td><td>modules 随发行版 / plugins 手动装 / x-pack 商业;代码形态相同</td></tr>
-          <tr><td>构造器</td><td>必须唯一,签名三选一</td></tr>
-        </table>
-        <p><strong>心法:核心定义接口,功能自带实现;互相看不见,除非显式声明。</strong></p>
+        <h2 id="recap">速记</h2>
+        <table class="ktable"><tr><th>问题</th><th>记住什么</th></tr><tr><td>分类</td><td>源码区域 / 发行目录 / 扩展 API / 许可分别判断</td></tr><tr><td>隔离</td><td>独立实现加载层；显式扩展合并暴露层，JarHell 与模块约束仍在</td></tr><tr><td>加载</td><td>Bootstrap 建加载层 → Node 创建 Classic 实例 → 按接口装配</td></tr><tr><td>路由</td><td>ReindexPlugin 提供 handler；ActionModule 注册；HTTP 在之后开放</td></tr><tr><td>字段</td><td>MapperSizePlugin 注册 _size 解析器；mapping enabled 后记录源字节大小</td></tr><tr><td>兼容</td><td>Classic 匹配当前版本；Stable 同 major 且目标不晚于运行版本</td></tr><tr><td>证据</td><td>_nodes/plugins 分辨两组清单；错误正文分辨参数验证与无 handler</td></tr></table>
+        <p><strong>心法：描述文件找到实现，加载层限定可见性，扩展接口把对象交进核心；从注册继续追到实际副作用。</strong></p>
       </section>
-
-      <footer class="ch-footer">
-        <button class="read-toggle" type="button">标记本课已读</button>
-        <div class="pager">
-          <a href="ch03.html">← 第 3 课:节点启动全流程</a>
-          <a href="ch05.html">第 5 课:配置框架 →</a>
-        </div>
-      </footer>
+      <footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a href="ch03.html">← 第 3 课:节点启动全流程</a><a href="ch05.html">第 5 课:配置框架 →</a></div></footer>
     </article>
   </main>
-
   <script src="../experiments/ch04.js"></script>
   <script src="../assets/js/nav.js"></script>
   <script src="../assets/js/es-client.js"></script>
   <script src="../assets/js/flow-player.js"></script>
   <script src="../assets/js/experiments.js"></script>
   <script src="../assets/js/progress.js"></script>
+  <script src="../assets/js/chapter-diagrams.js"></script>
 </body>
 </html>

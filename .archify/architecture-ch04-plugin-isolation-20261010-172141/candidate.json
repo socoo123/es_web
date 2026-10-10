@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Classic 插件 · 默认隔离与显式扩展",
+    "output": ".archify/architecture-ch04-plugin-isolation-20261010-172141/plugin-isolation.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "插件与核心可见层"
+        },
+        "security": {
+          "label": "加载检查"
+        }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "core-visible",
+      "type": "backend",
+      "label": "核心可见类",
+      "sublabel": "server 与扩展接口",
+      "tag": "受 Java 模块可见性约束",
+      "icon": "none",
+      "pos": [
+        235,
+        40
+      ],
+      "size": [
+        250,
+        88
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java",
+          "line": 289,
+          "end_line": 308,
+          "label": "核心父路径与插件加载层"
+        }
+      ]
+    },
+    {
+      "id": "classic-a",
+      "type": "backend",
+      "label": "Classic 插件 A",
+      "sublabel": "实现与自己的第三方库",
+      "tag": "默认不访问 B 的实现",
+      "icon": "none",
+      "pos": [
+        40,
+        250
+      ],
+      "size": [
+        250,
+        88
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java",
+          "line": 349,
+          "end_line": 377,
+          "label": "模块化与非模块化加载分支"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsUtils.java",
+          "line": 314,
+          "end_line": 368,
+          "label": "插件与核心及扩展依赖的 JarHell"
+        }
+      ]
+    },
+    {
+      "id": "classic-b",
+      "type": "backend",
+      "label": "Classic 插件 B",
+      "sublabel": "实现与自己的第三方库",
+      "tag": "默认不访问 A 的实现",
+      "icon": "none",
+      "pos": [
+        430,
+        250
+      ],
+      "size": [
+        250,
+        88
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java",
+          "line": 289,
+          "end_line": 324,
+          "label": "独立实现层与可暴露层"
+        }
+      ]
+    },
+    {
+      "id": "extending-e",
+      "type": "backend",
+      "label": "扩展插件 E",
+      "sublabel": "父路径合并核心与 B 暴露层",
+      "tag": "声明 extended.plugins=B",
+      "icon": "none",
+      "pos": [
+        430,
+        480
+      ],
+      "size": [
+        250,
+        88
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java",
+          "line": 280,
+          "end_line": 316,
+          "label": "声明扩展与 SPI / 实现层选择"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsService.java",
+          "line": 378,
+          "end_line": 385,
+          "label": "被扩展插件须可扩展"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "a-core",
+      "from": "classic-a",
+      "to": "core-visible",
+      "label": "可访问核心"
+    },
+    {
+      "id": "b-core",
+      "from": "classic-b",
+      "to": "core-visible",
+      "label": "可访问核心"
+    },
+    {
+      "id": "e-b",
+      "from": "extending-e",
+      "to": "classic-b",
+      "label": "声明扩展",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "箭头是可见性",
+      "items": [
+        "箭头由使用方指向可访问层，不表示调用先后。",
+        "A 与 B 未声明扩展，图中没有互相访问的边。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "扩展改变边界",
+      "items": [
+        "有单独 SPI 时暴露 SPI；没有时使用实现层。",
+        "被扩展实例必须实现 ExtensiblePlugin；JarHell 仍检查核心与扩展依赖。"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "抽象范围",
+      "items": [
+        "A、B、E 是机制角色，不指代特定发行插件。",
+        "省略中间父加载器、Java 模块层和 Lucene SPI；Stable 插件另见正文。"
+      ]
+    }
+  ]
+}

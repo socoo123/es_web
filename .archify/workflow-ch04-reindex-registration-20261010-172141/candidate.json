@@ -1,0 +1,305 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Reindex · 从插件发现到 REST 注册",
+    "output": ".archify/workflow-ch04-reindex-registration-20261010-172141/reindex-registration.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "插件加载与注册步骤"
+        },
+        "security": {
+          "label": "加载检查"
+        }
+      }
+    },
+    "animation": "trace"
+  },
+  "lanes": [
+    {
+      "id": "bootstrap",
+      "label": "Bootstrap · 发现与加载层"
+    },
+    {
+      "id": "reject",
+      "label": "加载拒绝 · 检查失败",
+      "variant": "exception"
+    },
+    {
+      "id": "node",
+      "label": "Node 构造 · 实例与 REST 装配"
+    }
+  ],
+  "mainPath": [
+    "discover",
+    "checked-layer",
+    "instantiate",
+    "action-module",
+    "rest-handlers",
+    "registered"
+  ],
+  "nodes": [
+    {
+      "id": "discover",
+      "lane": "bootstrap",
+      "col": 0,
+      "type": "backend",
+      "label": "发现 bundle",
+      "sublabel": "modules / plugins 描述文件",
+      "width": 200,
+      "height": 70,
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java",
+          "line": 134,
+          "end_line": 164,
+          "label": "扫描两类运行时目录"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsUtils.java",
+          "line": 262,
+          "end_line": 273,
+          "label": "读取描述文件"
+        }
+      ],
+      "yOffset": -70
+    },
+    {
+      "id": "checked-layer",
+      "lane": "bootstrap",
+      "col": 0,
+      "type": "backend",
+      "label": "检查并建立加载层",
+      "sublabel": "排序 · JarHell · 兼容性",
+      "width": 200,
+      "height": 70,
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java",
+          "line": 222,
+          "end_line": 237,
+          "label": "排序与 JarHell"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java",
+          "line": 269,
+          "end_line": 308,
+          "label": "兼容性与插件层"
+        }
+      ],
+      "yOffset": 70
+    },
+    {
+      "id": "load-rejected",
+      "lane": "reject",
+      "col": 1,
+      "type": "security",
+      "label": "阻止本次加载",
+      "sublabel": "检查异常向启动调用方传播",
+      "width": 200,
+      "height": 70,
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsUtils.java",
+          "line": 84,
+          "end_line": 156,
+          "label": "版本与 Java 检查"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsUtils.java",
+          "line": 361,
+          "end_line": 368,
+          "label": "JarHell 异常"
+        }
+      ]
+    },
+    {
+      "id": "instantiate",
+      "lane": "node",
+      "col": 0,
+      "type": "backend",
+      "label": "反射创建入口实例",
+      "sublabel": "ReindexPlugin（Classic）",
+      "width": 200,
+      "height": 70,
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsService.java",
+          "line": 423,
+          "end_line": 438,
+          "label": "加载入口类与创建实例"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsService.java",
+          "line": 503,
+          "end_line": 528,
+          "label": "唯一 public 构造器"
+        }
+      ],
+      "yOffset": -140
+    },
+    {
+      "id": "action-module",
+      "lane": "node",
+      "col": 1,
+      "type": "backend",
+      "label": "按接口装配",
+      "sublabel": "ActionPlugin → ActionModule",
+      "width": 200,
+      "height": 70,
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/plugins/PluginsService.java",
+          "line": 545,
+          "end_line": 548,
+          "label": "按接口筛选"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/node/NodeConstruction.java",
+          "line": 1107,
+          "end_line": 1117,
+          "label": "ActionModule 接收实现"
+        }
+      ],
+      "yOffset": -140
+    },
+    {
+      "id": "rest-handlers",
+      "lane": "node",
+      "col": 1,
+      "type": "backend",
+      "label": "取 REST handlers",
+      "sublabel": "getRestHandlers 返回入口对象",
+      "width": 200,
+      "height": 70,
+      "icon": "none",
+      "sources": [
+        {
+          "path": "modules/reindex/src/main/java/org/elasticsearch/reindex/ReindexPlugin.java",
+          "line": 93,
+          "end_line": 104,
+          "label": "返回 RestReindexAction"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionModule.java",
+          "line": 1032,
+          "end_line": 1042,
+          "label": "收集并注册插件 handlers"
+        }
+      ]
+    },
+    {
+      "id": "registered",
+      "lane": "node",
+      "col": 1,
+      "type": "backend",
+      "label": "注册路由",
+      "sublabel": "POST /_reindex",
+      "width": 200,
+      "height": 70,
+      "icon": "none",
+      "sources": [
+        {
+          "path": "modules/reindex/src/main/java/org/elasticsearch/reindex/RestReindexAction.java",
+          "line": 52,
+          "end_line": 55,
+          "label": "POST 路由声明"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionModule.java",
+          "line": 841,
+          "end_line": 858,
+          "label": "注册或过滤占位处理"
+        }
+      ],
+      "yOffset": 140
+    }
+  ],
+  "edges": [
+    {
+      "id": "read-load",
+      "from": "discover",
+      "to": "checked-layer",
+      "label": "有效描述",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "check-fail",
+      "from": "checked-layer",
+      "to": "load-rejected",
+      "label": "检查失败",
+      "role": "error",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "load-instance",
+      "from": "checked-layer",
+      "to": "instantiate",
+      "label": "检查通过",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "select-action",
+      "from": "instantiate",
+      "to": "action-module",
+      "label": "实现接口"
+    },
+    {
+      "id": "get-handlers",
+      "from": "action-module",
+      "to": "rest-handlers"
+    },
+    {
+      "id": "register-route",
+      "from": "rest-handlers",
+      "to": "registered",
+      "label": "正常注册",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "装配，不是请求链",
+      "items": [
+        "这是标准发行版 Reindex 的启动注册路径，省略其他插件和组件。",
+        "路由在 Node 构造时注册；HTTP 对外开放见第三章。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "边界与条件",
+      "items": [
+        "兼容性或 JarHell 失败会阻止本次加载；其他构造异常未画出。",
+        "REST 扩展过滤可改为占位 handler；图展示正常允许路径。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "接口连接核心与实现",
+      "items": [
+        "核心定义 ActionPlugin；ReindexPlugin 位于 modules/reindex。",
+        "Stable 分析插件采用组件扫描；不经过本图的 Classic 反射入口。"
+      ]
+    }
+  ]
+}
