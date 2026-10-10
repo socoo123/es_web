@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "配置读值：快照、契约与类型值",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "database": {
+          "label": "配置快照"
+        },
+        "backend": {
+          "label": "声明与读值"
+        },
+        "external": {
+          "label": "业务使用"
+        }
+      }
+    },
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "output": ".archify/architecture-ch05-setting-contract-20261010-174932/setting-contract.html"
+  },
+  "components": [
+    {
+      "id": "snapshot",
+      "type": "database",
+      "label": "Settings 快照",
+      "sublabel": "保存键值，不定义业务类型",
+      "pos": [
+        30,
+        200
+      ],
+      "size": [
+        232,
+        82
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/Settings.java",
+          "line": 110,
+          "end_line": 133,
+          "label": "不可变键值容器"
+        }
+      ]
+    },
+    {
+      "id": "contract",
+      "type": "backend",
+      "label": "Setting<Integer>",
+      "sublabel": "默认 1000 · 最小 1",
+      "tag": "Dynamic + NodeScope",
+      "pos": [
+        390,
+        20
+      ],
+      "size": [
+        232,
+        82
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/ShardLimitValidator.java",
+          "line": 46,
+          "end_line": 53,
+          "label": "本课配置声明"
+        }
+      ]
+    },
+    {
+      "id": "read-value",
+      "type": "backend",
+      "label": "get(settings)",
+      "sublabel": "取值 → 解析 → 校验",
+      "pos": [
+        390,
+        200
+      ],
+      "size": [
+        232,
+        82
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/Setting.java",
+          "line": 556,
+          "end_line": 592,
+          "label": "读取、解析与校验"
+        }
+      ]
+    },
+    {
+      "id": "typed-value",
+      "type": "external",
+      "label": "业务拿到 Integer",
+      "sublabel": "合法示例：2000",
+      "pos": [
+        390,
+        390
+      ],
+      "size": [
+        232,
+        82
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/ShardLimitValidator.java",
+          "line": 88,
+          "end_line": 98,
+          "label": "消费者缓存与更新"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "snapshot-input",
+      "from": "snapshot",
+      "to": "read-value",
+      "label": "读取键值"
+    },
+    {
+      "id": "contract-input",
+      "from": "contract",
+      "to": "read-value",
+      "label": "定义读法"
+    },
+    {
+      "id": "read-output",
+      "from": "read-value",
+      "to": "typed-value",
+      "label": "返回类型值",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两种对象回答不同问题",
+      "items": [
+        "Settings：这一版配置有哪些键值？",
+        "Setting<T>：这一项的默认、解析、校验与属性是什么？"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "本图的抽象范围",
+      "items": [
+        "箭头表示读值所需输入与返回值，不是动态更新的传播顺序。",
+        "省略 fallback 与依赖校验的内部展开；未知 key 还需注册表校验。"
+      ]
+    }
+  ]
+}

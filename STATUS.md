@@ -10,7 +10,7 @@
 | ch02 | 项目结构全景 | ✅ | 2 | — | ✅ 源码导航（2 图） |
 | ch03 | 节点启动全流程 | ✅ | 2 | 1(启动八步) | ✅ 启动与生命周期（2 图） |
 | ch04 | 插件体系 | ✅ | 2 | — | ✅ 插件边界与注册（2 图，1 路径动画） |
-| ch05 | 配置框架 | ✅ | 8 | — | 待改造 |
+| ch05 | 配置框架 | ✅ | 12 | — | ✅ 配置契约与动态传播（2 图） |
 | ch06 | 请求入口层 | ✅ | 10 | — | 待改造 |
 | ch07 | 动作框架 | ✅ | 9 | — | 待改造 |
 | ch08 | 异步编程模型 | ✅ | 10 | 1(线程池 429) | 待改造 |
@@ -77,7 +77,33 @@
 | ch04 | Stable 只写“升级友好”，未说明向前与跨 major 限制 | 正常语义版本构建中，Classic 要求描述 ES 版本等于当前版本；Stable 要求同 major 且插件构建目标不晚于运行版本，仍检查 Java 及其他加载条件 | [verifyCompatibility](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsUtils.java#L84-L156) |
 | ch04 | plugins 数组必为空，POST /_reindex 空对象得到 400 就能证明路由存在 | 数组由各节点安装状态决定；卡片保留节点名及失败数。空对象预期参数验证 400，应核对 action_request_validation_exception 与 reason；无 handler 也可返回 400，不能单凭状态判断 | [Reindex 验证](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/reindex/ReindexRequest.java#L97-L115)、[无 handler](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L743-L751) |
 
+### 第五章重构校对
+
+| 课 | 网页旧说法 | 修正 | 依据 |
+|---|---|---|---|
+| ch05 | Setting 的 key 在编译期钉死，配置拼错不再是运行时问题 | Setting<T> 给调用方明确类型；配置 key 的注册与合法性仍由运行时框架检查 | [Setting.get](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/Setting.java#L556-L592)、[AbstractScopedSettings.updateSettings](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L869-L889) |
+| ch05 | NodeScope “节点 / 集群一份”，作用域表暗示均可 PUT cluster settings | NodeScope 表示集群级或节点文件级范围；不保证节点同值，API 更新另需已注册、Dynamic 及相应权限 / 条件 | [Setting.Property](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/Setting.java#L91-L136)、[动态更新条件](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L860-L889) |
+| ch05 | 改主分片数后已有 _id 会找不回来；Final “永远不行” | 原索引的 Final 更新被拒，原值 / 路由不变；关闭索引也拒绝。不同布局可按条件 resize 或 reindex 到新索引 | [IndexMetadata 声明](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/IndexMetadata.java#L222-L239)、[Final 检查](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L860-L889)；resize 条件见第一章已校对依据 |
+| ch05 | 收集 Runnable 后统一 run 是所有消费者 / 业务字段的原子更新，不会读到半新半旧 | 准备阶段失败时不开始执行；随后逐个 run，不保证多个字段跨线程原子可见，不提供执行异常后的通用回滚 | [AbstractScopedSettings.applySettings](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L159-L183) |
+| ch05 | transient 重启即还原，适合天然清理 / 先试试 | transient 不持久化，完整集群重启会丢；滚动重启不能当清理承诺。实验采用 persistent 并显式 null 删除本课覆盖 | [Metadata 持久化上下文](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/Metadata.java#L744-L750)、[官方 Cluster update settings API](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-put-settings) |
+| ch05 | null 必然恢复代码默认 1000，defaults 等同硬编码默认值 | null 只删除指定层；回退还受 transient / 节点本地设置影响。defaults 由处理 REST 请求节点的 clusterSettings.diff 生成，可含本地配置 | [覆盖合并](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/Metadata.java#L1682-L1689)、[RestClusterGetSettingsAction.response](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/admin/cluster/RestClusterGetSettingsAction.java#L81-L93) |
+| ch05 | Filtered 属性让 API 输出打码 | 相关 SettingsFilter 输出会移除匹配的敏感键，不保证以星号显示 | [SettingsFilter.filterSettings](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/SettingsFilter.java#L78-L96) |
+| ch05 | 将副本数改为 0 顺带把单节点集群的 yellow 治好 | 本章索引在主分片正常分配等前提下可 green；其他索引可让整个集群仍 yellow，实验限定本章索引并等待健康 | [IndexMetadata 副本声明](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/IndexMetadata.java#L234-L239)、[MetadataUpdateSettingsService 副本更新](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/MetadataUpdateSettingsService.java#L305-L339)；真实 API 本轮未运行 |
+
 ## 会话日志
+
+### 2026-10-10(重构完成后自动提交 GitHub)
+- 用户授权每次章节重构完成后自动提交并推送 GitHub；AGENTS / CHAPTER_STANDARD / CLAUDE 已同步写明 `origin/main` 为现有发布目标，无需逐次确认，并要求交付 GitHub 提交链接、如实记录验证限制与推送失败。
+- 本次将第五章已完成的重构、图源 / 产物 / 验收证据及规则更新一并提交、推送；第五章的具体检查结果与未实测项目见下方日志及 .archify/CH05-REVIEW.md。
+
+### 2026-10-10(第五章按统一规范重构)
+- 按“配置快照与契约 → 作用域 / 可变性 → 覆盖与寿命 → 动态更新边界”重排第五章；保留七段式、课间导航、已读进度，增加目录、图解跳转、四道折叠思考题和固定 v9.4.0 文件 / 方法依据。
+- 官方 Archify 3.0.1 生成两图：静态 Architecture 解释 Settings / Setting<T> 读值关系，Workflow v2 以有限 trace 展示主节点校验与各节点应用。图内源证据固定到 ES 提交 2e8528e92361c3399724226deaf2b46f933e925b，首次生成即通过真实源码 checkout 的 --repo-root 核验；未手改生成 HTML。根据嵌入截图把 Workflow 主路径改为纵向分组，当前嵌入高度为 800 / 1020px，窄屏为 560 / 780px。
+- 修正 NodeScope “集群一份”、Final 失败会破坏路由、consumer 执行原子性、transient “重启即清理”、null 必回默认、defaults 均为硬编码默认及 Filtered 必定显示掩码等说法；正文、图注、实验、思考题与速记同步。原有 8 个实验 ID 保留，改用 persistent + null 显式清理，新增范围校验、索引设置读回、限定索引健康等待与清理后读回，总计 2 组 / 12 张操作卡。
+- 原生 validate / deliver / strict check：两图 showcase 9/9、零错误 / 警告，源码证据核验通过。原生 browser-check 因管理员禁止 file:// 报 ERR_BLOCKED_BY_ADMINISTRATOR，finalize 整体保留 fail；未修改浏览器政策。
+- 独立 HTTP Chromium 检查通过：两图各 1440 / 1600 / 1920 / 2048px、浅深主题；章节 1920 / 1440 / 1024 / 768 / 390 / 320px、浅深主题，正文 / 图框 / 表格 / 实验边界差 ≤1px、桌面列最大 880px，页面与 iframe 无横向溢出。节点来源探索 / 关闭、展开、主题同步、暂停后重播、键盘重播、目录、进度、12 张卡的真实控制台导航、端点 / 认证别名 / raw 标记、Pages 子路径与 reduced motion 均通过。共用 CSS / JS 未修改；结构与 JS 语法检查全绿。
+- 源码已核对、API 未实测：127.0.0.1:9200 无连接，云环境仍缺 /proc/self/coredump_filter，已有启动记录确认该运行时无法正常启动 ES 9.4.0；首次运行与清理后重做未执行，HTTP 测试只验证请求传递，不模拟 ES 响应。
+- 实际查看两图独立与嵌入的浅深截图、章节桌面 / 手机首屏、手机图框 / 实验 / 表格；最终图源 / HTML 哈希、原生收据、HTTP 记录、许可与重现方式见 .archify/CH05-REVIEW.md。
 
 ### 2026-10-10(第四章按统一规范重写)
 - 按“分类轴 → 可见性 → 接口装配 → mapper-size 副作用 → Classic / Stable 兼容范围”重写。校正 X-Pack、删除模块、加载分支与扩展暴露层、组件绑定以及仅凭 400 判断路由等表述；补齐固定 v9.4.0 文件/方法链接、源码检索任务、五道思考题和四条陷阱。

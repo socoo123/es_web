@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>第 5 课:配置框架 — ES 源码精读站</title>
   <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
 </head>
-<body>
+<body class="chapter-visual-page">
   <header class="topbar">
     <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
     <nav class="tnav">
@@ -18,204 +19,178 @@
     <button class="theme-toggle" type="button">🌙 深色</button>
   </header>
 
-  <main class="wrap">
+  <main class="wrap chapter-visual">
     <article class="chapter" id="ch05" data-ch="ch05">
       <header class="ch-header">
         <div class="ch-kicker">LESSON 05 · 第一篇 · 全局认知</div>
+        <div class="visual-badge">ARCHIFY · 配置契约与更新路径</div>
         <h1>配置框架</h1>
-        <div class="ch-meta-line">类型安全的配置系统 · 约 14 分钟 · 前置:第 3、4 课 · 8 个实验</div>
+        <div class="ch-meta-line">配置如何读值与生效 · 约 18 分钟 · 前置:第 3、4 课 · 2 组实验 / 12 张操作卡 · 2 幅交互图（1 幅路径动画）· 0 个机制播放器</div>
+        <p class="ch-intro">配置写进文件或 API 后，怎样变成业务代码读到的值？ES 用 Setting&lt;T&gt; 声明读值契约，用 Settings 保存一版键值；动态更新经过主节点校验、集群状态传播和节点消费者应用。读懂这三层，才能解释“文件里写了，为什么运行值不同”。</p>
+        <nav class="diagram-jumps" aria-label="本章图解">
+          <a href="#fig-ch05-setting-contract"><span>01</span>快照与契约</a>
+          <a href="#fig-ch05-dynamic-update"><span>02</span>动态更新路径</a>
+          <a href="#practice"><span>03</span>实验与重做</a>
+        </nav>
+        <details class="chapter-outline"><summary>本课目录</summary><nav aria-label="本课目录">
+          <a href="#goals">学习目标</a><a href="#contract">1. 配置读值</a><a href="#properties">2. 作用域与可变性</a>
+          <a href="#precedence">3. 覆盖与寿命</a><a href="#update">4. 动态传播与执行边界</a><a href="#source-map">5. 源码起点</a>
+          <a href="#practice">实验与思考题</a><a href="#pitfalls">陷阱</a><a href="#recap">速记</a>
+        </nav></details>
       </header>
 
       <section class="goal">
-        <h2>学习目标</h2>
+        <h2 id="goals">学习目标</h2>
         <ul>
-          <li>打开一处 <code>Setting.intSetting(...)</code>,说出它的 key、默认值、最小值和两个 <code>Property</code>。</li>
-          <li>改一个 Dynamic 集群设置并用 <code>_cluster/settings</code> 对照生效值;改 Final 设置时能从报错对上 <code>Property.Final</code>。</li>
-          <li>说出一次 Dynamic 更新的传播链:Master 写 ClusterState → 各节点 ClusterSettings → listener。</li>
+          <li>从 <code>cluster.max_shards_per_node</code> 的声明读出默认值、最小值、作用域与可变性，并预测数值 0 的请求结果。</li>
+          <li>区分集群覆盖层与节点默认值；更新并清理一个 persistent 设置，用读回请求确认结果。</li>
+          <li>对照主分片与副本设置的更新结果，说明准备阶段与消费者执行阶段各自保证什么。</li>
         </ul>
       </section>
 
       <section class="lesson">
-        <h2>1. 心智模型:配置项是带类型的契约</h2>
-        <p>传统 Java 项目读配置,拼错 key 运行时才炸、转型失败才炸、没有默认值、改完要重启。ES 把每一项写成 <code>Setting&lt;T&gt;</code>:key 是常量、类型是泛型参数、解析和校验发生在 <code>get()</code> 里——</p>
-        <pre class="code-block"><code>public static final Setting&lt;TimeValue&gt; DEFAULT_SEARCH_TIMEOUT = Setting.timeSetting(
-    "search.default_search_timeout",
-    NO_TIMEOUT,
-    Property.Dynamic,
-    Property.NodeScope
-);
-TimeValue timeout = DEFAULT_SEARCH_TIMEOUT.get(settings);  // 拿到的是 TimeValue,不是 String</code></pre>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg">
-              <rect x="15" y="20" width="355" height="110" rx="10" class="fig-box"/>
-              <text x="192" y="46" text-anchor="middle" class="fig-name">裸字符串</text>
-              <text x="192" y="72" text-anchor="middle" class="fig-key">config.get("search.timeout")</text>
-              <text x="192" y="96" text-anchor="middle" class="fig-sub">拼错 key → 运行时才炸</text>
-              <text x="192" y="116" text-anchor="middle" class="fig-sub">Integer.parseInt(...) → 转型失败才炸</text>
-
-              <rect x="390" y="20" width="355" height="110" rx="10" class="fig-box-hot"/>
-              <text x="567" y="46" text-anchor="middle" class="fig-name">Setting&lt;T&gt;</text>
-              <text x="567" y="72" text-anchor="middle" class="fig-key">Setting.timeSetting("key", default, …)</text>
-              <text x="567" y="96" text-anchor="middle" class="fig-sub">类型和 key 编译期钉死</text>
-              <text x="567" y="116" text-anchor="middle" class="fig-sub">校验在 get() 里,坏值进不了集群状态</text>
-            </svg>
+        <h2 id="contract">1. 一串配置怎样变成 Integer？</h2>
+        <p><code>Settings</code> 保存当前这一版键值，<code>Setting&lt;T&gt;</code> 描述某一项的 key、默认值或 fallback、解析器、校验器与属性。后者让调用方拿到明确的 Java 类型；key 的注册与值的合法性仍要在运行时检查，拼写错误不会自动变成编译错误。</p>
+        <figure class="fig archify-figure" id="fig-ch05-setting-contract">
+          <div class="archify-shell">
+            <div class="archify-tools"><span class="archify-label">01 · Settings 与 Setting&lt;T&gt; 如何配合读值</span><div class="archify-actions"><a href="../.archify/architecture-ch05-setting-contract-20261010-174932/setting-contract.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+            <iframe class="archify-frame" id="diagram-ch05-setting-contract" title="Settings 与 Setting&lt;T&gt; 如何配合读值" loading="lazy" src="../.archify/architecture-ch05-setting-contract-20261010-174932/setting-contract.html?theme=light&amp;present=1" style="--diagram-height: 800px; --diagram-mobile-height: 560px;"></iframe>
           </div>
-          <figcaption>图 1 · Settings 框架先解决「读错、读炸」,再解决「运行时改」——没有声明式的 Setting&lt;T&gt;,动态更新无从校验。</figcaption>
+          <figcaption>图 1 · 箭头表示键值输入、契约输入与类型值返回；不是集群更新的时间线。以普通自管 ES 9.4.0 的分片限额设置为例，省略 fallback 和依赖校验的展开。<span class="figure-tip">这是读值结构图。点击节点查看源码与关系，使用图内主题控制；窄屏可展开后放大。</span></figcaption>
         </figure>
-
-        <p>第 3 课见过启动时谁覆盖谁(进程传入 &gt; 命令行 &gt; yml &gt; 代码默认)。这一课多一层:<strong>启动之后</strong>,Dynamic 项还能经 API 写进 ClusterState,盖过 yml 同名值。</p>
-
-        <h2>2. Setting&lt;T&gt;:声明即契约</h2>
-        <p>一个 <code>Setting&lt;T&gt;</code> 钉死四件事:key、默认值(或 fallback)、解析器/校验器、一组 <code>Property</code>。精读 <code>cluster.max_shards_per_node</code> 的声明(<code>ShardLimitValidator</code>):</p>
+        <p><code>ShardLimitValidator</code> 的声明提供了可验证的例子：</p>
         <pre class="code-block"><code>public static final Setting&lt;Integer&gt; SETTING_CLUSTER_MAX_SHARDS_PER_NODE = Setting.intSetting(
-    "cluster.max_shards_per_node",
-    1000,   // 默认
-    1,      // 最小值(不是最大值;最大走另一个重载)
-    Setting.Property.Dynamic,
-    Setting.Property.NodeScope
-);</code></pre>
-        <p><code>intSetting</code> 把默认值编成字符串存进 Setting,真正变成 Integer 发生在 <code>get(Settings)</code>。最小值 1 不是注释——是解析器里的 <code>if (value &lt; minValue) throw …</code>,所以 <code>PUT 0</code> 进不了 ClusterState,不是「先写入再被业务拒绝」。索引级的同类声明在 <code>IndexSettings</code>(<code>index.max_result_window</code>,默认 10000,<code>Dynamic + IndexScope</code>)。工厂还有 <code>boolSetting</code>/<code>timeSetting</code>/<code>byteSizeSetting</code>/<code>simpleString</code> 等,用到再查。插件在 <code>getSettings()</code> 里声明的项,启动时登记进 <code>SettingsModule</code>——没登记的 key,动态更新会报 <code>not recognized</code>。</p>
+    "cluster.max_shards_per_node", 1000, 1,
+    Setting.Property.Dynamic, Setting.Property.NodeScope
+);
+Settings snapshot = Settings.builder()
+    .put("cluster.max_shards_per_node", "2000").build();
+int limit = SETTING_CLUSTER_MAX_SHARDS_PER_NODE.get(snapshot); // 2000</code></pre>
+        <p>1000 是这一声明的默认值，1 是最小值。<code>get(settings)</code> 取原始值后解析和校验，整数解析器拒绝小于 1 的值；并非先把 0 作为有效配置发布，再交给业务纠正。实验 A 会先发送 0，再发送 2000，对照拒绝与成功路径。该配置用于限制增加开放分片的操作，不是单个节点实际分片放置的硬上限，也不会因为降低数值就删除现有分片。</p>
+        <p><code>Settings</code> 的普通键值映射不可变：<code>builder()</code> 生成新对象，旧读者仍持有旧快照。动态更新还要通知消费者更新自己的缓存字段；旧对象不会被原地改写。安全值另由 <code>SecureSettings</code> 接口处理；普通设置的 <code>Filtered</code> 可使相关 API 输出移除敏感项，不能一概理解成显示星号。</p>
+        <details><summary>源码依据：默认、解析与不可变容器</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/indices/ShardLimitValidator.java#L46-L53" target="_blank" rel="noopener">ShardLimitValidator · SETTING_CLUSTER_MAX_SHARDS_PER_NODE</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/Setting.java#L556-L592" target="_blank" rel="noopener">Setting · get</a> 与 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/Setting.java#L1539-L1563" target="_blank" rel="noopener">parseInt</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/Settings.java#L110-L141" target="_blank" rel="noopener">Settings · 构造函数 / getSecureSettings</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/SettingsFilter.java#L78-L96" target="_blank" rel="noopener">SettingsFilter · filterSettings</a>。本章源码固定在 v9.4.0；图内证据固定到该 tag 的提交。</p></div></details>
 
-        <h2>3. 作用域与可变性:两张正交的表</h2>
+        <h2 id="properties">2. 作用域与可变性要分别判断</h2>
+        <p>先问“谁拥有这项配置”，再问“何时允许更新”。<code>NodeScope</code> 表示集群级或节点配置文件级设置，<strong>不保证每个节点都配置相同，更不保证可用集群 API 修改</strong>；只有被注册并允许动态更新的相关设置才走这个 API。<code>IndexScope</code> 则属于具体索引。</p>
         <table class="ktable">
-          <tr><th>作用域</th><th>NodeScope</th><th>IndexScope</th></tr>
-          <tr><td>粒度</td><td>整个节点/集群一份</td><td>每个索引可以不同</td></tr>
-          <tr><td>写入</td><td>yml 或 <code>PUT /_cluster/settings</code></td><td>建索引时,或 <code>PUT /idx/_settings</code></td></tr>
-          <tr><td>例子</td><td><code>cluster.max_shards_per_node</code></td><td><code>index.max_result_window</code></td></tr>
+          <tr><th>属性</th><th>判断什么</th><th>本课例子与条件</th></tr>
+          <tr><td><code>NodeScope</code></td><td>集群 / 节点配置范围</td><td><code>cluster.max_shards_per_node</code> 还带 Dynamic，可通过集群 API 覆盖节点本地值</td></tr>
+          <tr><td><code>IndexScope</code></td><td>每个索引独立的设置</td><td>两个索引可以有不同副本数，更新目标由索引路径限定</td></tr>
+          <tr><td><code>Dynamic</code></td><td>允许在运行时更新</td><td><code>index.number_of_replicas</code> 可在开放索引上更新；分配完成仍有自己的等待条件</td></tr>
+          <tr><td><code>Final</code></td><td>禁止更新已存在对象的该设置</td><td><code>index.number_of_shards</code> 连关闭索引后也不能直接更新</td></tr>
         </table>
+        <p>Dynamic 与 Final 并不穷尽所有配置：部分非 Dynamic、非 Final 索引设置可以在关闭索引后更新，具体还受该设置与 API 的限制。Final 拒绝请求时原设置不变，已有文档不会因这次失败而失去路由；需要不同主分片布局时，可按条件 split/shrink 到新索引，或 reindex，不能据此说分片布局永远无法调整。实验 B 将分别更新主分片数与副本数，再读回确认。</p>
+        <details><summary>源码依据：属性与索引更新条件</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/Setting.java#L91-L136" target="_blank" rel="noopener">Setting · Property</a> 解释作用域、Dynamic 和 Final；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/IndexMetadata.java#L222-L239" target="_blank" rel="noopener">IndexMetadata · 主分片 / 副本声明</a> 对照实际属性。<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/MetadataUpdateSettingsService.java#L315-L339" target="_blank" rel="noopener">MetadataUpdateSettingsService · 开放 / 关闭索引更新分支</a> 选择动态更新或普通更新；两者最终都会受 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L860-L889" target="_blank" rel="noopener">AbstractScopedSettings · updateSettings</a> 的 Final 检查约束。</p></div></details>
+
+        <h2 id="precedence">3. 谁覆盖谁？null 又恢复到哪里？</h2>
+        <p>对通过集群 API 管理的同名动态设置，优先级是 <strong>transient → persistent → 节点本地配置 → Setting 默认值</strong>。节点本地配置包含启动时已合成的配置，不只是一份 yml。Metadata 先放 persistent、再放 transient；节点应用时再将这份集群设置覆盖本地配置。</p>
         <table class="ktable">
-          <tr><th>可变性</th><th>Dynamic</th><th>Final</th></tr>
-          <tr><td>运行时 API</td><td>可以改,不必重启</td><td>拒绝更新</td></tr>
-          <tr><td>关闭索引再改?</td><td>可以</td><td>仍然不行(Final 比「非 Dynamic」更硬)</td></tr>
-          <tr><td>例子</td><td><code>index.number_of_replicas</code></td><td><code>index.number_of_shards</code></td></tr>
+          <tr><th>来源</th><th>保存与观察</th><th>清理的含义</th></tr>
+          <tr><td>persistent</td><td>进入持久化集群元数据，支持完整集群重启后的恢复；推荐用于集群设置变更</td><td>该层指定 key 设为 <code>null</code>，删除覆盖</td></tr>
+          <tr><td>transient</td><td>参与当前集群状态，但不持久化；完整重启会丢失，滚动重启不能当作清理流程</td><td>也应明确置 <code>null</code>，不能等重启</td></tr>
+          <tr><td>节点本地 / 默认</td><td>没有更高覆盖时作为回退；各节点本地配置可能不同</td><td>清理高层后回到仍存在的下一层，不一定是代码默认</td></tr>
         </table>
-        <p><code>index.number_of_shards</code> 显式标了 <code>Property.Final</code>:主分片数参与 routing 哈希,改了已有 <code>_id</code> 就找不回来(第 1 课思考题);副本数是 Dynamic,所以能在线加副本。集群 API 还有一层寿命:<code>transient</code>(重启丢失,临时排查)与 <code>persistent</code>(留在集群状态,长期变更);合并是 <code>put(persistent).put(transient)</code>——<strong>transient 盖 persistent,两者都盖 yml 里的同名 Dynamic 项</strong>。</p>
+        <p><code>GET /_cluster/settings</code> 分别返回覆盖层，不是一个自动合并的“最终值”字段。<code>include_defaults=true</code> 增加相对于集群设置的默认 / 回退项，其中可包含处理该 REST 请求节点的本地配置，不能把 <code>defaults</code> 都当作硬编码默认或所有节点的运行快照。本课仅在无同名 transient、persistent、本地覆盖的单节点学习环境下预期 1000；清理 persistent 后再请求读回验证。</p>
+        <details><summary>源码依据：合并、持久化与 defaults</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/Metadata.java#L1682-L1689" target="_blank" rel="noopener">Metadata.Builder · build 的覆盖合并</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L159-L166" target="_blank" rel="noopener">applySettings · 节点配置合并</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/Metadata.java#L744-L750" target="_blank" rel="noopener">Metadata · 持久化上下文只写 persistent settings</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/admin/cluster/RestClusterGetSettingsAction.java#L81-L93" target="_blank" rel="noopener">RestClusterGetSettingsAction · response / diff</a>。persistent 的使用建议见<a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cluster-put-settings" target="_blank" rel="noopener">官方 Cluster update settings API</a>；具体优先级和存储结论已核对 v9.4.0 源码。</p></div></details>
 
-        <h2>4. Settings 容器:不可变快照</h2>
-        <p><code>Settings</code> 是键值袋,不是 <code>Setting&lt;T&gt;</code>:后者是「这一项怎么读」,前者是「当前这一版配置」。内部是 <code>Collections.unmodifiableNavigableMap</code>,没有 <code>put</code>;要改就 <code>builder()</code> 攒一份新的:</p>
-        <pre class="code-block"><code>Settings settings = Settings.builder()
-    .put("cluster.max_shards_per_node", "2000")
-    .build();
-int limit = SETTING_CLUSTER_MAX_SHARDS_PER_NODE.get(settings); // 2000</code></pre>
-        <p>搜索、写入、管理线程会同时 <code>get()</code>——不可变才能不锁。动态更新的真实含义是<strong>换一份新 Settings,再通知 listener 把各自缓存的字段改掉</strong>,不是原地改旧对象。密码一类走 <code>SecureSettings</code>(keystore),不出现在普通输出里;<code>Filtered</code> 属性则让 API 输出打码。</p>
-
-        <h2>5. 动态更新:一次 1000 → 2000 的旅行</h2>
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 145" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah05" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="10" y="35" width="168" height="64" rx="9" class="fig-box-hot"/>
-              <text x="94" y="58" text-anchor="middle" class="fig-name">PUT 成 2000</text>
-              <text x="94" y="78" text-anchor="middle" class="fig-sub">_cluster/settings</text>
-              <line x1="178" y1="67" x2="204" y2="67" class="fig-arrow" marker-end="url(#ah05)"/>
-              <rect x="208" y="35" width="168" height="64" rx="9" class="fig-box"/>
-              <text x="292" y="58" text-anchor="middle" class="fig-name">Master 写状态</text>
-              <text x="292" y="78" text-anchor="middle" class="fig-sub">写进 ClusterState</text>
-              <line x1="376" y1="67" x2="402" y2="67" class="fig-arrow" marker-end="url(#ah05)"/>
-              <rect x="406" y="35" width="168" height="64" rx="9" class="fig-box"/>
-              <text x="490" y="58" text-anchor="middle" class="fig-name">各节点应用</text>
-              <text x="490" y="78" text-anchor="middle" class="fig-sub">applySettings 换新快照</text>
-              <line x1="574" y1="67" x2="600" y2="67" class="fig-arrow" marker-end="url(#ah05)"/>
-              <rect x="604" y="35" width="146" height="64" rx="9" class="fig-box-hot"/>
-              <text x="677" y="58" text-anchor="middle" class="fig-name">listener 生效</text>
-              <text x="677" y="78" text-anchor="middle" class="fig-sub">限额字段 = 2000</text>
-              <text x="380" y="126" text-anchor="middle" class="fig-sub">走的是集群状态,不是每个节点自己改 yml;没登记 listener 的服务,内存旧字段不会自己变</text>
-            </svg>
+        <h2 id="update">4. 动态更新：主节点预检，节点应用</h2>
+        <p>一次 <code>PUT /_cluster/settings</code> 要先识别配置项、检查可变性与值，再构造新的 Metadata 和 ClusterState。<code>SettingsUpdater.updateSettings()</code> 还会对候选状态运行 <code>validateUpdate()</code>：解析并触发消费者的更新校验，但不执行消费者。失败的候选状态不会作为成功更新返回给主节点任务。</p>
+        <figure class="fig archify-figure" id="fig-ch05-dynamic-update">
+          <div class="archify-shell">
+            <div class="archify-tools"><span class="archify-label">02 · 动态集群设置从主节点校验到各节点应用</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch05-dynamic-update">↻ 重新播放</button><a href="../.archify/workflow-ch05-dynamic-update-20261010-174932/dynamic-update.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+            <iframe class="archify-frame" id="diagram-ch05-dynamic-update" title="动态集群设置从主节点校验到各节点应用" loading="lazy" src="../.archify/workflow-ch05-dynamic-update-20261010-174932/dynamic-update.html?theme=light&amp;present=1" style="--diagram-height: 1020px; --diagram-mobile-height: 780px;"></iframe>
           </div>
-          <figcaption>图 2 · ShardLimitValidator 的姿势:构造时 get 一次,再 addSettingsUpdateConsumer 订一份「报纸」。SearchService 对 search.default_search_timeout 做的一模一样。</figcaption>
+          <figcaption>图 2 · 灰 / 绿色实线表示处理步骤，红色分支表示校验失败，紫色虚线表示集群状态传播。传播箭头概括发布与接收，省略协调协议、ack 超时及 reroute；不表示所有节点同时生效。<span class="figure-tip">点击节点查看源码与关系；图内可暂停、切换静态，外层可重播。系统减少动态效果设置优先；窄屏可展开后放大。</span></figcaption>
         </figure>
-        <p><code>applySettings</code> 的 javadoc 写明:<strong>要么通知所有 consumer,要么一个都不通知</strong>。实现是先把所有 <code>SettingUpdater.updater()</code>(内部完成解析+校验,失败即抛,后面的 run 根本不会开始)收集成 Runnable 列表,再统一执行——一次请求同时改 low/high 水位,不会出现「只改成功一半」。</p>
+        <p>各节点收到状态后，<code>ClusterApplierService</code> 调用 <code>clusterSettings.applySettings()</code>，合并本地配置与集群覆盖，形成当前 / 前一版快照。它先把所有更新准备成 <code>Runnable</code>，全部准备成功才依次运行。<code>ShardLimitValidator</code> 在构造时读取一次限额，再注册消费者，将后续新值写入 <code>AtomicInteger</code>。</p>
+        <p><strong>“先准备、后执行”只保证准备阶段失败时不会开始执行消费者。</strong>执行仍是逐个 <code>run()</code>，没有把所有业务字段组成一个可供任意线程原子读取的事务，也没有消费者抛异常后的通用回滚。单个 AtomicInteger 的可见性不等于多个设置一起原子切换；相关设置要靠自己的组合校验与消费者实现保护。实验读回能证明覆盖层的结果，不能测出所有线程在同一瞬间看见新值。</p>
+        <p>成功响应中的 <code>acknowledged</code> 反映状态更新的确认结果，不是每项业务后果已经完成的通用保证。尤其更改副本数后，是否完成分配应另外看本章索引健康；本课使用明确等待条件，不拿整个集群的颜色替代本章索引状态。</p>
+        <details><summary>源码依据：从请求到消费者的具体方法</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/admin/cluster/settings/TransportClusterUpdateSettingsAction.java#L151-L220" target="_blank" rel="noopener">TransportClusterUpdateSettingsAction · masterOperation / ack / reroute</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/SettingsUpdater.java#L67-L120" target="_blank" rel="noopener">SettingsUpdater · updateSettings</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/service/ClusterApplierService.java#L554-L561" target="_blank" rel="noopener">ClusterApplierService · applyChanges 中应用设置</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L133-L183" target="_blank" rel="noopener">AbstractScopedSettings · validateUpdate / applySettings</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/indices/ShardLimitValidator.java#L90-L104" target="_blank" rel="noopener">ShardLimitValidator · 注册消费者 / setter</a>。</p></div></details>
+
+        <h2 id="source-map">5. 带着问题读这五个起点</h2>
+        <table class="ktable">
+          <tr><th>问题</th><th>文件与方法 / 声明</th></tr>
+          <tr><td>类型与校验怎样定义？</td><td><code>common/settings/Setting.java</code> · <code>get()</code> / <code>intSetting()</code> / <code>Property</code></td></tr>
+          <tr><td>为什么旧快照不变？</td><td><code>common/settings/Settings.java</code> · 构造函数 / <code>builder()</code></td></tr>
+          <tr><td>何时拒绝更新，何时执行？</td><td><code>common/settings/AbstractScopedSettings.java</code> · <code>updateDynamicSettings()</code> / <code>applySettings()</code></td></tr>
+          <tr><td>消费者如何更新业务值？</td><td><code>indices/ShardLimitValidator.java</code> · 构造函数 / <code>setShardLimitPerNode()</code></td></tr>
+          <tr><td>主分片与副本哪里不同？</td><td><code>cluster/metadata/IndexMetadata.java</code> · 两个 <code>Setting</code> 声明</td></tr>
+        </table>
+        <p>表中路径从 <code>server/src/main/java/org/elasticsearch/</code> 开始；传播的额外入口放在上一节折叠依据中。版本锚点为 Elasticsearch 9.4.0、Lucene 10.4.0，本课配置行为依据前者。</p>
       </section>
 
       <section class="drills">
-        <h2>动手实验</h2>
-        <p>把 <code>cluster.max_shards_per_node</code> 从默认 1000 改成 2000 再改回来,并踩一次 Final 的墙。全部用 transient(重启会丢,天然可清理)。</p>
+        <h2 id="practice">实验：拒绝、应用、读回、清理</h2>
+        <p>两组机制穿插成一个操作序列：A 观察集群设置的校验与覆盖（6 张卡），B 比较索引设置的 Final 与 Dynamic（6 张卡）。使用仓库学习节点 <code>http://localhost:9200</code>，ES 9.4.0、单个兼具 master/data 角色的节点、匿名认证；在连接栏选择端点。若自建安全节点，使用有集群管理及本章索引管理权限的认证别名，口令不进入深链。</p>
+        <div class="callout tip"><span class="co-title">先确认实验前提</span>这是可写的专用学习集群。控制台 <code>GET /</code> 确认版本；第 1 张卡检查同名 transient / persistent 均未设置、本地没有覆盖且回退为 1000。索引 <code>tut-l05-docs</code> 不存在，没有改变本章显式配置的模板或分配限制。若原来已有覆盖，先记录并在结束时恢复原值，不套用本课的默认清理预期。</div>
+        <p>本课不需要文档数据，也不依赖 refresh 时机。建立索引时显式指定 1 主分片、1 副本和关闭自动扩展副本；单节点无法把副本分配到主分片所在节点，初始本章索引可为 yellow。其他索引、更多节点或分配限制都可能改变健康结果，因此健康卡只检查本章索引。</p>
 
-        <h3>实验 0:建一个索引备用</h3>
-        <div class="exp-slot" data-exp="ch05-00-setup"></div>
-
-        <h3>实验 1:看默认值(改前)</h3>
+        <h3>A1 · 先读覆盖层与回退值</h3>
         <div class="exp-slot" data-exp="ch05-01-default"></div>
-
-        <h3>实验 2:transient 改成 2000</h3>
+        <h3>B1 · 建立对照索引</h3>
+        <div class="exp-slot" data-exp="ch05-00-setup"></div>
+        <h3>A2 · 用 0 触发范围校验</h3>
+        <div class="exp-slot" data-exp="ch05-02-invalid"></div>
+        <h3>A3 · 合法 persistent 更新</h3>
         <div class="exp-slot" data-exp="ch05-02-put"></div>
-
-        <h3>实验 3:看生效值(改后)</h3>
+        <h3>A4 · 读回覆盖层</h3>
         <div class="exp-slot" data-exp="ch05-03-after"></div>
-
-        <h3>实验 4:踩 Final 的墙</h3>
+        <h3>B2 · Final 拒绝主分片更新</h3>
         <div class="exp-slot" data-exp="ch05-04-final"></div>
-
-        <h3>实验 5:对照——Dynamic 的副本数能改</h3>
+        <h3>B3 · Dynamic 更新副本数</h3>
         <div class="exp-slot" data-exp="ch05-05-replicas"></div>
-
-        <h3>清理</h3>
+        <h3>B4 · 读回主分片与副本数</h3>
+        <div class="exp-slot" data-exp="ch05-05-verify"></div>
+        <h3>B5 · 等待本章索引健康</h3>
+        <div class="exp-slot" data-exp="ch05-05-health"></div>
+        <h3>A5 / A6 · 删除覆盖，再确认回退</h3>
         <div class="exp-slot" data-exp="ch05-06-reset"></div>
+        <div class="exp-slot" data-exp="ch05-06-verify"></div>
+        <h3>B6 · 显式删除实验索引</h3>
         <div class="exp-slot" data-exp="ch05-07-cleanup"></div>
+        <div class="callout warn"><span class="co-title">重做顺序</span>先执行 A5、A6 清理并读回，再执行 B6，仅删除 <code>tut-l05-docs</code>。确认基线后从 A1、B1 重新开始。首次 B1 创建成功；重复创建会报资源已存在，先清理再建。重复 B6 删除不存在索引通常回 404；确认目标不存在即可。中途停止也要恢复已修改的集群设置，不依赖重启。</div>
 
-        <h2>思考题</h2>
-        <details>
-          <summary>1. PUT cluster.max_shards_per_node=0 会成功吗?改成 500,已有 800 个分片的集群会立刻丢分片吗?</summary>
-          <div class="answer">
-            <p>0 进不去:最小值 1,解析在 <code>getValue</code> 阶段就抛,进不了 ClusterState。改成合法的 500,<strong>存量分片也不会被删</strong>——这是 shard <em>creation</em> time 的限额,卡的是新建分片/新开副本,存量继续活着。</p>
-          </div>
-        </details>
-        <details>
-          <summary>2. Settings 不可变,动态更新为什么还能「立刻生效」?applySettings 先收集再执行,防的是什么?</summary>
-          <div class="answer">
-            <p>不可变让任意线程无锁 get;生效靠「新快照 + listener 改服务自己的字段」,拿着旧 Settings 的线程也不脏。先收集再 run 是原子性:getValue 解析校验,任一失败就抛、后面的 run 不开始(all consumers or none)。若发现一个改一个,同时改两个水位可能出现 low &gt; high 的中间态,搜索线程读到半新半旧。</p>
-          </div>
-        </details>
-        <details>
-          <summary>3. 改 max_shards_per_node,什么时候写 yml、什么时候 persistent、什么时候 transient?</summary>
-          <div class="answer">
-            <p>yml 适合节点本地、重启才生效的项(路径、网络绑定);集群级 Dynamic 用 API:persistent 进集群状态、滚动重启还在,适合长期策略;transient 重启丢,适合「先试试」。API 盖 yml 换来不重启、全集群一致;付出的是「yml 写了 ≠ 运行值」——排障必须看 <code>_cluster/settings</code>,不能只看配置文件。</p>
-          </div>
-        </details>
+        <h2 id="questions">思考题</h2>
+        <details><summary>1. 限额改成 0，或降低到小于现有分片总量，会怎样？</summary><div class="answer"><p>0 违反最小值 1，更新被拒。合法降低不会删除存量分片；它约束后续会增加开放分片的相关操作。实际限额还与节点角色、开放分片数及分片组有关，不是逐节点的放置计数。本课把值调到 2000 只为观察更新，不提供容量建议。</p></div></details>
+        <details><summary>2. 先收集 Runnable 再执行，是否保证所有线程只读到完整的新配置？</summary><div class="answer"><p>准备失败时消费者不会开始执行。准备成功后逐个 run，无法由此推出多个业务字段跨线程原子可见；执行时异常也没有通用回滚。不可变 Settings 保护的是该快照，消费者缓存与其组合一致性要分别分析。</p></div></details>
+        <details><summary>3. persistent 设为 null 后，为什么不一定回到 1000？</summary><div class="answer"><p>null 删除指定覆盖层。仍有 transient 时它继续优先；没有集群覆盖时回退到节点本地配置，再到声明默认。只有本课无其他覆盖的前提满足时，清理后才预期 1000。defaults 也可能反映处理请求节点的本地配置。</p></div></details>
+        <details><summary>4. Final 更新被拒后，现有文档会找不到吗？关闭索引有用吗？</summary><div class="answer"><p>请求被拒，主分片设置仍为原值，不会因该失败破坏既有路由。Final 在关闭索引后仍拒绝；满足条件的 split/shrink 或 reindex 创建目标索引，是另一套操作。</p></div></details>
       </section>
 
       <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 yml 里写了 ≠ 运行中就是这个值:</span>Dynamic 项会被 transient/persistent 盖住;排障先 <code>GET /_cluster/settings?include_defaults=true</code>,再看配置文件。</div>
-        <div class="callout warn"><span class="co-title">🕳 「关掉索引就能改主分片数」:</span>不行。<code>Property.Final</code> 连 closed 索引的更新也拒绝——它比「非 Dynamic」更硬,因为路由哈希的除数不能变。</div>
-        <div class="callout warn"><span class="co-title">🕳 transient 盖 persistent:</span>两者都在 ClusterState 里,合并顺序是 put(persistent).put(transient)——后写的 transient 赢;重启后 transient 丢失,又回到 persistent。</div>
+        <h2 id="pitfalls">陷阱</h2>
+        <div class="callout warn"><span class="co-title">NodeScope 不等于全集群同值</span>它区分配置范围；是否支持 API 更新、是否必须跨节点一致，还要看属性与实际机制。</div>
+        <div class="callout warn"><span class="co-title">重启不能代替清理</span>transient 不持久化，但滚动重启不是删除覆盖的承诺。用 null 删除本课指定 key，并读回；原有覆盖需要恢复原值。</div>
+        <div class="callout warn"><span class="co-title">defaults 不全是硬编码默认</span>处理 REST 请求节点的本地配置也可能成为回退；先看两层集群覆盖，再查相关节点配置。</div>
+        <div class="callout warn"><span class="co-title">成功确认不代替分配等待</span>副本设置可在线改，健康结果还取决于节点、分配与其他条件；只观察本章索引并设置等待超时。</div>
       </section>
 
       <section class="recap">
-        <h2>速记</h2>
+        <h2 id="recap">速记</h2>
         <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>契约</td><td>Setting&lt;T&gt; 钉死 key/类型/默认/校验/Property;Settings 是不可变快照</td></tr>
-          <tr><td>作用域</td><td>NodeScope 集群一份;IndexScope 每索引一份</td></tr>
-          <tr><td>可变性</td><td>Dynamic 可 API 改;Final 永远不行(number_of_shards)</td></tr>
-          <tr><td>传播</td><td>Master 写 ClusterState → applySettings → listener 改字段</td></tr>
-          <tr><td>原子性</td><td>先收集 Runnable 再统一 run:all or none</td></tr>
-          <tr><td>寿命</td><td>transient 盖 persistent,重启丢;都盖 yml</td></tr>
+          <tr><th>线索</th><th>结论</th></tr>
+          <tr><td>快照与契约</td><td>Settings 保存键值；Setting&lt;T&gt; 定义默认、解析、校验与属性</td></tr>
+          <tr><td>属性</td><td>作用域与可变性分别判断；Final 禁止原对象更新，关闭索引也不绕过</td></tr>
+          <tr><td>覆盖</td><td>transient → persistent → 节点本地 → 默认；null 只删指定层</td></tr>
+          <tr><td>传播</td><td>主节点校验与预检 → 新集群状态 → 各节点合并、准备与执行</td></tr>
+          <tr><td>执行边界</td><td>准备失败不执行消费者；顺序执行不等于跨线程事务或通用回滚</td></tr>
+          <tr><td>证据</td><td>读回覆盖层、索引设置与健康；defaults 不能代表所有节点运行值</td></tr>
         </table>
-        <p><strong>心法:配置是契约不是字符串;想知道运行时的真值,问集群状态,别问 yml。</strong></p>
+        <p><strong>配置声明告诉你能不能改；覆盖层和消费者告诉你现在读到什么。</strong></p>
       </section>
 
       <footer class="ch-footer">
         <button class="read-toggle" type="button">标记本课已读</button>
-        <div class="pager">
-          <a href="ch04.html">← 第 4 课:插件体系</a>
-          <a href="ch06.html">第 6 课:请求入口层 →</a>
-        </div>
+        <div class="pager"><a href="ch04.html">← 第 4 课:插件体系</a><a href="ch06.html">第 6 课:请求入口层 →</a></div>
       </footer>
     </article>
   </main>
-
   <script src="../experiments/ch05.js"></script>
   <script src="../assets/js/nav.js"></script>
   <script src="../assets/js/es-client.js"></script>
   <script src="../assets/js/flow-player.js"></script>
   <script src="../assets/js/experiments.js"></script>
   <script src="../assets/js/progress.js"></script>
+  <script src="../assets/js/chapter-diagrams.js"></script>
 </body>
 </html>

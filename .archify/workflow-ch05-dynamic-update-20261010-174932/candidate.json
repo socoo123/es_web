@@ -1,0 +1,268 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "动态集群设置：先校验，再传播与应用",
+    "animation": "trace",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "frontend": {
+          "label": "请求入口"
+        },
+        "security": {
+          "label": "校验与拒绝"
+        },
+        "database": {
+          "label": "集群状态"
+        },
+        "backend": {
+          "label": "节点应用"
+        }
+      }
+    },
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "output": ".archify/workflow-ch05-dynamic-update-20261010-174932/dynamic-update.html"
+  },
+  "lanes": [
+    {
+      "id": "master",
+      "label": "主节点更新"
+    },
+    {
+      "id": "rejected",
+      "label": "请求拒绝",
+      "variant": "exception"
+    },
+    {
+      "id": "local",
+      "label": "各节点应用"
+    }
+  ],
+  "mainPath": [
+    "request",
+    "validate",
+    "new-state",
+    "merge",
+    "prepare",
+    "consume"
+  ],
+  "nodes": [
+    {
+      "id": "request",
+      "lane": "master",
+      "col": 0,
+      "type": "frontend",
+      "label": "接收更新请求",
+      "sublabel": "persistent = 2000",
+      "width": 240,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/admin/cluster/settings/TransportClusterUpdateSettingsAction.java",
+          "line": 151,
+          "end_line": 169,
+          "label": "提交主节点更新任务"
+        }
+      ],
+      "yOffset": -90
+    },
+    {
+      "id": "validate",
+      "lane": "master",
+      "col": 0,
+      "type": "security",
+      "label": "校验配置补丁",
+      "sublabel": "已注册 · Dynamic · 合法值",
+      "width": 240,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java",
+          "line": 860,
+          "end_line": 889,
+          "label": "更新条件与拒绝分支"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/SettingsUpdater.java",
+          "line": 67,
+          "end_line": 87,
+          "label": "分别更新并校验覆盖层"
+        }
+      ],
+      "yOffset": 0
+    },
+    {
+      "id": "new-state",
+      "lane": "master",
+      "col": 0,
+      "type": "database",
+      "label": "返回新集群状态",
+      "sublabel": "Metadata 保存覆盖层",
+      "width": 240,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/SettingsUpdater.java",
+          "line": 89,
+          "end_line": 120,
+          "label": "构造状态并预检消费者"
+        }
+      ],
+      "yOffset": 90
+    },
+    {
+      "id": "rejection",
+      "lane": "rejected",
+      "col": 1,
+      "type": "security",
+      "label": "拒绝本次更新",
+      "sublabel": "如数值 0、未知配置项",
+      "width": 210,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java",
+          "line": 869,
+          "end_line": 889,
+          "label": "非法补丁抛出异常"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/Setting.java",
+          "line": 1539,
+          "end_line": 1563,
+          "label": "整数范围校验"
+        }
+      ]
+    },
+    {
+      "id": "merge",
+      "lane": "local",
+      "col": 0,
+      "type": "backend",
+      "label": "合并节点配置",
+      "sublabel": "集群覆盖本地同名值",
+      "width": 240,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/ClusterApplierService.java",
+          "line": 554,
+          "end_line": 561,
+          "label": "从收到的状态应用配置"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java",
+          "line": 159,
+          "end_line": 166,
+          "label": "构造当前与旧快照"
+        }
+      ],
+      "yOffset": -90
+    },
+    {
+      "id": "prepare",
+      "lane": "local",
+      "col": 0,
+      "type": "security",
+      "label": "准备全部消费者",
+      "sublabel": "准备失败则不开始执行",
+      "width": 240,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java",
+          "line": 167,
+          "end_line": 177,
+          "label": "收集更新 Runnable"
+        }
+      ],
+      "yOffset": 0
+    },
+    {
+      "id": "consume",
+      "lane": "local",
+      "col": 0,
+      "type": "backend",
+      "label": "依次执行消费者",
+      "sublabel": "示例：更新分片限额",
+      "width": 240,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java",
+          "line": 178,
+          "end_line": 183,
+          "label": "顺序执行、无通用回滚"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/ShardLimitValidator.java",
+          "line": 90,
+          "end_line": 100,
+          "label": "注册消费者并更新字段"
+        }
+      ],
+      "yOffset": 90
+    }
+  ],
+  "edges": [
+    {
+      "id": "request-validation",
+      "from": "request",
+      "to": "validate"
+    },
+    {
+      "id": "validated-state",
+      "from": "validate",
+      "to": "new-state",
+      "label": "通过预检",
+      "variant": "emphasis"
+    },
+    {
+      "id": "invalid-request",
+      "from": "validate",
+      "to": "rejection",
+      "label": "校验失败",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "published-state",
+      "from": "new-state",
+      "to": "merge",
+      "label": "收到发布状态",
+      "role": "async",
+      "variant": "dashed"
+    },
+    {
+      "id": "merge-prepare",
+      "from": "merge",
+      "to": "prepare"
+    },
+    {
+      "id": "prepare-consume",
+      "from": "prepare",
+      "to": "consume",
+      "label": "全部准备成功",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "状态传播的范围",
+      "items": [
+        "以 cluster.max_shards_per_node 为例；没有节点改写 elasticsearch.yml。",
+        "状态箭头概括发布与接收，省略协调协议、超时和 reroute；不表示所有节点同时生效。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "执行边界",
+      "items": [
+        "主节点还有消费者预检；各节点应用时再次准备全部更新。",
+        "消费者随后顺序执行；不承诺跨线程原子可见，也不提供消费者异常后的通用回滚。"
+      ]
+    }
+  ]
+}

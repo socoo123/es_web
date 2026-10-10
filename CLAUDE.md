@@ -7,7 +7,7 @@
 
 1. **读 `STATUS.md`** — 知道做到哪了、上次留下什么
 2. **读 `PLAN.md` 与 `CHAPTER_STANDARD.md`** — 前者定义结构与注册表，后者定义后续章节内容校对、Archify 图解、布局和验收
-3. **做完就更新 `STATUS.md`,然后跑 `node tools/check.mjs`** — 必须全绿才算完
+3. **做完就更新 `STATUS.md`,然后跑 `node tools/check.mjs`，提交并推送 GitHub** — 站点检查必须全绿；用户已授权每次章节重构后自动提交本轮代码、图源、产物与验收记录并推送 `origin/main`，无需逐次确认。交付 GitHub 提交链接；未执行的验证与推送失败须如实记录。
 
 ## 常用命令
 
