@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/candidate.json",
+    "sha256": "a6424e0bfe69c2b8e2b6879e3ee4b86b036fb16b63acdf91fd386467b9cffe09",
+    "bytes": 7483
+  },
+  "artifact": {
+    "path": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/route-dispatch.html"
+  },
+  "gates": {
+    "validate": "fail",
+    "deliver": "not-run",
+    "check": "not-run",
+    "browser-check": "not-run"
+  },
+  "failedStage": "validate",
+  "diagnostics": [
+    {
+      "code": "workflow/explicit-pin-conflict",
+      "severity": "error",
+      "message": "Workflow edge \"select-valid\" has explicit geometry that violates readable route feasibility with authored endpoint sides.",
+      "subject": {
+        "diagramType": "workflow",
+        "edge": "select-valid",
+        "from": "selectHandler",
+        "to": "valid",
+        "path": "/edges/3/fromSide"
+      },
+      "evidence": {
+        "invariant": "readable route feasibility with authored endpoint sides",
+        "conflictingPins": [
+          {
+            "edge": "select-valid",
+            "field": "fromSide",
+            "path": "/edges/3/fromSide",
+            "value": "right"
+          }
+        ],
+        "actualCoordinates": {
+          "sourceAnchor": [
+            288,
+            433
+          ],
+          "targetAnchor": [
+            178,
+            568
+          ]
+        },
+        "fromSide": "right",
+        "toSide": "left",
+        "attemptedCandidateFamilies": [
+          "facing-straight",
+          "horizontal-then-vertical",
+          "vertical-then-horizontal",
+          "lane-gap-corridor",
+          "column-gap-corridor",
+          "outside-left",
+          "outside-right",
+          "top-corridor",
+          "bottom-corridor"
+        ],
+        "candidateCount": 9
+      },
+      "supportedFixes": [
+        "remove fromSide from edge \"select-valid\" so readable-v2 can replan the remaining endpoint-side pins"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/review-3/route-dispatch.finalize.json",
+    "summaryReceipt": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/review-3/route-dispatch.finalize-summary.json"
+  },
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 637,
+  "nextAction": {
+    "action": "edit-in-place",
+    "candidate": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/candidate.json",
+    "constraint": "Preserve unaffected semantics and geometry; do not replace the whole candidate.",
+    "then": "finalize-once"
+  }
+}

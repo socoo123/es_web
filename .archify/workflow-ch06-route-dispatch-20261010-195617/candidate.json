@@ -1,0 +1,305 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "路由匹配：Handler、400 与 405 从哪里来",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch06-route-dispatch-20261010-195617/route-dispatch.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "frontend": {
+          "label": "HTTP 入口"
+        },
+        "backend": {
+          "label": "路由与执行"
+        },
+        "security": {
+          "label": "拒绝分支"
+        },
+        "messagebus": {
+          "label": "结果回调"
+        },
+        "external": {
+          "label": "HTTP 响应"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "lookup",
+      "label": "路径候选"
+    },
+    {
+      "id": "select",
+      "label": "方法与版本"
+    },
+    {
+      "id": "fallback",
+      "label": "未找到 Handler"
+    },
+    {
+      "id": "result",
+      "label": "进入处理或返回 HTTP"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "raw",
+      "lane": "lookup",
+      "col": 0,
+      "type": "frontend",
+      "label": "读取 rawPath",
+      "sublabel": "按原始斜杠分段",
+      "width": 240,
+      "height": 64,
+      "yOffset": -90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 605,
+          "end_line": 614
+        }
+      ]
+    },
+    {
+      "id": "trie",
+      "lane": "lookup",
+      "col": 0,
+      "type": "backend",
+      "label": "PathTrie 候选",
+      "sublabel": "通配段解码写入 params",
+      "width": 240,
+      "height": 64,
+      "yOffset": 90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/path/PathTrie.java",
+          "line": 263,
+          "end_line": 267
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 653,
+          "end_line": 671
+        }
+      ]
+    },
+    {
+      "id": "selectHandler",
+      "lane": "select",
+      "col": 0,
+      "type": "backend",
+      "label": "MethodHandlers",
+      "sublabel": "按方法与 API 版本选择",
+      "width": 240,
+      "height": 64,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/MethodHandlers.java",
+          "line": 73,
+          "end_line": 79
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 615,
+          "end_line": 632
+        }
+      ]
+    },
+    {
+      "id": "valid",
+      "lane": "select",
+      "col": 1,
+      "type": "backend",
+      "label": "收集合法方法",
+      "sublabel": "遍历可匹配路径的候选",
+      "width": 220,
+      "height": 64,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 516,
+          "end_line": 540
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 763,
+          "end_line": 772
+        }
+      ]
+    },
+    {
+      "id": "options",
+      "lane": "fallback",
+      "col": 1,
+      "type": "external",
+      "label": "200 · OPTIONS",
+      "sublabel": "有合法方法时附 Allow",
+      "width": 220,
+      "height": 64,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 728,
+          "end_line": 736
+        }
+      ]
+    },
+    {
+      "id": "dispatch",
+      "lane": "result",
+      "col": 0,
+      "type": "backend",
+      "label": "进入 Handler",
+      "sublabel": "内容检查与拦截通过后执行",
+      "width": 240,
+      "height": 64,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 412,
+          "end_line": 487
+        }
+      ]
+    },
+    {
+      "id": "wrong",
+      "lane": "result",
+      "col": 1,
+      "type": "security",
+      "label": "405 · 方法不匹配",
+      "sublabel": "合法方法写入 Allow",
+      "width": 220,
+      "height": 64,
+      "yOffset": -90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 690,
+          "end_line": 713
+        }
+      ]
+    },
+    {
+      "id": "unknown",
+      "lane": "result",
+      "col": 1,
+      "type": "security",
+      "label": "400 · 无注册路由",
+      "sublabel": "no handler found",
+      "width": 220,
+      "height": 64,
+      "yOffset": 90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 640,
+          "end_line": 642
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/RestController.java",
+          "line": 743,
+          "end_line": 751
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "raw-trie",
+      "to": "trie",
+      "role": "main",
+      "variant": "default",
+      "from": "raw"
+    },
+    {
+      "id": "trie-select",
+      "to": "selectHandler",
+      "role": "main",
+      "variant": "default",
+      "from": "trie"
+    },
+    {
+      "id": "select-dispatch",
+      "to": "dispatch",
+      "role": "main",
+      "variant": "default",
+      "from": "selectHandler",
+      "label": "命中"
+    },
+    {
+      "id": "select-valid",
+      "to": "valid",
+      "role": "branch",
+      "variant": "dashed",
+      "from": "selectHandler",
+      "label": "未命中"
+    },
+    {
+      "id": "valid-options",
+      "to": "options",
+      "role": "branch",
+      "variant": "default",
+      "from": "valid",
+      "label": "OPTIONS",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "valid-wrong",
+      "to": "wrong",
+      "role": "error",
+      "variant": "security",
+      "from": "valid",
+      "label": "非 OPTIONS / 有方法"
+    },
+    {
+      "id": "valid-unknown",
+      "to": "unknown",
+      "role": "error",
+      "variant": "security",
+      "from": "valid",
+      "label": "非 OPTIONS / 无方法",
+      "fromSide": "right",
+      "toSide": "right",
+      "route": "outside-right"
+    }
+  ],
+  "mainPath": [
+    "raw",
+    "trie",
+    "selectHandler",
+    "dispatch"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "匹配范围",
+      "items": [
+        "普通自管 ES 9.4.0，默认 REST 注册集合；四种匹配模式被折叠为一个候选步骤。",
+        "路径参数与查询参数共同由 RequestParams 提供给 Handler；每轮候选检索前恢复原参数。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "状态码边界",
+      "items": [
+        "本图仅展示正常方法枚举下的路由分支，省略 error_trace、兼容性解析及安全拦截的提前失败。",
+        "OPTIONS 若到达 RestController，即使没有合法方法也可返回 200，此时不附 Allow；CORS 预检还可能被更外层处理。",
+        "文档不存在的 404 是后续 GetResponse 的业务结果，不在本图路由失败分支中。"
+      ]
+    }
+  ]
+}

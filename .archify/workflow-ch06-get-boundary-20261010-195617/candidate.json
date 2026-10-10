@@ -1,0 +1,339 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "GET / HEAD：先校验，再执行，最后决定响应体",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch06-get-boundary-20261010-195617/get-boundary.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "frontend": {
+          "label": "HTTP 入口"
+        },
+        "backend": {
+          "label": "路由与执行"
+        },
+        "security": {
+          "label": "拒绝分支"
+        },
+        "messagebus": {
+          "label": "结果回调"
+        },
+        "external": {
+          "label": "HTTP 响应"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "prepare",
+      "label": "准备与校验"
+    },
+    {
+      "id": "action",
+      "label": "Action 执行"
+    },
+    {
+      "id": "render",
+      "label": "响应适配"
+    },
+    {
+      "id": "http",
+      "label": "HTTP 写出"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "prepare",
+      "lane": "prepare",
+      "col": 0,
+      "type": "backend",
+      "label": "prepareRequest",
+      "sublabel": "读参数，构造 GetRequest",
+      "width": 240,
+      "height": 64,
+      "yOffset": -90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 45,
+          "end_line": 72
+        }
+      ]
+    },
+    {
+      "id": "check",
+      "lane": "prepare",
+      "col": 0,
+      "type": "backend",
+      "label": "检查未消费参数与 body",
+      "sublabel": "校验后才能 accept",
+      "width": 240,
+      "height": 64,
+      "yOffset": 90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/BaseRestHandler.java",
+          "line": 98,
+          "end_line": 145
+        }
+      ]
+    },
+    {
+      "id": "reject",
+      "lane": "prepare",
+      "col": 1,
+      "type": "security",
+      "label": "400 · 停止执行",
+      "sublabel": "fields 拒绝 / 未消费参数",
+      "width": 220,
+      "height": 64,
+      "yOffset": 90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 51,
+          "end_line": 56
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/BaseRestHandler.java",
+          "line": 105,
+          "end_line": 122
+        }
+      ]
+    },
+    {
+      "id": "execute",
+      "lane": "action",
+      "col": 0,
+      "type": "backend",
+      "label": "accept → client.get",
+      "sublabel": "提交 GetRequest 与 listener",
+      "width": 240,
+      "height": 64,
+      "yOffset": -90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/BaseRestHandler.java",
+          "line": 141,
+          "end_line": 144
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 72,
+          "end_line": 72
+        }
+      ]
+    },
+    {
+      "id": "response",
+      "lane": "action",
+      "col": 0,
+      "type": "messagebus",
+      "label": "GetResponse 回调",
+      "sublabel": "是否存在由 Action 结果给出",
+      "width": 240,
+      "height": 64,
+      "yOffset": 90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 72,
+          "end_line": 72
+        }
+      ]
+    },
+    {
+      "id": "listener",
+      "lane": "render",
+      "col": 0,
+      "type": "backend",
+      "label": "RestToXContentListener",
+      "sublabel": "序列化；found 决定 200 / 404",
+      "width": 240,
+      "height": 64,
+      "yOffset": -90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/RestToXContentListener.java",
+          "line": 51,
+          "end_line": 62
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 72,
+          "end_line": 72
+        }
+      ]
+    },
+    {
+      "id": "channel",
+      "lane": "render",
+      "col": 0,
+      "type": "backend",
+      "label": "DefaultRestChannel",
+      "sublabel": "按 HTTP 方法决定发送内容",
+      "width": 240,
+      "height": 64,
+      "yOffset": 90,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/http/DefaultRestChannel.java",
+          "line": 110,
+          "end_line": 148
+        }
+      ]
+    },
+    {
+      "id": "get",
+      "lane": "http",
+      "col": 0,
+      "type": "external",
+      "label": "GET · 状态与响应体",
+      "sublabel": "存在 200；缺失 404 + found:false",
+      "width": 240,
+      "height": 64,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 72,
+          "end_line": 72
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/http/DefaultRestChannel.java",
+          "line": 138,
+          "end_line": 148
+        }
+      ]
+    },
+    {
+      "id": "head",
+      "lane": "http",
+      "col": 1,
+      "type": "external",
+      "label": "HEAD · 同样状态，无 body",
+      "sublabel": "仍执行相同 GetRequest",
+      "width": 220,
+      "height": 64,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 39,
+          "end_line": 46
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/http/DefaultRestChannel.java",
+          "line": 138,
+          "end_line": 167
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "prepare-check",
+      "to": "check",
+      "role": "main",
+      "variant": "default",
+      "from": "prepare"
+    },
+    {
+      "id": "prepare-reject",
+      "to": "reject",
+      "role": "error",
+      "variant": "security",
+      "from": "prepare",
+      "label": "fields"
+    },
+    {
+      "id": "check-reject",
+      "to": "reject",
+      "role": "error",
+      "variant": "security",
+      "from": "check",
+      "label": "不通过"
+    },
+    {
+      "id": "check-execute",
+      "to": "execute",
+      "role": "main",
+      "variant": "default",
+      "from": "check",
+      "label": "通过"
+    },
+    {
+      "id": "execute-response",
+      "to": "response",
+      "role": "async",
+      "variant": "dashed",
+      "from": "execute",
+      "label": "结果回调"
+    },
+    {
+      "id": "response-listener",
+      "to": "listener",
+      "role": "main",
+      "variant": "default",
+      "from": "response"
+    },
+    {
+      "id": "listener-channel",
+      "to": "channel",
+      "role": "main",
+      "variant": "default",
+      "from": "listener"
+    },
+    {
+      "id": "channel-get",
+      "to": "get",
+      "role": "main",
+      "variant": "default",
+      "from": "channel",
+      "label": "GET"
+    },
+    {
+      "id": "channel-head",
+      "to": "head",
+      "role": "branch",
+      "variant": "default",
+      "from": "channel",
+      "label": "HEAD"
+    }
+  ],
+  "mainPath": [
+    "prepare",
+    "check",
+    "execute",
+    "response",
+    "listener",
+    "channel",
+    "get"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "本图起点",
+      "items": [
+        "从已匹配 RestGetAction 且外围检查通过的请求开始。可选的参数白名单检查位于 prepareRequest 之前；本 Handler 默认不声明白名单。",
+        "普通、非流式 GET/HEAD 路径；省略分片路由、Transport 往返与线程切换，不表示回调必在原线程。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "两个边界",
+      "items": [
+        "参数消费校验发生在 accept 之前：构造 GetRequest 还没有读文档。fields 在 prepareRequest 内被显式拒绝。",
+        "HEAD 共用 GET 的 Action 与存在性判断，只在 DefaultRestChannel 去掉待发送 body；常规非分块响应仍计算表示长度。"
+      ]
+    }
+  ]
+}

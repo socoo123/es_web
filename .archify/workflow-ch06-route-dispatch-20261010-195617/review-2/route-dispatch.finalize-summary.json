@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/candidate.json",
+    "sha256": "4ace350e83c4ca4b4bf85d628436fff44ba7d859e913b5be0669b33e4f047ffa",
+    "bytes": 7432
+  },
+  "artifact": {
+    "path": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/route-dispatch.html"
+  },
+  "gates": {
+    "validate": "fail",
+    "deliver": "not-run",
+    "check": "not-run",
+    "browser-check": "not-run"
+  },
+  "failedStage": "validate",
+  "diagnostics": [
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[2] id \"select-valid\" \"selectHandler\" -> \"valid\" shares a 16px corridor with edges[5] id \"valid-unknown\" \"valid\" -> \"unknown\" at [398, 544] -> [414, 544] (segments 4 and 0; minimum 8px) — if the authored route/fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 2,
+        "id": "select-valid",
+        "from": "selectHandler",
+        "to": "valid"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 5,
+          "id": "valid-unknown",
+          "from": "valid",
+          "to": "unknown"
+        },
+        "overlapLengthPx": 16,
+        "minimumPx": 8,
+        "from": [
+          398,
+          544
+        ],
+        "to": [
+          414,
+          544
+        ],
+        "segmentIndex": 4,
+        "otherSegmentIndex": 0
+      },
+      "supportedFixes": [
+        "if the authored route/fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/review-2/route-dispatch.finalize.json",
+    "summaryReceipt": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/review-2/route-dispatch.finalize-summary.json"
+  },
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 477,
+  "nextAction": {
+    "action": "edit-in-place",
+    "candidate": "/workspace/es_web/.archify/workflow-ch06-route-dispatch-20261010-195617/candidate.json",
+    "constraint": "Preserve unaffected semantics and geometry; do not replace the whole candidate.",
+    "then": "finalize-once"
+  }
+}

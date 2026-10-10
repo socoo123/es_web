@@ -1,86 +1,116 @@
-/* experiments/ch06.js — 第 6 课:REST 入口层的可观察行为(单节点、xpack 安全关闭、免认证) */
+/* 第 6 课：ES 9.4.0 REST 入口；专用单节点、普通索引，无同名模板/资源。
+ * 保留原有 10 个 ID；显式创建 → 写入 → 对照 → 点名清理 → 重做。
+ */
 (function () {
   'use strict';
   window.ESEXPERIMENTS = window.ESEXPERIMENTS || {};
-
-  window.ESEXPERIMENTS['ch06-00-setup'] = {
-    version: 1, id: 'ch06-00-setup',
-    title: '实验 0 · 建索引并写入一篇文档',
-    method: 'PUT', path: '/tut-l06-docs/_doc/1',
-    body: { title: 'rest-layer', views: 6 },
-    predict: '先猜:索引还不存在,这次 PUT 会因为「没有索引」报错吗?result 字段会是什么?',
-    expect: 'result: created——索引不存在就自动建(动态映射)。REST 层只负责把 PUT /{index}/_doc/{id} 路由到对应 Action 并造出 IndexRequest,「索引在不在」是 Action 层之后才检查的事,入口层不拦。'
-  };
-  window.ESEXPERIMENTS['ch06-01-nohandler'] = {
-    version: 1, id: 'ch06-01-nohandler',
-    title: '实验 1 · 多段未注册路径:400 而不是 404',
-    method: 'GET', path: '/_this_path_is_not_registered/at/all',
-    body: null,
-    predict: '先猜:状态码是 404 还是 400?响应是标准的 error.root_cause 对象,还是一条扁平的 error 字符串?',
-    expect: '400,正文是 {"error":"no handler found for uri [...] and method [GET]"}——PathTrie 四种匹配模式全落空,RestController.handleBadRequest 直接回话。注意它不是标准错误对象:请求根本没进任何 Handler。猜 404 的人把「HTTP 资源不存在」和「路由表没有这个模式」混成了同一件事。'
-  };
-  window.ESEXPERIMENTS['ch06-02-single-segment'] = {
-    version: 1, id: 'ch06-02-single-segment',
-    title: '实验 2 · 对照:单段路径会命中 GET /{index}',
-    method: 'GET', path: '/tut-l06-no-such-index',
-    body: null,
-    predict: '先猜:单段路径也会是 no handler found 吗?错误 type 会是什么?',
-    expect: '不是。/{index} 是注册过的模式(RestGetIndicesAction 的 GET /{index}),tut-l06-no-such-index 走通配进了 Handler,返回 404 + index_not_found_exception 的标准错误对象——失败发生在业务层。排障口诀:扁平 error 字符串 = 路由没接住;结构化 error.type = 路由接住了、后面出的错。'
-  };
-  window.ESEXPERIMENTS['ch06-03-405'] = {
-    version: 1, id: 'ch06-03-405',
-    title: '实验 3 · Method 不对:405,Allow 头点名合法方法',
-    method: 'DELETE', path: '/_cat/health',
-    body: null,
-    predict: '先猜:对 /_cat/health 发 DELETE,状态码是多少?浏览器跨域预检的 OPTIONS 又会得到什么?',
-    expect: '405:路径命中了,但 MethodHandlers 里没有 DELETE,handleUnsupportedHttpMethod 把合法方法写进 Allow: GET(curl -D - 可见)。OPTIONS 对同一路径会得 200 + Allow,由 RestController 内部处理、不许注册。405 与 400 的分工:前者「路径对、动词错」,后者「整条路由没接住」。'
-  };
-  window.ESEXPERIMENTS['ch06-04-pretty'] = {
-    version: 1, id: 'ch06-04-pretty',
-    title: '实验 4 · 全局参数:pretty 与 filter_path 不归 Handler 管',
-    method: 'GET', path: '/tut-l06-docs/_doc/1?pretty&filter_path=_id,_source.title',
-    body: null,
-    predict: '先猜:?pretty、?filter_path 从没在 RestGetAction 里被 param() 读过,它们会触发未消费参数的 400 吗?',
-    expect: '200。format / filter_path / pretty / human 在 BaseRestHandler.ALWAYS_SUPPORTED 里,所有 Handler 自动放行;filter_path 在响应写出阶段处理,输出只剩 _id 和 _source.title。RestGetAction 不需要认识它们——这就是「全局参数」与「接口自己的参数」的分界线。'
-  };
-  window.ESEXPERIMENTS['ch06-05-typo'] = {
-    version: 1, id: 'ch06-05-typo',
-    title: '实验 5 · 拼错参数:400 + did you mean',
-    method: 'GET', path: '/tut-l06-docs/_doc/1?realtimee=false',
-    body: null,
-    predict: '先猜:多打一个 e 的 realtimee 会被静默忽略,还是 400?报错里会带建议吗?',
-    expect: '400,标准错误对象:request [...] contains unrecognized parameter: [realtimee] -> did you mean [realtime]?。机制:param(key) 每取一次值就记进 consumedParams;prepareRequest 读过 realtime、从没读 realtimee,BaseRestHandler 检查 unconsumedParams,再用 Levenshtein(阈值 >0.5)从候选里挑最近的——拼错永远不会被静默吞掉。'
-  };
-  window.ESEXPERIMENTS['ch06-06-fields'] = {
-    version: 1, id: 'ch06-06-fields',
-    title: '实验 6 · 对照:旧参数 fields 是显式拒绝,不是拼写建议',
-    method: 'GET', path: '/tut-l06-docs/_doc/1?fields=title',
-    body: null,
-    predict: '先猜:同样返回 400,这次的报错和实验 5 一样吗?',
-    expect: '不一样:the parameter [fields] is no longer supported, please use [stored_fields] or [_source]。fields 在 RestGetAction.prepareRequest 里被 param("fields") 消费后立刻 throw——参数是「已消费」的,不走未消费检查,是 Handler 主动拒绝 7.x 旧参数。两类 400,机制完全不同。'
-  };
-  window.ESEXPERIMENTS['ch06-07-doc404'] = {
-    version: 1, id: 'ch06-07-doc404',
-    title: '实验 7 · 文档不存在:Handler 决定的 404',
-    method: 'GET', path: '/tut-l06-docs/_doc/missing-id',
-    body: null,
-    predict: '先猜:状态码?body 里的 found 是什么?和实验 1 那个 400 长得像吗?',
-    expect: '404 + {"_index":…,"found":false}。路由命中、Action 也执行了,状态码是 RestGetAction 返回的监听器里 r -> r.isExists() ? OK : NOT_FOUND 选的——业务结果,不是路由错误。三种失败就此凑齐:400 路由没接住、405 动词不对、404 资源没有。'
-  };
-  window.ESEXPERIMENTS['ch06-08-routes'] = {
-    version: 1, id: 'ch06-08-routes',
-    title: '实验 8 · 从 _nodes/stats/http 看见 PathTrie 上的模式',
-    method: 'GET', path: '/_nodes/stats/http?filter_path=nodes.*.http.routes',
-    body: null,
-    predict: '先猜:routes 的键是你打过的完整 URL(tut-l06-docs/_doc/1),还是 /{index}/_doc/{id} 这样的路由模式?',
-    expect: '是模式:/{index}/_doc/{id}、/{index}、/_cluster/health 这类 key——统计挂在 PathTrie 节点的 MethodHandlers(statsTracker)上,请求按模式归账;没有流量的模式不出现(getStats 只输出计数 >0 的项)。这一眼等于把那棵路由树拍平了给你看。'
-  };
-  window.ESEXPERIMENTS['ch06-09-cleanup'] = {
-    version: 1, id: 'ch06-09-cleanup',
-    title: '清理 · 删除实验索引',
-    method: 'DELETE', path: '/tut-l06-docs',
-    body: null,
-    predict: '先猜:索引删掉之后,实验 8 里 /{index}/_doc/{id} 的计数会清零吗?',
-    expect: 'acknowledged: true。计数不清零——那是进程内累计统计,索引没了,路由模式还挂在树上。想清零只能重启节点。'
-  };
+  var cards = [
+    {
+      id: 'ch06-00-create', title: '准备 · 显式创建本课索引',
+      method: 'PUT', path: '/tut-l06-docs',
+      body: { settings: { number_of_shards: 1, number_of_replicas: 0, auto_expand_replicas: false }, mappings: { dynamic: 'strict', _source: { enabled: true }, properties: { title: { type: 'keyword' }, views: { type: 'integer' } } } },
+      predict: '索引不存在时创建成功；重复运行会怎样？',
+      expect: '预期首次 acknowledged:true。重复创建返回 resource_already_exists_exception；先执行本课清理，再从此卡重做。显式配置一主片、零副本与字段类型，避免依赖自动建索引和动态映射。'
+    },
+    {
+      id: 'ch06-00-setup', title: '准备 · 写入文档 1 并等待 refresh',
+      method: 'PUT', path: '/tut-l06-docs/_doc/1?refresh=wait_for', body: { title: 'rest-layer', views: 6 },
+      predict: '显式建好索引后，首次与重复写入的 result 一样吗？',
+      expect: '预期首次 result:created，重复写同一 ID 为 updated。refresh=wait_for 等待这次写入可供搜索；本课默认 realtime GET 本身不依赖这一步。不要跳过创建卡：关闭自动建索引的环境下直接写入会失败。'
+    },
+    {
+      id: 'ch06-00-get', title: '基线 · GET 已存在的文档',
+      method: 'GET', path: '/tut-l06-docs/_doc/1', body: null,
+      predict: '状态码、found 和 _source.title 分别是什么？',
+      expect: '预期 200、found:true、_source.title 为 rest-layer。路由命中只决定处理器，文档存在性仍由 Action 执行结果提供；后面的 HEAD 对照使用同一资源。'
+    },
+    {
+      id: 'ch06-01-nohandler', title: '路由 · 多段未注册路径返回 400',
+      method: 'GET', path: '/_this_path_is_not_registered/at/all', body: null,
+      predict: '默认 REST 注册集合下，状态码与 error 的形状是什么？',
+      expect: '预期 400，error 是含 no handler found for uri 的字符串；没有进入业务 Handler。这依赖该模式未被额外插件注册；若结果不同，先检查端点、版本与插件。'
+    },
+    {
+      id: 'ch06-02-single-segment', title: '路由 · 单段路径命中索引元数据接口',
+      method: 'GET', path: '/tut-l06-no-such-index', body: null,
+      predict: '确认此索引不存在后，它是路由 400 还是业务 404？',
+      expect: '预期 404 + index_not_found_exception。GET /{index} 已注册，错误发生在索引元数据 Action。若同名索引已存在则返回 200；不要把一个已有资源当作缺失基线。'
+    },
+    {
+      id: 'ch06-03-405', title: '路由 · DELETE /_cat/health 方法不匹配',
+      method: 'DELETE', path: '/_cat/health', body: null,
+      predict: '路径已注册但没有 DELETE，会返回什么？',
+      expect: '预期 405 + Incorrect HTTP method，Allow 包含 GET。它不会删除索引。本卡显示状态与正文；完整响应头用正文中的 curl -i 查看，浏览器跨域可读头受 CORS 配置影响。'
+    },
+    {
+      id: 'ch06-07-doc404', title: '结果 · 索引存在但文档不存在',
+      method: 'GET', path: '/tut-l06-docs/_doc/missing-id', body: null,
+      predict: '404 正文是 error 对象还是 found:false？',
+      expect: '预期 404，正文含 _index、_id 和 found:false。这是成功完成 GET Action 后的缺失结果，由 RestGetAction 的 listener 选择 NOT_FOUND；若索引本身没建好，会变成另一种 404。'
+    },
+    {
+      id: 'ch06-08-routes', title: '观测 · 按节点查看已记账路由模式',
+      method: 'GET', path: '/_nodes/stats/http?filter_path=_nodes.failed,nodes.*.name,nodes.*.http.routes', body: null,
+      predict: '统计键是具体 URL，还是 /{index}/_doc/{id} 这样的模式？',
+      expect: '预期返回已产生请求或响应统计的路由模式；GET/HEAD 等共享同一路径的 tracker。它不是完整路由注册表，也不是本课专属统计。多个节点、其他客户端流量和节点重启会影响结果；核对节点名与 _nodes.failed。'
+    },
+    {
+      id: 'ch06-04-pretty', title: '参数 · pretty 与 filter_path 控制输出',
+      method: 'GET', path: '/tut-l06-docs/_doc/1?pretty&filter_path=_id,_source.title', body: null,
+      predict: 'Handler 没有读取这两个键，为什么不会报未消费？',
+      expect: '预期 200，仅保留 _id 与 _source.title。AbstractRestChannel 构造时已消费 format/filter_path/pretty/human；BaseRestHandler 的可选白名单也接受它们。filter_path 筛选响应结构，不修改字段 mapping。'
+    },
+    {
+      id: 'ch06-05-typo', title: '参数 · realtimee 是未消费的拼写错误',
+      method: 'GET', path: '/tut-l06-docs/_doc/1?realtimee=false', body: null,
+      predict: '拼错的参数会被忽略还是拒绝？',
+      expect: '预期 400，reason 含 unrecognized parameter: [realtimee] 与 realtime 的建议。prepareRequest 消费 realtime，未消费检查在 accept 前发现 realtimee。建议只在候选相似度足够时出现，不保证每个拼错的键都有建议。'
+    },
+    {
+      id: 'ch06-06-fields', title: '参数 · fields 被 Handler 显式拒绝',
+      method: 'GET', path: '/tut-l06-docs/_doc/1?fields=title', body: null,
+      predict: '它与 realtimee 的 400 走同一检查吗？',
+      expect: '预期 400，reason 含 the parameter [fields] is no longer supported。RestGetAction 读取 fields 后立即抛错，尚未返回 consumer；查看 _source 用下一卡，stored_fields 需要字段 mapping 明确 store:true。'
+    },
+    {
+      id: 'ch06-06-source', title: '参数 · 用 _source 取代旧 fields 请求',
+      method: 'GET', path: '/tut-l06-docs/_doc/1?_source=title', body: null,
+      predict: '返回的 _source 只剩 title；原文档 views 会被删除吗？',
+      expect: '预期 200、found:true、_source 只含 title；这是本次请求的返回过滤。再运行基线 GET，views:6 仍在。keyword 字段不因类型是 keyword 就自动支持 stored_fields。'
+    },
+    {
+      id: 'ch06-07-head', title: '响应 · HEAD 已存在的文档',
+      method: 'HEAD', path: '/tut-l06-docs/_doc/1', body: null,
+      predict: '是否需要执行 GET Action，状态与正文是什么？',
+      expect: '预期 200、正文为空。HEAD 与 GET 共用 RestGetAction/GetRequest，由 DefaultRestChannel 去掉响应体；空正文是正确结果，不是实验失败。常规非分块响应仍可报告表示长度，完整响应头用 curl -I 核对。'
+    },
+    {
+      id: 'ch06-07-head404', title: '响应 · HEAD 缺失文档',
+      method: 'HEAD', path: '/tut-l06-docs/_doc/missing-id', body: null,
+      predict: 'HEAD 没有正文，能否判断文档缺失？',
+      expect: '预期 404、正文为空；在索引存在、无权限/网络错误的本课条件下，可与 GET 的 found:false 对照。不能把任何 HEAD 404 都解释为文档缺失，例如索引不存在也可返回 404。'
+    },
+    {
+      id: 'ch06-08-encoded-write', title: '编码 · 写入带斜杠的文档 ID',
+      method: 'PUT', path: '/tut-l06-docs/_doc/http%3A%2F%2Fexample.test%2Fa?refresh=wait_for', body: { title: 'encoded-id', views: 6 },
+      predict: '%2F 会变成额外路径段，导致找不到 Handler 吗？',
+      expect: '直接连接 ES 时预期首次 created，重复为 updated，_id 为 http://example.test/a。路径匹配使用 rawPath，捕获后才解码；反向代理若提前解码或拒绝编码斜杠，会改变结果。'
+    },
+    {
+      id: 'ch06-08-encoded-get', title: '编码 · GET 同一个编码 ID',
+      method: 'GET', path: '/tut-l06-docs/_doc/http%3A%2F%2Fexample.test%2Fa', body: null,
+      predict: '_id 是编码串还是解码后的 http://example.test/a？',
+      expect: '直接连接 ES 时预期 200、found:true、_id 为 http://example.test/a，title 为 encoded-id。编码保持这整个 ID 作为一个路径段，避免在匹配前按解码后的斜杠拆分。'
+    },
+    {
+      id: 'ch06-09-cleanup', title: '清理 · 点名删除本课索引',
+      method: 'DELETE', path: '/tut-l06-docs', body: null,
+      predict: '删除索引会清掉 HTTP 路由累计计数吗？',
+      expect: '预期 acknowledged:true，删除 tut-l06-docs 及两篇本课文档，不删除其他索引。重复清理可返回 index_not_found_exception，说明资源已不存在。删除索引不清零节点路由统计；重做从显式创建卡开始。'
+    }
+  ];
+  cards.forEach(function (card) {
+    card.version = 1;
+    window.ESEXPERIMENTS[card.id] = card;
+  });
 })();

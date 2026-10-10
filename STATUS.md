@@ -11,7 +11,7 @@
 | ch03 | 节点启动全流程 | ✅ | 2 | 1(启动八步) | ✅ 启动与生命周期（2 图） |
 | ch04 | 插件体系 | ✅ | 2 | — | ✅ 插件边界与注册（2 图，1 路径动画） |
 | ch05 | 配置框架 | ✅ | 12 | — | ✅ 配置契约与动态传播（2 图） |
-| ch06 | 请求入口层 | ✅ | 10 | — | 待改造 |
+| ch06 | 请求入口层 | ✅ | 17 | — | ✅ REST 路由与响应边界（2 图，2 路径动画） |
 | ch07 | 动作框架 | ✅ | 9 | — | 待改造 |
 | ch08 | 异步编程模型 | ✅ | 10 | 1(线程池 429) | 待改造 |
 | ch09 | 传输层 | ✅ | 7 | — | 待改造 |
@@ -48,7 +48,7 @@
 | ch09 | `GET /_cat/transport` 当前是 404 | 同上口径:未知路由回 **400**(与 ch07 相互印证) | 本地 9.4.0 实测 |
 | ch09 | 暗示单节点本机环回仍计传输层 rx/tx | 建索引+写入+GET 后 server_open/rx/tx **全 0**,本地路径不产生传输层记账 | 本地 9.4.0 实测 |
 | ch08 | (线程池数字全面核对,无勘误) | search=((N*3)/2)+1、queue=size×1000、write=max(N*750,10000) 等逐项吻合 | 本地 9.4.0(N=12)实测 |
-| ch06 | (未收到代理报告,限流中断;内容按正文自纠口径核对过结构) | — | — |
+| ch06 | 原转写未形成完整代理报告 | 本轮按固定 v9.4.0 源码完成入口边界校对；详细勘误见下方第六章表 | [.archify/CH06-REVIEW.md](.archify/CH06-REVIEW.md)；本轮 API 未实测 |
 | ch10 | 「RestGetAction 一共 76 行」属版本易变数字(非错误) | 网页写「不到百行」不写死;另实测确认 `?refresh=true` 在默认 realtime 下被无视,需配合 `realtime=false` 才刷新(已写进实验) | 本地 9.4.0 实测 |
 | ch27 | 「`POST /_esql` 会 404」 | 实测 **405** `Incorrect HTTP method ... allowed: [GET, PUT, DELETE, HEAD]`——`/_esql` 撞上裸索引路由 `/{index}`(POST 不在 allowed),非「无 handler 400」更非 404;镜像:`GET /_query` → 405 allowed [POST] | 本地 9.4.0 实测 |
 | ch28 | 「新建的 tut-l28-logs-000002 绑定同一策略名」 | 实测 alias 方式 rollover **不复制** `index.lifecycle.name`:000002 settings 无 lifecycle 键、managed=false,链条滚一代即断;正解是 index template 接力,且模板只带 settings——模板带 rollover alias 本体会 ERROR step(duplicated alias) | 本地 9.4.0 实测 |
@@ -90,7 +90,28 @@
 | ch05 | Filtered 属性让 API 输出打码 | 相关 SettingsFilter 输出会移除匹配的敏感键，不保证以星号显示 | [SettingsFilter.filterSettings](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/settings/SettingsFilter.java#L78-L96) |
 | ch05 | 将副本数改为 0 顺带把单节点集群的 yellow 治好 | 本章索引在主分片正常分配等前提下可 green；其他索引可让整个集群仍 yellow，实验限定本章索引并等待健康 | [IndexMetadata 副本声明](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/IndexMetadata.java#L234-L239)、[MetadataUpdateSettingsService 副本更新](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/MetadataUpdateSettingsService.java#L305-L339)；真实 API 本轮未运行 |
 
+### 第六章重构校对
+
+| 课 | 网页旧说法 | 修正 | 依据 |
+|---|---|---|---|
+| ch06 | 参数只有普通 `Map<String,String>`，读 param 不区分重复值行为 | 9.4.0 用 RequestParams 保留重复查询值；param 读最后一个值，重复值有专门 API，路径捕获 put 会替换同键 | [RequestParams · get / put](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RequestParams.java#L186-L209)、[RestRequest 参数读取](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestRequest.java#L400-L426) |
+| ch06 | 全局 pretty / filter_path 只是 ALWAYS_SUPPORTED 放行，无需被消费 | AbstractRestChannel 构造时已消费 format/filter_path/pretty/human；ALWAYS_SUPPORTED 用于可选白名单，后置消费检查仍有独立规则 | [通道参数消费](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/AbstractRestChannel.java#L56-L64)、[白名单与后置检查](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/BaseRestHandler.java#L76-L122) |
+| ch06 | 参数校验都必须放在 prepareRequest 后面，任何子类都不能提前检查 | 后置消费检查在 prepare 之后；可选白名单在之前，fields 显式拒绝在 prepare 之内；RestGetAction 默认白名单为 null | [handleRequest](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/BaseRestHandler.java#L78-L122)、[fields 拒绝](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java#L45-L56) |
+| ch06 | 9.4.0 breaker 只预留 contentLength，不再乘 2；大 body 必定在接收前被拒 | Controller 传记账增量，子 breaker 按累计 used × overhead 估算，默认 in-flight overhead 仍为 2.0；非流式 Handler 还可能先聚合 body | [聚合与记账](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L392-L438)、[overhead 默认值](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java#L131-L136)、[limit 估算](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java#L152-L188) |
+| ch06 | OPTIONS 必须路径有其他方法才 200，浏览器预检总由 RestController 处理 | 普通 OPTIONS 到达 Controller 时无合法方法也可 200，不附 Allow；启用 CORS 的预检可能由外层 CorsHandler 处理 | [无 Handler 分支](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L516-L539)、[OPTIONS](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L728-L736)、[CORS 预检](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/http/CorsHandler.java#L93-L127) |
+| ch06 | GET 不该带 body，结构化 error.type 说明已进入业务 Handler | 本课文档 GET 不消费完整 body，其他 GET API 可支持 body；结构化错误也可来自 Handler 前的检查或拦截，需结合 reason 判断 | [未消费 body](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/BaseRestHandler.java#L119-L122)、[Handler 前检查](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L412-L487)、[搜索 GET 注册](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/search/RestSearchAction.java#L94-L96)、[搜索 body 解析](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/search/RestSearchAction.java#L130-L141) |
+| ch06 | _nodes/stats/http routes 能把整棵路由树拍平，计数是本次具体 URL / 方法的记录 | 只返回 requestCount 或 responseCount 大于 0 的模式；同一路径方法 / 版本共享 tracker，各节点累计、含其他流量，不是完整注册表 | [getStats](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L379-L389)、[共享 tracker](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/MethodHandlers.java#L89-L109) |
+| ch06 | 现代 Java 客户端直接构造服务器 GetRequest，共用 NodeClient Action 入口 | NodeClient / GetRequest 是服务器内部边界；现代 Java API Client 通过 HTTP 调用，不能沿用已移除 TransportClient 的模型 | [NodeClient 内部分发](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/client/internal/node/NodeClient.java#L78-L138)；[现代 Java API Client 官方文档](https://www.elastic.co/docs/reference/elasticsearch/clients/java) |
+| ch06 | 准备卡依赖自动建索引 / 动态映射，重复运行总是 created | 增加显式一主片零副本索引和 strict mapping；首次 created、重复 updated，点名清理后从创建卡重做；补齐 HEAD 与编码 ID 对照 | 本章注册表与源码校对；真实 API 首次 / 清理后重做本轮未执行 |
+
 ## 会话日志
+
+### 2026-10-10(第六章按统一规范重构)
+- 按“路由 → 参数消费 → GET / HEAD → 保护与统计”重写 ch06，保留七段式、课间导航与已读，增加目录、两图跳转、五道折叠思考题与固定 v9.4.0 文件 / 方法依据；勘误同步正文、图注、实验与速记。
+- 官方 Archify 3.0.1 生成两幅 Workflow v2，均带有限 trace；所有语义节点引用固定 ES 提交 `2e8528e92361c3399724226deaf2b46f933e925b` 的目标源码，并传真实 checkout。路由图失败分支按测量修复，旧收据保留，当前收据 review-4；两图 validate / deliver / strict check 均为 showcase 9/9、零错误 / 警告。
+- 原生 browser-check 仍因管理员 file URL 策略失败，finalize 整体如实为 fail；独立 HTTP Chromium 检查覆盖两图四档桌面宽度及章节六档宽度、浅深主题、880px 列与 ≤1px 边界对齐、页面 / iframe 容纳、探索与关闭、两图暂停后重播 / 键盘 / reduced motion、目录 / 已读、17 张真实控制台深链及请求内容、端点 / 认证别名 / raw 与 Pages 前缀。已实际查看桌面与窄屏截图，≤600px 图高收紧至 540 / 600px；共享 CSS / JS 未改动。
+- 保留原 10 个实验 ID，新增 7 卡，共 2 组 / 17 张操作卡。显式创建索引与 mapping，首次 / 重复写入区分，清理点名 tut-l06-docs，补齐 GET/HEAD、_source 与编码 ID。全站 425 操作卡 / 22 个机制播放器，Archify trace 另计；站点、JS 语法与 diff 检查通过。
+- 本轮 9200 无连接，既有运行时缺 /proc/self/coredump_filter 的 ES 9.4.0 启动阻塞仍适用。真实 API 首次及清理后重做未执行，页面 / curl 状态与响应头是源码预期，没有模拟响应。完整验收、图源 / HTML 哈希和生成命令见 [.archify/CH06-REVIEW.md](.archify/CH06-REVIEW.md)，独立 HTTP 证据见 [.archify/review/ch06-http-review.json](.archify/review/ch06-http-review.json)。本轮按用户持续授权提交并推送 origin/main。
 
 ### 2026-10-10(重构完成后自动提交 GitHub)
 - 用户授权每次章节重构完成后自动提交并推送 GitHub；AGENTS / CHAPTER_STANDARD / CLAUDE 已同步写明 `origin/main` 为现有发布目标，无需逐次确认，并要求交付 GitHub 提交链接、如实记录验证限制与推送失败。
