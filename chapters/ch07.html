@@ -116,7 +116,7 @@ taskManager.registerAndExecute(
         <div class="exp-slot" data-exp="ch07-03-usage"></div>
         <div class="exp-slot" data-exp="ch07-03-get-tasks"></div>
         <h3>实验 B · 匹配规则与失败阶段（7 卡）</h3>
-        <p>先比较列表动作的通配、完整名称与无星号前缀，再用假动作过滤、未注册 URL、缺 ID 和缺文档，区分 200 空集合、路由 400、方法 405 与业务 404。内部未登记 ActionType 的 Java 异常只能由相应内部调用验证，本组 HTTP 卡不声称覆盖它。</p>
+        <p>先比较列表动作的通配、完整名称与无星号前缀，再用假动作过滤、未注册 URL、缺 ID 和缺文档，区分 200 空集合、路由 400、方法 405 与业务 404。无 handler 的 400 由 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L743-L753" target="_blank" rel="noopener">RestController.handleBadRequest</a> 直接写顶层 <code>error</code> 字符串；对照 B5 时读取该字段，没有 <code>error.reason</code>。内部未登记 ActionType 的 Java 异常只能由相应内部调用验证，本组 HTTP 卡不声称覆盖它。</p>
         <div class="exp-slot" data-exp="ch07-04-tasks-self"></div>
         <div class="exp-slot" data-exp="ch07-04-tasks-exact"></div>
         <div class="exp-slot" data-exp="ch07-04-tasks-prefix"></div>

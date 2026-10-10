@@ -19,7 +19,17 @@
 
 独立 HTTP 检查不替代原生 browser-check 或真实 API。页面所有状态、计数增量和字段均注明是源码对照预期；历史勘误表中的本地实测记录保留其原始口径。内部未登记 ActionType 的异常未用错误 URL 冒充实测。
 
-当前 HTTP 结果绑定章节、实验、两幅图源及 HTML SHA-256，见 [review/ch07-http-review.json](review/ch07-http-review.json)；复现脚本为 [review/ch07-http-review.py](review/ch07-http-review.py)，需要环境提供 Python、Playwright 与 Chromium。所有当前文件、收据和已查看截图的哈希汇总见 [review/ch07-artifacts.json](review/ch07-artifacts.json)。
+当前 HTTP 结果绑定章节、实验、两幅图源及 HTML SHA-256，见 [review/ch07-recheck-20261010/http-review.json](review/ch07-recheck-20261010/http-review.json)；复现脚本为 [review/ch07-http-review.py](review/ch07-http-review.py)，需要环境提供 Python、Playwright 与 Chromium。所有当前文件、收据和已查看截图的哈希汇总见 [review/ch07-artifacts.json](review/ch07-artifacts.json)。
+
+## 2026-10-10 复核
+
+重新核对名字身份、本地 / 远程登记、查表与 Task 先后、校验与异步 filter、引用释放、DIRECT 与 GET 分片 executor、Task 名称匹配、REST 使用计数及实验清理 / 重做条件。本章引用的 18 个源码文件逐一与固定提交比对，内容一致；记录见 [source-review.json](review/ch07-recheck-20261010/source-review.json)。
+
+发现并修正一处实验预期字段错误：B5 未注册 URL 的 HTTP 400 由 `RestController.handleBadRequest` 直接输出顶层 `error` 字符串，旧卡片写成读取 `reason`。操作卡改为对照 `error`，正文增加该方法的固定版本链接；图中没有这项字段断言，图源和 HTML 哈希均未变，保留有效的 review-4 原生收据。
+
+修改后重新执行完整独立 HTTP 浏览器检查：两图四档桌面尺寸、章节六档宽度、双主题、探索 / 关闭 / 展开、暂停后重播 / 键盘 / reduced motion、目录 / 已读、15 张实际控制台导航及 Pages 前缀通过，无未处理 JS 异常或资源失败。另检查修正卡片和源码说明在 390px 双主题下的显示；实际查看并保留 8 张本次截图。此前 20 张已审阅截图保留各自的历史记录；本次没有把所有新生成截图计为已审阅。
+
+站点检查、JS 语法与 diff 检查通过。9200 再次探测仍连接拒绝，运行时仍缺 `/proc/self/coredump_filter`；真实 API 未执行，原生浏览器门禁的环境限制不变。
 
 ## 视觉审阅与修复
 
@@ -29,7 +39,7 @@
 
 独立查看器在四档桌面宽度均检查完整 SVG 的 6px 投影下限，普通节点上下文另外检查 7px 下限，说明卡必须存在且无自身裁切。实际最小普通节点上下文约 7.5px（第一图）/ 7.6px（第二图），来源徽标等最小文字约 6.56px / 6.66px；没有把建议的 7.5px 当作所有徽标的保证。
 
-HTTP 初始 / second / third 报告保留当时的布局与交互证据，所绑定图源或图框高度与当前版本可能不同；最终验收以 `ch07-http-review.json` 为准。截图在主题过渡后采集，独立图使用真实暂停控制查看静态全图；关闭节点探索后移开指针，避免 hover 预览重新出现。截图生成和实际查看分别记录。
+HTTP 初始 / second / third 与原 `ch07-http-review.json` 报告保留当时的布局与交互证据，所绑定章节、实验、图源或图框高度与当前版本可能不同；当前验收以 `ch07-recheck-20261010/http-review.json` 为准。截图在主题过渡后采集，独立图使用真实暂停控制查看静态全图；关闭节点探索后移开指针，避免 hover 预览重新出现。截图生成和实际查看分别记录。
 
 ## 再生成
 

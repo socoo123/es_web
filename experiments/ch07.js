@@ -77,7 +77,7 @@
     version: 1, id: 'ch07-06-bad-path', title: 'B5 · 未注册 URL 在 REST 层失败',
     method: 'GET', path: '/tut-l07-docs/_not_an_action/1', body: null,
     predict: '先猜：错误会说 no handler found，还是 failed to find action？',
-    expect: '默认自管 REST 路由集合下，预期 400、reason 含 no handler found for uri。尚未到 NodeClient 的动作查表；GET /_cat/actions 也没有内置入口。404 还可能来自缺失索引或文档，需读具体响应。'
+    expect: '默认自管 REST 路由集合下，预期 HTTP 400，顶层 error 字符串含 no handler found for uri，没有 error.reason。尚未到 NodeClient 的动作查表；GET /_cat/actions 也没有内置入口。404 还可能来自缺失索引或文档，需读具体响应。'
   };
   window.ESEXPERIMENTS['ch07-07-empty-id'] = {
     version: 1, id: 'ch07-07-empty-id', title: 'B6 · 缺 id 的 GET 先被方法匹配拦下',

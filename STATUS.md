@@ -116,8 +116,16 @@
 | ch07 | mustIncRef 的引用简单理解为保护整个异步业务，到业务结束才释放 | 额外引用在链尾 handler 调用或 listener 短路时 releaseOnce；业务异步持有有自己的协议。TaskManager 包装成功 / 失败回调，先注销再通知上游 | [链引用释放](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/support/TransportAction.java#L90-L143)、[Task 清理](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/tasks/TaskManager.java#L195-L247) |
 | ch07 | usage 是每次 Handler 调用的完整表，Task 可当动作登记或历史证据 | usage 在 prepare / 后置检查通过后、consumer 前加一，UsageService 只输出正数；_tasks 是运行采样，完成即注销，cancellable 看实现。空列表不能证明动作未登记 | [计数点](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/BaseRestHandler.java#L98-L145)、[正数筛选](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/usage/UsageService.java#L71-L81)、[Task 类别](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/tasks/TaskManager.java#L155-L176)、[完成注销](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/tasks/TaskManager.java#L195-L247) |
 | ch07 | 实验只看累计计数与一次任务快照，缺少比较基线和重复语义 | 保留原 9 ID，增 6 卡；显式 mapping / 刷新 / 本课健康检查，GET 前后基线、精确 / 通配对照、完成后 Task 与缺文档。清理点名，重做重新记录 N，注明重复创建 / 写入 / 清理差异 | [experiments/ch07.js](experiments/ch07.js)、[CH07-REVIEW](.archify/CH07-REVIEW.md)；本轮 API 未实测 |
+| ch07 | B5 未注册 URL 的 400 预期写成 reason 含 no handler found | 该分支直接生成顶层 error 字符串，没有 error.reason；按 HTTP 状态和 error 字段对照，正文同步增加方法依据 | [RestController.handleBadRequest](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/RestController.java#L743-L753)；复核源码，API 未实测 |
 
 ## 会话日志
+
+### 2026-10-10(第七章复核与实验预期修正)
+
+- 重新核对动作身份、两张登记表、查表 / Task 先后、校验 / 异步过滤 / 引用清理、GET 的基类与分片 executor、任务匹配和 REST 计数，以及实验初始 / 重做条件。本章引用的 18 个源码文件与固定 ES 提交逐一比对一致。
+- 修正 B5 未注册 URL 的 400 预期：消息直接位于顶层 error 字符串，旧卡片误写 reason；正文补充 RestController.handleBadRequest 固定版本依据。原 15 个 ID 保留，图源和生成 HTML 未变，无需重新生成图。
+- 修改后完整独立 HTTP Chromium 检查通过：两图四档桌面尺寸、章节六档宽度与双主题、探索 / 关闭 / 展开、暂停后重播 / 键盘 / reduced motion、目录 / 已读、15 张实际控制台深链与 Pages 前缀。实际查看并保留 8 张复核截图，含修正卡片与说明的手机双主题显示；站点、JS 语法和 diff 检查通过。
+- 9200 仍连接拒绝，运行时仍缺 /proc/self/coredump_filter，真实 API 未执行；原生 file 浏览器限制不变。新报告与源码复核见 [.archify/CH07-REVIEW.md](.archify/CH07-REVIEW.md)，当前产物清单绑定新报告并保留旧证据；本轮按持续授权提交并推送 origin/main。
 
 ### 2026-10-10(第七章按统一规范重构)
 
