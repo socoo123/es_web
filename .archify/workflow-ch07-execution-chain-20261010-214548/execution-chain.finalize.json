@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "workflow",
+  "quality": "showcase",
+  "startedAt": "2026-10-10T13:54:15.745Z",
+  "specification": {
+    "path": "/workspace/es_web/.archify/workflow-ch07-execution-chain-20261010-214548/candidate.json",
+    "sha256": "6fd996d4e2f41b165296bc3574bf65d4805c1ebf6884cb69892b47b4ac0c6c1b",
+    "bytes": 9241
+  },
+  "artifact": {
+    "path": "/workspace/es_web/.archify/workflow-ch07-execution-chain-20261010-214548/execution-chain.html"
+  },
+  "stages": {
+    "validate": {
+      "status": "fail",
+      "exitCode": 1,
+      "durationMs": null,
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "/workspace/shared/skills/archify-3.0.1/archify/bin/archify.mjs",
+        "deliver",
+        "workflow",
+        "/workspace/es_web/.archify/workflow-ch07-execution-chain-20261010-214548/candidate.json",
+        "/workspace/es_web/.archify/workflow-ch07-execution-chain-20261010-214548/execution-chain.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "/workspace/scratch/es-v9.4.0",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": false,
+        "command": "deliver",
+        "receiptId": "e0785f21-f42c-4b91-aa65-985305faaca6",
+        "stage": "render",
+        "type": "workflow",
+        "input": "/workspace/es_web/.archify/workflow-ch07-execution-chain-20261010-214548/candidate.json",
+        "output": "/workspace/es_web/.archify/workflow-ch07-execution-chain-20261010-214548/execution-chain.html",
+        "error": "Workflow layout validation failed:\n- [composition/ambiguous-corridor] showcase workflow edges[0] id \"direct-complete\" \"direct\" -> \"complete\" shares a 52px corridor with edges[3] id \"filters-executor\" \"filters\" -> \"executor\" at [304, 634] -> [304, 686] (segments 1 and 3; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+        "diagnostics": [
+          {
+            "code": "composition/ambiguous-corridor",
+            "severity": "error",
+            "message": "[composition/ambiguous-corridor] showcase workflow edges[0] id \"direct-complete\" \"direct\" -> \"complete\" shares a 52px corridor with edges[3] id \"filters-executor\" \"filters\" -> \"executor\" at [304, 634] -> [304, 686] (segments 1 and 3; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+            "subject": {
+              "diagramType": "workflow",
+              "collection": "edges",
+              "index": 0,
+              "id": "direct-complete",
+              "from": "direct",
+              "to": "complete"
+            },
+            "evidence": {
+              "otherRelationship": {
+                "diagramType": "workflow",
+                "collection": "edges",
+                "index": 3,
+                "id": "filters-executor",
+                "from": "filters",
+                "to": "executor"
+              },
+              "overlapLengthPx": 52,
+              "minimumPx": 8,
+              "from": [
+                304,
+                634
+              ],
+              "to": [
+                304,
+                686
+              ],
+              "segmentIndex": 1,
+              "otherSegmentIndex": 3
+            },
+            "supportedFixes": [
+              "adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+            ]
+          }
+        ],
+        "provenance": "absent",
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      },
+      "execution": "embedded-in-deliver"
+    },
+    "deliver": {
+      "status": "not-run",
+      "execution": "blocked-by-validate"
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[0] id \"direct-complete\" \"direct\" -> \"complete\" shares a 52px corridor with edges[3] id \"filters-executor\" \"filters\" -> \"executor\" at [304, 634] -> [304, 686] (segments 1 and 3; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 0,
+        "id": "direct-complete",
+        "from": "direct",
+        "to": "complete"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 3,
+          "id": "filters-executor",
+          "from": "filters",
+          "to": "executor"
+        },
+        "overlapLengthPx": 52,
+        "minimumPx": 8,
+        "from": [
+          304,
+          634
+        ],
+        "to": [
+          304,
+          686
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 3
+      },
+      "supportedFixes": [
+        "adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    }
+  ],
+  "evidence": {
+    "receipt": "/workspace/es_web/.archify/workflow-ch07-execution-chain-20261010-214548/execution-chain.finalize.json",
+    "summaryReceipt": "/workspace/es_web/.archify/workflow-ch07-execution-chain-20261010-214548/execution-chain.finalize-summary.json"
+  },
+  "visualReview": "not-requested",
+  "failedStage": "validate",
+  "finishedAt": "2026-10-10T13:54:16.607Z",
+  "durationMs": 862,
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  }
+}

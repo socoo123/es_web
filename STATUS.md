@@ -12,7 +12,7 @@
 | ch04 | 插件体系 | ✅ | 2 | — | ✅ 插件边界与注册（2 图，1 路径动画） |
 | ch05 | 配置框架 | ✅ | 12 | — | ✅ 配置契约与动态传播（2 图） |
 | ch06 | 请求入口层 | ✅ | 17 | — | ✅ REST 路由与响应边界（2 图，2 路径动画） |
-| ch07 | 动作框架 | ✅ | 9 | — | 待改造 |
+| ch07 | 动作框架 | ✅ | 15 | — | ✅ 动作登记与执行边界（2 图，2 路径动画） |
 | ch08 | 异步编程模型 | ✅ | 10 | 1(线程池 429) | 待改造 |
 | ch09 | 传输层 | ✅ | 7 | — | 待改造 |
 | ch10 | 跟踪一次文档读取 | ✅ | 19 | 1(realtime GET) | 待改造 |
@@ -104,7 +104,28 @@
 | ch06 | 现代 Java 客户端直接构造服务器 GetRequest，共用 NodeClient Action 入口 | NodeClient / GetRequest 是服务器内部边界；现代 Java API Client 通过 HTTP 调用，不能沿用已移除 TransportClient 的模型 | [NodeClient 内部分发](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/client/internal/node/NodeClient.java#L78-L138)；[现代 Java API Client 官方文档](https://www.elastic.co/docs/reference/elasticsearch/clients/java) |
 | ch06 | 准备卡依赖自动建索引 / 动态映射，重复运行总是 created | 增加显式一主片零副本索引和 strict mapping；首次 created、重复 updated，点名清理后从创建卡重做；补齐 HEAD 与编码 ID 对照 | 本章注册表与源码校对；真实 API 首次 / 清理后重做本轮未执行 |
 
+### 第七章重构校对
+
+| 课 | 网页旧说法 | 修正 | 依据 |
+|---|---|---|---|
+| ch07 | _tasks 的 actions 参数默认按前缀匹配 | BaseTasksRequest 调 Regex.simpleMatch；无星号按完整名称相等，加 `*` 才表达通配。列表过滤不执行或检查该动作是否登记 | [BaseTasksRequest.match](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/support/tasks/BaseTasksRequest.java#L174-L188)、[Regex](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/regex/Regex.java#L202-L217) |
+| ch07 | 校验与整条过滤器链始终在入口线程；GET 构造传 GET 池就表示公共入口 fork | 校验与首次过滤在调用线程开始，filter 可异步继续；TransportSingleShardAction 给 TransportAction 传 DIRECT，GET 池用于后续分片执行 | [execute / doExecuteForking](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/support/TransportAction.java#L54-L101)、[单分片基类](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/support/single/shard/TransportSingleShardAction.java#L84-L134)、[过滤器接口](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/support/ActionFilter.java#L27-L62) |
+| ch07 | 不调 proceed 就一定使请求永久挂起 | 主动完成 listener 是合法短路；异步 filter 可晚些继续或完成。最终两者都不做才违背完成协议，基类没有自动收尾保证 | [ActionFilter](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/support/ActionFilter.java#L27-L62)、[RequestFilterChain](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/support/TransportAction.java#L127-L143) |
+| ch07 | 未登记动作的 IllegalStateException 总直接抛到调用者 | executeLocally 查表会抛；常用 client.execute 路径由 NodeClient.doExecute 捕获并送入 listener.onFailure。查表发生在 Task 登记前 | [NodeClient](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/client/internal/node/NodeClient.java#L78-L141) |
+| ch07 | get_from_translog 也是 ActionType，和本地动作统一登记在同一张表 | 该类声明字符串 NAME，经 HandledTransportAction 登记 TransportService handler；本地 ActionType Map 是 ActionModule 绑定的另一集合，构造远程 handler 不自动加入 Map | [GetFromTranslog](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/get/TransportGetFromTranslogAction.java#L43-L53)、[HandledTransportAction](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/support/HandledTransportAction.java#L36-L52)、[本地绑定](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/ActionModule.java#L1067-L1078) |
+| ch07 | mustIncRef 的引用简单理解为保护整个异步业务，到业务结束才释放 | 额外引用在链尾 handler 调用或 listener 短路时 releaseOnce；业务异步持有有自己的协议。TaskManager 包装成功 / 失败回调，先注销再通知上游 | [链引用释放](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/support/TransportAction.java#L90-L143)、[Task 清理](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/tasks/TaskManager.java#L195-L247) |
+| ch07 | usage 是每次 Handler 调用的完整表，Task 可当动作登记或历史证据 | usage 在 prepare / 后置检查通过后、consumer 前加一，UsageService 只输出正数；_tasks 是运行采样，完成即注销，cancellable 看实现。空列表不能证明动作未登记 | [计数点](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/BaseRestHandler.java#L98-L145)、[正数筛选](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/usage/UsageService.java#L71-L81)、[Task 类别](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/tasks/TaskManager.java#L155-L176)、[完成注销](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/tasks/TaskManager.java#L195-L247) |
+| ch07 | 实验只看累计计数与一次任务快照，缺少比较基线和重复语义 | 保留原 9 ID，增 6 卡；显式 mapping / 刷新 / 本课健康检查，GET 前后基线、精确 / 通配对照、完成后 Task 与缺文档。清理点名，重做重新记录 N，注明重复创建 / 写入 / 清理差异 | [experiments/ch07.js](experiments/ch07.js)、[CH07-REVIEW](.archify/CH07-REVIEW.md)；本轮 API 未实测 |
+
 ## 会话日志
+
+### 2026-10-10(第七章按统一规范重构)
+
+- 按固定 ES v9.4.0 源码校对本地名字查表、Task 登记 / 注销、公共执行链、异步过滤、GET 的协调 / 分片 executor 与远程 handler 登记。正文、两幅 Workflow v2、图注、预期、思考题和速记保持一致，8 项新增勘误见上表；不重复通读原教程。
+- 保留原 9 个实验 ID，补 6 卡，共 2 组 / 15 张操作卡：显式 mapping、刷新与本课索引健康检查，GET 前后计数基线，完成后查 Task，精确 / 通配 / 无星号前缀和缺文档对照。点名清理、重复创建 / 写入 / 清理差异与每轮新基线写清。全站 431 操作卡 / 22 个机制播放器，Archify trace 另计。
+- 两图首次 finalize 即用真实固定源码 checkout；执行图的初稿路径歧义只改 JSON 修复，后续按截图压紧纵向布局。当前原生收据均为 review-4，validate / deliver / strict check 为 showcase 9/9、零错误 / 警告、provenance current。原生 browser-check 仍因管理员 file URL 策略失败，finalize 整体如实为 fail。
+- 独立 HTTP Chromium 覆盖两图四档桌面宽度及章节六档宽度、浅深主题、880px 列与 ≤1px 边界对齐、页面 / iframe 容纳、节点探索 / 源码 / 关闭、两图暂停后重播 / 键盘 / reduced motion、目录 / 已读、15 张实际控制台深链及请求内容、端点 / 认证别名 / raw、Pages 前缀。实际查看 20 张独立 / 嵌入 / 桌面 / 手机 / 操作卡 / 源码表截图；图框收紧为 760 / 680 / 440px，共享 CSS / JS 未改。
+- 站点、JS 语法、稳定 ID 保留与 diff 检查通过。允许的网络权限下再次探测 9200 无连接；既有运行时缺 /proc/self/coredump_filter 的 ES 9.4.0 阻塞仍适用，真实 API 首次和清理后重做均未执行，未模拟响应。完整验收、当前哈希与命令见 [.archify/CH07-REVIEW.md](.archify/CH07-REVIEW.md)，HTTP 证据见 [.archify/review/ch07-http-review.json](.archify/review/ch07-http-review.json)。本轮按持续授权提交并推送 origin/main。
 
 ### 2026-10-10(第六章按统一规范重构)
 - 按“路由 → 参数消费 → GET / HEAD → 保护与统计”重写 ch06，保留七段式、课间导航与已读，增加目录、两图跳转、五道折叠思考题与固定 v9.4.0 文件 / 方法依据；勘误同步正文、图注、实验与速记。

@@ -1,0 +1,318 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "动作名与本地分派：启动登记到一次 GET",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch07-action-dispatch-20261010-214548/action-dispatch.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "登记与执行"
+        },
+        "frontend": {
+          "label": "REST 交接"
+        },
+        "database": {
+          "label": "本地动作表"
+        },
+        "security": {
+          "label": "失败或短路"
+        },
+        "messagebus": {
+          "label": "监听器与清理"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "startup",
+      "label": "启动期 · 内置与插件贡献操作"
+    },
+    {
+      "id": "lookup",
+      "label": "请求期 · 从 REST 交棒到本地查表"
+    },
+    {
+      "id": "handoff",
+      "label": "命中之后 · 登记 Task，再进入公共骨架"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "registry",
+      "lane": "startup",
+      "col": 1,
+      "type": "backend",
+      "label": "setupActions 登记",
+      "sublabel": "按 name 去重；重名启动失败",
+      "width": 230,
+      "height": 52,
+      "yOffset": -50,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionModule.java",
+          "line": 617,
+          "end_line": 635
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/NamedRegistry.java",
+          "line": 34,
+          "end_line": 39
+        }
+      ]
+    },
+    {
+      "id": "bind",
+      "lane": "startup",
+      "col": 1,
+      "type": "backend",
+      "label": "绑定单例并 initialize",
+      "sublabel": "ActionType → 执行体 Map",
+      "width": 230,
+      "height": 52,
+      "yOffset": 50,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionModule.java",
+          "line": 1067,
+          "end_line": 1078
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/client/internal/node/NodeClient.java",
+          "line": 56,
+          "end_line": 67
+        }
+      ]
+    },
+    {
+      "id": "rest",
+      "lane": "lookup",
+      "col": 0,
+      "type": "frontend",
+      "label": "RestGetAction 交棒",
+      "sublabel": "已有 GetRequest 与 listener",
+      "width": 240,
+      "height": 52,
+      "yOffset": -80,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 45,
+          "end_line": 73
+        }
+      ]
+    },
+    {
+      "id": "get",
+      "lane": "lookup",
+      "col": 0,
+      "type": "backend",
+      "label": "client.get 填入 TYPE",
+      "sublabel": "indices:data/read/get",
+      "width": 240,
+      "height": 52,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/client/internal/support/AbstractClient.java",
+          "line": 258,
+          "end_line": 261
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java",
+          "line": 60,
+          "end_line": 62
+        }
+      ]
+    },
+    {
+      "id": "lookup",
+      "lane": "lookup",
+      "col": 0,
+      "type": "backend",
+      "label": "NodeClient 查找执行体",
+      "sublabel": "ActionType 的相等只看 name",
+      "width": 240,
+      "height": 52,
+      "yOffset": 80,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/client/internal/node/NodeClient.java",
+          "line": 127,
+          "end_line": 140
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/ActionType.java",
+          "line": 68,
+          "end_line": 75
+        }
+      ]
+    },
+    {
+      "id": "missing",
+      "lane": "lookup",
+      "col": 1,
+      "type": "security",
+      "label": "未登记 · 查表失败",
+      "sublabel": "IllegalStateException；未建 Task",
+      "width": 230,
+      "height": 52,
+      "yOffset": 80,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/client/internal/node/NodeClient.java",
+          "line": 102,
+          "end_line": 114
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/client/internal/node/NodeClient.java",
+          "line": 127,
+          "end_line": 140
+        }
+      ]
+    },
+    {
+      "id": "task",
+      "lane": "handoff",
+      "col": 0,
+      "type": "backend",
+      "label": "TaskManager 登记",
+      "sublabel": "Task.action 使用内部动作名",
+      "width": 240,
+      "height": 52,
+      "yOffset": -50,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/tasks/TaskManager.java",
+          "line": 195,
+          "end_line": 217
+        }
+      ]
+    },
+    {
+      "id": "execute",
+      "lane": "handoff",
+      "col": 0,
+      "type": "backend",
+      "label": "TransportAction.execute",
+      "sublabel": "进入校验与过滤器；见图 2",
+      "width": 240,
+      "height": 52,
+      "yOffset": 50,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/tasks/TaskManager.java",
+          "line": 217,
+          "end_line": 247
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 58,
+          "end_line": 96
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "register-bind",
+      "from": "registry",
+      "to": "bind",
+      "role": "main",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "initialized-map-lookup",
+      "from": "bind",
+      "to": "lookup",
+      "role": "branch",
+      "variant": "dashed",
+      "label": "提供已初始化的表"
+    },
+    {
+      "id": "rest-get",
+      "from": "rest",
+      "to": "get",
+      "role": "main",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "get-lookup",
+      "from": "get",
+      "to": "lookup",
+      "role": "main",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "lookup-missing",
+      "from": "lookup",
+      "to": "missing",
+      "role": "error",
+      "variant": "security",
+      "label": "未命中"
+    },
+    {
+      "id": "lookup-task",
+      "from": "lookup",
+      "to": "task",
+      "role": "main",
+      "variant": "default",
+      "label": "命中",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "task-execute",
+      "from": "task",
+      "to": "execute",
+      "role": "main",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    }
+  ],
+  "mainPath": [
+    "rest",
+    "get",
+    "lookup",
+    "task",
+    "execute"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两个时间尺度",
+      "items": [
+        "启动期建立并绑定动作表，请求期按名字相等查表；虚线表示已初始化表的供给关系，不表示每次 GET 都重新启动登记。",
+        "入口假定 REST 路由和参数检查已经通过；不展开 HTTP 编码、分片读取与节点间转发。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "查表失败的边界",
+      "items": [
+        "executeLocally 的查表失败发生在 Task 登记前。常用 client.execute 路径由 NodeClient.doExecute 将 IllegalStateException 送入 listener.onFailure。",
+        "未知 URL 在 REST 路由层失败，不能用它复现内部未登记 ActionType。远程 handler 是另一张 TransportService 表。"
+      ]
+    }
+  ]
+}

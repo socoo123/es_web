@@ -1,6 +1,6 @@
 # 章节 Archify 图解
 
-第一至第六章的图由 [Archify 3.0.1](https://github.com/tt-a1i/archify/tree/v3.0.1/archify) 正式 CLI 从 JSON 生成。每个目录的 `candidate.json` 是可编辑的图源，HTML 是自包含的静态交互图。章节使用相对路径嵌入，复用 `chapter-diagrams.css/js`；仓库已有 `.nojekyll`，保持 GitHub Pages 零构建和零 CDN。
+第一至第七章的图由 [Archify 3.0.1](https://github.com/tt-a1i/archify/tree/v3.0.1/archify) 正式 CLI 从 JSON 生成。每个目录的 `candidate.json` 是可编辑的图源，HTML 是自包含的静态交互图。章节使用相对路径嵌入，复用 `chapter-diagrams.css/js`；仓库已有 `.nojekyll`，保持 GitHub Pages 零构建和零 CDN。
 
 | 图 | 类型 | 图源目录 |
 | --- | --- | --- |
@@ -17,8 +17,10 @@
 | 第五章：动态集群设置的校验与应用 | Workflow v2（trace） | `workflow-ch05-dynamic-update-20261010-174932` |
 | 第六章：路由选择与 400 / 405 / OPTIONS | Workflow v2（trace） | `workflow-ch06-route-dispatch-20261010-195617` |
 | 第六章：GET / HEAD 校验与响应边界 | Workflow v2（trace） | `workflow-ch06-get-boundary-20261010-195617` |
+| 第七章：动作登记与本地分派 | Workflow v2（trace） | `workflow-ch07-action-dispatch-20261010-214548` |
+| 第七章：校验、过滤与 Task 清理 | Workflow v2（trace） | `workflow-ch07-execution-chain-20261010-214548` |
 
-第一章三图、第二章 GET 导航图、第三章两图、第四章 Reindex 注册图、第五章动态更新图与第六章两图启用 `meta.animation: "trace"`。默认一遍路径动效后回到完整静态图；图内可暂停，章节外层可重播。系统减少动态效果设置优先于播放指令。第二章区域图、第四章隔离图与第五章配置契约图展示静态关系，提供探索与展开入口。点击节点可查看关系与源码证据，展开图解可使用完整查看器和说明卡。
+第一章三图、第二章 GET 导航图、第三章两图、第四章 Reindex 注册图、第五章动态更新图、第六章与第七章各两图启用 `meta.animation: "trace"`。默认一遍路径动效后回到完整静态图；图内可暂停，章节外层可重播。系统减少动态效果设置优先于播放指令。第二章区域图、第四章隔离图与第五章配置契约图展示静态关系，提供探索与展开入口。点击节点可查看关系与源码证据，展开图解可使用完整查看器和说明卡。
 
 ## 再生成
 
@@ -55,3 +57,5 @@ node /path/to/archify/bin/archify.mjs finalize architecture \
 第五章两图也声明真实 ES 源码证据，生成时须传同一固定提交的源码 checkout 作为 `--repo-root`。本章 12 张操作卡、当前哈希、原生门禁限制、HTTP 检查和视觉审阅范围见 [CH05-REVIEW.md](CH05-REVIEW.md)。动态更新图启用有限 trace，配置契约图保留静态探索。
 
 第六章的两幅 Workflow v2、17 张操作卡、固定版本勘误、当前哈希、原生门禁失败、HTTP 浏览器结果与视觉审阅见 [CH06-REVIEW.md](CH06-REVIEW.md)。两图生成也需要同一固定提交的 ES checkout 与真实 `--repo-root`。
+
+第七章的两幅 Workflow v2、15 张操作卡、动作表 / Task / REST 计数勘误、当前哈希与分项验收见 [CH07-REVIEW.md](CH07-REVIEW.md)。两图生成也须使用上述固定 ES 提交和真实 `--repo-root`；HTTP 浏览器验证与原生 file URL 检查分开记录。

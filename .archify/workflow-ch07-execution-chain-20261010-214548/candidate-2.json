@@ -1,0 +1,358 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "NodeClient 执行骨架：校验、过滤、业务与清理",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch07-execution-chain-20261010-214548/execution-chain.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "登记与执行"
+        },
+        "frontend": {
+          "label": "REST 交接"
+        },
+        "database": {
+          "label": "本地动作表"
+        },
+        "security": {
+          "label": "失败或短路"
+        },
+        "messagebus": {
+          "label": "监听器与清理"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "validation",
+      "label": "公共入口 · 校验与请求持有"
+    },
+    {
+      "id": "filters",
+      "label": "过滤器链 · 按 order 升序，允许异步继续"
+    },
+    {
+      "id": "business",
+      "label": "链尾 · 按基类 executor 选择调用方式"
+    },
+    {
+      "id": "completion",
+      "label": "完成 · TaskManager 的监听器包装"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "validate",
+      "lane": "validation",
+      "col": 0,
+      "type": "backend",
+      "label": "request.validate",
+      "sublabel": "返回 null 才能继续",
+      "width": 240,
+      "height": 64,
+      "yOffset": -65,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 73,
+          "end_line": 85
+        }
+      ]
+    },
+    {
+      "id": "retain",
+      "lane": "validation",
+      "col": 0,
+      "type": "backend",
+      "label": "mustIncRef · 引用 +1",
+      "sublabel": "链尾或回调释放；releaseOnce",
+      "width": 240,
+      "height": 64,
+      "yOffset": 65,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 90,
+          "end_line": 96
+        }
+      ]
+    },
+    {
+      "id": "invalid",
+      "lane": "validation",
+      "col": 1,
+      "type": "security",
+      "label": "校验失败 · onFailure",
+      "sublabel": "注销 Task；未进入过滤器链",
+      "width": 230,
+      "height": 64,
+      "yOffset": -65,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 73,
+          "end_line": 85
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/tasks/TaskManager.java",
+          "line": 228,
+          "end_line": 246
+        }
+      ]
+    },
+    {
+      "id": "filters",
+      "lane": "filters",
+      "col": 0,
+      "type": "backend",
+      "label": "RequestFilterChain",
+      "sublabel": "逐个 apply → chain.proceed",
+      "width": 240,
+      "height": 64,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 95,
+          "end_line": 96
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 127,
+          "end_line": 143
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/ActionFilters.java",
+          "line": 23,
+          "end_line": 26
+        }
+      ]
+    },
+    {
+      "id": "short",
+      "lane": "filters",
+      "col": 1,
+      "type": "security",
+      "label": "过滤器完成 listener",
+      "sublabel": "释放引用并注销 Task；不执行业务",
+      "width": 230,
+      "height": 64,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/ActionFilter.java",
+          "line": 27,
+          "end_line": 37
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 90,
+          "end_line": 96
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/tasks/TaskManager.java",
+          "line": 217,
+          "end_line": 246
+        }
+      ]
+    },
+    {
+      "id": "executor",
+      "lane": "business",
+      "col": 0,
+      "type": "backend",
+      "label": "基类 executor 是 DIRECT？",
+      "sublabel": "决定 doExecute 或排队调用",
+      "width": 240,
+      "height": 64,
+      "yOffset": -70,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 58,
+          "end_line": 65
+        }
+      ]
+    },
+    {
+      "id": "direct",
+      "lane": "business",
+      "col": 0,
+      "type": "backend",
+      "label": "直接调用 doExecute",
+      "sublabel": "当前链的继续线程",
+      "width": 240,
+      "height": 64,
+      "yOffset": 70,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 58,
+          "end_line": 65
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 133,
+          "end_line": 135
+        }
+      ]
+    },
+    {
+      "id": "fork",
+      "lane": "business",
+      "col": 1,
+      "type": "backend",
+      "label": "executor.execute 排队",
+      "sublabel": "随后 doExecute；拒绝转失败",
+      "width": 230,
+      "height": 64,
+      "yOffset": 70,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 99,
+          "end_line": 101
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/TransportAction.java",
+          "line": 140,
+          "end_line": 143
+        }
+      ]
+    },
+    {
+      "id": "complete",
+      "lane": "completion",
+      "col": 0,
+      "type": "messagebus",
+      "label": "结果或失败完成回调",
+      "sublabel": "先注销 Task，再通知上游 listener",
+      "width": 240,
+      "height": 64,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/tasks/TaskManager.java",
+          "line": 217,
+          "end_line": 246
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "validate-retain",
+      "from": "validate",
+      "to": "retain",
+      "role": "main",
+      "variant": "default",
+      "label": "校验通过"
+    },
+    {
+      "id": "validate-invalid",
+      "from": "validate",
+      "to": "invalid",
+      "role": "error",
+      "variant": "security",
+      "label": "有异常"
+    },
+    {
+      "id": "retain-filters",
+      "from": "retain",
+      "to": "filters",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "filters-short",
+      "from": "filters",
+      "to": "short",
+      "role": "branch",
+      "variant": "security",
+      "label": "主动完成"
+    },
+    {
+      "id": "filters-executor",
+      "from": "filters",
+      "to": "executor",
+      "role": "main",
+      "variant": "default",
+      "label": "全部放行 / 空链",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "executor-direct",
+      "from": "executor",
+      "to": "direct",
+      "role": "main",
+      "variant": "default",
+      "label": "DIRECT"
+    },
+    {
+      "id": "executor-fork",
+      "from": "executor",
+      "to": "fork",
+      "role": "branch",
+      "variant": "default",
+      "label": "非 DIRECT"
+    },
+    {
+      "id": "direct-complete",
+      "from": "direct",
+      "to": "complete",
+      "role": "async",
+      "variant": "dashed",
+      "label": "完成回调",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "fork-complete",
+      "from": "fork",
+      "to": "complete",
+      "role": "async",
+      "variant": "dashed",
+      "label": "完成回调"
+    }
+  ],
+  "mainPath": [
+    "validate",
+    "retain",
+    "filters",
+    "executor",
+    "direct",
+    "complete"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "线程与持有边界",
+      "items": [
+        "本图限定 NodeClient 进入 execute 的路径；校验和首次过滤在调用线程开始，异步 filter 之后的继续线程由 filter 决定。",
+        "TransportGetAction 的协调基类使用 DIRECT；分片操作另有 executor。远程 executeDirect 不按这里的条件再次 fork。",
+        "请求额外引用在链尾执行 handler 或 listener 短路时释放一次，并非必然持有到业务响应。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "过滤器作者必须完成协议",
+      "items": [
+        "空过滤器数组也建立 chain，第一次 proceed 直接到 handler。正常 filter 可以继续，或主动完成 listener。",
+        "若既不 proceed 也不完成 listener，请求可能停住；本骨架没有自动完成该失误的兜底。多调 proceed 可触发 IllegalStateException。",
+        "Task 已在进入 execute 前登记，因此校验失败也走 TaskManager 的清理回调；查表失败则未登记。"
+      ]
+    }
+  ]
+}
