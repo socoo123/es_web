@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ES 源码五区域：主要编译依赖",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "none",
+    "output": ".archify/architecture-ch02-source-map-20261010-143543/source-map.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "源码区域"
+        }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "bundled-modules",
+      "type": "backend",
+      "label": "modules/",
+      "sublabel": "内置模块 · 例 repository-s3",
+      "tag": "示例：经典插件接口",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        235,
+        86
+      ],
+      "sources": [
+        {
+          "path": "modules/build.gradle",
+          "line": 10,
+          "end_line": 19,
+          "label": "内置模块构建配置"
+        },
+        {
+          "path": "distribution/build.gradle",
+          "line": 207,
+          "end_line": 220,
+          "label": "模块随默认发行版打包"
+        },
+        {
+          "path": "build.gradle",
+          "line": 311,
+          "end_line": 316,
+          "label": "经典扩展编译依赖 server"
+        }
+      ]
+    },
+    {
+      "id": "installable-plugins",
+      "type": "backend",
+      "label": "plugins/",
+      "sublabel": "可安装扩展 · 例 smartcn",
+      "tag": "示例：经典插件接口",
+      "pos": [
+        345,
+        40
+      ],
+      "size": [
+        235,
+        86
+      ],
+      "sources": [
+        {
+          "path": "plugins/build.gradle",
+          "line": 14,
+          "end_line": 24,
+          "label": "可安装插件构建配置"
+        },
+        {
+          "path": "plugins/analysis-smartcn/build.gradle",
+          "line": 12,
+          "end_line": 18,
+          "label": "中文分词插件入口"
+        },
+        {
+          "path": "build.gradle",
+          "line": 311,
+          "end_line": 316,
+          "label": "经典扩展编译依赖 server"
+        }
+      ]
+    },
+    {
+      "id": "xpack-features",
+      "type": "backend",
+      "label": "x-pack/",
+      "sublabel": "扩展功能区域 · 例 x-pack-core",
+      "tag": "目录不等于收费级别",
+      "pos": [
+        650,
+        40
+      ],
+      "size": [
+        235,
+        86
+      ],
+      "sources": [
+        {
+          "path": "x-pack/plugin/core/build.gradle",
+          "line": 13,
+          "end_line": 28,
+          "label": "X-Pack core 经典插件配置"
+        },
+        {
+          "path": "build.gradle",
+          "line": 311,
+          "end_line": 316,
+          "label": "经典扩展编译依赖 server"
+        },
+        {
+          "path": "x-pack/plugin/core/build.gradle",
+          "line": 45,
+          "end_line": 47,
+          "label": "也直接依赖基础库"
+        }
+      ]
+    },
+    {
+      "id": "server-engine",
+      "type": "backend",
+      "label": "server/",
+      "sublabel": "核心服务 · REST 与索引引擎",
+      "pos": [
+        345,
+        265
+      ],
+      "size": [
+        235,
+        86
+      ],
+      "sources": [
+        {
+          "path": "server/build.gradle",
+          "line": 30,
+          "end_line": 75,
+          "label": "主代码依赖基础库与外部库"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 33,
+          "end_line": 46,
+          "label": "文档 REST 入口"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 3521,
+          "end_line": 3535,
+          "label": "分片管理索引引擎"
+        }
+      ]
+    },
+    {
+      "id": "shared-libraries",
+      "type": "backend",
+      "label": "libs/",
+      "sublabel": "基础库 · 例 x-content、core",
+      "pos": [
+        345,
+        485
+      ],
+      "size": [
+        235,
+        86
+      ],
+      "sources": [
+        {
+          "path": "settings.gradle",
+          "line": 160,
+          "end_line": 160,
+          "label": "基础库源码区域"
+        },
+        {
+          "path": "libs/x-content/build.gradle",
+          "line": 18,
+          "end_line": 29,
+          "label": "x-content 的库级依赖"
+        },
+        {
+          "path": "server/build.gradle",
+          "line": 32,
+          "end_line": 44,
+          "label": "server 依赖多个基础库"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "modules-use-server",
+      "from": "bundled-modules",
+      "to": "server-engine",
+      "label": "经典扩展依赖",
+      "variant": "default"
+    },
+    {
+      "id": "plugins-use-server",
+      "from": "installable-plugins",
+      "to": "server-engine",
+      "label": "经典扩展依赖",
+      "variant": "default"
+    },
+    {
+      "id": "xpack-use-server",
+      "from": "xpack-features",
+      "to": "server-engine",
+      "label": "经典扩展依赖",
+      "variant": "default"
+    },
+    {
+      "id": "server-use-libraries",
+      "from": "server-engine",
+      "to": "shared-libraries",
+      "label": "主代码依赖",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "箭头只表示编译依赖",
+      "items": [
+        "方向是使用方 → 被依赖方；这里不是启动顺序，也不是请求调用链。",
+        "上方使用经典插件接口的代表性扩展，编译依赖 server。",
+        "server 的主代码依赖多项 libs；测试依赖和构建期模块枚举另看配置。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "五个区域，各有用途",
+      "items": [
+        "modules：内置扩展区域；示例 repository-s3。plugins：可安装扩展区域；示例 analysis-smartcn。",
+        "x-pack：扩展功能区域；源码目录名称不等于统一的收费级别。",
+        "libs：拆出的基础库与 API；具体可复用范围仍需逐个项目核对。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "这张概括图的范围",
+      "items": [
+        "基于 Elasticsearch v9.4.0 的固定源码提交；点击节点查看对应源码证据。",
+        "只展示主要区域关系；省略区域内部依赖、Lucene 等外部依赖及部分直接跨区域依赖。",
+        "例如 x-pack-core 也直接依赖 libs；稳定插件 API 属另一种构建契约，不能套用经典插件依赖。"
+      ]
+    }
+  ]
+}

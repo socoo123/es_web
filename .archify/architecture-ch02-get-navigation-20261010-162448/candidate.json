@@ -1,0 +1,308 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "GET 源码阅读路线 · 非运行时调用链",
+    "output": ".archify/architecture-ch02-get-navigation-20261010-162448/get-navigation.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "源码阅读目标"
+        }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "read-rest",
+      "type": "backend",
+      "label": "先搜 REST 入口",
+      "sublabel": "RestGetAction",
+      "tag": "routes / prepareRequest",
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 39,
+          "end_line": 73,
+          "label": "REST 路由与参数转换"
+        }
+      ],
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        250,
+        86
+      ]
+    },
+    {
+      "id": "read-request",
+      "type": "backend",
+      "label": "核对请求字段",
+      "sublabel": "GetRequest",
+      "tag": "index · id · routing",
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/GetRequest.java",
+          "line": 33,
+          "end_line": 60,
+          "label": "请求字段与默认值"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/GetRequest.java",
+          "line": 118,
+          "end_line": 134,
+          "label": "构造与参数校验"
+        }
+      ],
+      "pos": [
+        400,
+        40
+      ],
+      "size": [
+        250,
+        86
+      ]
+    },
+    {
+      "id": "read-action",
+      "type": "backend",
+      "label": "找到 GET 执行类",
+      "sublabel": "TransportGetAction",
+      "tag": "shards / shardOperation",
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java",
+          "line": 60,
+          "end_line": 62,
+          "label": "GET 执行类与父类"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java",
+          "line": 104,
+          "end_line": 118,
+          "label": "候选分片入口"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java",
+          "line": 149,
+          "end_line": 164,
+          "label": "取文档入口"
+        }
+      ],
+      "pos": [
+        400,
+        190
+      ],
+      "size": [
+        250,
+        86
+      ]
+    },
+    {
+      "id": "read-get-service",
+      "type": "backend",
+      "label": "追取文档实现",
+      "sublabel": "ShardGetService.get()",
+      "tag": "index/get/",
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/get/ShardGetService.java",
+          "line": 117,
+          "end_line": 141,
+          "label": "get 与 IndexShard 入口"
+        }
+      ],
+      "pos": [
+        40,
+        350
+      ],
+      "size": [
+        250,
+        86
+      ]
+    },
+    {
+      "id": "read-shard",
+      "type": "backend",
+      "label": "继续看分片入口",
+      "sublabel": "IndexShard.get()",
+      "tag": "index/shard/",
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 1343,
+          "end_line": 1345,
+          "label": "IndexShard.get"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 1370,
+          "end_line": 1389,
+          "label": "innerGet 与 Engine 入口"
+        }
+      ],
+      "pos": [
+        40,
+        500
+      ],
+      "size": [
+        250,
+        86
+      ]
+    },
+    {
+      "id": "read-dispatch",
+      "type": "backend",
+      "label": "跟到单分片框架",
+      "sublabel": "TransportSingleShardAction",
+      "tag": "AsyncSingleAction",
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/single/shard/TransportSingleShardAction.java",
+          "line": 164,
+          "end_line": 204,
+          "label": "集群状态与候选分片"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/single/shard/TransportSingleShardAction.java",
+          "line": 210,
+          "end_line": 223,
+          "label": "候选分片执行入口"
+        }
+      ],
+      "pos": [
+        400,
+        350
+      ],
+      "size": [
+        250,
+        86
+      ]
+    },
+    {
+      "id": "read-routing",
+      "type": "backend",
+      "label": "回看分片选择",
+      "sublabel": "OperationRouting.getShards()",
+      "tag": "cluster/routing/",
+      "icon": "none",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java",
+          "line": 104,
+          "end_line": 118,
+          "label": "从 shards 定位路由实现"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java",
+          "line": 62,
+          "end_line": 72,
+          "label": "按 id / routing 选分片"
+        }
+      ],
+      "pos": [
+        400,
+        500
+      ],
+      "size": [
+        250,
+        86
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "rest-to-request",
+      "from": "read-rest",
+      "to": "read-request",
+      "label": "读请求字段",
+      "variant": "default"
+    },
+    {
+      "id": "request-to-action",
+      "from": "read-request",
+      "to": "read-action",
+      "label": "搜执行类",
+      "variant": "default"
+    },
+    {
+      "id": "action-to-get",
+      "from": "read-action",
+      "to": "read-get-service",
+      "label": "取文档？",
+      "variant": "emphasis"
+    },
+    {
+      "id": "get-to-shard",
+      "from": "read-get-service",
+      "to": "read-shard",
+      "label": "继续往下读",
+      "variant": "default"
+    },
+    {
+      "id": "action-to-dispatch",
+      "from": "read-action",
+      "to": "read-dispatch",
+      "label": "路由到哪？",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dispatch-to-routing",
+      "from": "read-dispatch",
+      "to": "read-routing",
+      "label": "回看 shards",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "箭头的含义",
+      "items": [
+        "每个节点都是开发者打开源码的阅读动作，箭头表示接下来查哪个目标。",
+        "这不是 GET 的运行时调用链，不表示请求必须按图的顺序执行。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "先分清入口、请求与执行",
+      "items": [
+        "RestGetAction.routes() 注册 GET /{index}/_doc/{id}；prepareRequest() 构造 GetRequest。",
+        "GetRequest 保存请求字段；TransportGetAction 是 GET 执行类，二者不要因包名相近而混为一谈。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "按自己的问题深入",
+      "items": [
+        "想看取文档：读 shardOperation() 引出的 ShardGetService.get()，再到 IndexShard.get()。",
+        "想看路由：先读父类 AsyncSingleAction，再回到 TransportGetAction.shards()，定位 OperationRouting.getShards()。两支是阅读问题，不是运行时二选一。"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "抽象范围与版本",
+      "items": [
+        "只提供源码定位地图，省略 NodeClient 分派、异步回调、线程池和各类 GET 执行分支；完整请求走读留到第 10 课。",
+        "证据固定于 Elasticsearch v9.4.0；点击源码节点可打开固定提交的具体文件与行号。"
+      ]
+    }
+  ]
+}

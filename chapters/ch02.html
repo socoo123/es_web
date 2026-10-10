@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>第 2 课:项目结构全景 — ES 源码精读站</title>
   <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
 </head>
-<body>
+<body class="chapter-visual-page">
   <header class="topbar">
     <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
     <nav class="tnav">
@@ -18,223 +19,195 @@
     <button class="theme-toggle" type="button">🌙 深色</button>
   </header>
 
-  <main class="wrap">
+  <main class="wrap chapter-visual">
     <article class="chapter" id="ch02" data-ch="ch02">
       <header class="ch-header">
         <div class="ch-kicker">LESSON 02 · 第一篇 · 全局认知</div>
+        <div class="visual-badge">ARCHIFY · 源码导航</div>
         <h1>项目结构全景</h1>
-        <div class="ch-meta-line">从 10000 英尺俯瞰代码库 · 约 12 分钟 · 前置:第 1 课 · 2 个实验</div>
+        <div class="ch-meta-line">从功能名找到源码 · 约 15 分钟 · 前置:第 1 课 · 2 个 HTTP 操作 · 2 幅交互图（含 1 条阅读路径动画）</div>
+        <p class="ch-intro">面对 Elasticsearch 代码库，先回答三个问题：这段代码属于哪片区域、依赖谁、从哪里进入。本课用 GET 文档作线索，带你从目录地图走到具体文件与方法。</p>
+        <nav class="diagram-jumps" aria-label="本章图解">
+          <a href="#fig-source-map"><span>01</span>源码区域</a>
+          <a href="#fig-get-navigation"><span>02</span>GET 定位路线</a>
+          <a href="#practice"><span>03</span>动手核对</a>
+        </nav>
+        <details class="chapter-outline">
+          <summary>本课目录</summary>
+          <nav aria-label="本课目录">
+            <a href="#goals">学习目标</a><a href="#source-map">1. 五大源码区域</a>
+            <a href="#get-route">2. 从 GET 找入口</a><a href="#distribution">3. 模块与插件的发布</a>
+            <a href="#gradle">4. Gradle 子项目与版本</a><a href="#locator">5. 按问题定位</a>
+            <a href="#practice">实验与思考题</a><a href="#pitfalls">陷阱</a><a href="#recap">速记</a>
+          </nav>
+        </details>
       </header>
 
       <section class="goal">
-        <h2>学习目标</h2>
+        <h2 id="goals">学习目标</h2>
         <ul>
-          <li>说出五大源码区域的依赖方向,以及为什么 <code>server</code> 不能依赖 <code>modules</code>。</li>
-          <li>拿到一个功能名(比如 GET 文档),能按定位表找到它源码的真实路径。</li>
-          <li>说出 modules 和 plugins 的发布差别,以及把插件塞进 <code>server/</code> 会破坏哪条不变量。</li>
+          <li>在 <code>server/build.gradle</code> 中区分生产依赖、测试依赖和构建期枚举，正确读出依赖箭头。</li>
+          <li>从 <code>GET /{index}/_doc/{id}</code> 找到 <code>RestGetAction</code>，再按问题定位请求对象、执行类或分片代码。</li>
+          <li>用 <code>repository-s3</code> 与 <code>analysis-smartcn</code> 解释源码目录、发行版目录和许可等级的区别。</li>
         </ul>
       </section>
 
       <section class="lesson">
-        <h2>1. 心智模型:五大源码区域,箭头只往下</h2>
-        <p>仓库巨大,但读源码时反复进出的只有五块。<strong>上层依赖下层;<code>server</code> 永远不依赖 <code>modules</code>、<code>plugins</code>、<code>x-pack</code></strong>。这保证核心引擎可以单独编译、单独测试——没装云存储插件的发行版,照样能编译。</p>
+        <h2 id="source-map">1. 五大区域：先看职责，再看依赖</h2>
+        <p>读源码不必从根目录逐个文件看起。<code>server/</code> 承载节点、集群、索引、搜索与 REST 等核心逻辑；<code>libs/</code> 拆出基础库；<code>modules/</code>、<code>plugins/</code> 与 <code>x-pack/</code> 承载不同的扩展能力。它们是阅读入口，<strong>不是五个连续执行阶段</strong>。</p>
 
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah02a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="280" y="12" width="200" height="46" rx="9" class="fig-box"/>
-              <text x="380" y="32" text-anchor="middle" class="fig-name">libs/</text>
-              <text x="380" y="50" text-anchor="middle" class="fig-sub">x-content、geo… 不依赖 ES</text>
-
-              <line x1="380" y1="58" x2="380" y2="86" class="fig-arrow" marker-end="url(#ah02a)"/>
-              <text x="410" y="77" class="fig-sub">依赖</text>
-
-              <rect x="255" y="88" width="250" height="46" rx="9" class="fig-box-hot"/>
-              <text x="380" y="108" text-anchor="middle" class="fig-name">server/</text>
-              <text x="380" y="126" text-anchor="middle" class="fig-sub">核心引擎:集群、索引、搜索、REST</text>
-
-              <line x1="330" y1="134" x2="180" y2="170" class="fig-arrow" marker-end="url(#ah02a)"/>
-              <line x1="380" y1="134" x2="380" y2="170" class="fig-arrow" marker-end="url(#ah02a)"/>
-              <line x1="430" y1="134" x2="580" y2="170" class="fig-arrow" marker-end="url(#ah02a)"/>
-
-              <rect x="30" y="172" width="290" height="46" rx="9" class="fig-box"/>
-              <text x="175" y="192" text-anchor="middle" class="fig-name">modules/</text>
-              <text x="175" y="210" text-anchor="middle" class="fig-sub">内置模块,随发行版打包</text>
-              <rect x="345" y="172" width="200" height="46" rx="9" class="fig-box"/>
-              <text x="445" y="192" text-anchor="middle" class="fig-name">plugins/</text>
-              <text x="445" y="210" text-anchor="middle" class="fig-sub">需手动安装</text>
-              <rect x="570" y="172" width="160" height="46" rx="9" class="fig-box"/>
-              <text x="650" y="192" text-anchor="middle" class="fig-name">x-pack/</text>
-              <text x="650" y="210" text-anchor="middle" class="fig-sub">商业功能</text>
-            </svg>
+        <figure class="fig archify-figure" id="fig-source-map">
+          <div class="archify-shell">
+            <div class="archify-tools">
+              <span class="archify-label">01 · 五大源码区域</span>
+              <div class="archify-actions"><a href="../.archify/architecture-ch02-source-map-20261010-143543/source-map.html" target="_blank" rel="noopener">展开图解 ↗</a></div>
+            </div>
+            <iframe class="archify-frame" id="diagram-source-map" title="Elasticsearch 五大源码区域的职责与代表性生产依赖" loading="lazy" src="../.archify/architecture-ch02-source-map-20261010-143543/source-map.html?theme=light&amp;present=1" style="--diagram-height: 720px; --diagram-mobile-height: 460px;"></iframe>
           </div>
-          <figcaption>图 1 · 依赖永远单向:S3 仓库可以依赖引擎;引擎不能反过来依赖 S3,否则没装云存储的发行版连核心都编译不了。</figcaption>
+          <figcaption>图 1 · 箭头从使用方指向被依赖方：图中选取的扩展依赖 server，server 依赖基础库。这里只展示代表性生产依赖，省略区域内部、稳定插件 API 与外部库的详细关系。<span class="figure-tip">这是一张结构图。点击节点探索职责与源码依据；窄屏可展开单独阅读。</span></figcaption>
         </figure>
 
-        <p>这条不变量在 <code>server/build.gradle</code> 里肉眼可见:生产依赖只有 <code>libs</code> 和 Lucene——</p>
-        <pre class="code-block"><code>api project(':libs:core')
-api project(':libs:logging')
-api project(':libs:x-content')
-// …更多 libs
-api "org.apache.lucene:lucene-core:${versions.lucene}"</code></pre>
-        <p>没有 <code>api project(':modules:…')</code>。同一文件里确实会出现 modules,但配置名是 <code>internalClusterTestImplementation</code>——集成测试拉模块来搭更完整的节点可以,<strong>主代码编译不行</strong>。另外 <code>generateModulesList</code> 会在构建期枚举模块名写进 <code>modules.txt</code>,那也不是编译依赖。</p>
-
-        <h2>2. server/ 里的阅读顺序</h2>
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 130" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah02b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="10" y="30" width="128" height="60" rx="9" class="fig-box-hot"/>
-              <text x="74" y="55" text-anchor="middle" class="fig-name">rest/</text>
-              <text x="74" y="75" text-anchor="middle" class="fig-sub">接到 GET /_doc/1</text>
-              <line x1="138" y1="60" x2="162" y2="60" class="fig-arrow" marker-end="url(#ah02b)"/>
-              <rect x="166" y="30" width="128" height="60" rx="9" class="fig-box-hot"/>
-              <text x="230" y="55" text-anchor="middle" class="fig-name">action/</text>
-              <text x="230" y="75" text-anchor="middle" class="fig-sub">变成 GetRequest</text>
-              <line x1="294" y1="60" x2="318" y2="60" class="fig-arrow" marker-end="url(#ah02b)"/>
-              <rect x="322" y="30" width="128" height="60" rx="9" class="fig-box-hot"/>
-              <text x="386" y="55" text-anchor="middle" class="fig-name">index/</text>
-              <text x="386" y="75" text-anchor="middle" class="fig-sub">落到某分片的引擎</text>
-              <line x1="450" y1="60" x2="474" y2="60" class="fig-arrow" marker-end="url(#ah02b)"/>
-              <rect x="478" y="30" width="128" height="60" rx="9" class="fig-box"/>
-              <text x="542" y="55" text-anchor="middle" class="fig-name">cluster/</text>
-              <text x="542" y="75" text-anchor="middle" class="fig-sub">需要时读集群状态</text>
-              <line x1="606" y1="60" x2="630" y2="60" class="fig-arrow" marker-end="url(#ah02b)"/>
-              <rect x="634" y="30" width="116" height="60" rx="9" class="fig-box"/>
-              <text x="692" y="55" text-anchor="middle" class="fig-name">common/</text>
-              <text x="692" y="75" text-anchor="middle" class="fig-sub">Settings 等工具</text>
-              <text x="380" y="115" text-anchor="middle" class="fig-sub">这是「找代码的顺序」,不是说一次调用必须串过五层(GET 的完整走读在第 10 课)</text>
-            </svg>
+        <p>核心代码通过插件接口接纳能力，生产编译依赖无需反向指向具体扩展。<code>server/build.gradle</code> 的 <code>api</code> / <code>implementation</code> 包括多种 <code>libs</code>、Lucene，以及 HPPC、HdrHistogram、Log4j/ECS 等第三方库；所以不能把它简化为“只有 libs 和 Lucene”。其中的 <code>internalClusterTestImplementation</code> 会引入部分 modules，为集成测试组装节点；<code>generateModulesList</code> 枚举模块并写入 <code>modules.txt</code>，属于构建任务。</p>
+        <pre class="code-block"><code>// server/build.gradle：配置名决定依赖用途
+api project(':libs:core')
+api "org.apache.lucene:lucene-core:${versions.lucene}"
+implementation 'com.carrotsearch:hppc:0.8.1'
+// …其他生产依赖
+internalClusterTestImplementation(project(':modules:reindex'))</code></pre>
+        <p><code>libs</code> 是 Elasticsearch 仓库内的库项目；例如 <code>x-content</code> 提供内容解析/生成，仍会依赖其他基础库和解析库。“拆成库”不等于没有依赖，也不意味着每个库都适合被外部项目直接使用。</p>
+        <details>
+          <summary>源码依据：怎样确认这条边属于生产依赖？</summary>
+          <div class="answer">
+            <p>先看 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/build.gradle#L30-L96" target="_blank" rel="noopener">server/build.gradle · dependencies</a>，区分生产与测试配置；模块枚举另见同文件的 <code>generateModulesList</code>。基础库的具体依赖见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/libs/x-content/build.gradle#L18-L29" target="_blank" rel="noopener">libs/x-content/build.gradle</a>。图内说明卡保存了所选扩展的构建证据；图不是整个仓库的完整 Gradle 依赖图。</p>
           </div>
-          <figcaption>图 2 · 打开 server/ 按这个顺序找:入口在 rest/,执行在 action/,数据在 index/。</figcaption>
+        </details>
+
+        <h2 id="get-route">2. 从 GET 文档找到源码入口</h2>
+        <p>给定 <code>GET /{index}/_doc/{id}</code>，先找 REST 路由的声明，再读请求参数如何装入对象。接着根据自己的问题继续：想看文档读取，就找分片读取；想看请求落到哪片，就查路由。这样每次阅读都带着问题，避免把整个 <code>server/</code> 当成一条长调用链。</p>
+
+        <figure class="fig archify-figure" id="fig-get-navigation">
+          <div class="archify-shell">
+            <div class="archify-tools">
+              <span class="archify-label">02 · GET 源码定位路线</span>
+              <div class="archify-actions"><button type="button" data-replay-diagram="diagram-get-navigation">↻ 重新播放</button><a href="../.archify/architecture-ch02-get-navigation-20261010-162448/get-navigation.html" target="_blank" rel="noopener">展开图解 ↗</a></div>
+            </div>
+            <iframe class="archify-frame" id="diagram-get-navigation" title="从 GET 文档 API 出发，按阅读问题查找源码的路线" loading="lazy" src="../.archify/architecture-ch02-get-navigation-20261010-162448/get-navigation.html?theme=light&amp;present=1" style="--diagram-height: 820px; --diagram-mobile-height: 540px;"></iframe>
+          </div>
+          <figcaption>图 2 · 动画展示开发者的查找动作与可选阅读分支，不表示请求的运行时先后关系；完整 GET 执行机制在<a href="ch10.html">第 10 课</a>展开。<span class="figure-tip">点击节点查看方法与路径；图内可切换动态/静态，外层可重新播放。手机可点击节点查看具体方法，或展开后放大；阅读起点也列在下表。系统减少动态效果设置优先。</span></figcaption>
         </figure>
 
         <table class="ktable">
-          <tr><th>包名</th><th>职责</th><th>关键类(后续课走读)</th></tr>
-          <tr><td><code>rest/</code></td><td>HTTP REST API 层</td><td><code>RestHandler</code>、<code>BaseRestHandler</code>、<code>RestController</code></td></tr>
-          <tr><td><code>action/</code></td><td>请求/响应处理框架</td><td><code>TransportAction</code>、<code>ActionListener</code>、<code>ActionModule</code></td></tr>
-          <tr><td><code>transport/</code></td><td>节点间 TCP 通信</td><td><code>TransportService</code>(第 9 课)</td></tr>
-          <tr><td><code>index/</code></td><td>索引级操作</td><td><code>IndexShard</code>、<code>Engine</code>、<code>MapperService</code></td></tr>
-          <tr><td><code>search/</code></td><td>搜索执行引擎</td><td><code>SearchService</code>、<code>SearchPhaseController</code></td></tr>
-          <tr><td><code>cluster/</code></td><td>集群状态与协调</td><td><code>ClusterState</code>、<code>Coordinator</code>(第 21、22 课)</td></tr>
-          <tr><td><code>ingest/</code></td><td>数据预处理管道</td><td><code>IngestService</code>(第 12 课)</td></tr>
-          <tr><td><code>node/</code></td><td>节点生命周期</td><td><code>Node</code>(第 3 课)</td></tr>
-          <tr><td><code>plugins/</code></td><td>插件框架</td><td><code>Plugin</code>、<code>PluginsService</code>(第 4 课)</td></tr>
-          <tr><td><code>common/</code> / <code>threadpool/</code></td><td>通用工具 / 线程池</td><td><code>Settings</code> / <code>ThreadPool</code>(第 5、8 课)</td></tr>
+          <tr><th>阅读问题</th><th>文件与方法</th><th>这一站看什么</th></tr>
+          <tr><td>HTTP 路径在哪里声明？</td><td><code>rest/action/document/RestGetAction.java</code> · <code>routes()</code></td><td>找到带 index 与 id 的 GET 路由</td></tr>
+          <tr><td>参数变成什么对象？</td><td>同文件 · <code>prepareRequest()</code>；<code>action/get/GetRequest.java</code></td><td>index、id、routing、realtime 等参数及请求对象</td></tr>
+          <tr><td>从哪里继续追执行？</td><td><code>action/get/TransportGetAction.java</code></td><td>读类的继承关系，再按问题查 <code>resolveRequest()</code>、<code>shards()</code> 或 <code>shardOperation()</code></td></tr>
         </table>
-
-        <h2>3. modules vs plugins:代码像,发布不像</h2>
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg">
-              <rect x="15" y="15" width="355" height="140" rx="10" class="fig-box-hot"/>
-              <text x="192" y="42" text-anchor="middle" class="fig-name">modules/</text>
-              <text x="192" y="70" text-anchor="middle" class="fig-sub">随发行版打包,默认可用</text>
-              <text x="192" y="95" text-anchor="middle" class="fig-key">lang-painless · repository-s3</text>
-              <text x="192" y="115" text-anchor="middle" class="fig-key">transport-netty4 · ingest-common</text>
-              <text x="192" y="140" text-anchor="middle" class="fig-sub">loadModulesBundles(modulesDirectory)</text>
-
-              <rect x="390" y="15" width="355" height="140" rx="10" class="fig-box"/>
-              <text x="567" y="42" text-anchor="middle" class="fig-name">plugins/</text>
-              <text x="567" y="70" text-anchor="middle" class="fig-sub">elasticsearch-plugin install 手动装</text>
-              <text x="567" y="95" text-anchor="middle" class="fig-key">analysis-smartcn(中文分词)</text>
-              <text x="567" y="115" text-anchor="middle" class="fig-key">analysis-icu · mapper-size</text>
-              <text x="567" y="140" text-anchor="middle" class="fig-sub">loadPluginsBundles(pluginsDirectory)</text>
-            </svg>
+        <p>表中路径都从 <code>server/src/main/java/org/elasticsearch/</code> 开始。取文档可继续看 <code>index/get/ShardGetService.java</code>；路由可继续看 <code>action/support/single/shard/TransportSingleShardAction.java</code> 与 <code>cluster/routing/</code>。REST 层、动作框架和分片层各有职责；命名相似不意味着它们处在同一个包。</p>
+        <details>
+          <summary>源码依据：GET 的三个起点</summary>
+          <div class="answer">
+            <p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java#L39-L73" target="_blank" rel="noopener">RestGetAction · routes / prepareRequest</a> 声明路由并构造请求；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/get/GetRequest.java" target="_blank" rel="noopener">GetRequest</a> 保存参数；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java#L104-L173" target="_blank" rel="noopener">TransportGetAction · resolveRequest / shards / shardOperation</a> 提供继续追索的执行入口。图内各节点引用同一固定版本源码。</p>
           </div>
-          <figcaption>图 3 · 目录结构几乎一样(都是 build.gradle + esplugin{}),差在打进发行版还是留给用户装。源码里也是两个加载入口(PluginsLoader.java)。</figcaption>
-        </figure>
+        </details>
 
-        <div class="callout tip"><span class="co-title">为什么必须拆开:</span>拆的是<strong>发布与失败域</strong>。<code>transport-netty4</code> 缺了节点起不来,必须打进发行版;<code>analysis-smartcn</code> 只服务中文语料,不该成为所有人的启动依赖。若「全部当插件、默认装一部分」,发行版与插件目录的边界就糊了,禁用/卸载的语义也不再清楚。</div>
-
-        <p><code>libs/</code> 下的库(x-content、geo、grok、plugin-api…)不依赖 ES 本身,可被外部项目独立引用;塞进 <code>server/</code> 的代价是:想复用 JSON 序列化的人必须拖上整份引擎。<code>x-pack/</code> 与 modules 同级、同样依赖 server,是商业许可功能(安全、ML、ESQL、ILM),第 27-29 课再进去。</p>
-
-        <h2>4. Gradle 怎么把目录变成子项目</h2>
-        <p><code>settings.gradle</code> 用 <code>addSubProjects()</code> 递归发现带 <code>build.gradle</code> 的目录——新模块只要在对应目录放一个 <code>build.gradle</code> 就会被扫进去。版本钉在 <code>build-tools-internal/version.properties</code>:</p>
+        <h2 id="distribution">3. modules 与 plugins：发布方式不同</h2>
+        <p>源码仓库里的目录名，与安装目录里的 <code>modules/</code> / <code>plugins/</code> 是两层概念。先判断某个功能怎样进入发行版，再判断运行时如何发现它；不要仅凭实现类继承了 <code>Plugin</code> 就断定用户必须手动安装。</p>
         <table class="ktable">
-          <tr><th>组件</th><th>版本(本教程锚定)</th></tr>
-          <tr><td>Elasticsearch</td><td><strong>9.4.0</strong></td></tr>
-          <tr><td>Lucene</td><td><strong>10.4.0</strong></td></tr>
-          <tr><td>Bundled JDK</td><td>26.0.1+8(<code>GET /_nodes</code> 的 <code>jvm.version</code> 只显示 26.0.1)</td></tr>
-          <tr><td>Netty / Jackson / Log4j / ANTLR4</td><td>4.1.132.Final / 2.15.0 / 2.19.0 / 4.13.1</td></tr>
+          <tr><th>对照项</th><th>内置模块</th><th>可安装插件</th></tr>
+          <tr><td>本课例子</td><td><code>modules/repository-s3</code>、<code>modules/lang-painless</code></td><td><code>plugins/analysis-smartcn</code>、<code>plugins/analysis-icu</code></td></tr>
+          <tr><td>普通默认发行版</td><td>构建时选入发行版的模块集合，安装后位于 <code>modules/</code></td><td>按需通过 <code>elasticsearch-plugin install analysis-smartcn</code> 等安装到 <code>plugins/</code></td></tr>
+          <tr><td>加载入口</td><td><code>loadModulesBundles(modulesDirectory, isStatelessMode)</code></td><td><code>loadPluginsBundles(pluginsDirectory, isStatelessMode)</code></td></tr>
+          <tr><td>读源码要问</td><td>是否被目标发行版打包？还需要哪些配置？</td><td>是否安装、版本是否匹配、描述文件与依赖是否满足？</td></tr>
         </table>
-        <p>依赖校验的 SHA256 在 <code>gradle/verification-metadata.xml</code>——知道有这道闸即可。测试基础设施用 <code>test/framework</code>(<code>ESTestCase</code> 等)和 <code>qa/</code>(滚动升级、混合版本),不要自己搭。</p>
+        <p>“随发行版提供”不等于业务已经配置好。例如 S3 仓库功能存在，仍需创建仓库并满足凭据等条件。不同发行形态或运行模式也可能选择不同模块集合。发布与加载的固定版本依据见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/distribution/build.gradle#L207-L249" target="_blank" rel="noopener">distribution/build.gradle · moduleProjects</a> 与 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/plugins/PluginsLoader.java#L135-L182" target="_blank" rel="noopener">PluginsLoader · 两个加载入口</a>。</p>
+        <div class="callout tip"><span class="co-title">x-pack 不是“全部付费”的标签：</span>它包含安全、ML、ESQL、ILM 等扩展源码，部分能力在 Basic 等级可用，部分需要更高等级许可。源码的使用许可证与产品订阅功能等级也要分别判断；具体功能应查对应的许可检查，而不是靠目录名猜。参见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/x-pack/plugin/core/src/main/java/org/elasticsearch/license/XPackLicenseState.java#L567-L594" target="_blank" rel="noopener">XPackLicenseState · isAllowed</a>。</div>
 
-        <h2>5. 快速定位指南:「这个功能的代码在哪?」</h2>
+        <h2 id="gradle">4. Gradle 如何把目录变成项目</h2>
+        <p><code>:server</code>、<code>:libs:core</code> 是 Gradle 项目路径；Java 的 <code>org.elasticsearch.action.get</code> 则是包名。<code>settings.gradle</code> 既有显式项目列表，也用 <code>addSubProjects()</code> 从指定入口发现子项目，例如 libs、modules、plugins、qa 与 x-pack。</p>
+        <p>递归发现有条件：每一层需要 <code>build.gradle</code>；遇到 <code>buildSrc</code>、自带 <code>settings.gradle</code>、已注册目录或特定排除项目会停止。这解释了为什么“在任意目录放一个 build.gradle”并不保证加入主构建。规则见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/settings.gradle#L128-L167" target="_blank" rel="noopener">settings.gradle · addSubProjects</a>。</p>
+        <p>版本也从构建依据核对。本课锚定 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/build-tools-internal/version.properties#L1-L26" target="_blank" rel="noopener">v9.4.0 的 version.properties</a>：</p>
         <table class="ktable">
-          <tr><th>想找的</th><th>去这里</th></tr>
-          <tr><td>核心搜索/索引逻辑</td><td><code>server/src/main/java/org/elasticsearch/</code></td></tr>
-          <tr><td>REST API 端点</td><td><code>server/.../rest/action/</code> 或 <code>x-pack/.../rest/action/</code></td></tr>
-          <tr><td>某个查询类型(match)</td><td><code>server/.../index/query/MatchQueryBuilder.java</code></td></tr>
-          <tr><td>某个聚合(terms)</td><td><code>server/.../search/aggregations/bucket/terms/</code></td></tr>
-          <tr><td>Painless 脚本</td><td><code>modules/lang-painless/</code></td></tr>
+          <tr><th>组件</th><th>构建版本</th></tr>
+          <tr><td>Elasticsearch / Lucene</td><td><strong>9.4.0 / 10.4.0</strong></td></tr>
+          <tr><td>Bundled JDK</td><td>26.0.1+8；使用该 JVM 时，节点的 <code>jvm.version</code> 显示 <code>26.0.1</code></td></tr>
+          <tr><td>Netty</td><td>4.1.132.Final</td></tr>
+          <tr><td>Jackson / Log4j / ANTLR4</td><td>2.15.0 / 2.19.0 / 4.13.1</td></tr>
+        </table>
+        <p>依赖校验另见 <code>gradle/verification-metadata.xml</code>。测试代码常从 <code>test/framework</code> 的 <code>ESTestCase</code> 与 <code>qa/</code> 入手；它们属于测试基础设施，不要把测试依赖混进生产依赖的解释。</p>
+
+        <h2 id="locator">5. 按问题定位，而不是遍历包名</h2>
+        <p>先用 API、功能名或类名缩小范围，再核对包声明与方法。以下路径是起点，不能替代对调用方、继承类和注册代码的追索。</p>
+        <table class="ktable">
+          <tr><th>想找的问题</th><th>源码起点</th></tr>
+          <tr><td>核心 REST 入口</td><td><code>server/.../rest/action/</code>，例如 <code>RestGetAction</code></td></tr>
+          <tr><td>搜索协调 / 本地搜索</td><td><code>server/.../action/search/SearchPhaseController.java</code> / <code>server/.../search/SearchService.java</code></td></tr>
+          <tr><td>match 查询 / terms 聚合</td><td><code>server/.../index/query/MatchQueryBuilder.java</code> / <code>server/.../search/aggregations/bucket/terms/</code></td></tr>
+          <tr><td>节点 / 选主 / 分片分配</td><td><code>server/.../node/Node.java</code> / <code>cluster/coordination/</code> / <code>cluster/routing/allocation/</code></td></tr>
+          <tr><td>设置 / 线程池</td><td><code>server/.../common/settings/Settings.java</code> / <code>server/.../threadpool/ThreadPool.java</code></td></tr>
+          <tr><td>脚本 / S3 / Netty</td><td><code>modules/lang-painless/</code> / <code>modules/repository-s3/</code> / <code>modules/transport-netty4/</code></td></tr>
           <tr><td>中文分词</td><td><code>plugins/analysis-smartcn/</code></td></tr>
-          <tr><td>S3 快照仓库</td><td><code>modules/repository-s3/</code></td></tr>
           <tr><td>安全 / ML / ESQL / ILM</td><td><code>x-pack/plugin/{security,ml,esql,ilm}/</code></td></tr>
-          <tr><td>集群选主 / 分片分配</td><td><code>server/.../cluster/coordination/</code> / <code>.../cluster/routing/allocation/</code></td></tr>
-          <tr><td>Netty 传输</td><td><code>modules/transport-netty4/</code></td></tr>
         </table>
-        <div class="callout tip"><span class="co-title">命名规律:</span>ES 命名非常规范——<code>RestXxxAction</code> 是 REST 入口类,<code>TransportXxxAction</code> 是内部执行类。IDE 按 <kbd>⌘</kbd><kbd>⇧</kbd><kbd>N</kbd> 搜文件名即可秒定位。</div>
+        <div class="callout tip"><span class="co-title">用命名规律缩小搜索：</span><code>RestXxxAction</code> 通常是 REST 入口，<code>TransportXxxAction</code> 通常是动作执行类。找到名字后继续确认路由、注册和具体方法；类名本身并不是行为证据。</div>
       </section>
 
       <section class="drills">
-        <h2>动手实验</h2>
-        <p>这一课的主角是<strong>仓库结构</strong>,HTTP 能照到的镜子有限:版本核对、节点角色。原课的三个「打开仓库」实验(grep build.gradle、找 RestGetAction、smartcn 思想实验)改编成了下面的思考题——等你真 clone 了 elasticsearch 仓库,可以原样做一遍。</p>
+        <h2 id="practice">动手实验：源码与运行节点分别核对</h2>
+        <p>源码任务在 Elasticsearch <code>v9.4.0</code> 仓库根目录执行；下面两张 HTTP 卡连接你配置的 ES 端点。HTTP 只能验证运行版本与节点信息，不能证明 Gradle 依赖或目录结构。请求均为只读，可按“版本 → 节点信息”顺序反复运行，不创建索引，也无需清理资源；启用安全时需有对应 API 权限。</p>
 
-        <h3>实验 1:版本核对(version.properties 的活证据)</h3>
+        <h3>源码任务 A：按配置区分依赖用途</h3>
+        <pre class="code-block"><code>rg -n 'api |implementation |internalClusterTestImplementation|generateModulesList' server/build.gradle</code></pre>
+        <p>找到一个基础库生产依赖、一个第三方生产依赖，以及一个 modules 测试依赖。先看配置名，再看项目路径；同一文件里的三个命中不代表同一种关系。</p>
+
+        <h3>源码任务 B：找到 GET 的真实路由</h3>
+        <pre class="code-block"><code>rg -n 'routes\(|prepareRequest|new GetRequest|client.get' server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java
+rg -n 'resolveRequest|shards\(|shardOperation' server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java</code></pre>
+        <p>先在 <code>routes()</code> 核对完整路径，再在 <code>prepareRequest()</code> 找参数。最后选一个执行问题继续追，不把图中的查找动作当作完整调用栈。</p>
+
+        <h3>HTTP 操作 1：核对运行版本</h3>
         <div class="exp-slot" data-exp="ch02-01-version"></div>
 
-        <h3>实验 2:你面前这个节点的角色与 JDK</h3>
+        <h3>HTTP 操作 2：查看实际角色与 JVM</h3>
         <div class="exp-slot" data-exp="ch02-02-nodes"></div>
+        <p>节点角色会受到 <code>node.roles</code> 与运行环境影响；JVM 也可能由用户指定。用 <code>using_bundled_jdk</code> 判断是否使用捆绑 JVM，用 <code>vm_version</code> 看完整 JVM 版本；<code>jvm.version</code> 本身不显示 +8 构建号。字段依据见 <a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/monitor/jvm/JvmInfo.java#L408-L415" target="_blank" rel="noopener">JvmInfo · toXContent</a>。把实际响应与部署配置对照，而不是要求所有节点都返回同一份角色列表。</p>
 
-        <h2>思考题(= 原课的仓库实验)</h2>
+        <h2 id="questions">思考题</h2>
         <details>
-          <summary>1. server/build.gradle 的 dependencies{} 里会出现 project(':modules:…') 吗?以什么配置名?</summary>
-          <div class="answer">
-            <p>会出现,但只在 <code>internalClusterTestImplementation</code>(集成测试拉模块搭完整节点)和构建期枚举(<code>generateModulesList</code> 写 modules.txt)里;生产依赖 <code>api</code>/<code>implementation</code> 只有 libs 和 Lucene。把「测试依赖/构建期枚举」当「编译依赖」,就是这个实验要抓的错觉。</p>
-          </div>
+          <summary>1. 搜到 server/build.gradle 引用了 modules，能说明核心生产代码依赖它吗？</summary>
+          <div class="answer"><p>不能。先区分配置与任务：<code>internalClusterTestImplementation</code> 是集成测试依赖；<code>generateModulesList</code> 枚举模块名。只有看到相应的生产配置，才能证明生产依赖。该版本 server 还有第三方生产依赖，也不能概括为只有 libs 与 Lucene。</p></div>
         </details>
         <details>
-          <summary>2. GET /{index}/_doc/{id} 的 REST 入口文件在哪层目录?</summary>
-          <div class="answer">
-            <p><code>server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java</code>(包 <code>org.elasticsearch.rest.action.document</code>)。注意 <code>GetRequest</code> 在 <code>action/get/</code>——REST 入口和 Transport 执行不在同一层,这是最常见的第一层混淆。</p>
-          </div>
+          <summary>2. RestGetAction 与 TransportGetAction 为什么要分开找？</summary>
+          <div class="answer"><p>前者在 <code>rest/action/document/</code>，负责 REST 路由与参数准备；后者在 <code>action/get/</code>，继承单分片动作框架并提供 GET 执行逻辑。<code>GetRequest</code> 也在 <code>action/get/</code>。先明确问题属于哪层，才能选择下一站。</p></div>
         </details>
         <details>
-          <summary>3. 把 plugins/analysis-smartcn 整份搬进 server/ 会怎样?</summary>
-          <div class="answer">
-            <p>server 被迫带上 smartcn 的实现与它的 Lucene 分析器依赖;图 1 的「引擎不能依赖可选功能」断裂——所有发行版都编译进中文分词,用户再也无法不装它。留在 plugins/ 靠 <code>loadPluginsBundles</code> 按需加载,才与「核心独立」相容。</p>
-          </div>
+          <summary>3. repository-s3 已在发行版里，为什么还要配置仓库？</summary>
+          <div class="answer"><p>打包提供了功能实现，创建仓库与配置访问条件才让具体业务资源可用。类似地，源码位于 x-pack 只说明代码组织位置，是否可用还要核对功能配置与许可等级。</p></div>
+        </details>
+        <details>
+          <summary>4. 在一个新目录放 build.gradle，为什么项目可能仍没出现？</summary>
+          <div class="answer"><p>主构建只从指定入口递归发现；父级缺少 <code>build.gradle</code>、目录自带 <code>settings.gradle</code> 或命中其他停止条件，都可能阻止注册。按 <code>settings.gradle</code> 的显式列表与 <code>addSubProjects()</code> 逐项核对。</p></div>
         </details>
       </section>
 
       <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 grep 到 modules ≠ 依赖:</span><code>server/build.gradle</code> 里能搜到 modules(测试配置、构建期枚举);判断依赖看配置名是不是 <code>api</code>/<code>implementation</code>。</div>
-        <div class="callout warn"><span class="co-title">🕳 REST 层和执行层不是一个包:</span><code>RestGetAction</code> 在 <code>rest/action/document/</code>,<code>GetRequest</code>/<code>TransportGetAction</code> 在 <code>action/get/</code>。按名字找错层,后面的走读全乱。</div>
-        <div class="callout warn"><span class="co-title">🕳 plugins/ 里的东西不会随发行版分发:</span>默认可用的都在 modules/(或 x-pack 对应发行版);要用 smartcn 得 <code>elasticsearch-plugin install analysis-smartcn</code>。</div>
+        <h2 id="pitfalls">陷阱</h2>
+        <div class="callout warn"><span class="co-title">🕳 依赖箭头读反：</span>若箭头标“依赖”，它从使用方指向被依赖方。<code>server → libs</code> 才表示 server 使用基础库；结构图不表达启动或请求时序。</div>
+        <div class="callout warn"><span class="co-title">🕳 把包名当作全局阶段：</span><code>SearchPhaseController</code> 在 <code>action/search/</code>，<code>SearchService</code> 在 <code>search/</code>。按类的完整路径核对，不凭“搜索”二字猜目录。</div>
+        <div class="callout warn"><span class="co-title">🕳 源码位置、发行目录、付费等级混为一谈：</span><code>x-pack</code> 不是安装目录或统一的付费等级；某些 x-pack 项目作为模块进入默认发行版。安装插件、配置功能和取得许可也各自解决不同问题。</div>
       </section>
 
       <section class="recap">
-        <h2>速记</h2>
+        <h2 id="recap">速记</h2>
         <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>依赖方向</td><td>libs → server → modules/plugins/x-pack,箭头只往下</td></tr>
-          <tr><td>证据</td><td>server/build.gradle 生产依赖只有 libs + Lucene</td></tr>
-          <tr><td>阅读顺序</td><td>rest → action → index → cluster → common</td></tr>
-          <tr><td>modules vs plugins</td><td>代码同构;一个随发行版打包,一个手动装;两个加载入口</td></tr>
-          <tr><td>定位规律</td><td>RestXxxAction = 入口;TransportXxxAction = 执行</td></tr>
+          <tr><th>问题</th><th>记住这一点</th></tr>
+          <tr><td>依赖方向</td><td>代表性扩展 → server → libs；箭头指向被依赖方，细节看构建配置</td></tr>
+          <tr><td>核心依赖</td><td>libs、Lucene 与其他第三方库；测试依赖和构建枚举单独判断</td></tr>
+          <tr><td>GET 怎么找</td><td>RestGetAction → 请求与动作类 → 按阅读问题分支；这是查找路线</td></tr>
+          <tr><td>模块与插件</td><td>先查目标发行版如何打包，再看 modules/plugins 的加载入口</td></tr>
+          <tr><td>x-pack / Gradle</td><td>目录不决定付费等级；带 build.gradle 不保证加入主构建</td></tr>
         </table>
-        <p><strong>心法:读 ES 源码先问「这块代码被谁依赖」——方向错了,后面全错。</strong></p>
+        <p><strong>每次打开一个文件，先写下你要回答的问题，再找能证明答案的方法或配置。</strong></p>
       </section>
 
       <footer class="ch-footer">
@@ -253,5 +226,6 @@ api "org.apache.lucene:lucene-core:${versions.lucene}"</code></pre>
   <script src="../assets/js/flow-player.js"></script>
   <script src="../assets/js/experiments.js"></script>
   <script src="../assets/js/progress.js"></script>
+  <script src="../assets/js/chapter-diagrams.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-/* Sync the chapter theme through the generated viewer's own control.
+/* Shared chapter controls: sync theme through the generated viewer's own control.
  * The checked Archify HTML stays unchanged. file:// viewers retain their
  * own controls if the browser isolates each local file's origin.
  */

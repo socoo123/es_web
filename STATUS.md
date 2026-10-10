@@ -7,7 +7,7 @@
 | 课 | 标题 | 状态 | 实验 | 动画 | 图解重构 |
 |---|---|---|---|---|---|
 | ch01 | Elasticsearch 是什么 | ✅ | 11 | 1(近实时) | ✅ 第一章基线 |
-| ch02 | 项目结构全景 | ✅ | 2 | — | 待改造 |
+| ch02 | 项目结构全景 | ✅ | 2 | — | ✅ 源码导航（2 图） |
 | ch03 | 节点启动全流程 | ✅ | 2 | 1(启动时序) | 待改造 |
 | ch04 | 插件体系 | ✅ | 2 | — | 待改造 |
 | ch05 | 配置框架 | ✅ | 8 | — | 待改造 |
@@ -59,7 +59,21 @@
 | ch01 | 网页写改主分片数只能 reindex，思考题推断直接改后 GET 找错片 | _settings 直接改 number_of_shards 会被拒，已有 GET 不受影响；满足条件时可 split/shrink 到目标索引，或 reindex。本章公式限定 9.4.0 新建普通非分区路由索引 | [IndexMetadata](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/metadata/IndexMetadata.java#L222-L239)、[IndexRouting](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java#L147-L175) |
 | ch01 | 网页倒排表说明易被理解为默认保存字符 offsets，refresh 默认 1s 被表述为延迟上限 | 默认 text 保存词频和位置、不保存 offsets；高亮可按需存储偏移或重分析。默认刷新间隔是调度周期，不保证可见性时限 | [TextFieldMapper](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/TextFieldMapper.java#L127-L136)、[IndexShard](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L4438-L4464) |
 
+
+| ch02 | 网页依赖箭头写/画为 libs → server → 扩展，生产依赖只有 libs + Lucene | 依赖箭头从使用方指向被依赖方；server 另有 HPPC、HdrHistogram、Log4j/ECS 等生产依赖，模块测试依赖与构建枚举另判断 | [server/build.gradle](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/build.gradle#L30-L96)、[根构建插件依赖注入](https://github.com/elastic/elasticsearch/blob/v9.4.0/build.gradle#L311-L316) |
+| ch02 | x-pack 一概称商业功能，libs 一概称不依赖 ES | x-pack 是扩展源码区域，包含 Basic 可用及更高许可等级功能；libs 是仓库内基础库，各有自己的库级和外部依赖 | [XPackLicenseState](https://github.com/elastic/elasticsearch/blob/v9.4.0/x-pack/plugin/core/src/main/java/org/elasticsearch/license/XPackLicenseState.java#L117-L133)、[x-content](https://github.com/elastic/elasticsearch/blob/v9.4.0/libs/x-content/build.gradle#L18-L29) |
+| ch02 | SearchPhaseController 放在 search/；放任意 build.gradle 即自动发现项目 | 控制器在 action/search/；addSubProjects 只扫描指定入口，每层需 build.gradle，并有停止和排除条件 | [SearchPhaseController](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java#L71)、[settings.gradle](https://github.com/elastic/elasticsearch/blob/v9.4.0/settings.gradle#L128-L167) |
+| ch02 | 角色与 JDK 实验预期未注明可配置条件，暗示整个 API 不带构建号 | 角色与 JVM 随配置/环境变化；jvm.version 是 java.version，vm_version 可返回完整 JVM 版本，using_bundled_jdk 标识是否使用捆绑 JVM | [JvmInfo](https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/monitor/jvm/JvmInfo.java#L408-L415) |
+
 ## 会话日志
+
+### 2026-10-10(第二章按统一规范重构)
+- 以“源码区域 → GET 定位 → 发布与构建”重排第二章，保留两张只读 HTTP 卡及稳定 ID；增加可折叠课内目录、源码检索任务、四道思考题与固定 v9.4.0 文件/方法链接。
+- 两幅 Archify Architecture 图均携带真实 ES 源码提交 2e8528e92361c3399724226deaf2b46f933e925b 的节点证据，并通过 --repo-root 核验。区域图是静态代表性编译依赖；GET 图通过有限 trace 展示阅读目标及分支，明确不是运行时调用链。
+- 共用布局与主题/重播控制提取为 chapter-diagrams.css/js，第一章同步引用；两章维持 880px 正文与图同列。图高按内容分别设定，第二章不再统一套用首章高度。
+- 校正依赖箭头、生产依赖遗漏、x-pack 付费概括、SearchPhaseController 路径与 Gradle 发现条件；节点实验增加 vm_version / using_bundled_jdk，区分构建版本、运行版本与可配置角色。
+- 原生 validate/deliver/strict check 均通过 showcase 9/9、零错误/警告；file:// browser-check 仍受管理员策略阻塞，整体 finalize 保留失败。当前云环境 9200 无连接，真实 ES 请求未执行；用户侧数据不据此计为云端实测。
+- 最终 HTTP Chromium 检查通过：两图各四种桌面尺寸/双主题；两章各六种页面宽度/双主题，边界差 ≤1px，页面与 iframe 无横向溢出；源码节点探索/关闭、展开、主题、暂停后重播、键盘、减少动态效果、目录/进度、实验深链及 Pages 前缀正常。第一章 NRT 减少动态效果下手动步进回归通过。已实际查看独立、嵌入、浅深及手机截图；记录见 .archify/CH02-REVIEW.md。站点结构/JS 语法检查全绿。
 
 ### 2026-10-10(后续章节统一重构规范)
 - 新增 CHAPTER_STANDARD.md，以第一章 8a11c97 为视觉基线，规定 880px 同列布局、按机制选 Archify 类型、有限路径动画、主题/重播/reduced motion、内容版本依据、可重复实验及分项验收。

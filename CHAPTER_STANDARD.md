@@ -80,7 +80,7 @@ node /path/to/archify/bin/archify.mjs finalize <type> \
 - 缩窄后文字太小，应重新排布、缩短非必要标签或拆图；增加高度不能代替横向布局修复。
 - 表格与原有机制 SVG 可以在自身容器内滚动，整页不能横向溢出。窄屏提供可发现的「展开图解」入口。
 
-当前可参考 [ch01-diagrams.css](assets/css/ch01-diagrams.css) 与 [ch01-diagrams.js](assets/js/ch01-diagrams.js)。开始接入下一章时，将共用样式与控制逻辑提取为 `chapter-diagrams.css` / `chapter-diagrams.js`，同步更新第一章引用并回归验证；后续章复用共用文件，章节专属布局只保留小范围覆盖。现阶段这两个通用文件尚未提取。
+共用样式与控制逻辑已提取为 [chapter-diagrams.css](assets/css/chapter-diagrams.css) / [chapter-diagrams.js](assets/js/chapter-diagrams.js)，第一、二章共同使用。后续章直接复用，章节专属布局只保留小范围覆盖；每图通过 `--diagram-height` / `--diagram-mobile-height` 设置测量后的高度。调整共用文件时回归已接入章节。
 
 ## 5. 嵌入、动画与交互
 

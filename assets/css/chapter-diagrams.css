@@ -1,4 +1,4 @@
-/* First-chapter pilot: standalone Archify viewers, served as static files. */
+/* Shared chapter layout and standalone Archify viewers, served as static files. */
 /* 880px reading column plus the shared .wrap's 22px gutters. */
 .chapter-visual { max-width: 924px; }
 .chapter-visual-page .toc { display: none; }
@@ -10,6 +10,9 @@
 .diagram-jumps { display: flex; gap: 10px; flex-wrap: wrap; margin: 24px 0 0; }
 .diagram-jumps a { border: 1px solid rgb(var(--border-subtle)); border-radius: 10px; background: rgb(var(--bg-card)); padding: 9px 14px; font-size: 14px; }
 .diagram-jumps span { margin-right: 8px; opacity: .6; font: 12px ui-monospace, monospace; }
+.chapter-outline { margin-top: 18px; }
+.chapter-outline nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; }
+.chapter-outline nav a { font-size: 14px; }
 .chapter-visual .goal, .chapter-visual .lesson > p, .chapter-visual .lesson > h2, .chapter-visual .lesson > table, .chapter-visual .lesson > details, .chapter-visual .lesson > .callout, .chapter-visual .drills, .chapter-visual .pitfalls, .chapter-visual .recap, .chapter-visual .ch-footer, .chapter-visual .fp-slot { max-width: 880px; margin-left: auto; margin-right: auto; }
 .chapter-visual figure.archify-figure { text-align: left; margin: 32px 0 40px; scroll-margin-top: 90px; }
 .archify-shell { overflow: hidden; border: 1px solid rgb(var(--border-subtle)); border-radius: 18px; background: rgb(var(--bg-card)); box-shadow: var(--shadow); }
@@ -19,14 +22,13 @@
 .archify-actions button, .archify-actions a { font: inherit; font-size: 13px; color: rgb(var(--accent)); cursor: pointer; border: 0; background: none; padding: 3px 0; }
 .archify-actions button:hover, .archify-actions a:hover { text-decoration: underline; }
 .archify-actions button:focus-visible, .archify-actions a:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 5px; }
-.archify-frame { display: block; border: 0; width: 100%; height: 820px; background: rgb(var(--fig-surface)); }
-.archify-frame--analysis { height: 760px; }
+.archify-frame { display: block; border: 0; width: 100%; height: var(--diagram-height, 820px); background: rgb(var(--fig-surface)); }
+.archify-frame--analysis { --diagram-height: 760px; --diagram-mobile-height: 720px; }
 .chapter-visual .archify-figure figcaption { max-width: 880px; margin: 14px auto 0; text-align: left; }
 .figure-tip { display: block; margin-top: 5px; font-size: 12px; color: rgb(var(--fg-muted)); }
 @media (max-width: 800px) {
   .chapter-visual .ch-intro { font-size: 16px; }
-  .archify-frame { height: 660px; }
-  .archify-frame--analysis { height: 720px; }
+  .archify-frame { height: var(--diagram-mobile-height, 660px); }
   .archify-tools { padding: 12px; }
   .archify-shell { border-radius: 12px; }
 }
