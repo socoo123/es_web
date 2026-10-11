@@ -1,0 +1,252 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "普通请求帧：先写内容，再回填固定头",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch09-frame-codec-20261011-003000/frame-codec.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "帧编码与解码"
+        },
+        "messagebus": {
+          "label": "业务契约与交接"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "encode",
+      "label": "写侧 · 预留固定头与写可变头"
+    },
+    {
+      "id": "body",
+      "label": "写侧 · 业务 body 与回填头"
+    },
+    {
+      "id": "receive",
+      "label": "读侧 · 拼帧、读头与重建对象"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "reserve",
+      "lane": "encode",
+      "col": 2,
+      "yOffset": -49,
+      "type": "backend",
+      "label": "预留 23B 固定头",
+      "sublabel": "设置本次连接的 TransportVersion",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/OutboundHandler.java",
+          "line": 292,
+          "end_line": 307
+        }
+      ]
+    },
+    {
+      "id": "variable",
+      "lane": "encode",
+      "col": 2,
+      "yOffset": 49,
+      "type": "backend",
+      "label": "写可变头",
+      "sublabel": "ThreadContext；请求再写 action",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/OutboundHandler.java",
+          "line": 305,
+          "end_line": 318
+        }
+      ]
+    },
+    {
+      "id": "body",
+      "lane": "body",
+      "col": 2,
+      "yOffset": -49,
+      "type": "messagebus",
+      "label": "GetRequest.writeTo",
+      "sublabel": "父类先写；字段与版本闸门成对",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/OutboundHandler.java",
+          "line": 362,
+          "end_line": 374
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/GetRequest.java",
+          "line": 73,
+          "end_line": 115
+        }
+      ]
+    },
+    {
+      "id": "fill",
+      "lane": "body",
+      "col": 2,
+      "yOffset": 49,
+      "type": "backend",
+      "label": "回填 TcpHeader",
+      "sublabel": "length = 全帧长度 − 6B",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/OutboundHandler.java",
+          "line": 319,
+          "end_line": 336
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/TcpHeader.java",
+          "line": 43,
+          "end_line": 58
+        }
+      ]
+    },
+    {
+      "id": "decode",
+      "lane": "receive",
+      "col": 2,
+      "yOffset": -49,
+      "type": "backend",
+      "label": "切帧与读头",
+      "sublabel": "6B 前缀定长度，再读固定与可变头",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/TcpTransport.java",
+          "line": 861,
+          "end_line": 913
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/InboundDecoder.java",
+          "line": 186,
+          "end_line": 210
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/Header.java",
+          "line": 94,
+          "end_line": 106
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "lane": "receive",
+      "col": 2,
+      "yOffset": 49,
+      "type": "messagebus",
+      "label": "Reader 重建请求",
+      "sublabel": "按 action 找 Reader，携带帧版本",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/InboundHandler.java",
+          "line": 251,
+          "end_line": 301
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/GetRequest.java",
+          "line": 73,
+          "end_line": 90
+        }
+      ]
+    }
+  ],
+  "mainPath": [
+    "reserve",
+    "variable",
+    "body",
+    "fill",
+    "decode",
+    "read"
+  ],
+  "edges": [
+    {
+      "id": "reserve-variable",
+      "from": "reserve",
+      "to": "variable",
+      "variant": "default",
+      "label": "",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "variable-body",
+      "from": "variable",
+      "to": "body",
+      "variant": "default",
+      "label": "",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "body-fill",
+      "from": "body",
+      "to": "fill",
+      "variant": "default",
+      "label": "",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "fill-decode",
+      "from": "fill",
+      "to": "decode",
+      "variant": "emphasis",
+      "label": "TCP 字节",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "decode-read",
+      "from": "decode",
+      "to": "read",
+      "variant": "default",
+      "label": "",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "普通请求，不是所有帧",
+      "items": [
+        "限定 9.4.0 普通业务请求；可选压缩仅作用于 body。V8 特殊握手另有 features 字段。",
+        "响应可变头无 action；错误 body 走 writeException。6B PING 不是本图的普通业务帧。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "读写两侧一致",
+      "items": [
+        "GetRequest 父类链先写；stream 使用本次帧的 TransportVersion，不能各用自己的发行号猜字段。",
+        "get_split_shard_count_summary 在构造函数与 writeTo 中用同一 supports 闸门。"
+      ]
+    }
+  ]
+}

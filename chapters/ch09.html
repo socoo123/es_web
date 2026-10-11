@@ -1,388 +1,65 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>第 9 课:传输层 — ES 源码精读站</title>
-  <link rel="stylesheet" href="../assets/css/style.css">
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
-    <nav class="tnav">
-      <a href="../index.html">课程</a>
-      <a href="../architecture.html">架构</a><a href="../console.html">控制台</a>
-      <a href="../cheatsheet.html">速查表</a>
-    </nav>
-    <span class="spacer"></span>
-    <button class="theme-toggle" type="button">🌙 深色</button>
-  </header>
+<html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 9 课:传输层 — ES 源码精读站</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
+<style>@media(max-width:600px){#diagram-ch09-remote-get{height:500px;}#diagram-ch09-frame-codec{height:440px;}}</style></head>
+<body class="chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a><nav class="tnav"><a href="../index.html">课程</a><a href="../architecture.html">架构</a><a href="../console.html">控制台</a><a href="../cheatsheet.html">速查表</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="ch09" data-ch="ch09"><header class="ch-header"><div class="ch-kicker">LESSON 09 · 第二篇 · 请求处理</div><div class="visual-badge">ARCHIFY · 请求帧、回调与版本</div><h1>传输层</h1><div class="ch-meta-line">跨节点后，请求如何回来？ · 约 22 分钟 · 前置：第 6、7、8 课 · 2 组实验 / 12 张操作卡 · 2 幅交互图（2 幅路径动画）· 0 个机制播放器</div>
+<p class="ch-intro">HTTP 请求在入口节点变成动作对象。目标分片在远端时，Transport 传递带编号的二进制帧：请求按 action 找处理器，响应按 requestId 找回调。本课把帧格式、版本契约、本地捷径与统计边界连起来，说明一个 GET 成功究竟验证了什么。</p>
+<nav class="diagram-jumps" aria-label="本章图解"><a href="#fig-ch09-remote-get"><span>01</span>远程 GET 往返</a><a href="#fig-ch09-frame-codec"><span>02</span>帧的编解码契约</a></nav>
+<details class="chapter-outline"><summary>本课目录</summary><nav aria-label="本课目录"><a href="#goals">学习目标</a><a href="#journey">1. 远程往返</a><a href="#frame">2. 一帧的职责</a><a href="#writeable">3. 字段与版本</a><a href="#local">4. 本地与统计</a><a href="#connections">5. 连接与握手</a><a href="#source-map">6. 源码入口</a><a href="#practice">实验与思考题</a><a href="#pitfalls">陷阱</a><a href="#recap">速记</a></nav></details></header>
+<section class="goal"><h2 id="goals">学习目标</h2><ul><li>沿远程 GET 图指出 action、requestId 和两个 Reader 的作用，区分请求接入与分片执行。</li><li>算清普通业务帧的 6B 前缀与 23B 固定头，配对 GetRequest 的字段顺序和版本闸门。</li><li>分别观察绑定 / 发布地址、默认连接画像与同节点统计基线，说明单节点实验的证明范围。</li></ul></section>
+<section class="lesson"><h2 id="journey">1. 节点之间传的还是 HTTP GET 吗？</h2>
+<p>客户端向 HTTP 端点发送 <code>GET /tut-l09-docs/_doc/1</code>，入口节点解析请求、选择分片副本。分片在另一节点时，GET 基类发送的是 <code>GetRequest</code> 对象与子动作名 <code>indices:data/read/get[s]</code>；节点间这一跳不把原 HTTP URL 转发给对端的 <code>RestController</code>。数据节点执行后，经 Transport 响应回到原节点，再由入口层组织 HTTP 响应。默认 <code>transport.port</code> 是 <code>9300-9399</code> 范围；本课 HTTP 端点为 <code>http://localhost:9200</code>，实际端口以绑定与发布配置为准。</p>
+<figure class="fig archify-figure" id="fig-ch09-remote-get"><div class="archify-shell"><div class="archify-tools"><span class="archify-label">01 · 远程 GET：往程认 action，回程认编号</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch09-remote-get">↻ 重新播放</button><a href="../.archify/sequence-ch09-remote-get-20261011-003000/remote-get.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div><iframe class="archify-frame" id="diagram-ch09-remote-get" title="远程 GET：往程认 action，回程认编号" loading="lazy" src="../.archify/sequence-ch09-remote-get-20261011-003000/remote-get.html?theme=light&amp;present=1" style="--diagram-height:940px; --diagram-mobile-height:780px;"></iframe></div><figcaption>图 01 · 限定普通索引、连接已建立、目标分片在远端的成功路径。箭头表示请求、执行交接与响应返回；条带是责任区间，不是线程持续忙碌。省略 REST、路由选择、握手、重试与失败响应。<span class="figure-tip">点击节点查看关系与固定版本源码；可暂停后重新播放。手机可展开、缩放查看细节；减少动态效果设置优先，静止时保留完整含义。</span></figcaption></figure><p>发起方先把响应处理器登记到 <code>responseHandlers</code>，获得递增的 <code>requestId</code>，然后才调用 <code>connection.sendRequest</code>。登记项保留原 handler、连接和 action；相同 action 的两个并发 GET 由不同编号区分。远端按 action 找 <code>RequestHandlerRegistry</code>，用其 Reader 重建请求。回程不需要再用 action 选业务处理器：按编号移除登记项，使用原 handler 的 Reader 读响应，调用 <code>handleResponse</code>。依据：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportService.java#L968-L1008">sendRequestInternal</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/Transport.java#L173-L248">ResponseHandlers.add / onResponseReceived</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/InboundHandler.java#L244-L310">请求查表与 Reader</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/InboundHandler.java#L410-L469">响应 Reader 与回调</a>。</p>
+<p>GET 的主动作和 <code>[s]</code> 子动作都能登记 handler；主动作处理完整 GET 的路由流程，并不只用于“已经在目标节点”的请求。子动作处理选中的分片。两者注册为 DIRECT，普通分片操作在 <code>asyncShardOperation</code> 中再提交到 get executor；系统索引可另选执行器。响应反序列化和回调也受 <code>handler.executor()</code> 控制。不能从“sendRequest 是异步接口”推断它必立即返回、必切线程或完全没有当前线程成本。见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/support/single/shard/TransportSingleShardAction.java#L103-L135">登记与分片调度</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java#L168-L179">普通 / 系统索引 executor</a>。</p>
+<div class="callout tip"><span class="co-title">编号也有生命周期：</span>配置了请求超时才安排超时处理；超时、发送失败或断连会移除相应登记。远端操作不因本地不再等待而自动取消，晚到响应可能已经找不到 handler。单个编号对回调，不等于无限在途请求、无限缓冲或业务“恰好执行一次”。见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportService.java#L1435-L1468">TimeoutHandler.run</a>。</div>
 
-  <main class="wrap">
-    <article class="chapter" id="ch09" data-ch="ch09">
-      <header class="ch-header">
-        <div class="ch-kicker">LESSON 09 · 第二篇 · 请求处理</div>
-        <h1>传输层</h1>
-        <div class="ch-meta-line">节点间二进制协议 · 约 17 分钟 · 前置:第 6、7、8 课 · 7 个实验</div>
-      </header>
+<h2 id="frame">2. 6 字节与 23 字节，各解决什么？</h2>
+<p>TCP 给的是字节流，一帧可能分多次到达，也可能与其他帧连在一次读取里。普通业务帧开头的 <code>'E''S'</code> 与 int length 共 6B，告诉切帧逻辑后续消息的长度。固定头总计 23B，另有编号、标志、协议版本与可变头长度；它不是完整消息，也不包含 action。</p>
+<table class="ktable"><tr><th>固定头偏移</th><th>字段 / 字节</th><th>职责</th></tr><tr><td>0</td><td><code>'E''S'</code> / 2B</td><td>识别 Transport 格式</td></tr><tr><td>2</td><td><code>length</code> / 4B</td><td>全帧长度减去前 6B</td></tr><tr><td>6</td><td><code>requestId</code> / 8B</td><td>对回程编号</td></tr><tr><td>14</td><td><code>status</code> / 1B</td><td>请求 / 响应、异常、压缩、握手标志</td></tr><tr><td>15</td><td><code>version.id</code> / 4B</td><td>本帧 TransportVersion</td></tr><tr><td>19</td><td><code>variableHeaderSize</code> / 4B</td><td>可变头长度</td></tr></table>
+<p>加法为 <code>2 + 4 + 8 + 1 + 4 + 4 = 23</code>。固定头之后先写 ThreadContext 头部；普通请求再写 action，响应不写 action，由读端填内部响应名称。body 才是请求 / 响应对象的序列化数据，错误响应走 <code>writeException</code>。关键代码：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TcpHeader.java#L20-L58">固定头常量与 writeHeader</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/Header.java#L94-L106">finishParsingHeader</a>。</p>
+<figure class="fig archify-figure" id="fig-ch09-frame-codec"><div class="archify-shell"><div class="archify-tools"><span class="archify-label">02 · 普通请求帧：编码与解码的契约</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch09-frame-codec">↻ 重新播放</button><a href="../.archify/workflow-ch09-frame-codec-20261011-003000/frame-codec.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div><iframe class="archify-frame" id="diagram-ch09-frame-codec" title="普通请求帧：编码与解码的契约" loading="lazy" src="../.archify/workflow-ch09-frame-codec-20261011-003000/frame-codec.html?theme=light&amp;present=1" style="--diagram-height:820px; --diagram-mobile-height:680px;"></iframe></div><figcaption>图 02 · 箭头是先后步骤及 TCP 字节交接，卡片大小不表示字节比例。限定普通业务请求，body 可选压缩；未画 6B PING、V8 特殊握手的 features 字段、异常短路与资源释放。<span class="figure-tip">点击节点查看关系与固定版本源码；可暂停后重新播放。手机可展开、缩放查看细节；减少动态效果设置优先，静止时保留完整含义。</span></figcaption></figure><p>写侧预留固定头，写完可变头和 body，知道总大小后再回填。可选压缩包住 body，不压整个固定头与 action。读侧先切帧，再解析固定 / 可变头，随后按 action 找 Reader；Reader 的 stream 必须使用本帧协议版本。依据：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/OutboundHandler.java#L292-L336">serialize 的写出与回填</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/OutboundHandler.java#L340-L388">body 序列化与可选压缩</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/InboundDecoder.java#L186-L210">readHeader</a>。</p>
+<details><summary>展开：标志位、PING 与错误端口</summary><div class="answer"><p>status 低四位分别标识响应、异常、压缩和握手；请求 / 响应位为 0 是请求，为 1 是响应。<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportStatus.java#L13-L59">TransportStatus</a>。应用层 PING 是 6B 特例：<code>'ES' + int(-1)</code>，无编号、action 或 body。它与操作系统 TCP keepalive 不是一回事；普通业务帧 length 必须正数，并受本节点最大堆约 30% 的长度检查。<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportKeepAlive.java#L35-L47">PING 常量与字节</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TcpTransport.java#L861-L913">readHeaderBuffer</a>。</p><p>向未启用 Transport TLS 的普通 Transport 口误发 HTTP，源码识别方法前缀后发送 <code>This is not an HTTP port</code> 原始 UTF-8 消息并关闭连接，不是 REST 的 JSON 400。TLS 或其他协议前置处理会影响实际结果；本课不让浏览器把它当 HTTP 实验，也不把问题仅归因于 CORS。见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TcpTransport.java#L746-L756">HTTP 误接处理</a>。</p></div></details>
 
-      <section class="goal">
-        <h2>学习目标</h2>
-        <ul>
-          <li>按 <code>TcpHeader.writeHeader</code> 的字段顺序写出 23 字节固定头的加法,并说出 action 为什么不在固定头里、响应帧为什么不写 action。</li>
-          <li>把 <code>GetRequest.writeTo</code> 与 <code>GetRequest(StreamInput)</code> 逐字段配对,指出新字段的版本闸门 <code>TransportVersion.fromName("get_split_shard_count_summary")</code>,并解释闸门为什么必须读写两侧成对出现。</li>
-          <li>用 <code>_cat/nodes</code> 的 <code>port</code> 列与 <code>_nodes/stats/transport</code> 在单节点上验证「传输层存在、但本地路径跳过序列化」,并把地址、计数、并不存在的 <code>_cat/transport</code> 三者分开。</li>
-        </ul>
-      </section>
+<h2 id="writeable">3. 加一个字段，为什么必须改两侧？</h2>
+<p><code>Writeable.writeTo</code> 是写侧契约，读侧通常为接受 StreamInput 的构造函数，也可以是静态 Reader。接口没有强制统一的 readFrom 方法名；可空值使用 optional 方法，Reader 本身不应返回 null。父类先写、子类接着写，读侧顺序完全镜像，不能依靠字段名从流里跳到任意位置。见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/io/stream/Writeable.java#L20-L79">Writeable 与 Reader</a>。</p>
+<table class="ktable"><tr><th>GetRequest 的本层顺序</th><th>读写原语</th></tr><tr><td>先 <code>super</code></td><td>父类链；SingleShardRequest 有可选 internalShardId、index</td></tr><tr><td>id → routing → preference</td><td>String → OptionalString → OptionalString</td></tr><tr><td>refresh → storedFields → realtime</td><td>Boolean → OptionalStringArray → Boolean</td></tr><tr><td>versionType → version</td><td>Byte → Long；GET 的读版本条件</td></tr><tr><td>fetchSourceContext → forceSyntheticSource</td><td>OptionalWriteable → Boolean</td></tr><tr><td>splitShardCountSummary</td><td>通过同一具名版本闸门才读 / 写</td></tr></table>
+<p>这是本层顺序概览，不是整个对象的全部字节；更上层父类同样有契约。新字段的闸门是 <code>TransportVersion.fromName("get_split_shard_count_summary")</code>，两侧都按 <code>stream.getTransportVersion().supports(...)</code> 判断。使用的是本次传输格式，不能让两端各用自己的发行号独立猜测。具名版本还可覆盖回移补丁，supports 不应简单改写为所有场景下的发行号比较。见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/get/GetRequest.java#L60-L115">GetRequest 构造函数 / writeTo</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/support/single/shard/SingleShardRequest.java#L44-L54">父类读取</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/OutboundHandler.java#L362-L374">设置 body stream 版本</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/TransportVersion.java#L359-L404">supports 与补丁分支</a>。</p>
+<p>只写不读、顺序不同、或只在一侧加闸门，都会破坏契约；表现可能是反序列化异常、读后残留字节或错误值，不能保证“静默错位”，也不能固定成“下一次 readBoolean 吃到 UTF-8”。一个容易忽略的细节：<code>writeString</code> 的 VInt 长度是 Unicode code units（Java char 数），不是 UTF-8 字节数；ASCII action 名两者才相等。非负整数小于 128 的 writeVInt 可用 1B，负数会用 5B。依据：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/io/stream/StreamOutput.java#L238-L260">writeVInt</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/io/stream/StreamOutput.java#L424-L432">writeString 长度定义</a>。</p>
 
-      <section class="lesson">
-        <h2>1. 心智模型:HTTP 停在协调节点</h2>
-        <p>第 6 课的 REST 把 <code>GET /tut-l09-docs/_doc/1</code> 解析成 <code>GetRequest</code>;第 7 课靠 action 名 <code>"indices:data/read/get"</code> 找到 <code>TransportGetAction</code>;第 8 课保证 <code>sendRequest</code> 把请求交出去就立刻释放线程。这一课打开那个「交出去」的黑盒:如果目标 shard 在<strong>另一个</strong>节点上,协调节点不会转发 HTTP——它把 <code>GetRequest</code> 序列化成 ES 自己的二进制帧,发到对方的 <strong>Transport 端口</strong>(<code>transport.port</code>,默认范围 <code>9300-9399</code>,与 HTTP 的 9200 是两个绑定)。数据节点读帧、执行 GET、把 <code>GetResponse</code> 写成另一帧发回来,协调节点再翻译成你 curl 里看到的 JSON。</p>
+<h2 id="local">4. 单节点 GET，能验证线上的帧吗？</h2>
+<p>目标就在本节点时，<code>getConnection</code> 返回 localNodeConnection；它调用 <code>sendLocalRequest</code>，直接传请求对象给同一 handler 表，按登记的 executor 执行。回程也使用 DirectResponseChannel。请求编号和响应处理器仍登记，但这一跳不走请求 / 响应的 wire 编解码或 TCP，DIRECT 分支可就在当前线程接续。它节省了该跳的网络和序列化工作，不能扩成整个请求“零拷贝、零分配”。见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportService.java#L153-L167">localNodeConnection</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportService.java#L924-L930">getConnection</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportService.java#L1095-L1148">sendLocalRequest</a>。</p>
+<table class="ktable"><tr><th>观察量</th><th>源码口径</th><th>怎样读</th></tr><tr><td>server_open</td><td>当前 acceptedChannels 数量</td><td>即时网络通道快照</td></tr><tr><td>total_outbound_connections</td><td>累计成功建立的 NodeChannels 连接组数</td><td>不是当前打开的 socket 数，也不是 13 个通道</td></tr><tr><td>rx_count / tx_count</td><td>本节点网络消息累计统计</td><td>同节点取前后基线；不是按 HTTP 请求 / 索引分账</td></tr></table>
+<p>计数口径来自 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TcpTransport.java#L1007-L1023">getStats</a> 和 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TcpTransport.java#L1126-L1135">成功建连后的累计值</a>，收发累计见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/StatsTracker.java#L17-L49">StatsTracker</a>。安静的单节点可观察到全零，已有探测、历史连接或其他流量时也可非零；本地 GET 不增加该网络统计，不能据此断言整个节点没有网络流量。删除索引不会归零计数；节点重启或基线节点 ID 变化则重新记录。</p>
+<p>地址也要分口径。CAT 的 port 虽描述为 bound transport port，实现取 DiscoveryNode 的发布地址端口；http_address 取 HTTP 发布地址。用 _nodes/_local 的 bound_address 与 publish_address 分别核对监听和公布地址，不能固定猜 9300 / 9200。见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/action/cat/RestNodesAction.java#L373-L381">CAT 地址的实际取值</a>；A3 使用 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/action/admin/cluster/RestNodesInfoAction.java#L43-L50">NodesInfo 的节点 / metric 路由</a>。</p>
+<p>本课 B4 → B5 → B6 把 GET 的前后值分开保存。这个实验支持本地路径解释，不能验证远程字段兼容，更不能证明没有序列化 bug。需要远端分片与真正的 wire / 混合版本测试才能验证那些路径。本章没有把两节点抓包或压测结果当作本轮证据。</p>
 
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah09a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="20" y="54" width="150" height="130" rx="10" class="fig-box"/>
-              <text x="95" y="78" text-anchor="middle" class="fig-name">客户端</text>
-              <text x="95" y="104" text-anchor="middle" class="fig-key">GET /_doc/1</text>
-              <text x="95" y="130" text-anchor="middle" class="fig-sub">curl / Kibana</text>
+<h2 id="connections">5. 为什么一对节点要多条连接，还要两层握手？</h2>
+<p>requestId 区分同一连接上的在途调用；连接画像按工作类型分配 TCP 通道。把恢复大流量和普通请求放在不同通道，可减少共用一个 TCP 流的排队，但仍共享 CPU、内存与网络资源，不保证零等待。无覆盖的默认自管 9.4.0 画像如下，角色条件指<strong>本地发起节点</strong>：</p>
+<table class="ktable"><tr><th>Type</th><th>默认通道数</th><th>画像条件</th></tr><tr><td>RECOVERY</td><td>2</td><td>本地可承载 data；否则画像为 0</td></tr><tr><td>BULK</td><td>3</td><td>批量请求</td></tr><tr><td>REG</td><td>6</td><td>默认普通请求类型，包括本课 GET</td></tr><tr><td>STATE</td><td>1</td><td>本地 master-eligible；否则画像为 0</td></tr><tr><td>PING</td><td>1</td><td>请求类型分组；不等于定时 PING 已开启</td></tr></table>
+<p>同时满足 data 和 master-eligible 且无覆盖时，默认画像合计 13 个通道；设置覆盖、专门的单通道画像与远程集群连接都可能不同。13 不构成整个节点连接总量上限。默认 <code>transport.compress=INDEXING_DATA</code> 按消息是否具有索引数据能力选择压缩，<code>compression_scheme=LZ4</code>；<code>ping_schedule=-1</code> 禁定时应用层 PING，不等于关闭 TCP keepalive。这些设置只标 NodeScope，不带 Dynamic；cluster settings 的 defaults 可含响应节点本地配置，不能当成当前连接的实测画像。见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportSettings.java#L57-L119">端口、压缩与 ping 默认设置</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportSettings.java#L188-L217">连接默认数</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/ConnectionProfile.java#L74-L94">角色修正后的画像</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TcpTransport.java#L312-L331">按请求类型选通道</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/action/admin/cluster/RestClusterGetSettingsAction.java#L82-L96">defaults 的合成来源</a>。</p>
+<p>TCP 通道建好后，低层 <code>internal:tcp/handshake</code> 交换 TransportVersion 并协商兼容格式；9.4.0 还会考虑对端版本是否已知与 bestKnownVersion，不能概括成所有情况都取简单 min。连接组复用协商结果，握手协议本身的特殊 ID 不等于发行号。随后服务层 <code>internal:transport/handshake</code> 返回 DiscoveryNode、ClusterName、Version 与 build hash，校验版本与调用者提供的集群名谓词；connectionValidator 还核对预期节点身份，但它使用 <code>Predicates.always()</code>，并非所有建立连接都强制比较集群名。默认 handshake 重载使用集群名相等谓词，具体连接流程必须看调用点。见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportHandshaker.java#L219-L255">低层版本协商</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TcpTransport.java#L1126-L1150">连接组握手</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportService.java#L540-L558">节点身份校验</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportService.java#L599-L665">服务层握手与谓词</a>。</p>
 
-              <line x1="174" y1="113" x2="250" y2="113" class="fig-arrow" marker-end="url(#ah09a)"/>
-              <text x="212" y="102" text-anchor="middle" class="fig-sub">HTTP+JSON</text>
-              <text x="212" y="134" text-anchor="middle" class="fig-sub">9200</text>
-
-              <rect x="254" y="54" width="210" height="130" rx="10" class="fig-box-hot"/>
-              <text x="359" y="78" text-anchor="middle" class="fig-name">协调节点</text>
-              <text x="359" y="100" text-anchor="middle" class="fig-sub">HTTP 到此为止</text>
-              <text x="359" y="122" text-anchor="middle" class="fig-key">RestController</text>
-              <text x="359" y="144" text-anchor="middle" class="fig-sub">算出 shard 在别的节点</text>
-              <text x="359" y="166" text-anchor="middle" class="fig-sub">不转发 HTTP</text>
-
-              <line x1="468" y1="95" x2="544" y2="95" class="fig-arrow" marker-end="url(#ah09a)"/>
-              <text x="506" y="84" text-anchor="middle" class="fig-sub">请求帧</text>
-              <line x1="544" y1="145" x2="468" y2="145" class="fig-arrow" marker-end="url(#ah09a)"/>
-              <text x="506" y="166" text-anchor="middle" class="fig-sub">响应帧</text>
-
-              <rect x="548" y="54" width="192" height="130" rx="10" class="fig-box"/>
-              <text x="644" y="78" text-anchor="middle" class="fig-name">数据节点</text>
-              <text x="644" y="100" text-anchor="middle" class="fig-sub">transport 端口收帧</text>
-              <text x="644" y="122" text-anchor="middle" class="fig-key">get[s] handler</text>
-              <text x="644" y="144" text-anchor="middle" class="fig-sub">执行 GET 后回一帧</text>
-              <text x="644" y="166" text-anchor="middle" class="fig-sub">同一 requestId</text>
-
-              <text x="380" y="214" text-anchor="middle" class="fig-sub">跨节点那一跳没有 GET /_doc/1 这条路径 —— 路由靠可变头里的 action 字符串</text>
-            </svg>
-          </div>
-          <figcaption>图 1 · HTTP 是客户端协议,二进制帧才是节点间协议:跨节点的一跳不经过 RestController,帧头里那串 action 才是第 7 课的「名字身份证」。</figcaption>
-        </figure>
-
-        <p>为什么节点之间不顺便复用 HTTP?每秒成千上万条小消息的场景下,三件事叠在一起:</p>
-        <table class="ktable">
-          <tr><th>要解决的</th><th>HTTP 做节点间协议</th><th>ES 二进制帧</th></tr>
-          <tr><td>开销</td><td>文本头(Host、Content-Type……),小消息里头比体大</td><td>固定头 23 字节;length 前缀 6 字节就能切开下一帧</td></tr>
-          <tr><td>版本</td><td>字段增减靠约定,滚动升级时新旧节点难对齐</td><td><code>StreamOutput</code> 携带 <code>TransportVersion</code>,<code>writeTo</code> 里按版本开关字段</td></tr>
-          <tr><td>多路</td><td>HTTP/1.1 一条连接一请求一响应,要多路得换 HTTP/2</td><td>每条消息一个 <code>long requestId</code>,一条 TCP 上并发无数请求</td></tr>
-        </table>
-        <p>一个容易混淆的数字:「切帧前缀」只有 6 字节(<code>'E''S'</code> + 4 字节 length,即 <code>TcpHeader.BYTES_REQUIRED_FOR_MESSAGE_SIZE</code>),它只负责把流切成一帧一帧;整颗固定头是 23 字节。两个数都对,但不是一句话。</p>
-
-        <h2>2. 关键源码文件</h2>
-        <table class="ktable">
-          <tr><th>文件(server/src/main/java/org/elasticsearch/…)</th><th>这一课用它证明什么</th></tr>
-          <tr><td><code>transport/TcpHeader.java</code></td><td>魔数 <code>PREFIX = {'E','S'}</code>;<code>writeHeader</code> 的字段顺序与各段字节数(23 的加法)</td></tr>
-          <tr><td><code>transport/OutboundHandler.java</code></td><td><code>serialize</code>:先空出 23 字节,写 ThreadContext 与 action,再 <code>writeTo</code> body,最后回到 0 偏移回填固定头</td></tr>
-          <tr><td><code>transport/InboundDecoder.java</code> / <code>InboundHandler.java</code></td><td>按同一顺序剥头;请求按 action 查 <code>RequestHandlers</code>,响应按 <code>requestId</code> 找回 <code>ResponseHandlers</code> 里的回调</td></tr>
-          <tr><td><code>action/get/GetRequest.java</code></td><td>本课贯穿的 <code>Writeable</code> 样本:<code>writeTo</code> 与 <code>GetRequest(StreamInput)</code> 字段一一镜像</td></tr>
-          <tr><td><code>transport/TransportService.java</code> / <code>action/support/single/shard/TransportSingleShardAction.java</code></td><td><code>sendRequest</code> 登记 <code>requestId</code>;GET 真正发出的地方,子 action 名带 <code>[s]</code></td></tr>
-        </table>
-
-        <h2>3. 帧布局:23 字节固定头 + 可变头 + body</h2>
-        <p>先把最容易读错的一点钉死:<strong>action 字符串不在固定头里</strong>。固定头每段都是定长:</p>
-        <pre class="code-block"><code>2(魔数) + 4(length) + 8(requestId) + 1(status) + 4(version id) + 4(可变头长度) = 23</code></pre>
-        <p>action 在固定头之后的<strong>可变头</strong>里,而且只有请求帧才写。固定头定长的意义是偏移量恒定:接收端还没收齐可变头时,就已经能从固定头里拿到 <code>requestId</code> 和 <code>TransportVersion</code> 做该做的事。</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah09b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <text x="380" y="18" text-anchor="middle" class="fig-sub">固定头 23 字节 · 定长 —— requestId 永远在 offset 6,version 永远在 offset 15</text>
-
-              <rect x="25" y="32" width="78" height="58" rx="8" class="fig-box"/>
-              <text x="64" y="54" text-anchor="middle" class="fig-key">'E''S'</text>
-              <text x="64" y="76" text-anchor="middle" class="fig-sub">2B 魔数</text>
-              <rect x="111" y="32" width="108" height="58" rx="8" class="fig-box"/>
-              <text x="165" y="54" text-anchor="middle" class="fig-key">length</text>
-              <text x="165" y="76" text-anchor="middle" class="fig-sub">4B · 剩余大小</text>
-              <rect x="227" y="32" width="128" height="58" rx="8" class="fig-box"/>
-              <text x="291" y="54" text-anchor="middle" class="fig-key">requestId</text>
-              <text x="291" y="76" text-anchor="middle" class="fig-sub">8B · 回程对号</text>
-              <rect x="363" y="32" width="96" height="58" rx="8" class="fig-box"/>
-              <text x="411" y="54" text-anchor="middle" class="fig-key">status</text>
-              <text x="411" y="76" text-anchor="middle" class="fig-sub">1B · 标志位</text>
-              <rect x="467" y="32" width="128" height="58" rx="8" class="fig-box"/>
-              <text x="531" y="54" text-anchor="middle" class="fig-key">version.id</text>
-              <text x="531" y="76" text-anchor="middle" class="fig-sub">4B · 协议版本</text>
-              <rect x="603" y="32" width="132" height="58" rx="8" class="fig-box"/>
-              <text x="669" y="54" text-anchor="middle" class="fig-key">varHeaderSize</text>
-              <text x="669" y="76" text-anchor="middle" class="fig-sub">4B · 可变头长度</text>
-
-              <line x1="380" y1="92" x2="380" y2="104" class="fig-arrow" marker-end="url(#ah09b)"/>
-
-              <rect x="25" y="106" width="710" height="70" rx="8" class="fig-box-hot"/>
-              <text x="380" y="128" text-anchor="middle" class="fig-name">可变头 = ThreadContext;请求帧接着写 action</text>
-              <text x="380" y="148" text-anchor="middle" class="fig-sub">例如 "indices:data/read/get[s]"</text>
-              <text x="380" y="170" text-anchor="middle" class="fig-sub">响应帧不写 action —— 收端填常量 NO_ACTION_NAME_FOR_RESPONSES</text>
-
-              <line x1="380" y1="178" x2="380" y2="188" class="fig-arrow" marker-end="url(#ah09b)"/>
-
-              <rect x="25" y="190" width="710" height="64" rx="8" class="fig-box"/>
-              <text x="380" y="214" text-anchor="middle" class="fig-name">body = GetRequest.writeTo(out)</text>
-              <text x="380" y="238" text-anchor="middle" class="fig-sub">id / routing / preference / realtime / 版本闸门……(§ 4)</text>
-
-              <text x="380" y="280" text-anchor="middle" class="fig-sub">切帧只看前 6 字节:'ES' + int length;PING 是 'ES' + int(-1) 的 6 字节特例,后面什么都没有</text>
-            </svg>
-          </div>
-          <figcaption>图 2 · 9.4.0 的一帧:切帧靠 6 字节前缀,对回调靠 requestId,找 handler 靠可变头里的 action,业务数据在 body——四段职责分开,固定头才能定长。</figcaption>
-        </figure>
-
-        <p>写出侧与读出侧互为镜像。发送在 <code>OutboundHandler.serialize</code>:先把 23 字节空出来,写可变头和 body,最后回到偏移 0 用 <code>TcpHeader.writeHeader</code> 回填(length 此时才知道该填多少);接收在 <code>InboundDecoder.readHeader</code>:先用前 6 字节拿到 length,再从 offset 6 起读固定头剩余部分,最后 <code>finishParsingHeader</code> 读可变头。固定头的写法:</p>
-        <pre class="code-block"><code>public static void writeHeader(StreamOutput output, long requestId, byte status,
-        TransportVersion version, int contentSize, int variableHeaderSize) throws IOException {
-    output.writeBytes(PREFIX);              // 'E' 'S'
-    // length = 这一行之后的所有字节:body + requestId + status + version + 可变头
-    output.writeInt(contentSize + REQUEST_ID_SIZE + STATUS_SIZE + VERSION_ID_SIZE + VARIABLE_HEADER_SIZE);
-    output.writeLong(requestId);            // 8B
-    output.writeByte(status);               // 1B
-    output.writeInt(version.id());          // 4B
-    output.writeInt(variableHeaderSize);    // 4B
-}</code></pre>
-        <p>serialize 里与 action 相关的关键行——只有请求方向才写名字:</p>
-        <pre class="code-block"><code>byteStreamOutput.skip(TcpHeader.HEADER_SIZE);   // 空出 23 字节
-threadContext.writeTo(byteStreamOutput);        // 可变头:ThreadContext
-if (messageDirection == MessageDirection.REQUEST) {
-    byteStreamOutput.writeString(action);       // 请求帧才写 action
-}
-// body:writeable.writeTo(stream);最后 seek(0) 回填固定头</code></pre>
-        <p>status 这 1 个字节用低 4 个 bit 当标志位,不是字符串 flags:</p>
-        <table class="ktable">
-          <tr><th>bit</th><th>含义</th><th>普通 GET 请求帧</th></tr>
-          <tr><td>0 STATUS_REQRES</td><td>0 = 请求,1 = 响应</td><td>0</td></tr>
-          <tr><td>1 STATUS_ERROR</td><td>响应是否携带异常(body 走 <code>writeException</code>)</td><td>0</td></tr>
-          <tr><td>2 STATUS_COMPRESS</td><td>body 是否压缩</td><td>多数情况 0(见下)</td></tr>
-          <tr><td>3 STATUS_HANDSHAKE</td><td>是不是握手消息</td><td>0</td></tr>
-        </table>
-        <p>压缩是可选的,不是「每帧都压」:<code>transport.compress</code> 默认 <code>INDEXING_DATA</code>(有索引数据才压),<code>transport.compression_scheme</code> 默认 <code>LZ4</code>——实验 5 可以现场核对。</p>
-        <p>魔数还兼职挡误接。<code>TcpTransport.readHeaderBuffer</code> 看前两个字节是不是 <code>'E''S'</code>:不是,就按开头几个字节猜对方在说什么——像 HTTP 方法就抛 <code>HttpRequestOnTransportException("This is not an HTTP port")</code>,像 <code>0x16 0x03</code> 就提示「TLS 打到了没开 TLS 的口」。抓到 HTTP 误打时,<strong>不会</strong>回一份 JSON 400:<code>onException</code> 把这句话的 UTF-8 字节直接写回 socket,然后关连接(思考题 1)。</p>
-        <p>最后是 keep-alive 特例:PING 只有 6 字节,<code>'E''S'</code> + <code>int(-1)</code>,没有 requestId、没有 action、没有 body。解码器看到 length 为 -1 就按 PING 消耗 6 字节;业务帧的 length 必须 &gt; 0,且不能超过本节点堆的某个比例上限。</p>
-
-        <h2>4. Writeable:body 里的字段必须成对出现</h2>
-        <p>body 的契约在 <code>Writeable</code> 接口——javadoc 的原话是,实现它就是为了「thrown across the wire」:</p>
-        <pre class="code-block"><code>public interface Writeable {
-    void writeTo(StreamOutput out) throws IOException;   // 接口里没有 readFrom
-}
-// 读侧按约定是 Xxx(StreamInput) 构造函数:GetRequest::new 就是一个 Reader</code></pre>
-        <p>没有公共的 <code>readFrom</code>;可空字段走 <code>readOptionalString</code> / <code>readOptionalWriteable</code>,<code>Reader</code> 不允许返回 null。<code>GetRequest</code> 继承自 <code>SingleShardRequest</code>,读写都要先 <code>super</code>(父类写 <code>internalShardId</code>、<code>index</code>),然后才是自己的字段——顺序就是线上的字节顺序:</p>
-        <pre class="code-block"><code>public GetRequest(StreamInput in) throws IOException {
-    super(in);                                   // internalShardId, index
-    id = in.readString();                        // 1
-    routing = in.readOptionalString();           // 2
-    preference = in.readOptionalString();        // 3
-    refresh = in.readBoolean();                  // 4
-    storedFields = in.readOptionalStringArray(); // 5
-    realtime = in.readBoolean();                 // 6
-    versionType = VersionType.fromValue(in.readByte());            // 7
-    version = in.readLong();                     // 8
-    fetchSourceContext = in.readOptionalWriteable(FetchSourceContext::readFrom); // 9
-    forceSyntheticSource = in.readBoolean();     // 10
-    if (in.getTransportVersion().supports(SPLIT_SHARD_COUNT_SUMMARY)) {
-        splitShardCountSummary = new SplitShardCountSummary(in);   // 11:有版本闸门
-    }
-}
-// writeTo 逐字段同序镜像;闸门在写侧也是同一个 supports(...)</code></pre>
-        <table class="ktable">
-          <tr><th>顺序</th><th>字段</th><th>线上方法</th><th>备注</th></tr>
-          <tr><td>super</td><td><code>internalShardId</code> / <code>index</code></td><td><code>writeOptionalWriteable</code> / <code>writeOptionalString</code></td><td>父类先走</td></tr>
-          <tr><td>1</td><td><code>id</code></td><td><code>writeString</code></td><td>文档 _id</td></tr>
-          <tr><td>2</td><td><code>routing</code></td><td><code>writeOptionalString</code></td><td>可空</td></tr>
-          <tr><td>3</td><td><code>preference</code></td><td><code>writeOptionalString</code></td><td>可空</td></tr>
-          <tr><td>4</td><td><code>refresh</code></td><td><code>writeBoolean</code></td><td>GET 前 refresh?</td></tr>
-          <tr><td>5</td><td><code>storedFields</code></td><td><code>writeOptionalStringArray</code></td><td>可空数组</td></tr>
-          <tr><td>6</td><td><code>realtime</code></td><td><code>writeBoolean</code></td><td>第 10 课的主角</td></tr>
-          <tr><td>7-8</td><td><code>versionType</code> / <code>version</code></td><td><code>writeByte</code> / <code>writeLong</code></td><td>乐观并发控制</td></tr>
-          <tr><td>9</td><td><code>fetchSourceContext</code></td><td><code>writeOptionalWriteable</code></td><td>嵌套可空对象</td></tr>
-          <tr><td>10</td><td><code>forceSyntheticSource</code></td><td><code>writeBoolean</code></td><td></td></tr>
-          <tr><td>11</td><td><code>splitShardCountSummary</code></td><td>仅当版本闸门通过</td><td>见下</td></tr>
-        </table>
-        <p>第 11 个字段的闸门是<strong>具名</strong>版本,不是和发行号绑死:</p>
-        <pre class="code-block"><code>private static final TransportVersion SPLIT_SHARD_COUNT_SUMMARY =
-    TransportVersion.fromName("get_split_shard_count_summary");</code></pre>
-        <p>9.x 的趋势是给序列化版本起名字、用 <code>supports(...)</code> 判断,而不是 <code>onOrAfter(V_8_7_0)</code> 那种「发行号 = 协议号」。滚动升级时,新旧节点各按自己一侧的 <code>TransportVersion</code> 决定写不写、读不读这一段,缺闸门的一侧两边都跳过,字节流才对得齐——这也是闸门必须<strong>读写两侧成对</strong>出现的原因:只在 <code>writeTo</code> 加字段、忘了构造函数,对端下一个 <code>readBoolean</code> 就会吃到半截 UTF-8。</p>
-        <p>最后看一眼 <code>StreamOutput</code> 的原语为什么要那么多样:<code>writeVInt</code> 对小于 128 的非负整数走单字节快路径(负数反而总占 5 字节,注释建议负数改用 <code>writeInt</code>);<code>writeString</code> 先写 VInt 长度再写 UTF-8 字节。文档数、数组长度、字符串长度多数很小,所以 <code>"indices:data/read/get[s]"</code> 的长度前缀通常只占 1 字节——这是二进制协议相对 HTTP 文本头的另一处省。</p>
-
-        <h2>5. 调用链:往程认 action,回程认 requestId</h2>
-        <p>把图 1 的「写出帧」展开。<code>TransportGetAction</code> 自己不发请求,基类 <code>TransportSingleShardAction.AsyncSingleAction.perform</code> 才发,而且 action 不是主名,是 <code>actionName + "[s]"</code>:</p>
-        <pre class="code-block"><code>this.transportShardAction = actionName + "[s]";        // "indices:data/read/get[s]"
-transportService.registerRequestHandler(
-    transportShardAction, EsExecutors.DIRECT_EXECUTOR_SERVICE, request, new ShardTransportHandler());</code></pre>
-        <p>对 GET 来说,线上那串就是 <code>"indices:data/read/get[s]"</code>;主名 <code>"indices:data/read/get"</code> 的 handler 留给「请求已经在目标节点上」的执行。注意注册的执行器是 <code>EsExecutors.DIRECT_EXECUTOR_SERVICE</code>——和第 8 课 search 的 query handler 一样,先在传输线程上把请求接住,真正占 <code>get</code> 池的是后面的 <code>asyncShardOperation</code> → <code>getExecutor(shardId).execute(...)</code>。「谁从 TCP 接住」和「谁执行 shard 操作」是两层。</p>
-        <p>发送侧,<code>TransportService.sendRequestInternal</code> 做三件和帧直接相关的事:一是 <code>responseHandlers.add(handler, connection, action)</code> 拿到 <code>requestId</code>(一个 <code>AtomicLong</code> 递增,把 id 映射到「回来之后调谁」);二是可选超时,到期从那张 map 里 <code>remove</code> 并回调异常;三是 <code>connection.sendRequest(requestId, action, request, options)</code>——远程连接走进 <code>OutboundHandler</code>,就是 § 3 的 <code>serialize</code>。</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah09c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="25" y="40" width="225" height="150" rx="10" class="fig-box-hot"/>
-              <text x="137" y="66" text-anchor="middle" class="fig-name">协调节点</text>
-              <text x="137" y="92" text-anchor="middle" class="fig-key">handlers.add(42, listener)</text>
-              <text x="137" y="114" text-anchor="middle" class="fig-sub">requestId 由 AtomicLong 自增</text>
-              <text x="137" y="136" text-anchor="middle" class="fig-sub">回程时 remove(42) 再回调</text>
-              <text x="137" y="158" text-anchor="middle" class="fig-sub">超时也走 remove + 异常回调</text>
-
-              <line x1="254" y1="80" x2="506" y2="80" class="fig-arrow" marker-end="url(#ah09c)"/>
-              <text x="380" y="68" text-anchor="middle" class="fig-sub">请求帧:可变头带 action = get[s]</text>
-
-              <rect x="510" y="40" width="225" height="150" rx="10" class="fig-box"/>
-              <text x="622" y="66" text-anchor="middle" class="fig-name">数据节点</text>
-              <text x="622" y="92" text-anchor="middle" class="fig-key">getHandler("get[s]")</text>
-              <text x="622" y="114" text-anchor="middle" class="fig-sub">DIRECT 线程先接住</text>
-              <text x="622" y="136" text-anchor="middle" class="fig-sub">shardOperation 进 GET 池</text>
-              <text x="622" y="158" text-anchor="middle" class="fig-sub">channel.sendResponse</text>
-
-              <line x1="506" y1="150" x2="254" y2="150" class="fig-arrow" marker-end="url(#ah09c)"/>
-              <text x="380" y="172" text-anchor="middle" class="fig-sub">响应帧:同一个 requestId,不写 action</text>
-
-              <text x="380" y="225" text-anchor="middle" class="fig-sub">往程认名字,回程认编号;本节点连帧都不写 —— localNodeConnection 在同一 JVM 里直接调 handler</text>
-            </svg>
-          </div>
-          <figcaption>图 3 · 两个并发 GET 的 action 字符串完全一样:没有递增的 requestId,就会把别人的 GetResponse 交给错误的 listener。第 8 课的「发出去就释放线程」在这里落地。</figcaption>
-        </figure>
-
-        <p>数据节点这一侧:TCP 字节先进 <code>InboundPipeline</code>(TCP 是流,一帧可能拆成多次到达,pending 队列负责拼碎片),<code>InboundDecoder</code> 按 § 3 剥头,<code>InboundAggregator</code> 等内容收齐后交给 <code>InboundHandler.messageReceived</code>。它看 status 的请求/响应位:请求就 <code>requestHandlers.getHandler(action)</code>,用登记时的 reader(就是 <code>GetRequest::new</code>)重建对象,交给 <code>ShardTransportHandler</code> → <code>asyncShardOperation</code> 进 GET 池,做完 <code>channel.sendResponse(response)</code>;响应就用 <code>requestId</code> 从发送侧那张 map 里 <code>remove</code>,调当初挂上去的 listener。</p>
-        <p><code>RequestHandlers</code> 就是「action 字符串 → handler 注册表」。同一个名字登记两次,启动期直接 <code>IllegalArgumentException: transport handlers for action … is already registered</code>——和第 7 课 <code>ActionModule</code> 按 ActionType 名去重是同一思想在传输层的副本:名字是身份证,冲突在启动时炸,不拖到第一帧。</p>
-        <p><strong>本节点是这条链的捷径。</strong>shard 恰好在接到 HTTP 的节点上时,<code>getConnection</code> 返回 <code>localNodeConnection</code>,它的 <code>sendRequest</code> 直接 <code>sendLocalRequest</code>:按 action 取同一个注册表,在 DIRECT 上当场调用,或丢进登记时的线程池。对象还是那个 <code>GetRequest</code>,不走 <code>writeTo</code>、不过 TCP;但 <code>requestId</code> 照样登记——本地和远程共用一套「按 id 找回调」的模型。省的是序列化和系统调用,不是省略回调机制。单节点上你做的几乎每一次 GET 都走这条捷径,所以实验 4 里传输计数全是 0。</p>
-
-        <h2>6. 连接画像与两层握手</h2>
-        <p>一对节点之间不是一条 TCP 了事。<code>ConnectionProfile.buildDefaultConnectionProfile</code> 按 <code>TransportRequestOptions.Type</code> 分组建连,默认值在 <code>TransportSettings</code>(全部 NodeScope,启动时钉死):</p>
-        <table class="ktable">
-          <tr><th>Type</th><th>设置 key</th><th>默认条数</th><th>用来干什么</th></tr>
-          <tr><td>RECOVERY</td><td><code>transport.connections_per_node.recovery</code></td><td>2(非数据节点 0)</td><td>分片恢复,大块文件</td></tr>
-          <tr><td>BULK</td><td><code>transport.connections_per_node.bulk</code></td><td>3</td><td>批量写入</td></tr>
-          <tr><td>REG</td><td><code>transport.connections_per_node.reg</code></td><td>6</td><td>常规:搜索、GET、多数 action</td></tr>
-          <tr><td>STATE</td><td><code>transport.connections_per_node.state</code></td><td>1(非 master-eligible 0)</td><td>集群状态发布</td></tr>
-          <tr><td>PING</td><td><code>transport.connections_per_node.ping</code></td><td>1</td><td>keep-alive</td></tr>
-        </table>
-        <p>master + data 节点对一个对端:2+3+6+1+1 = <strong>13</strong> 条(实验 5 可核对)。注意这是「连接远端时按画像一次建满」的上限——单节点没有对端,出站连接自然是 0。GET 走 REG 组(组内 round-robin)。既然 <code>requestId</code> 已经能在<strong>同一条</strong>连接上多路,为什么还要分组建多条?因为应用层多路救不了 <strong>TCP 队头阻塞</strong>:恢复在灌 segment 时,不能让 GET 的小帧排在同一条 socket 的内核发送队列后面几秒;多条 REG 还能让多个 Netty worker 并行读。分类型解决的是优先级和调度,不是「二进制不会多路」(思考题 3)。</p>
-        <p>新 TCP 连上之后,还不能立刻发业务帧,要先过<strong>两步</strong>握手:</p>
-        <ol>
-          <li><strong>TCP 层</strong>,<code>TransportHandshaker</code>,action <code>"internal:tcp/handshake"</code>:双方交换能接受的 <code>TransportVersion</code>,之后 <code>OutboundHandler</code> 用 min(本地, 远端) 写后续业务帧。握手本身用两个特殊的协议 id(常量 <code>V8_HANDSHAKE_VERSION</code> / <code>V9_HANDSHAKE_VERSION</code>)——它们只是「碰巧」落在帧头 version 那个位置,已经不再表达「发行号 = 协议号」。</li>
-          <li><strong>传输服务层</strong>,<code>TransportService.handshake</code>,action <code>"internal:transport/handshake"</code>(和上一步不是同一串名字):响应带回 <code>DiscoveryNode</code>、<code>ClusterName</code>、<code>Version</code>、build hash。默认校验集群名匹配、对端身份等于你以为在连的那个节点、发行版本兼容(CCS 连远程集群时刻意放宽为不比集群名)。失败就关连接——先对齐「怎么说话」,再对齐「你是不是我要连的人」。</li>
-        </ol>
-        <p>身份对不上时的报错会提到 publish address:每个节点必须有网络可达的发布地址,否则「连错人还继续写业务帧」。这是运维上最常见的握手失败,和序列化无关。</p>
-      </section>
-
-      <section class="drills">
-        <h2>动手实验</h2>
-        <p>单节点 ES 9.4.0 即可全部完成。围绕三个可观察点:节点的两个端口(<span class="mth mth-get">GET</span> <code>/_cat/nodes</code>)、并不存在的 cat 表(<span class="mth mth-get">GET</span> <code>/_cat/transport</code>)、以及一次 GET 之后纹丝不动的传输计数。索引名 <code>tut-l09-*</code>。</p>
-
-        <h3>实验 0:建一个索引备用</h3>
-        <div class="exp-slot" data-exp="ch09-00-setup"></div>
-
-        <h3>实验 1:一个节点两个端口</h3>
-        <div class="exp-slot" data-exp="ch09-01-ports"></div>
-
-        <h3>实验 2:并不存在的 _cat/transport</h3>
-        <div class="exp-slot" data-exp="ch09-02-no-cat"></div>
-
-        <h3>实验 3:写一篇文档</h3>
-        <div class="exp-slot" data-exp="ch09-03-doc"></div>
-
-        <h3>实验 4:GET 之后传输计数仍是 0</h3>
-        <div class="exp-slot" data-exp="ch09-04-stats"></div>
-
-        <h3>实验 5:连接画像与压缩默认值</h3>
-        <div class="exp-slot" data-exp="ch09-05-defaults"></div>
-
-        <h3>清理</h3>
-        <div class="exp-slot" data-exp="ch09-06-cleanup"></div>
-
-        <h2>思考题</h2>
-        <details>
-          <summary>1. 对 Transport 端口发一个 HTTP GET,响应是什么形态?为什么不是 JSON 400?</summary>
-          <div class="answer">
-            <p>纯文本 <code>This is not an HTTP port</code>,然后断开连接——curl 会抱怨收到「不像 HTTP 的响应」(连状态行都没有)。前两字节是 <code>'G''E'</code> 不是 <code>'E''S'</code>,<code>TcpTransport</code> 的 <code>appearsToBeHTTPRequest</code> 认出方法名后抛 <code>HttpRequestOnTransportException</code>,<code>onException</code> 把异常消息的 UTF-8 字节 <code>sendBytes</code> 出去就关 socket——REST 层那套把异常渲染成 JSON 的机制在 Transport 口根本不存在。它同样能认出 TLS(<code>0x16 0x03</code>)。浏览器做不了这个实验(Transport 口没有 CORS),所以它是思考题而不是动手实验。</p>
-          </div>
-        </details>
-        <details>
-          <summary>2. 响应帧为什么不带 action、只靠 requestId 对号?如果 action 挪进固定头、定长 64 字节,会破坏什么?</summary>
-          <div class="answer">
-            <p>两个并发 GET 的 action 字符串完全一样,按名字匹配会把别人的 <code>GetResponse</code> 交给错误的 listener;按 <code>requestId</code> 从 map 里 <code>remove</code> 才是 O(1) 且无歧义的。响应不写 action(收端填 <code>NO_ACTION_NAME_FOR_RESPONSES</code>)是因为回程不需要再查 handler 表。action 放可变头,固定头才能保持定长:<code>requestId</code> 永远在 offset 6、version 永远在 offset 15——解码器在可变头还没收齐时就需要 version 做兼容判断。action 改成定长 64 字节虽然也「偏移确定」,但每帧都要为短名字白付几十字节的空洞,还要给所有 action 名定长上限,变长字符串放可变头正是为了让这两层互不干扰。</p>
-          </div>
-        </details>
-        <details>
-          <summary>3. 已经有 requestId 做应用层多路,为什么还要 5 类、默认 13 条 TCP?为什么不干脆上 HTTP/2?</summary>
-          <div class="answer">
-            <p><code>requestId</code> 解决的是<strong>同一条 socket 上</strong>的并发;多条连接解决的是<strong>不同优先级的流量别排进同一个 TCP 发送队列</strong>。恢复灌 segment 时,GET 的小帧排在同一条 socket 后面等几秒,是内核发送队列的队头阻塞,应用层 id 救不了;多条 REG 还能让多核的 Netty worker 并行读。HTTP/2 能多路,但仍是文本语义 + HPACK + 一套和 <code>TransportVersion.supports</code> 完全不同的演进模型,还得把整个 <code>Writeable</code> 生态换成别的序列化——「能多路」只是节点间协议要解决的问题之一。</p>
-          </div>
-        </details>
-        <details>
-          <summary>4. 本节点跳过 writeTo,换来的是什么?「单节点测试绿了、多节点才炸」的序列化错位,付出的代价具体在哪?</summary>
-          <div class="answer">
-            <p>换来零拷贝、零 UTF-8 编解码、零版本闸门判断:单节点快,本地语义就是普通方法调用,回调模型还和远程统一(照样登记 requestId)。代价是<strong>不出进程的路径永远不执行 <code>GetRequest.writeTo</code></strong>:给对象加个字段、只改了内存路径的代码,单节点全绿;第一对跨节点(尤其跨版本)之间,字段错位才在字节流上炸出来——典型症状是对端某个 <code>readBoolean</code> 吃到半截 UTF-8。所以闸门和字段必须严格成对地写在 <code>writeTo</code> 和 <code>Xxx(StreamInput)</code> 里,不能指望测试替你发现。</p>
-          </div>
-        </details>
-      </section>
-
-      <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 「消息头 6 字节」:</span>6 只是切帧前缀('ES' + length);固定头是 23 字节,而且 action 不在其中——它在后面的可变头里,响应帧甚至不写。把 6 和 23 混成一句话,读偏移量必错。</div>
-        <div class="callout warn"><span class="co-title">🕳 「节点间就是转发 HTTP」:</span>跨节点那一跳没有 URL 也没有方法;对 Transport 口误发 HTTP,得到的是纯文本 <code>This is not an HTTP port</code> 加断连,不是 JSON 400——别拿 REST 的报错形态去套 Transport 口。</div>
-        <div class="callout warn"><span class="co-title">🕳 单节点传输计数是 0 ≠ 传输层没事:</span>本地路径走 <code>localNodeConnection</code>,连 <code>writeTo</code> 都不执行,计数自然不动;13 条也是「连远端时才建」的画像上限。真正的暗雷:序列化 bug 在单节点上永远不触发。</div>
-        <div class="callout warn"><span class="co-title">🕳 「加字段就改 writeTo 一行」:</span>构造函数不同步加读取、或版本闸门只写在一侧,对端下一个 <code>readBoolean</code> 就吃到半截 UTF-8。字段与闸门必须读写两侧成对出现,错位是静默的。</div>
-      </section>
-
-      <section class="recap">
-        <h2>速记</h2>
-        <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>两个端口</td><td>HTTP 9200 对客户端;transport 9300-9399 对节点间帧</td></tr>
-          <tr><td>固定头 23B</td><td>'ES'2 + length4 + requestId8 + status1 + version4 + 可变头长4;切帧只看前 6B</td></tr>
-          <tr><td>可变头</td><td>ThreadContext;请求帧再写 action(get[s]),响应帧不写</td></tr>
-          <tr><td>body</td><td>Writeable.writeTo ↔ Xxx(StreamInput) 构造函数;闸门用 TransportVersion.supports</td></tr>
-          <tr><td>路由</td><td>往程 action 查 RequestHandlers;回程 requestId 从 responseHandlers 里 remove</td></tr>
-          <tr><td>本地捷径</td><td>localNodeConnection 跳过序列化;requestId 照样登记</td></tr>
-          <tr><td>连接</td><td>recovery2 + bulk3 + reg6 + state1 + ping1 = 13;先 tcp/handshake 再 transport/handshake</td></tr>
-          <tr><td>观测</td><td>地址:_nodes/transport;计数:_nodes/stats/transport;没有 _cat/transport(400)</td></tr>
-        </table>
-        <p><strong>心法:HTTP 对外、帧对内;往程认名字、回程认编号;固定头恒定、字段成对出现。</strong></p>
-      </section>
-
-      <footer class="ch-footer">
-        <button class="read-toggle" type="button">标记本课已读</button>
-        <div class="pager">
-          <a href="ch08.html">← 第 8 课:异步编程模型</a>
-          <a href="ch10.html">第 10 课:跟踪一次文档读取 →</a>
-        </div>
-      </footer>
-    </article>
-  </main>
-
-  <script src="../experiments/ch09.js"></script>
-  <script src="../assets/js/nav.js"></script>
-  <script src="../assets/js/es-client.js"></script>
-  <script src="../assets/js/flow-player.js"></script>
-  <script src="../assets/js/experiments.js"></script>
-  <script src="../assets/js/progress.js"></script>
-</body>
-</html>
+<h2 id="source-map">6. 带着问题找源码</h2><table class="ktable"><tr><th>入口</th><th>先确认的条件</th></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/TransportService.java#L968-L1008">TransportService.sendRequestInternal</a></td><td>先登记，后发出；有没有 timeout；本地还是远端连接</td></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/OutboundHandler.java#L292-L336">OutboundHandler.serialize / TcpHeader</a></td><td>请求、响应还是错误；本次协议版本；可变头与 body 分工</td></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/InboundHandler.java#L244-L310">InboundHandler.handleRequest / handleResponse</a></td><td>请求查 action 表，响应找编号；Reader 与 executor 分开</td></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/get/GetRequest.java#L73-L115">GetRequest 读写镜像</a></td><td>父类顺序、optional 原语、具名版本闸门</td></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/transport/ConnectionProfile.java#L74-L94">ConnectionProfile / TcpTransport.getStats</a></td><td>本地角色修正画像；配置、当前通道和累计连接组分别读</td></tr></table></section>
+<section class="drills"><h2 id="practice">动手实验：地址与本地 GET 的证明范围</h2>
+<p>本课采用默认自管 ES 9.4.0 / Lucene 10.4.0，单节点，HTTP 端点 <code>http://localhost:9200</code>，安全关闭、CORS 允许学习页，无 transport 设置覆盖、外部探测或并发学习流量。<code>tut-l09-docs</code> 初始不存在；无匹配索引模板或默认 ingest pipeline。认证启用、托管部署或多节点请先调整前提。只清理自己创建的本课索引。</p>
+<div class="callout tip"><span class="co-title">验证口径：</span>以下响应是固定源码的预期，本轮环境没有运行中的 ES；首次与清理后重做的真实 API 未执行。站点检查验证卡片请求与控制台传递，不代替 API 实测。已核对源码，未声称单节点验证远程帧。</div>
+<h3>A 组：版本、地址与设置</h3><p>顺序 A1 → A2 → A3 → A4 → A5；只读观察及预期路由错误，可重复。A2 与 A3 对照端口，A4 不与连接统计混算。</p>
+<div class="exp-slot" data-exp="ch09-00-version"></div><div class="exp-slot" data-exp="ch09-01-ports"></div><div class="exp-slot" data-exp="ch09-01-addresses"></div><div class="exp-slot" data-exp="ch09-05-defaults"></div><div class="exp-slot" data-exp="ch09-02-no-cat"></div>
+<p>A5 的 400 与顶层 error 字符串来自 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/RestController.java#L743-L753">RestController.handleBadRequest</a>；路由错误不能当作 Transport 口的协议诊断。</p>
+<h3>B 组：建立前提、保存基线、执行 GET</h3><p>顺序 B1 → B2 → B3 → B4 → B5 → B6 → 清理。B3 写后再记录 B4，避免把准备数据的变化归因于 GET。B5 是独立操作卡，不再依赖读者到控制台补做。B6 必须与同一节点 ID 的 B4 比较。</p>
+<div class="exp-slot" data-exp="ch09-00-setup"></div><div class="exp-slot" data-exp="ch09-00-health"></div><div class="exp-slot" data-exp="ch09-03-doc"></div><div class="exp-slot" data-exp="ch09-04-before"></div><div class="exp-slot" data-exp="ch09-04-get"></div><div class="exp-slot" data-exp="ch09-04-stats"></div>
+<h3>清理与重做</h3><p>仅删除 <code>tut-l09-docs</code>，不清其他资源或节点统计。重复创建会报已存在，固定 ID 重写会更新版本，重复删除通常 404；清理后重做整个 B 组，重新等待并保存基线。</p><div class="exp-slot" data-exp="ch09-06-cleanup"></div>
+<h2>思考题</h2><details><summary>1. 两个 GET action 相同，为什么响应不会交给同一个 listener？</summary><div class="answer"><p>每次发送先登记不同 requestId，响应按编号取出原 handler。action 选请求处理器，编号选这一轮回调；它们的粒度不同。响应不写 action。</p></div></details>
+<details><summary>2. 6B 前缀够切帧，为什么还需要 23B 固定头？</summary><div class="answer"><p>length 决定普通帧边界；后续固定字段提供编号、标志、协议版本和可变头长度。action 位于可变头。PING 才是没有其余内容的 6B 特例。</p></div></details>
+<details><summary>3. 本地 GET 成功、rx/tx 无增量，能说明新字段兼容旧节点吗？</summary><div class="answer"><p>不能。本地捷径不走 wire 编解码。兼容需要同一 stream 版本下的读写镜像与闸门，并实际覆盖远程 / 混合版本路径；零增量只是一项观测。</p></div></details>
+<details><summary>4. total_outbound_connections=1 与默认 13 个通道冲突吗？</summary><div class="answer"><p>不冲突。前者累计成功建立的连接组，后者是特定默认画像中一个组的通道数。还要区分当前已接受通道、累计建连和角色修正后的配置。</p></div></details>
+<details><summary>5. 握手版本一定等于两端发行号的较小者吗？集群名必比较吗？</summary><div class="answer"><p>TransportVersion 与发行号分工不同，协商有兼容性与已知版本分支。服务层的集群名判断由传入谓词决定；默认重载比较集群名，connectionValidator 使用 always 并另核对节点身份。</p></div></details></section>
+<section class="pitfalls"><h2 id="pitfalls">陷阱</h2><div class="callout warn"><span class="co-title">🕳 编号多路不等于无限并发：</span>登记表、缓冲、执行池与网络都消耗资源。协议能区分回调，不提供无限容量或恰好一次的业务保证。</div><div class="callout warn"><span class="co-title">🕳 设置与实际连接混算：</span>defaults 可含本地配置，画像按角色再修正；13 是一组通道数，不是累计连接组指标或整节点上限。</div><div class="callout warn"><span class="co-title">🕳 单节点计数必须零：</span>历史和其他流量可使总值非零。先取同一节点基线，读差值；本地路径成功不验证序列化兼容。</div><div class="callout warn"><span class="co-title">🕳 所有帧都一样：</span>普通请求有 action，响应没有；PING 仅 6B，特殊握手另有格式。固定头不是完整消息。</div><div class="callout warn"><span class="co-title">🕳 错位固定静默发生：</span>漏字段、顺序与闸门不匹配可造成多种错误；读侧会检查消费情况。源码核对与 wire 测试都要覆盖。</div></section>
+<section class="recap"><h2 id="recap">速记</h2><table class="ktable"><tr><th>问题</th><th>记住的边界</th></tr><tr><td>往返认什么？</td><td>往程 action 选请求 handler；回程 requestId 找原响应 handler</td></tr><tr><td>6B / 23B？</td><td>普通帧前缀 / 固定头；length=全帧−6；action 在请求可变头</td></tr><tr><td>谁读 body？</td><td>登记的 Reader，使用本次 TransportVersion；父类与字段顺序镜像</td></tr><tr><td>谁切线程？</td><td>具体 executor 提交点；DIRECT 不自行 fork，异步接口可同步接续</td></tr><tr><td>本地省什么？</td><td>该跳 wire 编解码 / TCP；仍登记编号，保留任务与回调</td></tr><tr><td>13 与累计值？</td><td>特定默认画像的通道数 / 累计成功连接组数；口径不同</td></tr><tr><td>观测哪里？</td><td>CAT 端口取发布地址；_nodes/_local 看绑定与发布；transport stats 取同节点基线</td></tr><tr><td>证据范围？</td><td>源码路径、HTTP 卡片验证与真实 ES 分开；单节点不证明远程兼容</td></tr></table><p><strong>心法：名字选处理器，编号找回调；字段遵循版本，统计遵循口径。</strong></p></section>
+<footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a href="ch08.html">← 第 8 课:异步编程模型</a><a href="ch10.html">第 10 课:跟踪一次文档读取 →</a></div></footer></article></main><script src="../experiments/ch09.js"></script><script src="../assets/js/nav.js"></script><script src="../assets/js/es-client.js"></script><script src="../assets/js/flow-player.js"></script><script src="../assets/js/experiments.js"></script><script src="../assets/js/progress.js"></script><script src="../assets/js/chapter-diagrams.js"></script></body></html>

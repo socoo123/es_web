@@ -14,7 +14,7 @@
 | ch06 | 请求入口层 | ✅ | 17 | — | ✅ REST 路由与响应边界（2 图，2 路径动画） |
 | ch07 | 动作框架 | ✅ | 15 | — | ✅ 动作登记与执行边界（2 图，2 路径动画） |
 | ch08 | 异步编程模型 | ✅ | 15 | 1(线程池背压) | ✅ 回调与调度边界（2 图，2 路径动画） |
-| ch09 | 传输层 | ✅ | 7 | — | 待改造 |
+| ch09 | 传输层 | ✅ | 12 | — | ✅ 远程往返与帧契约（2 图，2 路径动画） |
 | ch10 | 跟踪一次文档读取 | ✅ | 19 | 1(realtime GET) | 待改造 |
 | ch11 | 映射系统 | ✅ | 19 | 1(动态映射) | 待改造 |
 | ch12 | 摄取管道 | ✅ | 20 | — | 待改造 |
@@ -132,7 +132,29 @@
 | ch08 | rejected 必全 0，generic 永不 429，拒绝必直接 throw 且顶层 HTTP 429 | rejected 可含历史；Scaling 不因有界满拒绝不保证整请求不报错；AbstractRunnable 可转 onRejection，顶层 / 部分失败 / 单项状态分别读 | EsThreadPoolExecutor.execute、EsAbortPolicy、EsExecutors.ForceQueuePolicy、ExceptionsHelper.status |
 | ch08 | 创建索引即整个集群 green，自动 ID 重复写仍命中 1，清理后 transient 必空 | 显式 mapping / 固定 ID / 健康等待 / 基线；比较本课失败更新前后键，重复运行区分 created/updated，删除不清统计 | 15 卡请求与前提；源码已核对，当前 API 未实测 |
 
+### 第九章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch09 | sendRequest 交出去就立即释放线程，未区分两个 GET handler / Reader | 异步接口可同步接续；主 action 与 get[s] 分工不同，请求查 action、响应查 requestId，DIRECT 入口与 get executor / Reader 分开 | TransportService、InboundHandler、TransportSingleShardAction；固定提交链接见正文与图 |
+| ch09 | 所有帧概括为 23B 固定头，length 与可变头范围含糊 | 普通业务帧固定头 23B，length=全帧−6；PING 为 6B，V8 特殊握手有 features；请求 action 在可变头，body 可压缩 | TcpHeader、OutboundHandler、InboundDecoder |
+| ch09 | 字符串长度暗示 UTF-8 字节数，错位固定静默发生 | writeString 写 Java char / code unit 数；读写父类、字段、optional 原语与 stream 版本闸门成对，错位可产生多种错误 | StreamOutput.writeString、StreamInput.readString、GetRequest |
+| ch09 | 对端各按自己的发行版本读写，握手概括成简单较小版本 / 集群名必等 | 使用协商的 TransportVersion；已知版本 / bestKnownVersion 分支另看，服务层集群名按调用谓词判断，connectionValidator 使用 always 并核对节点身份 | TransportHandshaker、TcpTransport、TransportService |
+| ch09 | CAT 端口称绑定值，暗示固定 9300 / 9200 | 实现取 Transport / HTTP 发布地址；_nodes/_local 明确对照绑定列表与发布地址，实际端口可配置 | RestNodesAction 描述与实现对照、RestNodesInfoAction |
+| ch09 | 默认 2/3/6/1/1 即实际画像 / 整节点上限，累计出站可与 13 比 | 画像再按本地角色修正，defaults 可含本地配置；total_outbound_connections 累计成功 NodeChannels 组数，与当前接受通道 / 每组通道数不同 | ConnectionProfile、TcpTransport.openConnection / getStats、TransportStats |
+| ch09 | PING 通道等于定时保活，ping_schedule=-1 暗示关闭 TCP keepalive | 请求 type 通道选择、应用层 PING 与 TCP keepalive 分开；-1 只禁定时应用 PING，节点设置不作动态更新预期 | TransportSettings、TransportRequestOptions、TcpTransport |
+| ch09 | 本地零复制 / 单节点统计全零泛化，GET 成功暗示已验证 wire | 本地只跳过该跳请求 / 响应 wire 编解码；按同节点新基线观察增量，历史与其他流量可非零，不能验证远程 / 混合版本兼容 | localNodeConnection、DirectResponseChannel、StatsTracker；保留旧实测记录并限定范围 |
+| ch09 | 缺独立 GET / 健康等待 / 基线，重复版本与清理条件不全 | 原 7 ID 保留、增 5 卡；显式 mapping / refresh / 健康等待 / GET 前后基线，固定 ID 版本随重写变，点名清理后重新等待并取基线；未知路由 400 是顶层 error 字符串 | [experiments/ch09.js](experiments/ch09.js)、RestController.handleBadRequest；本轮 API 未实测 |
+
 ## 会话日志
+
+### 2026-10-11(第九章按统一规范重构)
+
+- 固定 ES v9.4.0 提交核对 28 个源码文件、62 个引用区间，文件字节与提交一致。围绕远程 GET 往返、普通帧、读写镜像、本地捷径及连接 / 统计边界重写七段式，新增勘误见上表。
+- 保留原 7 个实验 ID，新增版本、绑定 / 发布地址、本课健康等待、GET 前基线及实际 GET 共 5 卡，合计 2 组 / 12 卡；显式 settings / mapping / refresh，限定同节点统计与重做条件。全站 30 正式页 / 441 卡 / 22 机制播放器，本章 2 图 / 2 条有限路径动画 / 0 机制播放器。
+- 官方 Archify 3.0.1 从首次 finalize 即传真实干净固定源码 checkout。只改 JSON 修复 Sequence 自发消息 / 列留白 / 字号和 Workflow 主路径绕行，当前原生收据 remote-get review-4、frame-codec review-2；validate / deliver / strict check 均 showcase 9/9、零错误 / 警告、provenance current。原生 browser-check 因 file URL 策略失败，finalize 整体仍为 fail，旧候选与收据保留。
+- 最终独立 HTTP Chromium 通过：两图四档桌面尺寸、章节六档宽度与双主题、880px 列 / ≤1px 对齐、页面 / iframe 容纳、实际主 SVG 全部节点、探索 / 源码 / 关闭 / 展开、暂停后重播 / Enter、目录 / 已读、12 张实际控制台导航的请求字段、端点 / 认证别名 / raw、Pages 前缀及 reduced motion。实际查看 20 张最终截图，图框分档高度记录在验收报告，共享 CSS / JS 未改。
+- 站点、JS 语法、文字估宽、稳定 ID 与 diff 检查通过。9200 连接拒绝，云运行时仍缺 /proc/self/coredump_filter，真实 ES 首次与清理后重做均未执行，未模拟 API。验收见 [.archify/CH09-REVIEW.md](.archify/CH09-REVIEW.md)，当前哈希 / 报告 / 截图绑定见 [.archify/review/ch09-artifacts.json](.archify/review/ch09-artifacts.json)；本轮按持续授权提交并推送 origin/main。
 
 ### 2026-10-11(第八章按统一规范重构)
 

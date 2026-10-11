@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "远程 GET：往程认 action，回程认编号",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/sequence-ch09-remote-get-20261011-003000/remote-get.html",
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "callbacks",
+      "type": "messagebus",
+      "label": "登记与回调",
+      "sublabel": "协调侧响应处理器",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/Transport.java",
+          "line": 173,
+          "end_line": 248
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/InboundHandler.java",
+          "line": 410,
+          "end_line": 469
+        }
+      ]
+    },
+    {
+      "id": "sender",
+      "type": "messagebus",
+      "label": "发起方",
+      "sublabel": "协调节点",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/TransportService.java",
+          "line": 968,
+          "end_line": 1008
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/InboundHandler.java",
+          "line": 173,
+          "end_line": 185
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/InboundHandler.java",
+          "line": 410,
+          "end_line": 469
+        }
+      ]
+    },
+    {
+      "id": "receiver",
+      "type": "backend",
+      "label": "接收方",
+      "sublabel": "数据节点",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/InboundHandler.java",
+          "line": 244,
+          "end_line": 310
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/transport/OutboundHandler.java",
+          "line": 129,
+          "end_line": 168
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/single/shard/TransportSingleShardAction.java",
+          "line": 103,
+          "end_line": 114
+        }
+      ]
+    },
+    {
+      "id": "shard",
+      "type": "database",
+      "label": "分片 GET",
+      "sublabel": "普通索引 · get 池",
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/single/shard/TransportSingleShardAction.java",
+          "line": 133,
+          "end_line": 135
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java",
+          "line": 82,
+          "end_line": 90
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/ChannelActionListener.java",
+          "line": 30,
+          "end_line": 43
+        }
+      ]
+    }
+  ],
+  "segments": [
+    {
+      "from": 158,
+      "to": 280,
+      "label": "发起 · 已建连，分片在远端"
+    },
+    {
+      "from": 300,
+      "to": 477,
+      "label": "接收 · DIRECT 接入，提交 get 池"
+    },
+    {
+      "from": 495,
+      "to": 663,
+      "label": "返回 · 按编号找回响应处理器"
+    }
+  ],
+  "messages": [
+    {
+      "id": "register",
+      "from": "sender",
+      "to": "callbacks",
+      "y": 172,
+      "label": "登记 requestId = k",
+      "variant": "emphasis"
+    },
+    {
+      "id": "request",
+      "from": "sender",
+      "to": "receiver",
+      "y": 252,
+      "label": "get[s] 请求帧 · k",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dispatch",
+      "from": "receiver",
+      "to": "shard",
+      "y": 352,
+      "label": "查表、Reader → get 池"
+    },
+    {
+      "id": "result",
+      "from": "shard",
+      "to": "receiver",
+      "y": 452,
+      "label": "channel.sendResponse",
+      "variant": "return"
+    },
+    {
+      "id": "response",
+      "from": "receiver",
+      "to": "sender",
+      "y": 552,
+      "label": "响应帧 · 同一 k",
+      "variant": "return"
+    },
+    {
+      "id": "callback",
+      "from": "sender",
+      "to": "callbacks",
+      "y": 642,
+      "label": "remove(k) → Reader → 回调",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "callbacks",
+      "from": 167,
+      "to": 652,
+      "type": "messagebus"
+    },
+    {
+      "participant": "sender",
+      "from": 167,
+      "to": 652,
+      "type": "messagebus"
+    },
+    {
+      "participant": "receiver",
+      "from": 247,
+      "to": 557,
+      "type": "backend"
+    },
+    {
+      "participant": "shard",
+      "from": 347,
+      "to": 457,
+      "type": "database"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "路径范围",
+      "items": [
+        "只画普通索引的远程分片 GET 成功路径，连接已建立；省略 REST、路由选择、重试、握手与异常帧。",
+        "get[s] 全名为 indices:data/read/get[s]；节点间传请求对象，不转发 HTTP URL。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "调度与完成",
+      "items": [
+        "DIRECT 接住请求，asyncShardOperation 再提交 get 池；响应 Reader 与回调按 handler.executor 执行。",
+        "条带表示这次调用的责任区间，不表示线程一直忙或帧发送完成时间。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "回程边界",
+      "items": [
+        "响应 body 不靠 action 找 Reader，而由 requestId 找原 handler；响应帧不写 action。",
+        "配置超时、断连或发送失败可移除登记项；晚到响应可能已无对应 handler。"
+      ]
+    }
+  ]
+}
