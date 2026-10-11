@@ -1,0 +1,251 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "新字段：解析候选，更新映射，再继续写入",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch11-mapping-update-20261011-133120/mapping-update.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "解析与查询"
+        },
+        "database": {
+          "label": "字段结构与映射"
+        },
+        "messagebus": {
+          "label": "候选与异步交接"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "parse",
+      "label": "解析阶段 · 主分片使用当前 mapping"
+    },
+    {
+      "id": "primary",
+      "label": "检查阶段 · 尚未提交 Engine 写入"
+    },
+    {
+      "id": "publish",
+      "label": "发布与继续 · 主节点更新，主分片等待"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "parse",
+      "lane": "parse",
+      "col": 2,
+      "type": "backend",
+      "label": "查现有 mapper",
+      "sublabel": "DocumentParser；新字段走 dynamic",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/DocumentParser.java",
+          "line": 858,
+          "end_line": 924
+        }
+      ]
+    },
+    {
+      "id": "candidate",
+      "lane": "parse",
+      "col": 2,
+      "type": "messagebus",
+      "label": "生成更新候选",
+      "sublabel": "ParsedDocument 携带 dynamicUpdate",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/DocumentParser.java",
+          "line": 116,
+          "end_line": 128
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/DocumentParser.java",
+          "line": 287,
+          "end_line": 297
+        }
+      ]
+    },
+    {
+      "id": "gate",
+      "lane": "primary",
+      "col": 2,
+      "type": "backend",
+      "label": "暂停写入并预检",
+      "sublabel": "update 非空；检查冲突 / no-op",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 1028,
+          "end_line": 1054
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportShardBulkAction.java",
+          "line": 549,
+          "end_line": 560
+        }
+      ]
+    },
+    {
+      "id": "send",
+      "lane": "primary",
+      "col": 2,
+      "type": "messagebus",
+      "label": "向主节点请求更新",
+      "sublabel": "updateMappingOnMaster",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportShardBulkAction.java",
+          "line": 240,
+          "end_line": 263
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportShardBulkAction.java",
+          "line": 563,
+          "end_line": 588
+        }
+      ]
+    },
+    {
+      "id": "master",
+      "lane": "publish",
+      "col": 2,
+      "type": "database",
+      "label": "合并权威 mapping",
+      "sublabel": "MetadataMappingService；更新版本",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/metadata/MetadataMappingService.java",
+          "line": 175,
+          "end_line": 239
+        }
+      ]
+    },
+    {
+      "id": "retry",
+      "lane": "publish",
+      "col": 2,
+      "type": "backend",
+      "label": "等待后重解析、再写入",
+      "sublabel": "主分片见新版本；无更新才进 Engine",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportShardBulkAction.java",
+          "line": 563,
+          "end_line": 588
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 1028,
+          "end_line": 1054
+        }
+      ]
+    }
+  ],
+  "mainPath": [
+    "parse",
+    "candidate",
+    "gate",
+    "send",
+    "master",
+    "retry"
+  ],
+  "edges": [
+    {
+      "id": "parse-candidate",
+      "from": "parse",
+      "to": "candidate",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "candidate-gate",
+      "from": "candidate",
+      "to": "gate",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "gate-send",
+      "from": "gate",
+      "to": "send",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "send-master",
+      "from": "send",
+      "to": "master",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "master-retry",
+      "from": "master",
+      "to": "retry",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "parse-retry",
+      "from": "parse",
+      "to": "retry",
+      "variant": "default",
+      "label": "无新字段",
+      "role": "branch",
+      "fromSide": "right",
+      "toSide": "right",
+      "route": "outside-right"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "更新候选与集群状态不是同一份东西",
+      "items": [
+        "限定普通索引、dynamic:true、新字段产生实际更新的成功路径。箭头表示调用 / 异步交接；发布、节点应用与等待作职责抽象。",
+        "本地解析只生成候选；主节点合并并写索引元数据。主分片等待 mapping 版本变化后重试；映射已满足时可走 no-op 重试。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "哪些条件会停止这条路径",
+      "items": [
+        "strict 未知字段、字段类型 / 参数冲突、字段限额或解析错误可使本项失败；动态更新失败和等待超时分别回传。",
+        "dynamic:false 不为未知字段建 mapper；runtime 生成查询时字段。已有 mapping 不等于当前文档一定写入成功；搜索可见性另看 refresh。"
+      ]
+    }
+  ]
+}

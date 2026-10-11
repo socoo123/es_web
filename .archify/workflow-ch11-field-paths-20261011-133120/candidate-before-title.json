@@ -1,0 +1,218 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "同一字符串：text 的词项与 keyword 的整串",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch11-field-paths-20261011-133120/field-paths.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "解析与查询"
+        },
+        "database": {
+          "label": "字段结构与映射"
+        },
+        "messagebus": {
+          "label": "候选与异步交接"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "input",
+      "label": "输入 · 一份 JSON 值复用到主字段与子字段"
+    },
+    {
+      "id": "textlane",
+      "label": "全文字段 · text 的分析词项与查询"
+    },
+    {
+      "id": "keywordlane",
+      "label": "完整值字段 · keyword 的词项与查询"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "value",
+      "lane": "input",
+      "col": 2,
+      "type": "backend",
+      "label": "Elasticsearch Guide",
+      "sublabel": "FieldMapper.parse：主字段与子字段",
+      "width": 280,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/FieldMapper.java",
+          "line": 191,
+          "end_line": 213
+        }
+      ]
+    },
+    {
+      "id": "text",
+      "lane": "textlane",
+      "col": 2,
+      "type": "backend",
+      "label": "title · text",
+      "sublabel": "tokenized=true；Lucene 执行分析",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/TextFieldMapper.java",
+          "line": 129,
+          "end_line": 136
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/TextFieldMapper.java",
+          "line": 1695,
+          "end_line": 1721
+        }
+      ]
+    },
+    {
+      "id": "keyword",
+      "lane": "keywordlane",
+      "col": 2,
+      "type": "backend",
+      "label": "title.keyword",
+      "sublabel": "tokenized=false；单个完整词项",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/KeywordFieldMapper.java",
+          "line": 128,
+          "end_line": 144
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/KeywordFieldMapper.java",
+          "line": 1373,
+          "end_line": 1407
+        }
+      ]
+    },
+    {
+      "id": "textquery",
+      "lane": "textlane",
+      "col": 2,
+      "type": "backend",
+      "label": "elasticsearch / guide",
+      "sublabel": "match 分析；小写 term 也可命中",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/search/MatchQueryParser.java",
+          "line": 246,
+          "end_line": 279
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/TermBasedFieldType.java",
+          "line": 65,
+          "end_line": 75
+        }
+      ]
+    },
+    {
+      "id": "keywordquery",
+      "lane": "keywordlane",
+      "col": 2,
+      "type": "backend",
+      "label": "Elasticsearch Guide",
+      "sublabel": "term / match；doc_values 聚合排序",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/KeywordFieldMapper.java",
+          "line": 1085,
+          "end_line": 1101
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/search/MatchQueryParser.java",
+          "line": 259,
+          "end_line": 273
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/KeywordFieldMapper.java",
+          "line": 128,
+          "end_line": 144
+        }
+      ]
+    }
+  ],
+  "mainPath": [
+    "text",
+    "textquery"
+  ],
+  "edges": [
+    {
+      "id": "value-text",
+      "from": "value",
+      "to": "text",
+      "variant": "default",
+      "role": "branch",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "value-keyword",
+      "from": "value",
+      "to": "keyword",
+      "variant": "default",
+      "role": "branch",
+      "fromSide": "right",
+      "toSide": "right",
+      "route": "outside-right"
+    },
+    {
+      "id": "text-textquery",
+      "from": "text",
+      "to": "textquery",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "keyword-keywordquery",
+      "from": "keyword",
+      "to": "keywordquery",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "字段结构决定匹配规则",
+      "items": [
+        "这是普通 standard 索引的具体示例，省略 IndexWriter 与查询内部节点；箭头表示字段解析与查询处理路径，不是磁盘读取时序。",
+        "两个 mapper 使用同一原值，_source 不会多出 title.keyword。分析出的词项是写入结构预期；_analyze 本身不写文档。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "这些默认行为都有条件",
+      "items": [
+        "search_analyzer 或请求 analyzer 可改变 text 查询分析；keyword normalizer 可改变写入和查询规范化。match 也能查询 keyword，term 也能查询 text 的准确词项。",
+        "text 默认不聚合，fielddata / doc_values 等显式配置另判；keyword 值超过 ignore_above 时该字段不索引 / 不写 doc_values，主 text 可仍保留。"
+      ]
+    }
+  ]
+}

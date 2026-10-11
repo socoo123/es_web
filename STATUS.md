@@ -16,7 +16,7 @@
 | ch08 | 异步编程模型 | ✅ | 15 | 1(线程池背压) | ✅ 回调与调度边界（2 图，2 路径动画） |
 | ch09 | 传输层 | ✅ | 12 | — | ✅ 远程往返与帧契约（2 图，2 路径动画） |
 | ch10 | 跟踪一次文档读取 | ✅ | 26 | 1(realtime GET·9 步) | ✅ GET 旅程与读取视图（2 图，2 路径动画） |
-| ch11 | 映射系统 | ✅ | 19 | 1(动态映射) | 待改造 |
+| ch11 | 映射系统 | ✅ | 35 | 1(动态映射·9 步) | ✅ 更新候选与字段结构（2 图，2 路径动画） |
 | ch12 | 摄取管道 | ✅ | 20 | — | 待改造 |
 | ch13 | 批量写入 | ✅ | 13 | 1(bulk 分组) | 待改造 |
 | ch14 | 存储引擎 | ✅ | 29 | 1(写入全路径·旗舰) | 待改造 |
@@ -161,7 +161,30 @@
 | ch10 | refresh_interval=-1 就必不生成 segment，非实时只可能 404；GET 分池不会被搜索拖慢，可最多一秒旧 | -1 只关闭周期刷新；INTERNAL / EXTERNAL 分开，已发布旧值可 200；分池仍共享资源，调度周期不保证可见性时限 | InternalEngine、IndexShard、TransportGetAction.getExecutor；新增 A12–A14 新旧版本对照 |
 | ch10 | 19 卡缺显式 mapping / 等待 / 重复与旧视图恢复条件 | 保留全部 19 ID，增 7 卡，共 2 组 / 26 卡；显式 standard / stored source / mapping / refresh / 健康等待，点名 清理后完整重做；预期与实测分开 | [experiments/ch10.js](experiments/ch10.js)、[本轮验收](.archify/CH10-REVIEW.md) |
 
+### 第十一章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch11 | 第一篇文档写死全部 schema，动画“8 字段定稿” | 后续仍可增加新字段；A3 为 7 叶子 + 1 object + 3 multi-field = 11 计数字段，6 顶层键不是字段总数 | DynamicFieldsBuilder、FieldMapper / ObjectMapper / RootObjectMapper.getTotalFieldsCount；固定链接见本章 |
+| ch11 | price 已 float，再写字符串 "29.99" 必 400 | 默认数值 coerce=true 可解析，mapping 仍 float、stored source 仍字符串；not-a-number 才在本例失败 | NumberFieldMapper.COERCE_SETTING / value / FLOAT.parse；新增 A7–A9，本轮 API 未实测 |
+| ch11 | createDynamicUpdate 经本地 MapperService.merge 直接合并 cluster state | 本地候选随 ParsedDocument 返回；主分片预检、向主节点提交、权威元数据更新、等待版本变化重解析后才进 Engine | DocumentParser、IndexShard、TransportShardBulkAction、MetadataMappingService；图 01 |
+| ch11 | FieldMapper.checkIncomingMergeType 为实际合并入口，自动保旧就使文档必错 | 9.4.0 MapperService 合并 builder；FieldMapper.Builder.mergeWith / throwMergeTypeConflict 检查类型，auto update 可保旧，重解析是否失败仍看输入 / coercion | MapperService 624–626、FieldMapper 1737–1779 |
+| ch11 | term / 聚合 / sort 都要 keyword，match 只能 text；查询必用写入同分析器 | text 的准确词项可被 term 命中；keyword match 可走单词项快捷路径；term 匹配倒排词项；search_analyzer / 请求 analyzer / normalizer 改变规则 | TermBasedFieldType、MatchQueryParser、KeywordFieldMapper；B3–B7 |
+| ch11 | false 是安静丢失，字段无处安身 | 本例 stored source 保留未知原值；GET 可见、刷新后普通 exists 不可见，也可提供请求级 runtime 视图 | DocumentParser.parseDynamicValue；C7–C10 |
+| ch11 | runtime 不撑 mapping，小数沿用 float；高基数逼近字段总数 | 映射 runtime 仍计入 total_fields，字符串 keyword、小数 double；值基数与字段路径数分开 | DynamicFieldsBuilder.Runtime、RootObjectMapper.getTotalFieldsCount；C11–C13 |
+| ch11 | dense_vector 必显式，浮点数组永远普通多值 float | 满足创建版本、128–4096 个 float、无模板覆盖 / 非 copy_to 等条件可自动映射 vector | DocumentParser.postProcessDynamicArrayMapping、DenseVectorFieldMapper 243–246 |
+| ch11 | mapping 除 type 都可改，新增子字段立即用于旧文档 | 参数按 mapper 的更新规则判断；新增 mapping 不自动回填历史值，相关文档需重新解析 | FieldMapper.Builder / 参数合并规则；D1–D3 与正文 |
+| ch11 | 19 卡缺健康等待、重复条件，false 缺原值 / 查询证据 | 原 19 ID 保留，增 16，共 5 组 / 35 卡；显式配置、局部等待 / refresh、错误恢复、四索引点名清理并重做 | [experiments/ch11.js](experiments/ch11.js)、[验收记录](.archify/CH11-REVIEW.md) |
+
 ## 会话日志
+
+### 2026-10-11(第十一章按统一规范重构)
+
+- 固定 ES v9.4.0 提交核对 16 个源码文件 / 43 个区间，重写映射候选 / 主节点发布 / 等待重解析、动态推断、字段结构、四种 dynamic 与合并护栏；正文约 4035 中文字。勘误同步图源、解说、实验、问答与速记。
+- 保留原 19 操作 ID 和 ch11-dynamic-mapping；新增 16 卡，共 5 组 / 35 卡，机制动画改为 9 步。显式 standard / stored source / coerce / ignore_malformed / 分片 / 刷新条件，限定健康等待、错误与重复预期，四索引点名清理。全站 30 正式页 / 464 卡 / 22 机制播放器；本章 2 图 / 2 条有限 trace。
+- 官方 Archify 3.0.1 两图 Workflow v2 从首次附固定源码与真实 checkout，只改 JSON。mapping-update 当前根目录收据、field-paths review-4；原生 validate / deliver / strict check 均 showcase 9/9、0 errors / warnings、provenance current。原生 file URL 策略使 browser-check / finalize 整体仍 fail；旧候选、原生收据、初始 mainPath 与 390px 裁切的历史证据保留。
+- 独立 HTTP 最终通过：两图四档桌面尺寸 / 双主题、章节六档宽度 / 双主题、880px 列 / ≤1px 对齐、页面 / iframe 容纳与全 SVG 节点、探索 / 来源 / 关闭 / 展开、暂停外层重播 / Enter、目录 / 已读、九步播放器 / 键盘、35 卡实际控制台导航核对 method / path / body、端点 / auth alias / raw、Pages 前缀与 reduced motion。390 / 320px 舞台 / 源码表局部滚动通过；实际查看 24 张最终截图，共享文件未改。
+- 站点、JS、figwidth、stable ID 与 diff 检查通过。9200 连接拒绝、运行时缺 /proc/self/coredump_filter，真实首次 / 清理后重做未执行，未模拟 ES 返回。验收见 [.archify/CH11-REVIEW.md](.archify/CH11-REVIEW.md)，当前哈希 / 收据 / 24 图绑定见 [.archify/review/ch11-artifacts.json](.archify/review/ch11-artifacts.json)；按持续授权提交并推送 origin/main。
 
 ### 2026-10-11(第十章按统一规范重构)
 
