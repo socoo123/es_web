@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch15-routing-20261011-213048/candidate.json",
+    "sha256": "31eca6379b118a4339e87c377ee9e19cdec2a6c30ad1dba45919f6f28e4ca873",
+    "bytes": 5846
+  },
+  "artifact": {
+    "path": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch15-routing-20261011-213048/routing.html"
+  },
+  "gates": {
+    "validate": "fail",
+    "deliver": "not-run",
+    "check": "not-run",
+    "browser-check": "not-run"
+  },
+  "failedStage": "validate",
+  "diagnostics": [
+    {
+      "code": "repository-evidence/line-out-of-range",
+      "severity": "error",
+      "message": "/nodes/1/sources/0 requests line 50, but server/src/main/java/org/elasticsearch/cluster/routing/Murmur3HashFunction.java has 49 lines at revision 2e8528e92361c3399724226deaf2b46f933e925b.",
+      "subject": {
+        "surface": "repository-evidence",
+        "path": "/nodes/1/sources/0",
+        "diagramType": "workflow",
+        "collection": "nodes",
+        "nodeId": "hash-shard"
+      },
+      "evidence": {
+        "sourcePath": "server/src/main/java/org/elasticsearch/cluster/routing/Murmur3HashFunction.java",
+        "requestedLine": 50,
+        "lineCount": 49,
+        "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+      },
+      "supportedFixes": [
+        "use a line range that exists at the pinned revision"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch15-routing-20261011-213048/routing.finalize.json",
+    "summaryReceipt": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch15-routing-20261011-213048/routing.finalize-summary.json"
+  },
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 246,
+  "nextAction": {
+    "action": "edit-in-place",
+    "candidate": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch15-routing-20261011-213048/candidate.json",
+    "constraint": "Preserve unaffected semantics and geometry; do not replace the whole candidate.",
+    "then": "finalize-once"
+  }
+}

@@ -20,7 +20,7 @@
 | ch12 | 摄取管道 | ✅ | 48 | — | ✅ 摄取写入与失败恢复（2 图，2 路径动画） |
 | ch13 | 批量写入 | ✅ | 40 | 1(bulk 分组·6步) | ✅ 分组结果与写入等待（2 图，2 路径动画） |
 | ch14 | 存储引擎 | ✅ | 46 | 1(写入全路径·8步) | ✅ 写入顺序与提交边界（2 图，2 路径动画） |
-| ch15 | 索引分片 | ✅ | 16 | 1(路由公式) | 待改造 |
+| ch15 | 索引分片 | ✅ | 40 | 1(路由公式·7步) | ✅ 路由碰撞与本地生命周期（2 图，2 路径动画） |
 | ch16 | 搜索流程总览 | ✅ | 14 | 1(Query Then Fetch·旗舰) | 待改造 |
 | ch17 | 搜索服务与搜索上下文 | ✅ | 18 | 1(上下文生命周期) | 待改造 |
 | ch18 | 查询语法 | ✅ | 19 | 1(match→SHOULD) | 待改造 |
@@ -220,7 +220,31 @@
 | ch14 | flush阈值下限一概10MB、segment deleted_in_bytes字段、merge后deleted=0 | 10MB仅为磁盘保护阈值下限，显式flush值可更低；无deleted_in_bytes；软删除保留受safe commit/leases约束 | IndexSettings362–379、1762–1775；IndicesSegmentResponse121–137；SoftDeletesPolicy99–151 |
 | ch14 | forcemerge无响应body/只提交后台；实验只给1主0副、无等待与恢复 | 默认同步等待返回_shards，flush=true还有外部刷新；原29ID保留，增17，共4组46卡，显式配置、健康、设置恢复、write block和重复清理 | RestForceMergeAction49–59；InternalEngine2802–2838；[注册表](experiments/ch14.js)、[验收](.archify/CH14-REVIEW.md)；本轮API未实测 |
 
+### 第十五章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch15 | OperationRouting.generateShardId伪源码；公式不限定创建版本/模式 | 实际IndexRouting，限定新建普通非分区、无routing_path/resharding；旧创建版本用routingNumShards/routingFactor | 固定源码IndexRouting59–72、147–175、309–350；24文件/45区间审计 |
+| ch15 | brown=741580288→片1，brown-1=-616020358→片2 | 字符串UTF-16LE而非UTF-8；真实998382972/−2007555306均片0，缺省GET仍200；route-0=512605379→片2作确定404反例 | Murmur3HashFunction27–48，官方7向量；ES9.4.0两轮实测0/0/2 |
+| ch15 | 不同键必错片，忘routing的搜索也漏；required等于键内容正确 | 不同键可同片；无routing普通搜索查全部片，routing只缩范围；required拒文档请求缺失、不禁无routing搜索 | OperationRouting140–193，IndexRouting文档/搜索分支；两轮API同片200/跨片404/搜索2→0 |
+| ch15 | GET与搜索都默认ARS，读副本瞬时一样 | 普通GET不传排名统计；搜索有统计时可ARS，不承诺最快或所有reader同步；单节点不是复制证据 | OperationRouting62–115、IndexShardRoutingTable328–345 |
+| ch15 | Final失败后所有键换片、数据蒸发、只能reindex；固定final检查文案 | 更新拒绝、原设置3及GET不变；不同布局按条件resize/reindex；开放索引入口实际400 reason为non dynamic setting(s) | IndexMetadata222–239、MetadataUpdateSettingsService258–285；B4–B6两轮实测 |
+| ch15 | 副本是整份文件拷贝，UNASSIGNED不在复制组却total=2 | 同逻辑数据不保证segment布局相同；配置total可含未分配拷贝，未分配不是本次复制失败；局部等待yellow/green | 本课抽象范围、两轮写入_shards=2/1/0及限定健康 |
+| ch15 | peer先落完全部ops再开Engine，五态唯一链、第二Engine永不可能 | 文件/已有目录准备后RECOVERING内开Engine，再重放/phase2；可提前close，恢复写独立；省略替换与迁移细节 | IndexShard、StoreRecovery、RecoveryTarget371–379、RecoverySourceHandler298–351 |
+| ch15 | _close后GET固定403 cluster_block_exception | 本例实测400 index_closed_exception/closed；SingleShardRequest禁止closed，具体解析先于索引block，403是block自身映射；本地闸门404另层 | IndexNameExpressionResolver805–818、TransportSingleShardAction190–203、IndexClosedException；两轮API |
+| ch15 | 16卡缺显式mapping/等待/重复条件，健康请求含无效v | 原16ID及七步机制保留，增24共4组40卡；显式配置、同片/跨片、search/required、Final读回、close/open与两索引点名清理重做 | [注册表](experiments/ch15.js)、[两轮真实响应](.archify/review/ch15-es-review.json)、[验收](.archify/CH15-REVIEW.md) |
+
 ## 会话日志
+
+### 2026-10-11(第十五章按统一规范重构)
+
+- 固定ES9.4.0/Lucene10.4.0核对24源码文件/45精确区间；重写路由策略/创建版本、UTF-16LE哈希、同片碰撞与搜索范围、GET/搜索ARS差异、Final与动态副本、本地五态/恢复/关闭层次。正文、两图、七步机制、卡片、问答与速记同步，保留16稳定ID。
+- 4组40卡（A17/B8/C7/D6/清理2）、2图/2条有限trace/1七步机制。显式standard/stored source/strict keyword/3主片/非分区/无管道/刷新/active条件；限定健康等待、错误恢复、首次/重复与点名清理。全站30正式页/560卡/22机制播放器。
+- 官方Archify3.0.1，首次附固定源码/真实checkout，只改JSON；routing当前review-2、life当前review-3。两图validate/deliver/strict check showcase9/9、0errors/warnings、provenance current；原生browser-check与finalize整体均PASS。历史沙箱Chrome、画布比例与手机横排裁切诊断保留，纵向支线和intrinsic fit修复后HTTP通过。
+- HTTP：两图四档桌面/双主题、章节六档宽度、880px/≤1px对齐、页面/iframe/所有节点完整、探索/来源/关闭/展开、暂停后外层重播/Enter、目录/已读、七步与键盘、40真实控制台深链及请求内容、endpoint/auth alias/raw、Pages前缀、reduced motion通过；390/320源码表与SVG局部滚动通过。实际查看24张最终截图；手机图细字需探索/展开缩放，旧SVG局部滑动。共享文件未改。
+- **真实API两轮40卡PASS**：沙箱外9200实际提供9.4.0，build_hash匹配；0/0/2落点、同片缺省GET200/跨片404、无routing搜索2/错误routing0、required文档400/搜索200、Final拒绝后仍3与可读、yellow→green→yellow、closeGET实际400/index_closed_exception、open后数据保留及EXISTING_STORE/DONE。点名清理后重做，最后HEAD两索引404。初期探测失败不代表当前未实测；最终浏览器检查阻断console深链自动执行，API响应单独保存。
+- JS语法、figwidth、diff、16稳定ID/40有序唯一槽位及静态路径/站点检查通过。验收[CH15-REVIEW](.archify/CH15-REVIEW.md)，证据绑定[ch15-artifacts](.archify/review/ch15-artifacts.json)；按授权提交推送origin/main，Pages部署完成未核验。
+
 
 ### 2026-10-11(第十四章按统一规范重构)
 

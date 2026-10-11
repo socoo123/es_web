@@ -1,365 +1,90 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>第 15 课:索引分片 — ES 源码精读站</title>
-  <link rel="stylesheet" href="../assets/css/style.css">
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
-    <nav class="tnav">
-      <a href="../index.html">课程</a>
-      <a href="../architecture.html">架构</a><a href="../console.html">控制台</a>
-      <a href="../cheatsheet.html">速查表</a>
-    </nav>
-    <span class="spacer"></span>
-    <button class="theme-toggle" type="button">🌙 深色</button>
-  </header>
-
-  <main class="wrap">
-    <article class="chapter" id="ch15" data-ch="ch15">
-      <header class="ch-header">
-        <div class="ch-kicker">LESSON 15 · 第三篇 · 数据写入 · 收官</div>
-        <h1>索引分片</h1>
-        <div class="ch-meta-line">一篇文档住哪:路由公式与分片的一生 · 约 16 分钟 · 前置:第 13、14 课(建议回顾第 5 课) · 16 个实验</div>
-      </header>
-
-      <section class="goal">
-        <h2>学习目标</h2>
-        <ul>
-          <li>对任意 <code>_id</code> / <code>routing</code>,说出三步片号演算:murmur3 哈希 → <code>floorMod</code> 取模 → 除数是主分片数;并用 <code>_search_shards?routing=</code> 亲眼核对(实验 5)。</li>
-          <li>说出 <code>index.number_of_shards</code> 为什么是 <code>Property.Final</code>、<code>number_of_replicas</code> 为什么是 Dynamic;在单节点上演示 yellow↔green 在线往返(实验 8-9)。</li>
-          <li>打开 <code>IndexShard</code>:指出构造函数只把状态置成 <code>CREATED</code>(Engine 还是 null),<code>createEngine</code> 发生在 <code>RECOVERING</code> 阶段的 <code>innerOpenEngineAndTranslog</code>;GET 被 <code>readAllowed()</code> 拦在 <code>Engine.get</code> 之前。</li>
-        </ul>
-      </section>
-
-      <section class="lesson">
-        <h2>1. 心智模型:索引是名字,分片才是家</h2>
-        <p>写入篇走到收官:第 13 课看请求怎么按分片切开,第 14 课进了一片里的 <code>InternalEngine</code>。中间缺的一环是——<strong>凭什么切给这一片?这一片又是个什么东西?</strong>答案的前半句是路由公式,后半句是:分片自己就是一个完整的 Lucene 索引。所谓「索引」,只是元数据里的一个名字(映射 + 设置);数据从来不住在索引这层,而住在它的每个主分片里——各有一套 segments、各有一份 translog、各做各的 merge,互不通气。副本不是「半份数据」,是把某一主分片整份复制到另一台机器。</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 172" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah15a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="10" y="35" width="150" height="100" rx="10" class="fig-box"/>
-              <text x="85" y="60" text-anchor="middle" class="fig-name">索引(逻辑名字)</text>
-              <text x="85" y="82" text-anchor="middle" class="fig-sub">mappings</text>
-              <text x="85" y="102" text-anchor="middle" class="fig-sub">settings</text>
-              <text x="85" y="122" text-anchor="middle" class="fig-sub">数据不在这层</text>
-              <line x1="162" y1="85" x2="204" y2="85" class="fig-arrow" marker-end="url(#ah15a)"/>
-
-              <rect x="210" y="35" width="165" height="100" rx="10" class="fig-box-hot"/>
-              <text x="292" y="60" text-anchor="middle" class="fig-name">分片 0 = Lucene 索引</text>
-              <text x="292" y="82" text-anchor="middle" class="fig-sub">自己的 segments</text>
-              <text x="292" y="102" text-anchor="middle" class="fig-sub">自己的 translog</text>
-              <text x="292" y="122" text-anchor="middle" class="fig-sub">独立 merge,互不通气</text>
-
-              <rect x="395" y="35" width="165" height="100" rx="10" class="fig-box"/>
-              <text x="477" y="60" text-anchor="middle" class="fig-name">分片 1 = Lucene 索引</text>
-              <text x="477" y="82" text-anchor="middle" class="fig-sub">自己的 segments</text>
-              <text x="477" y="102" text-anchor="middle" class="fig-sub">自己的 translog</text>
-              <text x="477" y="122" text-anchor="middle" class="fig-sub">独立 merge,互不通气</text>
-
-              <rect x="580" y="35" width="165" height="100" rx="10" class="fig-box"/>
-              <text x="662" y="60" text-anchor="middle" class="fig-name">分片 2 = Lucene 索引</text>
-              <text x="662" y="82" text-anchor="middle" class="fig-sub">自己的 segments</text>
-              <text x="662" y="102" text-anchor="middle" class="fig-sub">自己的 translog</text>
-              <text x="662" y="122" text-anchor="middle" class="fig-sub">独立 merge,互不通气</text>
-
-              <text x="380" y="160" text-anchor="middle" class="fig-sub">数据全住在分片层:每片是一个自给自足的 Lucene 索引;副本是整份拷贝,不是半份</text>
-            </svg>
-          </div>
-          <figcaption>图 1 · 这也是「分片即独立 Lucene 索引」的实验依据:docs 计数、segment 列表、merge 全都按片统计(实验 3、6)。</figcaption>
-        </figure>
-
-        <h2>2. 关键源码文件</h2>
-        <table class="ktable">
-          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
-          <tr><td><code>server/.../cluster/routing/OperationRouting.java</code></td><td><code>generateShardId</code>:钥匙选择 → <code>Murmur3HashFunction.hash</code> → <code>Math.floorMod</code>;<code>shards()</code> 拿片号去查路由表</td></tr>
-          <tr><td><code>server/.../cluster/routing/ShardRoutingState.java</code></td><td><code>_cat/shards</code> 那个 state 列的枚举:UNASSIGNED / INITIALIZING / STARTED / RELOCATING</td></tr>
-          <tr><td><code>server/.../index/shard/IndexShard.java</code></td><td>构造只置 <code>CREATED</code>;<code>innerOpenEngineAndTranslog</code> 里 <code>createEngine</code>;<code>innerGet</code> 第一行 <code>readAllowed()</code>;<code>close()</code> 先改状态再摘引用</td></tr>
-          <tr><td><code>server/.../index/shard/IndexShardState.java</code></td><td>进程内五态:CREATED / RECOVERING / POST_RECOVERY / STARTED / CLOSED——Engine 的生死挂在这条链上</td></tr>
-          <tr><td><code>server/.../index/IndexService.java</code></td><td><code>createShard</code>:拿 ShardLock、建 Store、<code>new IndexShard(...)</code>,全程没有 <code>createEngine</code></td></tr>
-        </table>
-
-        <h2>3. 路由公式:一篇文档只属于一个主分片</h2>
-        <p>ES 里没有「文档漂移」:一篇文档从写入那一刻起就钉死在一个主分片上,之后的每次读写都用同一个式子重新算出同一片——</p>
-        <pre class="code-block"><code>shard = Math.floorMod( murmur3(_routing), number_of_primary_shards )</code></pre>
-        <p>精读 <code>OperationRouting.generateShardId</code>,整个决定只有三步:</p>
-        <pre class="code-block"><code>// server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java
-public static int generateShardId(IndexMetadata indexMetadata, @Nullable String id, @Nullable String routing) {
-    final String effectiveRouting = routing == null ? id : routing;  // ① 钥匙:不传 routing 就用 _id
-    ...
-    return calculateScaledShardId(indexMetadata, effectiveRouting, hashOffset);
-}
-
-private static int calculateScaledShardId(IndexMetadata indexMetadata, String effectiveRouting, int hashOffset) {
-    final int hash = Murmur3HashFunction.hash(effectiveRouting);     // ② murmur3:字符串 → 32 位有符号整数
-    return Math.floorMod(hash, indexMetadata.getNumberOfShards());   // ③ 除数 = 主分片数,结果即片号
-}</code></pre>
-        <p>三个参与者各有讲究。<strong>钥匙</strong>:写、GET、搜索都要带同一把;不传 <code>routing</code> 时用 <code>_id</code>,而自动生成的 <code>_id</code> 是随机串,散列后近似均匀地铺满各片——这就是默认写入大致均衡的原因。<strong>哈希</strong>:选 murmur3 而不是 <code>String.hashCode</code>,要的是跨版本、跨客户端都稳定——片号绝不能依赖某个 JDK 的内部实现;<code>"brown"</code> 的哈希是 741580288,在你机器上、在 9.4.0 上、在十年后都一样。<strong>取模</strong>:用的是 <code>Math.floorMod</code> 而不是 <code>%</code>,因为 murmur3 返回有符号整数,可能为负——比如 <code>"brown-1"</code> 的哈希是 -616020358,<code>% 3</code> 会得到 -1(不存在 -1 号分片),<code>floorMod</code> 保证结果永远落在 <code>[0, N)</code>。</p>
-
-        <div class="fp-slot" data-flow="ch15-routing-formula"></div>
-
-        <p>动画演的是「过程」:钥匙 → 哈希 → 取模 → 查表 → 挑副本。第 13 课的图 2 画过双钥匙路由的静态结构,这里补上它每一格真正发生的事。想把演算结果变成能敲的门,用 <code>_search_shards</code>:不带参数返回全部片(搜索要广播),带 <code>routing=</code> 只返回那一片(实验 4、5)。</p>
-        <div class="callout tip"><span class="co-title">💡 routing 的正确打开方式:</span>按租户/用户固定钥匙(如 <code>routing=user-42</code>),让这个用户的全部文档聚在同一片——GET 和带钥匙的搜索都只打一片,省掉 fan-out。代价有二:高基数才均匀(一个巨租户会压出热点片);以及钥匙成了合同——忘带就敲错门(实验 7 亲眼看你扑空)。</div>
-
-        <h2>4. 除数为什么钉死:Final 的机制本体</h2>
-        <p>第 1 课的思考题问过「主分片数为什么改不得」,第 5 课撞过那道墙:<code>PUT /idx/_settings {"index.number_of_shards": 5}</code> 直接 400 <code>final index setting [index.number_of_shards], not updateable</code>。现在机制能说全了:<strong>主分片数是取模的除数</strong>。N 一变,所有存量钥匙的 <code>floorMod</code> 结果全部改写——文档并没有被删,但按新除数再也算不到它住的那片,等于就地蒸发。ES 没有在线重散列,与其提供一个必然弄丢数据的开关,不如用 <code>Property.Final</code> 干脆拒绝。想要不同的分片数,正道是建新索引 + <code>_reindex</code>。对照之下 <code>number_of_replicas</code> 只是「每片要几份拷贝」,不进公式,所以是 Dynamic,0↔1 随时在线改(实验 8-10)。</p>
-
-        <h2>5. 从片号到节点:查路由表,自适应挑副本</h2>
-        <p>片号只是编号,请求最终要落到「某台机器上的某份拷贝」。这一步不算,查表:cluster state 的路由表按索引组织(<code>IndexRoutingTable</code> → 每片一个 <code>IndexShardRoutingTable</code>),里面列着这一片的主分片和各副本分别在哪台节点、什么状态。<code>OperationRouting.shards()</code> 拿片号取到这一组,迭代器交给上层。</p>
-        <p>一组里选谁?搜索和 GET 是只读,读谁都拿到同一份数据,所以<strong>没有 preference 时走自适应副本选择</strong>(ARS,设置 <code>cluster.routing.use_adaptive_replica_selection</code>,默认 true、Dynamic):按各节点近期的响应时间与队列长度估计「谁最快」,而不是简单轮询——主副一视同仁。写路径是唯一例外:必须先写主分片,再由主复制给在位的副本,那是第 13 课的复制链。单节点是最直观的对照组:replica 无处放,路由表里这组只剩 primary 一个可选项,集群因此 yellow(第 1 课的结构性黄)——病根不在分片层,在拓扑。</p>
-
-        <h2>6. 分片的一生:构造时还没有 Engine</h2>
-        <p>路由表告诉你打哪一片;那一片在节点上是个 <code>IndexShard</code> 对象。它封装这一份拷贝的 Store 与 Engine,但注意时序:<strong>对象先存在,Engine 后出生</strong>。<code>IndexService.createShard</code> 里只做三件事——拿 <code>ShardLock</code>、建 <code>Store</code>(Lucene 目录的封套)、<code>new IndexShard(...)</code>;构造函数末尾把状态置成 <code>CREATED</code>,<code>currentEngine</code> 那个 <code>AtomicReference</code> 还是空的。原因在于 IndexWriter 需要一份「已经合法」的 Lucene 目录,而 <code>CREATED</code> 这一刻目录可能是空的(新索引 <code>EMPTY_STORE</code>)、可能是半份别人拷来的文件(<code>PEER</code>)、也可能是上次崩溃留下的旧 commit(<code>EXISTING_STORE</code>)——构造函数无从判断文件是否就绪,Engine 只能等恢复阶段把目录摆好再建:</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah15b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <text x="152" y="66" text-anchor="middle" class="fig-sub">markAsRecovering</text>
-              <text x="304" y="66" text-anchor="middle" class="fig-sub">postRecovery</text>
-              <text x="456" y="66" text-anchor="middle" class="fig-sub">updateShardState</text>
-              <text x="608" y="66" text-anchor="middle" class="fig-sub">close()</text>
-
-              <rect x="12" y="78" width="128" height="88" rx="9" class="fig-box"/>
-              <text x="76" y="104" text-anchor="middle" class="fig-name">CREATED</text>
-              <text x="76" y="126" text-anchor="middle" class="fig-sub">Engine = null</text>
-              <text x="76" y="146" text-anchor="middle" class="fig-sub">构造函数止步于此</text>
-              <line x1="142" y1="122" x2="158" y2="122" class="fig-arrow" marker-end="url(#ah15b)"/>
-
-              <rect x="164" y="78" width="128" height="88" rx="9" class="fig-box-hot"/>
-              <text x="228" y="104" text-anchor="middle" class="fig-name">RECOVERING</text>
-              <text x="228" y="126" text-anchor="middle" class="fig-sub">恢复进行中</text>
-              <text x="228" y="146" text-anchor="middle" class="fig-sub">后半 createEngine</text>
-              <line x1="294" y1="122" x2="310" y2="122" class="fig-arrow" marker-end="url(#ah15b)"/>
-
-              <rect x="316" y="78" width="128" height="88" rx="9" class="fig-box"/>
-              <text x="380" y="104" text-anchor="middle" class="fig-name">POST_RECOVERY</text>
-              <text x="380" y="126" text-anchor="middle" class="fig-sub">Engine 已开</text>
-              <text x="380" y="146" text-anchor="middle" class="fig-sub">等 active</text>
-              <line x1="446" y1="122" x2="462" y2="122" class="fig-arrow" marker-end="url(#ah15b)"/>
-
-              <rect x="468" y="78" width="128" height="88" rx="9" class="fig-box"/>
-              <text x="532" y="104" text-anchor="middle" class="fig-name">STARTED</text>
-              <text x="532" y="126" text-anchor="middle" class="fig-sub">对外读写</text>
-              <text x="532" y="146" text-anchor="middle" class="fig-sub">cluster 认定就绪</text>
-              <line x1="598" y1="122" x2="614" y2="122" class="fig-arrow" marker-end="url(#ah15b)"/>
-
-              <rect x="620" y="78" width="128" height="88" rx="9" class="fig-box"/>
-              <text x="684" y="104" text-anchor="middle" class="fig-name">CLOSED</text>
-              <text x="684" y="126" text-anchor="middle" class="fig-sub">拒绝一切请求</text>
-              <text x="684" y="146" text-anchor="middle" class="fig-sub">close() 的终点</text>
-
-              <text x="380" y="178" text-anchor="middle" class="fig-sub">Engine 的生死都在链上:CREATED 时还没有,RECOVERING 后半才 createEngine,CLOSED 先改状态再摘引用</text>
-            </svg>
-          </div>
-          <figcaption>图 2 · IndexShardState 五态链。守卫写在 <code>innerOpenEngineAndTranslog</code> 开头:状态必须是 RECOVERING,且 <code>assert currentEngine.get() == null</code>——同一份 IndexShard 上不会叠出第二个引擎。</figcaption>
-        </figure>
-
-        <pre class="code-block"><code>// server/src/main/java/org/elasticsearch/index/shard/IndexShard.java — innerOpenEngineAndTranslog
-if (state != IndexShardState.RECOVERING) {
-    throw new IndexShardNotRecoveringException(shardId, state);   // CREATED 直接调用?不行
-}
-synchronized (engineMutex) {
-    assert currentEngine.get() == null : "engine is running";
-    final Engine newEngine = createEngine(config);   // → engineFactory.newReadWriteEngine(第 14 课的 InternalEngine)
-    getAndSetCurrentEngine(newEngine);
-}</code></pre>
-        <p>空索引也照样走恢复:<code>EMPTY_STORE</code> 先 <code>markAsRecovering</code>,「空目录」也是一种就绪,然后 <code>createEngine</code>,再 <code>recoverFromTranslog</code>(空 translog 也要走一遍)。本地重启是 <code>EXISTING_STORE</code>:先开 Engine,再把没 commit 的 translog 重放到这个已存在的 Engine 上——和第 14 课写入路径同一个不变量:Lucene 目录先能打开,translog 才有地方 replay。Peer 恢复(<code>PEER</code>)是文件和 operations 先落盘,再 <code>openEngineAndSkipTranslogRecovery</code>。三路殊途同归:<strong>Engine 诞生时,状态仍是 RECOVERING</strong>;变 <code>STARTED</code> 要等后续 <code>updateShardState</code> 看到 routing 已 active——「Engine 能用了」和「cluster 认为这片可服务」不是同一时刻。</p>
-        <p>于是有了两套名字都叫 STARTED 的枚举,别对着 <code>_cat</code> 找 <code>CREATED</code>:<code>_cat/shards</code> 的 state 列来自 <code>ShardRouting.state()</code>(<code>RestShardsAction</code> 里一行 <code>table.addCell(shard.state())</code>),那是 cluster state 视角的分配状态;<code>IndexShardState</code> 才是这个 JVM 里那个对象的生命周期,空索引上 CREATED→STARTED 只有几十毫秒,curl 抓不住,要看它只能去读源码:</p>
-        <table class="ktable">
-          <tr><th><code>_cat/shards</code> 的 state(ShardRoutingState)</th><th>本节点上的 IndexShardState</th></tr>
-          <tr><td>UNASSIGNED</td><td>没有这个对象(不是 CLOSED;本节点根本没为这份拷贝 new IndexShard)</td></tr>
-          <tr><td>INITIALIZING</td><td>CREATED → RECOVERING → POST_RECOVERY</td></tr>
-          <tr><td>STARTED</td><td>STARTED</td></tr>
-          <tr><td>RELOCATING</td><td>源端仍 STARTED(还在服务);目标端是另一份 INITIALIZING</td></tr>
-        </table>
-
-        <h2>7. 读闸门:GET 在什么情况下到不了 Engine.get</h2>
-        <p>第 10、14 课的实时 GET 故事(VersionMap、translog 直查)都默认一件事:这片允许读。<code>IndexShard.get</code> 进门第一行不是 <code>engine.get</code>,是闸门——</p>
-        <pre class="code-block"><code>// server/src/main/java/org/elasticsearch/index/shard/IndexShard.java
-private static final EnumSet&lt;IndexShardState&gt; readAllowedStates = EnumSet.of(IndexShardState.STARTED, IndexShardState.POST_RECOVERY);
-
-private Engine.GetResult innerGet(Engine.Get get, ...) {
-    readAllowed();   // 闸门在 Engine.get 之前:状态不在允许集,直接抛
-    ...
-    return withEngine(engine -&gt; engine.get(get, ...));
-}</code></pre>
-        <p>允许集只有 <code>{POST_RECOVERY, STARTED}</code>——不含 CREATED、不含 RECOVERING、不含 CLOSED。带上 POST_RECOVERY 是故意的:盖住「Engine 已开、master 还没把 routing 标 active」的那扇窗,免得明明能返回 <code>_source</code> 的请求被判非法。状态不合法时抛 <code>IllegalIndexShardStateException</code>,消息形如 <code>CurrentState[CLOSED] operations only allowed when shard state is one of [POST_RECOVERY, STARTED]</code>,其 <code>status()</code> 映射 <strong>404</strong>——失败发生在分片生命周期,VersionMap 根本没被摸到。</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah15c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="10" y="26" width="140" height="64" rx="9" class="fig-box"/>
-              <text x="80" y="50" text-anchor="middle" class="fig-name">GET 请求</text>
-              <text x="80" y="70" text-anchor="middle" class="fig-sub">IndexShard.get</text>
-              <line x1="152" y1="58" x2="172" y2="58" class="fig-arrow" marker-end="url(#ah15c)"/>
-
-              <rect x="176" y="26" width="170" height="64" rx="9" class="fig-box-hot"/>
-              <text x="261" y="50" text-anchor="middle" class="fig-name">innerGet 第 1 行</text>
-              <text x="261" y="70" text-anchor="middle" class="fig-sub">readAllowed() 闸门</text>
-              <line x1="348" y1="58" x2="368" y2="58" class="fig-arrow" marker-end="url(#ah15c)"/>
-
-              <rect x="372" y="26" width="160" height="64" rx="9" class="fig-box"/>
-              <text x="452" y="50" text-anchor="middle" class="fig-name">Engine.get</text>
-              <text x="452" y="70" text-anchor="middle" class="fig-sub">VersionMap → 倒排</text>
-              <line x1="534" y1="58" x2="554" y2="58" class="fig-arrow" marker-end="url(#ah15c)"/>
-
-              <rect x="558" y="26" width="192" height="64" rx="9" class="fig-box"/>
-              <text x="654" y="50" text-anchor="middle" class="fig-name">返回 _source</text>
-              <text x="654" y="70" text-anchor="middle" class="fig-sub">第 10 课的实时读</text>
-
-              <line x1="261" y1="90" x2="261" y2="110" class="fig-arrow" marker-end="url(#ah15c)"/>
-              <rect x="176" y="114" width="250" height="72" rx="9" class="fig-box"/>
-              <text x="301" y="138" text-anchor="middle" class="fig-name">闸门拒绝 → 404</text>
-              <text x="301" y="160" text-anchor="middle" class="fig-key">IllegalIndexShardStateException</text>
-              <text x="301" y="182" text-anchor="middle" class="fig-sub">readAllowed() 在 Engine.get 之前</text>
-            </svg>
-          </div>
-          <figcaption>图 3 · 状态为 CLOSED / RECOVERING / CREATED 时,GET 死在闸门;写闸门是另一张表(writeAllowedStates 含 RECOVERING——恢复中的副本必须能接主分片发来的写)。</figcaption>
-        </figure>
-
-        <p>别把三条「closed」混成一条。本地 <code>POST /idx/_close</code> 之后再 GET,得到的是 cluster block:<code>FORBIDDEN/4/index closed</code>、HTTP <strong>403</strong>(定义在 <code>MetadataIndexStateService.INDEX_CLOSED_BLOCK</code>),协调节点就拦住了,根本到不了分片层;「GET 打到已 CLOSED 的分片对象」那个 404 通常出现在卸分片的竞态里,本地难以稳定复现,以源码为准;恢复/refresh 路径上的 <code>IndexShardClosedException</code>(<code>operation only allowed when not closed</code>)又是第三条,那是 <code>verifyNotClosed</code>,GET 主路径不走它。</p>
-        <table class="ktable">
-          <tr><th>你撞上的</th><th>报什么 / 状态码</th><th>谁抛的</th></tr>
-          <tr><td>索引 <code>_close</code> 后读写</td><td><code>blocked by: [FORBIDDEN/4/index closed]</code>,403</td><td>cluster block(到不了 IndexShard)</td></tr>
-          <tr><td>GET 打到 CLOSED 的分片对象</td><td><code>CurrentState[CLOSED] operations only allowed when…</code>,404</td><td><code>readAllowed()</code> → IllegalIndexShardStateException</td></tr>
-          <tr><td>恢复/refresh 撞上已关的分片</td><td><code>operation only allowed when not closed</code></td><td><code>verifyNotClosed</code> → IndexShardClosedException</td></tr>
-        </table>
-        <p><code>close()</code> 本身的顺序也值得记一笔:先把状态打成 <code>CLOSED</code>(此后闸门立刻拒新请求),马上 <code>getAndSetCurrentEngine(null)</code> 摘掉引用,然后才在 executor 上可选地 <code>flushAndClose()</code>——第 14 课的 flush:commit + 裁 translog。Store 不在这段里关,由 <code>IndexService.closeShard</code> 另行放文件锁、关目录。三层管理(IndicesService → IndexService → IndexShard)不必画墙纸,记住两张 <code>volatile</code> 不可变 Map、copy-on-write 更新、读路径无锁就够了。</p>
-      </section>
-
-      <section class="drills">
-        <h2>动手实验</h2>
-        <p>单节点可跑、零依赖。索引 <code>tut-l15-route</code>(3 主 1 副)当实验品,一路从路由演算玩到 Final 的墙,用完删干净。</p>
-
-        <h3>实验 0:备好实验品(3 主 1 副)</h3>
-        <div class="exp-slot" data-exp="ch15-00-setup"></div>
-
-        <h3>实验 1:_cat 看见的 state 是哪一套</h3>
-        <div class="exp-slot" data-exp="ch15-01-shards"></div>
-
-        <h3>实验 2:带 routing 写一篇</h3>
-        <div class="exp-slot" data-exp="ch15-02-put-routing"></div>
-
-        <h3>实验 3:落点对照(docs 计数)</h3>
-        <div class="exp-slot" data-exp="ch15-03-cat-docs"></div>
-
-        <h3>实验 4:_search_shards,不带钥匙</h3>
-        <div class="exp-slot" data-exp="ch15-04-ss-all"></div>
-
-        <h3>实验 5:_search_shards,带钥匙(对答案)</h3>
-        <div class="exp-slot" data-exp="ch15-05-ss-routing"></div>
-
-        <h3>实验 6:钥匙错了,GET 就扑空</h3>
-        <div class="exp-slot" data-exp="ch15-06-get-miss"></div>
-
-        <h3>实验 7:带钥匙直取一片</h3>
-        <div class="exp-slot" data-exp="ch15-07-get-hit"></div>
-
-        <h3>实验 8:副本数归零(Dynamic)</h3>
-        <div class="exp-slot" data-exp="ch15-08-replicas-0"></div>
-
-        <h3>实验 9:yellow → green</h3>
-        <div class="exp-slot" data-exp="ch15-09-health-green"></div>
-
-        <h3>实验 10:segment 按片看(分片即 Lucene 索引)</h3>
-        <div class="exp-slot" data-exp="ch15-10-segments"></div>
-
-        <h3>实验 11:再撞一次 Final 的墙</h3>
-        <div class="exp-slot" data-exp="ch15-11-final-wall"></div>
-
-        <h3>实验 12:把钥匙写进合同(_routing.required)</h3>
-        <div class="exp-slot" data-exp="ch15-12-req-create"></div>
-
-        <h3>实验 13:不带钥匙写,报什么</h3>
-        <div class="exp-slot" data-exp="ch15-13-req-missing"></div>
-
-        <h3>清理</h3>
-        <div class="exp-slot" data-exp="ch15-14-cleanup-route"></div>
-        <div class="exp-slot" data-exp="ch15-15-cleanup-req"></div>
-
-        <h2>思考题</h2>
-        <details>
-          <summary>1. 3 片索引,把某租户的 10 万篇文档全部用 routing=tenant-7 写入,docs 会怎么分布?好处和代价各是什么?</summary>
-          <div class="answer">
-            <p>全落 1 片:片号由钥匙决定,不由文档决定——同一把钥匙永远同一片。好处:这个租户的 GET 和带钥匙的搜索都只打一片,省掉两片的开销。代价:热点(这一片的 CPU/磁盘/merge 独重,其余两片闲着);以及钥匙从「约定」变「合同」,GET/搜索忘带就扑空。routing 只有在高基数钥匙下才换来均衡。</p>
-          </div>
-        </details>
-        <details>
-          <summary>2. 为什么 ES 不用一致性哈希,让「加片」在线生效?</summary>
-          <div class="answer">
-            <p>取模换的是简单与可推演:任何客户端拿同一个公式就能算出文档在哪,不需要维护哈希环/虚拟槽的状态。一致性哈希把复杂度搬进集群状态,而且照样要搬数据——改 N 时旧文档全部错位这一点两种方案都逃不掉。ES 的选择是把「换除数」显式化:Final 拒绝在线改,要改就 reindex 到新索引,数据怎么搬、什么时候搬都由你说了算。</p>
-          </div>
-        </details>
-        <details>
-          <summary>3. 一份正在 RECOVERING、还没 createEngine 的分片收到 GET,会发生什么?会抛 Lucene 的 AlreadyClosedException 吗?</summary>
-          <div class="answer">
-            <p><code>readAllowed()</code> 在 <code>withEngine</code> 之前抛 <code>IllegalIndexShardStateException</code>,消息是 <code>CurrentState[RECOVERING] operations only allowed when shard state is one of [POST_RECOVERY, STARTED]</code>(404)。连 engine 引用都没碰——<code>AlreadyClosedException</code> 是另一条路:Engine 引用被摘掉后有人绕过闸门去 <code>getEngine()</code>。协调节点侧更常见的失败其实是这份拷贝还在 INITIALIZING、不进可路由集合,<code>TransportSingleShardAction</code> 换下一份或收成 NoShardAvailableActionException——失败发生在选片,不在 innerGet。</p>
-          </div>
-        </details>
-        <details>
-          <summary>4. Engine 为什么不能在 IndexShard 构造函数里就 new 出来?三条恢复路径里哪条的不变量先破?</summary>
-          <div class="answer">
-            <p>IndexWriter 要的是一份「已经合法」的 Lucene 目录,构造函数看不见目录的最终形态:EMPTY_STORE 此时还是空目录;PEER 可能正在收半份 segment,中途打开 IndexWriter 会看见残缺索引;EXISTING_STORE 要先选定 safe commit。而且恢复代码假定自己可以往 Store 写文件——<code>prepareForIndexRecovery</code> 里 <code>assert currentEngine.get() == null</code> 保护的正是「拷文件时不和已打开的 IndexWriter 抢同一份 Directory」。所以 createEngine 被钉死在 RECOVERING 且文件就绪之后。</p>
-          </div>
-        </details>
-      </section>
-
-      <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 「_cat/shards 的 state 列就是分片的全部状态」:</span>那是 ShardRoutingState,只有 4 个词;CREATED/RECOVERING/POST_RECOVERY 是 JVM 里的 IndexShardState,空索引上只有几十毫秒。replica 显示 UNASSIGNED 不是 CLOSED——本节点根本没有那个对象。</div>
-        <div class="callout warn"><span class="co-title">🕳 「routing 只是可选的性能提示」:</span>写的时候带了 routing,读不带就是另一把钥匙:GET 算到别的片、found:false,搜索也会漏掉这篇。钥匙是合同不是建议;拿不准就别用,或者像实验 12 那样用 _routing.required 把合同显式化。</div>
-        <div class="callout warn"><span class="co-title">🕳 「索引 _close 后的报错 = 分片 CLOSED 的报错」:</span>本地 _close 挡你的是 cluster block:403 FORBIDDEN/4/index closed,协调节点就拦住了;「GET 打到 CLOSED 分片对象」的 404(IllegalIndexShardStateException)是卸分片竞态里才会出现的另一条。都叫 close,不是同一个异常。</div>
-      </section>
-
-      <section class="recap">
-        <h2>速记</h2>
-        <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>公式</td><td>shard = floorMod(murmur3(_routing), number_of_primary_shards)</td></tr>
-          <tr><td>钥匙</td><td>_routing 不传就用 _id;写、GET、搜索必须同一把</td></tr>
-          <tr><td>哈希</td><td>murmur3:32 位有符号、可为负、跨版本稳定,所以才要 floorMod</td></tr>
-          <tr><td>除数</td><td>主分片数,Property.Final,建索引那天钉死;想换先 reindex</td></tr>
-          <tr><td>选副本</td><td>片号查路由表(IndexShardRoutingTable);ARS 按响应时间+队列挑,写路径永远先主</td></tr>
-          <tr><td>进程内</td><td>CREATED(无 Engine)→ RECOVERING(后半 createEngine)→ POST_RECOVERY → STARTED → CLOSED</td></tr>
-          <tr><td>闸门</td><td>readAllowed 只放行 POST_RECOVERY/STARTED;CLOSED 上的 GET 是 404,进不了 Engine.get</td></tr>
-        </table>
-        <p><strong>心法:文档住哪,由一把钥匙和一个不能变的除数决定;GET 查不到先别怀疑数据丢了,先想想是不是敲错了门。</strong></p>
-      </section>
-
-      <footer class="ch-footer">
-        <button class="read-toggle" type="button">标记本课已读</button>
-        <div class="pager">
-          <a href="ch14.html">← 第 14 课:存储引擎</a>
-          <a href="ch16.html">第 16 课:搜索流程总览 →</a>
-        </div>
-      </footer>
-    </article>
-  </main>
-
-  <script src="../experiments/ch15.js"></script>
-  <script src="../assets/js/nav.js"></script>
-  <script src="../assets/js/es-client.js"></script>
-  <script src="../assets/js/flow-player.js"></script>
-  <script src="../assets/js/experiments.js"></script>
-  <script src="../assets/js/progress.js"></script>
-</body>
-</html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>第 15 课：索引分片 — ES 源码精读站</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><style>
+#diagram-ch15-routing { --diagram-height: 800px; --diagram-mobile-height: 700px; }
+#diagram-ch15-shard-life { --diagram-height: 840px; --diagram-mobile-height: 740px; }
+@media (max-width:600px) { #diagram-ch15-routing, #diagram-ch15-shard-life { --diagram-mobile-height: 500px; } }
+</style></head>
+<body class="chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a><nav class="tnav"><a href="../index.html">课程</a><a href="../architecture.html">架构</a><a href="../console.html">控制台</a><a href="../cheatsheet.html">速查表</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="ch15" data-ch="ch15">
+<header class="ch-header"><div class="ch-kicker">LESSON 15 · 第三篇 · 数据写入 · 收官</div><span class="visual-badge">逻辑片号、拷贝位置与本地状态</span><h1>索引分片</h1><div class="ch-meta-line">约 30 分钟 · 前置：第 5、10、13、14 课 · 4 组 / 40 张操作卡（含版本与清理） · 2 幅交互图 / 2 条路径动画 · 1 个机制播放器 / 7 步</div><p class="ch-intro">一篇文档住在哪个分片，分片又何时能服务请求？先用路由策略确定逻辑片号，再从集群路由表选择节点上的拷贝；这份拷贝的 IndexShard 还要经过恢复与状态闸门。本课把这三个问题逐一对照。</p><nav class="diagram-jumps" aria-label="图解跳转"><a href="#fig-ch15-routing"><span>01</span>先片号后拷贝</a><a href="#mechanism"><span>02</span>七步路由演算</a><a href="#fig-ch15-shard-life"><span>03</span>分片生命周期</a></nav><details class="chapter-outline"><summary>本课目录</summary><nav aria-label="章节目录"><a href="#goals">学习目标</a><a href="#copies">索引与拷贝</a><a href="#formula">版本与哈希</a><a href="#selection">搜索范围与副本</a><a href="#settings">Final 与 Dynamic</a><a href="#lifecycle">恢复与 Engine</a><a href="#gates">读闸门与关闭</a><a href="#source-map">源码入口</a><a href="#practice">实验与重做</a><a href="#pitfalls">陷阱</a><a href="#recap">速记</a></nav></details></header>
+<section class="goal" id="goals"><h2>学习目标</h2><ul><li>按本课索引条件算出 <code>brown</code> 的片号，用 <code>_search_shards</code> 对照；区分“不同键同片”与确定跨片的 GET 结果。</li><li>对照无 routing 搜索、普通 GET 与写入，指出分片范围、拷贝选择和主副职责的区别；修改副本数并验证 Final 拒绝后原文档仍可读。</li><li>从固定源码指出 Engine 在 RECOVERING 中打开、读闸门允许的两态；用 close/open 实验区分索引关闭、分片对象状态与删除。</li></ul></section>
+<section class="lesson">
+<h2 id="copies">15.1 文档、逻辑片与节点拷贝是三个层次</h2>
+<p>第 13 课把批量操作按片分组，第 14 课进入片内引擎。现在追问：为什么选这一片？索引保存映射、设置等逻辑元数据；主分片把文档空间分成若干部分，每个分片的本地拷贝拥有自己的 Store、Engine 与 Lucene 文件。普通可写拷贝独立管理 segment、translog 和合并。副本保存同一逻辑片的数据，可在故障后承担主分片职责；复制的是操作与数据一致性协议，不能推断主副 segment 文件永远逐字节相同。</p>
+<p><strong>逻辑片号不等于节点地址。</strong>例如片 0 可以从节点 A 迁到 B，也可以有 A 上的 primary 与 B 上的 replica。路由先决定是哪一组，集群路由表再告诉请求哪些拷贝在哪里、处于什么分配状态。协调是节点当前承担的职责，也可以与数据分片共处一台节点。单节点实验只能观察本地路径和未分配副本，不能替代多节点复制与故障转移验证。</p>
+<figure class="fig archify-figure" id="fig-ch15-routing"><div class="archify-shell"><div class="archify-tools"><span class="archify-label">01 · 先定分片，再按请求类型选择拷贝</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch15-routing">↻ 重新播放</button><a href="../.archify/workflow-ch15-routing-20261011-213048/routing.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div><iframe class="archify-frame" id="diagram-ch15-routing" title="先定分片，再按请求类型选择拷贝" loading="lazy" src="../.archify/workflow-ch15-routing-20261011-213048/routing.html?theme=light&amp;present=1"></iframe></div><figcaption>箭头表示路由决策依赖与分支，不是一次请求顺序访问 GET、搜索与写入。限定本课普通非分区新建索引；搜索先确定片范围，再逐片选一份。省略 preference、重试、不可提升分片、复制与 resharding。<span class="figure-tip">点击节点探索与查看源码；可暂停、重播、切换主题。手机可展开图解后放大。</span></figcaption></figure><h2 id="formula">15.2 一个取模公式，要先写出适用条件</h2>
+<p>本课显式新建 ES 9.4.0 的 <code>standard</code> 索引、3 个主分片，<code>routing_partition_size=1</code>，无 <code>routing_path</code>、无 resharding；文档显式给 ID。普通写入和 GET 有 routing 就用它，缺省才用 ID。这个条件下可以用：</p>
+<pre class="code-block"><code>key   = routing != null ? routing : id
+hash  = Murmur3_x86_32(UTF-16LE(key), seed=0)
+shard = Math.floorMod(hash, 3)</code></pre>
+<p>真正入口是 <code>IndexRouting</code>，旧网页贴出的 <code>OperationRouting.generateShardId</code> 伪源码并不对应本版本。<code>Unpartitioned.shardId</code> 选择钥匙，<code>hashToShardId</code> 按<strong>索引创建版本</strong>分支：达到 <code>MOD_ROUTING_FUNCTION</code> 的创建版本使用主片数取模；较旧索引使用 <code>floorMod(hash, routingNumShards) / routingFactor</code>。分区路由还引入 ID 的 offset，一把 routing 可覆盖多个片；带 routing_path 的策略也不同。运行节点升级到 9.4.0，不会自动把既有索引都变成本课路由策略。</p>
+<p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java#L59-L72" target="_blank" rel="noopener">策略选择 ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java#L147-L175" target="_blank" rel="noopener">创建版本与公式 ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java#L309-L350" target="_blank" rel="noopener">普通与分区策略 ↗</a>。</p><p>哈希不是只写“murmur3”就能复现：ES 的字符串重载先把 Java char 按小端双字节排列，再调用种子 0 的 x86_32。旧动画套用 UTF-8 结果，错误地写成 <code>hash(brown)=741580288</code>。正确离线值是 <code>998382972</code>，3 片时落片 0；<code>hash(brown-1)=-2007555306</code> 也落片 0。不同字符串同片很常见；不能宣称错误键必然找不到，更不能把 String.hashCode 的规范结果说成随 JDK 版本任意变化。</p>
+<p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/Murmur3HashFunction.java#L27-L48" target="_blank" rel="noopener">字符串编码与哈希 ↗</a>。本轮离线实现通过官方 7 个测试向量复核，A7/A8/A12 的两轮真实 API 返回与上述值一致。<code>floorMod</code> 保证负哈希得到非负片号；例如 <code>tenant-7</code> 的 <code>-1321139497 % 3 = -1</code>，而 <code>floorMod(...,3)=2</code>。</p><h3 id="mechanism">七步演算：从钥匙到节点上的拷贝</h3><div class="fp-slot" data-flow="ch15-routing-formula"></div>
+<p>播放器逐步解释钥匙、编码、取模、查表和请求类别。两节点表是概念示例，最后一帧才回到实验的单节点条件。数字属于固定条件下的离线演算，不把动画当 ES 返回或远程复制证据。系统减少动态效果时保留手动步进。</p>
+<h2 id="selection">15.3 GET 找一个片，普通搜索先选范围</h2>
+<p>GET 没有 routing 时按 ID 计算一个目标片。A4 把 <code>brown-1</code> 用 <code>brown</code> 写到片 0；A9 省略 routing，ID 自己也算到片 0，因而仍能命中。为看清跨片后果，A11 再把 <code>route-0</code> 用 brown 写到片 0；route-0 的缺省片是 2，A13 才稳定得到 <code>404 found:false</code>。A14 带回 brown 即可读到。routing 保存为元数据，但普通片内 ID 查找不会再校验请求 routing 字符串与存储值必须相等。</p>
+<p><strong>普通搜索不带 routing 会选择全部片，不会因为忘带而自动漏掉这篇。</strong>本例 A15 搜到两篇，候选范围为 3 片；A16 带 routing=route-0 缩到片 2，才得到 200 与零命中。<code>_search_shards</code> 展示候选组，本身不执行查询。非分区本例一把键选一个逻辑片，多把键可能重复同片。routing 只缩小片范围，片内还可能有其他租户，业务过滤与访问控制仍需另行表达。</p>
+<p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java#L140-L193" target="_blank" rel="noopener">有无 routing 的搜索范围 ↗</a>。普通搜索默认开启 ARS，有响应、队列等排名输入时排序；无统计或并列也不承诺总选到最快拷贝。普通 GET 的调用传入空 collector / nodeCounts，保留随机化后的候选顺序，不能套用搜索的 ARS 结论。<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java#L62-L115" target="_blank" rel="noopener">GET 与搜索输入 ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/IndexShardRoutingTable.java#L328-L345" target="_blank" rel="noopener">排名条件 ↗</a>。</p><p>只读请求选择一份可用拷贝，写入先到 primary 再复制，职责不同。复制一致性不等于所有 reader 瞬时相同：搜索可见性还受各份刷新视图影响。副本未分配不是这次复制失败；在单节点、active=1 的本例，A4 可以成功，<code>_shards.total=2</code> 仍含配置要求的拷贝，而 <code>successful=1, failed=0</code>。这些字段要连同请求条件解释，不能从写成功反推存在另一份已同步副本。</p>
+<h2 id="settings">15.4 Final 拒绝更新，原路由仍然有效</h2>
+<p><code>number_of_shards</code> 为 Final，直接更新被拒；B4 实测 400 <code>illegal_argument_exception</code>，开放索引的入口文案包含 <code>non dynamic setting(s) [[index.number_of_shards]]</code>，并指出创建后不能修改；不是旧卡写死的 Final 检查文案。B5 检查仍为 3，B6 再读回原文档。假设随意改布局，部分键会改片，存量数据必须有对应搬迁与路由协议；不能说“所有键必变”“被拒后文档蒸发”。默认参数之外还有分区、创建版本与新布局条件；不同布局可按 split/shrink 的适用条件或 reindex 到目标索引，本课不演这些路径。</p>
+<p><code>number_of_replicas</code> 为 Dynamic，不参与本例的逻辑片计算；调整的是需要多少份拷贝。单数据节点不能把同片 primary 与 replica 都放自身：3 主片正常分配、要求 1 副本时本索引 yellow；B1 改 0 后 B2 等到 green；B7/B8 再恢复 1 并检查 yellow。分配与健康收敛异步，设置 acknowledged 不承诺同一瞬间所有观测已改变，其他索引也可让全局健康仍 yellow。</p>
+<p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/IndexMetadata.java#L222-L239" target="_blank" rel="noopener">Final 与 Dynamic ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L860-L889" target="_blank" rel="noopener">拒绝更新 ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/allocation/decider/SameShardAllocationDecider.java#L120-L151" target="_blank" rel="noopener">同节点分配约束 ↗</a>。</p><h2 id="lifecycle">15.5 IndexShard 已存在，不等于 Engine 已打开</h2>
+<p>本地 <code>IndexService.createShard</code> 获取 ShardLock、准备 Store、构造 IndexShard；初始状态 CREATED，Engine 引用尚空。随后 <code>markAsRecovering</code> 进入 RECOVERING。普通路径的 <code>innerOpenEngineAndTranslog</code> 要求正处 RECOVERING，并检查尚无当前引擎，才创建与安装 Engine。这里解释一次普通创建过程，不把这条断言泛化成“整个对象一生绝不会替换引擎”。</p>
+<figure class="fig archify-figure" id="fig-ch15-shard-life"><div class="archify-shell"><div class="archify-tools"><span class="archify-label">02 · 本地五态：恢复、可读与关闭</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch15-shard-life">↻ 重新播放</button><a href="../.archify/lifecycle-ch15-shard-life-20261011-213048/shard-life.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div><iframe class="archify-frame" id="diagram-ch15-shard-life" title="本地五态：恢复、可读与关闭" loading="lazy" src="../.archify/lifecycle-ch15-shard-life-20261011-213048/shard-life.html?theme=light&amp;present=1"></iframe></div><figcaption>实线为普通恢复到服务的状态转移；关闭分支可从较早阶段进入 CLOSED，虚线不是自动发生的时间线。Engine 在 RECOVERING 内打开；读闸门允许 POST_RECOVERY / STARTED。图省略恢复内部阶段、迁移与 Engine 替换。<span class="figure-tip">点击节点探索与查看源码；可暂停、重播、切换主题。手机可展开图解后放大。</span></figcaption></figure><p>EMPTY_STORE 先建立空索引文件与日志，EXISTING_STORE 准备可打开的本地提交；两者开 Engine 后再重放需要的日志。Peer 的文件型恢复先准备目标文件，再 <code>prepareForTranslogOperations</code> 打开目标 Engine，随后 phase2 发送历史操作；操作型 peer 恢复可以复用已有文件。旧文案把“文件和 operations 全先落盘，再开 Engine”写反了。恢复操作需要已有引擎应用，不能等全部应用完才创建它。</p>
+<p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/StoreRecovery.java#L479-L501" target="_blank" rel="noopener">本地恢复顺序 ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/recovery/RecoveryTarget.java#L371-L379" target="_blank" rel="noopener">peer 打开目标 Engine ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/recovery/RecoverySourceHandler.java#L298-L351" target="_blank" rel="noopener">准备完成后 phase2 ↗</a>。postRecovery 刷新并完成回调后进入 POST_RECOVERY；应用路由 active 时才转 STARTED。<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L1974-L2024" target="_blank" rel="noopener">恢复后状态 ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L575-L601" target="_blank" rel="noopener">路由激活 ↗</a>。</p><table class="ktable"><tr><th>集群 ShardRoutingState（CAT）</th><th>与本地 IndexShard 的关系</th></tr><tr><td>UNASSIGNED</td><td>没有分配给节点的该份拷贝；不是一个本地 CLOSED 状态</td></tr><tr><td>INITIALIZING</td><td>通常经历 CREATED / RECOVERING / POST_RECOVERY</td></tr><tr><td>STARTED</td><td>本地在应用 active 路由后进入 STARTED，不能视为跨层瞬时原子对照</td></tr><tr><td>RELOCATING</td><td>源端通常仍服务；目标是另一份正在初始化的本地对象</td></tr></table>
+<p>CAT 的 state 来自 <code>shard.state()</code>。恢复 API 的 type 与 stage 又是恢复过程的枚举；三套状态不可互换。不承诺 CREATED 到 STARTED 只需几十毫秒。D6 看恢复类型与结果，不能从一次 CAT 采样证明 JVM 每次中间转移。</p>
+<h2 id="gates">15.6 读闸门、索引关闭与删除分别发生什么？</h2>
+<p><code>innerGet</code> 先调用 <code>readAllowed</code>，允许集为 POST_RECOVERY / STARTED；其他状态抛 <code>IllegalIndexShardStateException</code>，它的 HTTP 映射是 404。在协调路由层通常先选可用候选，可能换拷贝或在不可用时失败，所以不能用普通 REST GET 稳定触发某个 RECOVERING 本地对象。恢复重放与副本复制有独立写条件，也不能把“未 STARTED”一概说成任何写操作都不允许。</p>
+<p>close 先设置 CLOSED，再摘掉 Engine 引用，随后在 executor 清理引擎与监听器；是否 flush 由调用条件决定。状态门控制新入口，不能推断所有已开始操作此刻都完成。IndexService 另行关闭 Store 与管理引用/锁。索引 <code>_close</code> 保留数据与元数据；实测 D2 的普通 GET 返回 400 <code>index_closed_exception</code>、reason=closed：SingleShardRequest 禁止闭合索引，具体索引解析在检查索引级 block 之前就拒绝。关闭 block 本身映射 403，但不能据此推断这个 GET 的实际错误。</p>
+<p>D3/D4 重开与等待，D5 应能读回原文档：恢复创建新的本地服务对象，不是把原 CLOSED 对象直接退回 CREATED。最后点名 DELETE 才删除两索引的数据和设置。400 的索引关闭解析、404 的文档查无、404 的本地状态异常要同时按 reason、found 与触发层次辨认，不能只记数字。</p>
+<p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L1370-L1390" target="_blank" rel="noopener">GET 读闸门位置 ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L2533-L2570" target="_blank" rel="noopener">读写条件 ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IllegalIndexShardStateException.java#L49-L52" target="_blank" rel="noopener">本地异常状态码 ↗</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/MetadataIndexStateService.java#L106-L116" target="_blank" rel="noopener">索引关闭 block ↗</a>。</p><h2 id="source-map">源码入口：按问题进入，避免混用版本</h2><table class="ktable"><tr><th>文件 → 方法</th><th>本章用途</th></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java#L59-L175" target="_blank" rel="noopener">IndexRouting → hashToShardId ↗</a></td><td>策略选择与创建版本公式</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/Murmur3HashFunction.java#L27-L48" target="_blank" rel="noopener">Murmur3HashFunction → hash(String) ↗</a></td><td>UTF-16LE 与种子0</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java#L62-L115" target="_blank" rel="noopener">OperationRouting → getShards / searchShards ↗</a></td><td>片号、路由表与排名输入</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L2333-L2357" target="_blank" rel="noopener">IndexShard → innerOpenEngineAndTranslog ↗</a></td><td>RECOVERING 内创建 Engine</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/IndexService.java#L479-L609" target="_blank" rel="noopener">IndexService → createShard ↗</a></td><td>Store / 锁 / 本地对象装配</td></tr></table><details><summary>补充入口与证据范围</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/IndexVersions.java#L223-L228" target="_blank" rel="noopener">路由创建版本闸门 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L260-L265" target="_blank" rel="noopener">初始 Engine 引用为空 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L386-L401" target="_blank" rel="noopener">构造状态 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L782-L802" target="_blank" rel="noopener">开始恢复 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/shard/IndexShard.java#L1919-L1953" target="_blank" rel="noopener">关闭顺序 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/IndexService.java#L660-L732" target="_blank" rel="noopener">Store 关闭与引用 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/action/cat/RestShardsAction.java#L293-L305" target="_blank" rel="noopener">CAT 状态来源 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/RoutingMissingException.java#L24-L40" target="_blank" rel="noopener">缺失 routing 的400 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/support/single/shard/SingleShardRequest.java#L30-L33" target="_blank" rel="noopener">禁止闭合索引的请求选项 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/IndexNameExpressionResolver.java#L805-L818" target="_blank" rel="noopener">闭合索引解析拒绝 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/support/single/shard/TransportSingleShardAction.java#L190-L203" target="_blank" rel="noopener">先解析，再查索引 block ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/IndexClosedException.java#L24-L36" target="_blank" rel="noopener">关闭异常映射400 ↗</a></p><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/MetadataUpdateSettingsService.java#L258-L285" target="_blank" rel="noopener">开放索引的 non dynamic 拒绝 ↗</a></p><p>全部链接固定 ES 9.4.0 提交，图源节点保存对应行证据。源码核对、离线哈希向量、两轮真实 API 与浏览器门禁分别记录；单节点实验不证明多节点复制，也未直接捕获 JVM 中间态。</p></div></details></section><section class="drills" id="practice"><h2>四组实验与重做顺序</h2><p>版本 ES 9.4.0 / Lucene 10.4.0，默认端点 <code>http://localhost:9200</code>、单数据节点、匿名学习配置。若用其他端点或认证，先确认版本与权限；本课只使用 <code>tut-l15-route</code> / <code>tut-l15-req</code>。初始应无这两个索引、无匹配模板、外部写入/刷新或分配配置干扰。</p><p>顺序为 <strong>A0→A16，B1→B8，C1→C7，D1→D6，两张清理</strong>。每组先等待本索引健康，写入显式 <code>refresh=true</code> 后再观察搜索。创建/写入重复会分别变成资源已存在 / updated；固定 ID 不增加业务文档数。若中途停止在 closed，先 D3/D4 恢复；想重做完整对照，点名删除两索引，再从 A0 顺序执行。</p><div class="callout warn"><span class="co-title">本轮实际验证：</span>已在 ES 9.4.0 / Lucene 10.4.0 单节点、匿名配置运行全部 40 卡，并在点名清理后完整重做；哈希落点、同片命中、跨片404、搜索范围、Final 与 close/open 结果一致。浏览器的深链检查单独阻断自动执行流量，实际响应保存在本章验收记录。</div><h3>A · 路由、同片反例与搜索范围（17 卡）</h3><p>先一篇看 docs，再追加跨片 ID；最后搜索应为两篇。A9 从旧“必404”修正为本例同片命中，A13才是跨片404。</p><div class="exp-slot" data-exp="ch15-version"></div>
+<div class="exp-slot" data-exp="ch15-00-setup"></div>
+<div class="exp-slot" data-exp="ch15-a-yellow"></div>
+<div class="exp-slot" data-exp="ch15-01-shards"></div>
+<div class="exp-slot" data-exp="ch15-02-put-routing"></div>
+<div class="exp-slot" data-exp="ch15-03-cat-docs"></div>
+<div class="exp-slot" data-exp="ch15-04-ss-all"></div>
+<div class="exp-slot" data-exp="ch15-05-ss-routing"></div>
+<div class="exp-slot" data-exp="ch15-a-id-shard"></div>
+<div class="exp-slot" data-exp="ch15-06-get-miss"></div>
+<div class="exp-slot" data-exp="ch15-07-get-hit"></div>
+<div class="exp-slot" data-exp="ch15-a-put-cross"></div>
+<div class="exp-slot" data-exp="ch15-a-cross-shard"></div>
+<div class="exp-slot" data-exp="ch15-a-cross-miss"></div>
+<div class="exp-slot" data-exp="ch15-a-cross-hit"></div>
+<div class="exp-slot" data-exp="ch15-a-search-all"></div>
+<div class="exp-slot" data-exp="ch15-a-search-wrong"></div>
+<h3>B · 副本、Final 与原数据读回（8 卡）</h3><p>本索引yellow→green→yellow，副本期望数结束为1。Final拒绝后查设置并GET，不假设数据丢失。</p><div class="exp-slot" data-exp="ch15-08-replicas-0"></div>
+<div class="exp-slot" data-exp="ch15-09-health-green"></div>
+<div class="exp-slot" data-exp="ch15-10-segments"></div>
+<div class="exp-slot" data-exp="ch15-11-final-wall"></div>
+<div class="exp-slot" data-exp="ch15-b-settings"></div>
+<div class="exp-slot" data-exp="ch15-b-after-final"></div>
+<div class="exp-slot" data-exp="ch15-b-replicas-one"></div>
+<div class="exp-slot" data-exp="ch15-b-yellow-again"></div>
+<h3>C · required 的检查边界（7 卡）</h3><p>缺失写/GET是400，补键后成功；无routing普通搜索仍查全部片。</p><div class="exp-slot" data-exp="ch15-12-req-create"></div>
+<div class="exp-slot" data-exp="ch15-c-health"></div>
+<div class="exp-slot" data-exp="ch15-13-req-missing"></div>
+<div class="exp-slot" data-exp="ch15-c-put"></div>
+<div class="exp-slot" data-exp="ch15-c-get-missing"></div>
+<div class="exp-slot" data-exp="ch15-c-get-hit"></div>
+<div class="exp-slot" data-exp="ch15-c-search-all"></div>
+<h3>D · close/open 与恢复（6 卡）</h3><p>本例关闭后的GET为400，先在索引解析被拒；重开等待再读回。恢复API不等同本地五态。</p><div class="exp-slot" data-exp="ch15-d-close"></div>
+<div class="exp-slot" data-exp="ch15-d-closed-get"></div>
+<div class="exp-slot" data-exp="ch15-d-open"></div>
+<div class="exp-slot" data-exp="ch15-d-open-health"></div>
+<div class="exp-slot" data-exp="ch15-d-open-get"></div>
+<div class="exp-slot" data-exp="ch15-d-recovery"></div>
+<h3>清理与完整重做（2 卡）</h3><p>这两卡删除本课所有数据和设置，ignore_unavailable允许重复。完成后从A0重做，不使用通配删除。</p><div class="exp-slot" data-exp="ch15-14-cleanup-route"></div>
+<div class="exp-slot" data-exp="ch15-15-cleanup-req"></div>
+<h2>思考题</h2>
+<details><summary>1. brown 与 brown-1 不同，为什么缺省 GET 还能读到？</summary><div class="answer"><p>ES以UTF-16LE计算的两个哈希都对3取模为0。routing先选片，普通片内查找使用ID，不再要求请求routing与原元数据字符串相等。不同键同片可命中；route-0缺省去片2才构成确定404对照。</p></div></details>
+<details><summary>2. routing=tenant-7 就能隔离租户数据吗？</summary><div class="answer"><p>不能。普通非分区索引中它缩小搜索片范围，但其他键可以落同片；无routing搜索查全部片。同租户固定键可减少扇出，负载是否均衡还看键分布和单键体量。用业务字段过滤与实际权限机制表达隔离。</p></div></details>
+<details><summary>3. Final 更新被拒，为什么还要查设置和 GET？</summary><div class="answer"><p>验证400只拒绝本次请求，number_of_shards仍3、存量路由仍有效。随意换布局需要数据搬迁，但不是每个键都改片；split/shrink与reindex的条件和目标索引另行判断。</p></div></details>
+<details><summary>4. RECOVERING 能有 Engine 吗？能应用恢复操作吗？</summary><div class="answer"><p>能。文件准备后就在RECOVERING内打开引擎，本地随后重放日志，peer目标开Engine后接收phase2。readAllowed不接受RECOVERING，但恢复写按来源有独立检查；不能把读闸门泛化为禁止所有恢复写。</p></div></details>
+<details><summary>5. close 后 GET 的400，证明本地 readAllowed 执行了吗？</summary><div class="answer"><p>不能。本例具体索引解析抛index_closed_exception，早于索引级block检查和innerGet。关闭block的403、本地非法状态异常的404是不同层的错误；CAT四态、恢复stage、JVM五态分别观测。close保留数据，open恢复后可读回，DELETE才删除本课资源。</p></div></details></section>
+<section class="pitfalls" id="pitfalls"><h2>陷阱</h2><div class="callout warn"><span class="co-title">🕳 只写 murmur3 就复制数字：</span>编码、算法变体、种子和索引路由策略都要一致。本课字符串是UTF-16LE，不是UTF-8；负数用floorMod。运行版本也不能替代创建版本。</div><div class="callout warn"><span class="co-title">🕳 忘 routing 一概404或漏搜：</span>GET键可同片；无routing普通搜索查全部片。required只拒缺失的文档请求，不校验键内容、不禁止无routing搜索，也不表达租户权限。</div><div class="callout warn"><span class="co-title">🕳 搜索ARS套到所有读取：</span>普通GET未传排名统计；单节点只有primary不证明远程排名或副本读取视图一致。写入的primary职责另行判断。</div><div class="callout warn"><span class="co-title">🕳 CAT STARTED就是全部生命周期：</span>CAT来自路由四态，本地五态与恢复stage另看。Engine在RECOVERING中已可创建，恢复操作可应用；关闭分支可提前发生。</div></section>
+<section class="recap" id="recap"><h2>速记</h2><table class="ktable"><tr><th>问题</th><th>记住的条件与结论</th></tr><tr><td>公式</td><td>本课新建普通非分区：floorMod(hash(key),3)；旧创建版本有routingNumShards/routingFactor分支</td></tr><tr><td>哈希</td><td>UTF-16LE，Murmur3 x86_32种子0；brown=998382972→片0</td></tr><tr><td>范围</td><td>写/GET缺省用ID；普通搜索缺省选全部片；错误键可同片，routing不替代过滤</td></tr><tr><td>拷贝</td><td>逻辑片号查节点拷贝；搜索有统计时可ARS，普通GET无排名输入；写先主后副</td></tr><tr><td>设置</td><td>Final更新拒绝、原路由不变；副本Dynamic，设置响应与健康收敛分开</td></tr><tr><td>状态</td><td>CREATED→RECOVERING内开Engine→POST_RECOVERY→active后STARTED；可提前close到CLOSED</td></tr><tr><td>读取与关闭</td><td>readAllowed接受POST_RECOVERY/STARTED；本例索引关闭GET在解析层400；close保留，delete删除</td></tr></table><p><strong>心法：先核对索引策略与逻辑片号，再查节点拷贝和请求闸门；响应只是对应层的观测。</strong></p></section>
+<footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a href="ch14.html">← 第 14 课：存储引擎</a><a href="ch16.html">第 16 课：搜索流程总览 →</a></div></footer></article></main>
+<script src="../experiments/ch15.js"></script><script src="../assets/js/nav.js"></script><script src="../assets/js/es-client.js"></script><script src="../assets/js/flow-player.js"></script><script src="../assets/js/experiments.js"></script><script src="../assets/js/progress.js"></script><script src="../assets/js/chapter-diagrams.js"></script></body></html>

@@ -1,0 +1,240 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "先定分片，再选择拷贝",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "路由计算"
+        },
+        "database": {
+          "label": "分片拷贝组"
+        },
+        "security": {
+          "label": "写入职责"
+        }
+      }
+    },
+    "output": ".archify/workflow-ch15-routing-20261011-213048/routing.html"
+  },
+  "lanes": [
+    {
+      "id": "compute",
+      "label": "普通非分区 · 9.4.0 新建索引"
+    },
+    {
+      "id": "route",
+      "label": "集群路由表 · 查询拷贝位置"
+    },
+    {
+      "id": "execute",
+      "label": "按请求类型选择 · 三个分支"
+    }
+  ],
+  "mainPath": [
+    "effective",
+    "hash-shard",
+    "copies",
+    "search"
+  ],
+  "nodes": [
+    {
+      "id": "effective",
+      "lane": "compute",
+      "col": 2,
+      "type": "backend",
+      "label": "写入 / GET 选择钥匙",
+      "sublabel": "routing 缺省才使用 _id",
+      "width": 270,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java",
+          "line": 309,
+          "end_line": 321,
+          "label": "非分区策略"
+        }
+      ],
+      "yOffset": -49
+    },
+    {
+      "id": "hash-shard",
+      "lane": "compute",
+      "col": 2,
+      "type": "backend",
+      "label": "UTF-16LE → Murmur3 → 片号",
+      "sublabel": "floorMod(hash, 主分片数)",
+      "width": 300,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/Murmur3HashFunction.java",
+          "line": 28,
+          "end_line": 48,
+          "label": "字符串编码与哈希"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java",
+          "line": 147,
+          "end_line": 175,
+          "label": "创建版本分支"
+        }
+      ],
+      "yOffset": 49
+    },
+    {
+      "id": "copies",
+      "lane": "route",
+      "col": 2,
+      "type": "database",
+      "label": "查询该片的拷贝组",
+      "sublabel": "位置和分配状态来自路由表",
+      "width": 270,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java",
+          "line": 62,
+          "end_line": 78,
+          "label": "GET 查表"
+        }
+      ]
+    },
+    {
+      "id": "get",
+      "lane": "execute",
+      "col": 2,
+      "type": "backend",
+      "label": "普通 GET 候选顺序",
+      "sublabel": "未传 ARS 排名统计",
+      "width": 265,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java",
+          "line": 62,
+          "end_line": 78,
+          "label": "无排名输入"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/IndexShardRoutingTable.java",
+          "line": 328,
+          "end_line": 337,
+          "label": "保留随机化顺序"
+        }
+      ],
+      "yOffset": -98
+    },
+    {
+      "id": "search",
+      "lane": "execute",
+      "col": 2,
+      "type": "backend",
+      "label": "搜索每片选择一份",
+      "sublabel": "默认 ARS · 有统计时排名",
+      "width": 225,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java",
+          "line": 90,
+          "end_line": 115,
+          "label": "搜索排名输入"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java",
+          "line": 311,
+          "end_line": 324,
+          "label": "ARS 开关"
+        }
+      ],
+      "yOffset": 0
+    },
+    {
+      "id": "write",
+      "lane": "execute",
+      "col": 2,
+      "type": "security",
+      "label": "普通写入先到主分片",
+      "sublabel": "后续复制见第 13 课",
+      "width": 265,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/TransportReplicationAction.java",
+          "line": 460,
+          "end_line": 473,
+          "label": "校验主分片身份"
+        }
+      ],
+      "yOffset": 98
+    }
+  ],
+  "edges": [
+    {
+      "id": "key-hash",
+      "from": "effective",
+      "to": "hash-shard",
+      "variant": "emphasis"
+    },
+    {
+      "id": "hash-copies",
+      "from": "hash-shard",
+      "to": "copies",
+      "variant": "emphasis"
+    },
+    {
+      "id": "choose-get",
+      "from": "copies",
+      "to": "get",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "choose-search",
+      "from": "copies",
+      "to": "search",
+      "role": "main",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "right",
+      "route": "outside-right"
+    },
+    {
+      "id": "choose-write",
+      "from": "copies",
+      "to": "write",
+      "role": "branch",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "搜索先确定分片范围",
+      "items": [
+        "普通搜索不带 routing：选择全部片；带一把 routing：本例选择一个片。",
+        "routing 限定分片，不是租户过滤，也不验证 routing 字符串身份。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "图中范围与省略",
+      "items": [
+        "限定无 routing_path、非分区、无 resharding 的普通新建索引；旧创建版本走缩放公式。",
+        "省略 preference、重试、不可提升分片和复制细节；同一逻辑片可迁移节点。"
+      ]
+    }
+  ]
+}

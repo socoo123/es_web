@@ -1,0 +1,227 @@
+{
+  "schema_version": 2,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "IndexShard：恢复、可读与关闭",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "start": {
+          "label": "已构造"
+        },
+        "active": {
+          "label": "恢复 / 服务"
+        },
+        "waiting": {
+          "label": "等待激活"
+        },
+        "failure": {
+          "label": "已关闭"
+        }
+      }
+    },
+    "output": ".archify/lifecycle-ch15-shard-life-20261011-213048/shard-life.html"
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "对象存在 · 开始恢复"
+    },
+    {
+      "id": "ready",
+      "label": "恢复后 · 本地可读"
+    },
+    {
+      "id": "serving",
+      "label": "路由 active · 正式服务"
+    },
+    {
+      "id": "terminal",
+      "label": "可提前关闭 · 终态"
+    }
+  ],
+  "states": [
+    {
+      "id": "created",
+      "type": "start",
+      "label": "CREATED",
+      "sublabel": "构造完成 · 尚无 Engine",
+      "lane": "main",
+      "col": 1,
+      "width": 220,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 386,
+          "end_line": 401,
+          "label": "构造状态"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 260,
+          "end_line": 265,
+          "label": "初始 Engine 引用为空"
+        }
+      ]
+    },
+    {
+      "id": "recovering",
+      "type": "active",
+      "label": "RECOVERING",
+      "sublabel": "文件就绪后打开 Engine",
+      "lane": "main",
+      "col": 3,
+      "width": 240,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 782,
+          "end_line": 802,
+          "label": "进入恢复"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 2333,
+          "end_line": 2357,
+          "label": "恢复中创建 Engine"
+        }
+      ]
+    },
+    {
+      "id": "post",
+      "type": "waiting",
+      "label": "POST_RECOVERY",
+      "sublabel": "本地允许读 · 等待激活",
+      "lane": "ready",
+      "col": 3,
+      "width": 240,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 1974,
+          "end_line": 2024,
+          "label": "恢复后状态"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 2533,
+          "end_line": 2543,
+          "label": "读闸门"
+        }
+      ]
+    },
+    {
+      "id": "started",
+      "type": "active",
+      "label": "STARTED",
+      "sublabel": "应用 active 路由后转入",
+      "lane": "serving",
+      "col": 3,
+      "width": 240,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 575,
+          "end_line": 587,
+          "label": "active 后转 STARTED"
+        }
+      ]
+    },
+    {
+      "id": "closed",
+      "type": "failure",
+      "label": "CLOSED",
+      "sublabel": "先改状态 · 再摘 Engine 引用",
+      "lane": "terminal",
+      "col": 1,
+      "width": 250,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 1919,
+          "end_line": 1953,
+          "label": "关闭顺序"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "begin",
+      "from": "created",
+      "to": "recovering",
+      "label": "开始恢复",
+      "variant": "emphasis"
+    },
+    {
+      "id": "recovered",
+      "from": "recovering",
+      "to": "post",
+      "label": "恢复完成",
+      "variant": "emphasis"
+    },
+    {
+      "id": "activate",
+      "from": "post",
+      "to": "started",
+      "label": "路由 active",
+      "variant": "emphasis"
+    },
+    {
+      "id": "close-created",
+      "from": "created",
+      "to": "closed",
+      "label": "close",
+      "variant": "dashed"
+    },
+    {
+      "id": "close-recovering",
+      "from": "recovering",
+      "to": "closed",
+      "variant": "dashed"
+    },
+    {
+      "id": "close-post",
+      "from": "post",
+      "to": "closed",
+      "variant": "dashed"
+    },
+    {
+      "id": "close-started",
+      "from": "started",
+      "to": "closed",
+      "label": "close",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "状态不会替代恢复细节",
+      "items": [
+        "Engine 在 RECOVERING 中打开；本地恢复随后重放日志，peer 在发送历史操作前先打开目标 Engine。",
+        "readAllowed 只接受 POST_RECOVERY / STARTED；恢复操作有独立写入条件。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "两套状态分别观测",
+      "items": [
+        "CAT state 来自 ShardRoutingState，不是这五个 JVM 状态。",
+        "关闭可早于 STARTED；图省略恢复阶段、Engine 替换与迁移交接，CLOSED 不是索引删除。"
+      ]
+    }
+  ]
+}

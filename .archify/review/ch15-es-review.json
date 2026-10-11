@@ -1,0 +1,2670 @@
+{
+  "kind": "real-es-api",
+  "endpoint": "http://localhost:9200",
+  "reviewedAt": "2026-10-11T22:07:52.006071+08:00",
+  "version": {
+    "status": 200,
+    "response": {
+      "name": "de11d253f59a",
+      "cluster_name": "docker-cluster",
+      "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+      "version": {
+        "number": "9.4.0",
+        "build_flavor": "default",
+        "build_type": "docker",
+        "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+        "build_date": "2026-04-30T15:05:34.751113474Z",
+        "build_snapshot": false,
+        "lucene_version": "10.4.0",
+        "minimum_wire_compatibility_version": "8.19.0",
+        "minimum_index_compatibility_version": "8.0.0"
+      },
+      "tagline": "You Know, for Search"
+    },
+    "elapsedMs": 8
+  },
+  "nodes": {
+    "status": 200,
+    "response": {
+      "nodes": {
+        "QSkpyRrVQ7SrCWvutWILMg": {
+          "version": "9.4.0",
+          "roles": [
+            "data",
+            "data_cold",
+            "data_content",
+            "data_frozen",
+            "data_hot",
+            "data_warm",
+            "ingest",
+            "master",
+            "ml",
+            "remote_cluster_client",
+            "transform"
+          ]
+        }
+      }
+    },
+    "elapsedMs": 3
+  },
+  "experimentSha256": "d82991b0b47187485f6061406bf1a48b1451465bdd394b724ad3110f05263215",
+  "preCleanup": [
+    {
+      "path": "/tut-l15-route?ignore_unavailable=true",
+      "status": 200,
+      "response": {
+        "acknowledged": true
+      },
+      "elapsedMs": 2
+    },
+    {
+      "path": "/tut-l15-req?ignore_unavailable=true",
+      "status": 200,
+      "response": {
+        "acknowledged": true
+      },
+      "elapsedMs": 3
+    }
+  ],
+  "runs": [
+    {
+      "run": 1,
+      "operations": [
+        {
+          "id": "ch15-version",
+          "method": "GET",
+          "path": "/",
+          "body": null,
+          "status": 200,
+          "response": {
+            "name": "de11d253f59a",
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": {
+              "number": "9.4.0",
+              "build_flavor": "default",
+              "build_type": "docker",
+              "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+              "build_date": "2026-04-30T15:05:34.751113474Z",
+              "build_snapshot": false,
+              "lucene_version": "10.4.0",
+              "minimum_wire_compatibility_version": "8.19.0",
+              "minimum_index_compatibility_version": "8.0.0"
+            },
+            "tagline": "You Know, for Search"
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-00-setup",
+          "method": "PUT",
+          "path": "/tut-l15-route",
+          "body": {
+            "settings": {
+              "index.mode": "standard",
+              "number_of_shards": 3,
+              "number_of_replicas": 1,
+              "auto_expand_replicas": false,
+              "routing_partition_size": 1,
+              "refresh_interval": "-1",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "translog.durability": "request",
+              "write.wait_for_active_shards": "1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "mode": "stored"
+              },
+              "properties": {
+                "body": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l15-route"
+          },
+          "elapsedMs": 54
+        },
+        {
+          "id": "ch15-a-yellow",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-route?wait_for_status=yellow&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "yellow",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 3,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 50.0
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-01-shards",
+          "method": "GET",
+          "path": "/_cat/shards/tut-l15-route?v&h=index,shard,prirep,state,docs,store,node",
+          "body": null,
+          "status": 200,
+          "response": "index         shard prirep state      docs store node\ntut-l15-route 0     p      STARTED       0    0b de11d253f59a\ntut-l15-route 0     r      UNASSIGNED            \ntut-l15-route 1     p      STARTED       0    0b de11d253f59a\ntut-l15-route 1     r      UNASSIGNED            \ntut-l15-route 2     p      STARTED       0  227b de11d253f59a\ntut-l15-route 2     r      UNASSIGNED            \n",
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-02-put-routing",
+          "method": "PUT",
+          "path": "/tut-l15-route/_doc/brown-1?routing=brown&refresh=true",
+          "body": {
+            "body": "brown example"
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "brown-1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 2,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1
+          },
+          "elapsedMs": 8
+        },
+        {
+          "id": "ch15-03-cat-docs",
+          "method": "GET",
+          "path": "/_cat/shards/tut-l15-route?v&h=shard,prirep,state,docs",
+          "body": null,
+          "status": 200,
+          "response": "shard prirep state      docs\n0     p      STARTED       1\n0     r      UNASSIGNED     \n1     p      STARTED       0\n1     r      UNASSIGNED     \n2     p      STARTED       0\n2     r      UNASSIGNED     \n",
+          "elapsedMs": 4
+        },
+        {
+          "id": "ch15-04-ss-all",
+          "method": "GET",
+          "path": "/tut-l15-route/_search_shards",
+          "body": null,
+          "status": 200,
+          "response": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "ephemeral_id": "AeB0eIkDQ5SmRrkLzdgaKQ",
+                "transport_address": "172.18.0.2:9300",
+                "external_id": "de11d253f59a",
+                "attributes": {
+                  "xpack.installed": "true",
+                  "transform.config_version": "10.0.0",
+                  "ml.machine_memory": "4094382080",
+                  "ml.allocated_processors": "2",
+                  "ml.allocated_processors_double": "2.0",
+                  "ml.max_jvm_size": "1073741824",
+                  "ml.config_version": "12.0.0"
+                },
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ],
+                "version": "9.4.0",
+                "min_index_version": 8000099,
+                "max_index_version": 9094000
+              }
+            },
+            "indices": {
+              "tut-l15-route": {}
+            },
+            "shards": [
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 0,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "kxqJbDKNQ3CTgCsmnDfvYw"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ],
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 1,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "U-TxgKyAR1KfTxvu3lmR_w"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ],
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 2,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "JTVPFM3DTZ2NiCD2VOyYJQ"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ]
+            ]
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-05-ss-routing",
+          "method": "GET",
+          "path": "/tut-l15-route/_search_shards?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "ephemeral_id": "AeB0eIkDQ5SmRrkLzdgaKQ",
+                "transport_address": "172.18.0.2:9300",
+                "external_id": "de11d253f59a",
+                "attributes": {
+                  "xpack.installed": "true",
+                  "transform.config_version": "10.0.0",
+                  "ml.machine_memory": "4094382080",
+                  "ml.allocated_processors": "2",
+                  "ml.allocated_processors_double": "2.0",
+                  "ml.max_jvm_size": "1073741824",
+                  "ml.config_version": "12.0.0"
+                },
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ],
+                "version": "9.4.0",
+                "min_index_version": 8000099,
+                "max_index_version": 9094000
+              }
+            },
+            "indices": {
+              "tut-l15-route": {}
+            },
+            "shards": [
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 0,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "kxqJbDKNQ3CTgCsmnDfvYw"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ]
+            ]
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-a-id-shard",
+          "method": "GET",
+          "path": "/tut-l15-route/_search_shards?routing=brown-1",
+          "body": null,
+          "status": 200,
+          "response": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "ephemeral_id": "AeB0eIkDQ5SmRrkLzdgaKQ",
+                "transport_address": "172.18.0.2:9300",
+                "external_id": "de11d253f59a",
+                "attributes": {
+                  "xpack.installed": "true",
+                  "transform.config_version": "10.0.0",
+                  "ml.machine_memory": "4094382080",
+                  "ml.allocated_processors": "2",
+                  "ml.allocated_processors_double": "2.0",
+                  "ml.max_jvm_size": "1073741824",
+                  "ml.config_version": "12.0.0"
+                },
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ],
+                "version": "9.4.0",
+                "min_index_version": 8000099,
+                "max_index_version": 9094000
+              }
+            },
+            "indices": {
+              "tut-l15-route": {}
+            },
+            "shards": [
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 0,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "kxqJbDKNQ3CTgCsmnDfvYw"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ]
+            ]
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-06-get-miss",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/brown-1",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "brown-1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "body": "brown example"
+            }
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-07-get-hit",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/brown-1?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "brown-1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "body": "brown example"
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-a-put-cross",
+          "method": "PUT",
+          "path": "/tut-l15-route/_doc/route-0?routing=brown&refresh=true",
+          "body": {
+            "body": "cross shard example"
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "route-0",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 2,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 1,
+            "_primary_term": 1
+          },
+          "elapsedMs": 9
+        },
+        {
+          "id": "ch15-a-cross-shard",
+          "method": "GET",
+          "path": "/tut-l15-route/_search_shards?routing=route-0",
+          "body": null,
+          "status": 200,
+          "response": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "ephemeral_id": "AeB0eIkDQ5SmRrkLzdgaKQ",
+                "transport_address": "172.18.0.2:9300",
+                "external_id": "de11d253f59a",
+                "attributes": {
+                  "xpack.installed": "true",
+                  "transform.config_version": "10.0.0",
+                  "ml.machine_memory": "4094382080",
+                  "ml.allocated_processors": "2",
+                  "ml.allocated_processors_double": "2.0",
+                  "ml.max_jvm_size": "1073741824",
+                  "ml.config_version": "12.0.0"
+                },
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ],
+                "version": "9.4.0",
+                "min_index_version": 8000099,
+                "max_index_version": 9094000
+              }
+            },
+            "indices": {
+              "tut-l15-route": {}
+            },
+            "shards": [
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 2,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "JTVPFM3DTZ2NiCD2VOyYJQ"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ]
+            ]
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-a-cross-miss",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/route-0",
+          "body": null,
+          "status": 404,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "route-0",
+            "found": false
+          },
+          "elapsedMs": 4
+        },
+        {
+          "id": "ch15-a-cross-hit",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/route-0?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "route-0",
+            "_version": 1,
+            "_seq_no": 1,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "body": "cross shard example"
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-a-search-all",
+          "method": "GET",
+          "path": "/tut-l15-route/_search?size=10",
+          "body": null,
+          "status": 200,
+          "response": {
+            "took": 2,
+            "timed_out": false,
+            "_shards": {
+              "total": 3,
+              "successful": 3,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "max_score": 1.0,
+              "hits": [
+                {
+                  "_index": "tut-l15-route",
+                  "_id": "brown-1",
+                  "_score": 1.0,
+                  "_routing": "brown",
+                  "_source": {
+                    "body": "brown example"
+                  }
+                },
+                {
+                  "_index": "tut-l15-route",
+                  "_id": "route-0",
+                  "_score": 1.0,
+                  "_routing": "brown",
+                  "_source": {
+                    "body": "cross shard example"
+                  }
+                }
+              ]
+            }
+          },
+          "elapsedMs": 4
+        },
+        {
+          "id": "ch15-a-search-wrong",
+          "method": "GET",
+          "path": "/tut-l15-route/_search?routing=route-0&size=10",
+          "body": null,
+          "status": 200,
+          "response": {
+            "took": 0,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": []
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-08-replicas-0",
+          "method": "PUT",
+          "path": "/tut-l15-route/_settings",
+          "body": {
+            "number_of_replicas": 0
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          },
+          "elapsedMs": 16
+        },
+        {
+          "id": "ch15-09-health-green",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-route?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-10-segments",
+          "method": "GET",
+          "path": "/_cat/segments/tut-l15-route?v&h=index,shard,prirep,segment,generation,size",
+          "body": null,
+          "status": 200,
+          "response": "index         shard prirep segment generation  size\ntut-l15-route 0     p      _0               0 4.9kb\ntut-l15-route 0     p      _1               1 4.9kb\n",
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-11-final-wall",
+          "method": "PUT",
+          "path": "/tut-l15-route/_settings",
+          "body": {
+            "index.number_of_shards": 5
+          },
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "illegal_argument_exception",
+                  "reason": "Can't update non dynamic setting(s) [[index.number_of_shards]] for open indices [[tut-l15-route/DeVVFH-yTgC9IJ3J8pyGGA]]. The setting(s) [[index.number_of_shards]] cannot be modified on an index once it is created. You will need to create a new index with the desired setting(s) and reindex your data. See https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-reindex"
+                }
+              ],
+              "type": "illegal_argument_exception",
+              "reason": "Can't update non dynamic setting(s) [[index.number_of_shards]] for open indices [[tut-l15-route/DeVVFH-yTgC9IJ3J8pyGGA]]. The setting(s) [[index.number_of_shards]] cannot be modified on an index once it is created. You will need to create a new index with the desired setting(s) and reindex your data. See https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-reindex"
+            },
+            "status": 400
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-b-settings",
+          "method": "GET",
+          "path": "/tut-l15-route/_settings?flat_settings=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tut-l15-route": {
+              "settings": {
+                "index.auto_expand_replicas": "false",
+                "index.creation_date": "1791727672033",
+                "index.default_pipeline": "_none",
+                "index.final_pipeline": "_none",
+                "index.mode": "standard",
+                "index.number_of_replicas": "0",
+                "index.number_of_shards": "3",
+                "index.provided_name": "tut-l15-route",
+                "index.refresh_interval": "-1",
+                "index.routing.allocation.include._tier_preference": "data_content",
+                "index.routing_partition_size": "1",
+                "index.translog.durability": "request",
+                "index.uuid": "DeVVFH-yTgC9IJ3J8pyGGA",
+                "index.version.created": "9094000",
+                "index.write.wait_for_active_shards": "1"
+              }
+            }
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-b-after-final",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/route-0?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "route-0",
+            "_version": 1,
+            "_seq_no": 1,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "body": "cross shard example"
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-b-replicas-one",
+          "method": "PUT",
+          "path": "/tut-l15-route/_settings",
+          "body": {
+            "number_of_replicas": 1
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          },
+          "elapsedMs": 31
+        },
+        {
+          "id": "ch15-b-yellow-again",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-route?wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "yellow",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 3,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 50.0
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-12-req-create",
+          "method": "PUT",
+          "path": "/tut-l15-req",
+          "body": {
+            "settings": {
+              "index.mode": "standard",
+              "number_of_shards": 3,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": false,
+              "routing_partition_size": 1,
+              "refresh_interval": "-1",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "translog.durability": "request",
+              "write.wait_for_active_shards": "1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "mode": "stored"
+              },
+              "_routing": {
+                "required": true
+              },
+              "properties": {
+                "title": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l15-req"
+          },
+          "elapsedMs": 55
+        },
+        {
+          "id": "ch15-c-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-req?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-13-req-missing",
+          "method": "PUT",
+          "path": "/tut-l15-req/_doc/1",
+          "body": {
+            "title": "no routing here"
+          },
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "routing_missing_exception",
+                  "reason": "routing is required for [tut-l15-req]/[1]",
+                  "index_uuid": "_na_",
+                  "index": "tut-l15-req"
+                }
+              ],
+              "type": "routing_missing_exception",
+              "reason": "routing is required for [tut-l15-req]/[1]",
+              "index_uuid": "_na_",
+              "index": "tut-l15-req"
+            },
+            "status": 400
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-c-put",
+          "method": "PUT",
+          "path": "/tut-l15-req/_doc/1?routing=brown&refresh=true",
+          "body": {
+            "title": "routing required"
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l15-req",
+            "_id": "1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1
+          },
+          "elapsedMs": 9
+        },
+        {
+          "id": "ch15-c-get-missing",
+          "method": "GET",
+          "path": "/tut-l15-req/_doc/1",
+          "body": null,
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "routing_missing_exception",
+                  "reason": "routing is required for [tut-l15-req]/[1]",
+                  "index_uuid": "_na_",
+                  "index": "tut-l15-req"
+                }
+              ],
+              "type": "routing_missing_exception",
+              "reason": "routing is required for [tut-l15-req]/[1]",
+              "index_uuid": "_na_",
+              "index": "tut-l15-req"
+            },
+            "status": 400
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-c-get-hit",
+          "method": "GET",
+          "path": "/tut-l15-req/_doc/1?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-req",
+            "_id": "1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "title": "routing required"
+            }
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-c-search-all",
+          "method": "GET",
+          "path": "/tut-l15-req/_search?size=10",
+          "body": null,
+          "status": 200,
+          "response": {
+            "took": 2,
+            "timed_out": false,
+            "_shards": {
+              "total": 3,
+              "successful": 3,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "max_score": 1.0,
+              "hits": [
+                {
+                  "_index": "tut-l15-req",
+                  "_id": "1",
+                  "_score": 1.0,
+                  "_routing": "brown",
+                  "_source": {
+                    "title": "routing required"
+                  }
+                }
+              ]
+            }
+          },
+          "elapsedMs": 5
+        },
+        {
+          "id": "ch15-d-close",
+          "method": "POST",
+          "path": "/tut-l15-req/_close",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "indices": {
+              "tut-l15-req": {
+                "closed": true
+              }
+            }
+          },
+          "elapsedMs": 56
+        },
+        {
+          "id": "ch15-d-closed-get",
+          "method": "GET",
+          "path": "/tut-l15-req/_doc/1?routing=brown",
+          "body": null,
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "index_closed_exception",
+                  "reason": "closed",
+                  "index_uuid": "oFUXrJ5QSOyJa2iLqTssbw",
+                  "index": "tut-l15-req"
+                }
+              ],
+              "type": "index_closed_exception",
+              "reason": "closed",
+              "index_uuid": "oFUXrJ5QSOyJa2iLqTssbw",
+              "index": "tut-l15-req"
+            },
+            "status": 400
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-d-open",
+          "method": "POST",
+          "path": "/tut-l15-req/_open",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true
+          },
+          "elapsedMs": 47
+        },
+        {
+          "id": "ch15-d-open-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-req?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-d-open-get",
+          "method": "GET",
+          "path": "/tut-l15-req/_doc/1?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-req",
+            "_id": "1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "title": "routing required"
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-d-recovery",
+          "method": "GET",
+          "path": "/tut-l15-req/_recovery?active_only=false&detailed=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tut-l15-req": {
+              "shards": [
+                {
+                  "id": 0,
+                  "type": "EXISTING_STORE",
+                  "stage": "DONE",
+                  "primary": true,
+                  "start_time_in_millis": 1791727672363,
+                  "stop_time_in_millis": 1791727672377,
+                  "total_time_in_millis": 14,
+                  "source": {
+                    "bootstrap_new_history_uuid": false
+                  },
+                  "target": {
+                    "id": "QSkpyRrVQ7SrCWvutWILMg",
+                    "host": "172.18.0.2",
+                    "transport_address": "172.18.0.2:9300",
+                    "ip": "172.18.0.2",
+                    "name": "de11d253f59a"
+                  },
+                  "index": {
+                    "size": {
+                      "total_in_bytes": 5361,
+                      "reused_in_bytes": 5361,
+                      "recovered_in_bytes": 0,
+                      "recovered_from_snapshot_in_bytes": 0,
+                      "percent": "100.0%"
+                    },
+                    "files": {
+                      "total": 4,
+                      "reused": 4,
+                      "recovered": 0,
+                      "percent": "100.0%",
+                      "details": [
+                        {
+                          "name": "_0.cfe",
+                          "length_in_bytes": 612,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        },
+                        {
+                          "name": "_0.si",
+                          "length_in_bytes": 336,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        },
+                        {
+                          "name": "_0.cfs",
+                          "length_in_bytes": 4080,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        },
+                        {
+                          "name": "segments_3",
+                          "length_in_bytes": 333,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        }
+                      ]
+                    },
+                    "total_time_in_millis": 0,
+                    "source_throttle_time_in_millis": 0,
+                    "target_throttle_time_in_millis": 0
+                  },
+                  "translog": {
+                    "recovered": 0,
+                    "total": 0,
+                    "percent": "100.0%",
+                    "total_on_start": 0,
+                    "total_time_in_millis": 12
+                  },
+                  "verify_index": {
+                    "check_index_time_in_millis": 0,
+                    "total_time_in_millis": 0
+                  }
+                },
+                {
+                  "id": 1,
+                  "type": "EXISTING_STORE",
+                  "stage": "DONE",
+                  "primary": true,
+                  "start_time_in_millis": 1791727672365,
+                  "stop_time_in_millis": 1791727672380,
+                  "total_time_in_millis": 15,
+                  "source": {
+                    "bootstrap_new_history_uuid": false
+                  },
+                  "target": {
+                    "id": "QSkpyRrVQ7SrCWvutWILMg",
+                    "host": "172.18.0.2",
+                    "transport_address": "172.18.0.2:9300",
+                    "ip": "172.18.0.2",
+                    "name": "de11d253f59a"
+                  },
+                  "index": {
+                    "size": {
+                      "total_in_bytes": 249,
+                      "reused_in_bytes": 249,
+                      "recovered_in_bytes": 0,
+                      "recovered_from_snapshot_in_bytes": 0,
+                      "percent": "100.0%"
+                    },
+                    "files": {
+                      "total": 1,
+                      "reused": 1,
+                      "recovered": 0,
+                      "percent": "100.0%",
+                      "details": [
+                        {
+                          "name": "segments_3",
+                          "length_in_bytes": 249,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        }
+                      ]
+                    },
+                    "total_time_in_millis": 0,
+                    "source_throttle_time_in_millis": 0,
+                    "target_throttle_time_in_millis": 0
+                  },
+                  "translog": {
+                    "recovered": 0,
+                    "total": 0,
+                    "percent": "100.0%",
+                    "total_on_start": 0,
+                    "total_time_in_millis": 9
+                  },
+                  "verify_index": {
+                    "check_index_time_in_millis": 0,
+                    "total_time_in_millis": 0
+                  }
+                },
+                {
+                  "id": 2,
+                  "type": "EXISTING_STORE",
+                  "stage": "DONE",
+                  "primary": true,
+                  "start_time_in_millis": 1791727672370,
+                  "stop_time_in_millis": 1791727672378,
+                  "total_time_in_millis": 7,
+                  "source": {
+                    "bootstrap_new_history_uuid": false
+                  },
+                  "target": {
+                    "id": "QSkpyRrVQ7SrCWvutWILMg",
+                    "host": "172.18.0.2",
+                    "transport_address": "172.18.0.2:9300",
+                    "ip": "172.18.0.2",
+                    "name": "de11d253f59a"
+                  },
+                  "index": {
+                    "size": {
+                      "total_in_bytes": 249,
+                      "reused_in_bytes": 249,
+                      "recovered_in_bytes": 0,
+                      "recovered_from_snapshot_in_bytes": 0,
+                      "percent": "100.0%"
+                    },
+                    "files": {
+                      "total": 1,
+                      "reused": 1,
+                      "recovered": 0,
+                      "percent": "100.0%",
+                      "details": [
+                        {
+                          "name": "segments_3",
+                          "length_in_bytes": 249,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        }
+                      ]
+                    },
+                    "total_time_in_millis": 0,
+                    "source_throttle_time_in_millis": 0,
+                    "target_throttle_time_in_millis": 0
+                  },
+                  "translog": {
+                    "recovered": 0,
+                    "total": 0,
+                    "percent": "100.0%",
+                    "total_on_start": 0,
+                    "total_time_in_millis": 6
+                  },
+                  "verify_index": {
+                    "check_index_time_in_millis": 0,
+                    "total_time_in_millis": 0
+                  }
+                }
+              ]
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-14-cleanup-route",
+          "method": "DELETE",
+          "path": "/tut-l15-route?ignore_unavailable=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          },
+          "elapsedMs": 22
+        },
+        {
+          "id": "ch15-15-cleanup-req",
+          "method": "DELETE",
+          "path": "/tut-l15-req?ignore_unavailable=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          },
+          "elapsedMs": 16
+        }
+      ],
+      "status": "pass",
+      "verified": [
+        "40-status-codes",
+        "0/0/2-target-shards",
+        "same-shard-get-hit",
+        "cross-shard-404-and-routing-recovery",
+        "search-all-two-hits-vs-routed-zero",
+        "yellow-green-yellow-index-health",
+        "Final-rejected-settings-preserved-and-readable",
+        "routing-required-write-and-get-400",
+        "required-search-without-routing",
+        "closed-get-index-resolution-400",
+        "reopen-data-preserved-EXISTING_STORE-DONE",
+        "two-explicit-cleanups"
+      ]
+    },
+    {
+      "run": 2,
+      "operations": [
+        {
+          "id": "ch15-version",
+          "method": "GET",
+          "path": "/",
+          "body": null,
+          "status": 200,
+          "response": {
+            "name": "de11d253f59a",
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": {
+              "number": "9.4.0",
+              "build_flavor": "default",
+              "build_type": "docker",
+              "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+              "build_date": "2026-04-30T15:05:34.751113474Z",
+              "build_snapshot": false,
+              "lucene_version": "10.4.0",
+              "minimum_wire_compatibility_version": "8.19.0",
+              "minimum_index_compatibility_version": "8.0.0"
+            },
+            "tagline": "You Know, for Search"
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-00-setup",
+          "method": "PUT",
+          "path": "/tut-l15-route",
+          "body": {
+            "settings": {
+              "index.mode": "standard",
+              "number_of_shards": 3,
+              "number_of_replicas": 1,
+              "auto_expand_replicas": false,
+              "routing_partition_size": 1,
+              "refresh_interval": "-1",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "translog.durability": "request",
+              "write.wait_for_active_shards": "1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "mode": "stored"
+              },
+              "properties": {
+                "body": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l15-route"
+          },
+          "elapsedMs": 50
+        },
+        {
+          "id": "ch15-a-yellow",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-route?wait_for_status=yellow&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "yellow",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 3,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 50.0
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-01-shards",
+          "method": "GET",
+          "path": "/_cat/shards/tut-l15-route?v&h=index,shard,prirep,state,docs,store,node",
+          "body": null,
+          "status": 200,
+          "response": "index         shard prirep state      docs store node\ntut-l15-route 0     p      STARTED       0    0b de11d253f59a\ntut-l15-route 0     r      UNASSIGNED            \ntut-l15-route 1     p      STARTED       0    0b de11d253f59a\ntut-l15-route 1     r      UNASSIGNED            \ntut-l15-route 2     p      STARTED       0  227b de11d253f59a\ntut-l15-route 2     r      UNASSIGNED            \n",
+          "elapsedMs": 4
+        },
+        {
+          "id": "ch15-02-put-routing",
+          "method": "PUT",
+          "path": "/tut-l15-route/_doc/brown-1?routing=brown&refresh=true",
+          "body": {
+            "body": "brown example"
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "brown-1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 2,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1
+          },
+          "elapsedMs": 10
+        },
+        {
+          "id": "ch15-03-cat-docs",
+          "method": "GET",
+          "path": "/_cat/shards/tut-l15-route?v&h=shard,prirep,state,docs",
+          "body": null,
+          "status": 200,
+          "response": "shard prirep state      docs\n0     p      STARTED       1\n0     r      UNASSIGNED     \n1     p      STARTED       0\n1     r      UNASSIGNED     \n2     p      STARTED       0\n2     r      UNASSIGNED     \n",
+          "elapsedMs": 4
+        },
+        {
+          "id": "ch15-04-ss-all",
+          "method": "GET",
+          "path": "/tut-l15-route/_search_shards",
+          "body": null,
+          "status": 200,
+          "response": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "ephemeral_id": "AeB0eIkDQ5SmRrkLzdgaKQ",
+                "transport_address": "172.18.0.2:9300",
+                "external_id": "de11d253f59a",
+                "attributes": {
+                  "xpack.installed": "true",
+                  "transform.config_version": "10.0.0",
+                  "ml.machine_memory": "4094382080",
+                  "ml.allocated_processors": "2",
+                  "ml.allocated_processors_double": "2.0",
+                  "ml.max_jvm_size": "1073741824",
+                  "ml.config_version": "12.0.0"
+                },
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ],
+                "version": "9.4.0",
+                "min_index_version": 8000099,
+                "max_index_version": 9094000
+              }
+            },
+            "indices": {
+              "tut-l15-route": {}
+            },
+            "shards": [
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 0,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "9pygBoh8SSaN4xHvAE8PLw"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ],
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 1,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "A4hqpMd4TvWLYsDHdlxufw"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ],
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 2,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "h_yw4nBrTI2JEV4q3rSfeg"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ]
+            ]
+          },
+          "elapsedMs": 4
+        },
+        {
+          "id": "ch15-05-ss-routing",
+          "method": "GET",
+          "path": "/tut-l15-route/_search_shards?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "ephemeral_id": "AeB0eIkDQ5SmRrkLzdgaKQ",
+                "transport_address": "172.18.0.2:9300",
+                "external_id": "de11d253f59a",
+                "attributes": {
+                  "xpack.installed": "true",
+                  "transform.config_version": "10.0.0",
+                  "ml.machine_memory": "4094382080",
+                  "ml.allocated_processors": "2",
+                  "ml.allocated_processors_double": "2.0",
+                  "ml.max_jvm_size": "1073741824",
+                  "ml.config_version": "12.0.0"
+                },
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ],
+                "version": "9.4.0",
+                "min_index_version": 8000099,
+                "max_index_version": 9094000
+              }
+            },
+            "indices": {
+              "tut-l15-route": {}
+            },
+            "shards": [
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 0,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "9pygBoh8SSaN4xHvAE8PLw"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ]
+            ]
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-a-id-shard",
+          "method": "GET",
+          "path": "/tut-l15-route/_search_shards?routing=brown-1",
+          "body": null,
+          "status": 200,
+          "response": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "ephemeral_id": "AeB0eIkDQ5SmRrkLzdgaKQ",
+                "transport_address": "172.18.0.2:9300",
+                "external_id": "de11d253f59a",
+                "attributes": {
+                  "xpack.installed": "true",
+                  "transform.config_version": "10.0.0",
+                  "ml.machine_memory": "4094382080",
+                  "ml.allocated_processors": "2",
+                  "ml.allocated_processors_double": "2.0",
+                  "ml.max_jvm_size": "1073741824",
+                  "ml.config_version": "12.0.0"
+                },
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ],
+                "version": "9.4.0",
+                "min_index_version": 8000099,
+                "max_index_version": 9094000
+              }
+            },
+            "indices": {
+              "tut-l15-route": {}
+            },
+            "shards": [
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 0,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "9pygBoh8SSaN4xHvAE8PLw"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ]
+            ]
+          },
+          "elapsedMs": 1
+        },
+        {
+          "id": "ch15-06-get-miss",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/brown-1",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "brown-1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "body": "brown example"
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-07-get-hit",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/brown-1?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "brown-1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "body": "brown example"
+            }
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-a-put-cross",
+          "method": "PUT",
+          "path": "/tut-l15-route/_doc/route-0?routing=brown&refresh=true",
+          "body": {
+            "body": "cross shard example"
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "route-0",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 2,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 1,
+            "_primary_term": 1
+          },
+          "elapsedMs": 9
+        },
+        {
+          "id": "ch15-a-cross-shard",
+          "method": "GET",
+          "path": "/tut-l15-route/_search_shards?routing=route-0",
+          "body": null,
+          "status": 200,
+          "response": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "ephemeral_id": "AeB0eIkDQ5SmRrkLzdgaKQ",
+                "transport_address": "172.18.0.2:9300",
+                "external_id": "de11d253f59a",
+                "attributes": {
+                  "xpack.installed": "true",
+                  "transform.config_version": "10.0.0",
+                  "ml.machine_memory": "4094382080",
+                  "ml.allocated_processors": "2",
+                  "ml.allocated_processors_double": "2.0",
+                  "ml.max_jvm_size": "1073741824",
+                  "ml.config_version": "12.0.0"
+                },
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ],
+                "version": "9.4.0",
+                "min_index_version": 8000099,
+                "max_index_version": 9094000
+              }
+            },
+            "indices": {
+              "tut-l15-route": {}
+            },
+            "shards": [
+              [
+                {
+                  "state": "STARTED",
+                  "primary": true,
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "relocating_node": null,
+                  "shard": 2,
+                  "index": "tut-l15-route",
+                  "allocation_id": {
+                    "id": "h_yw4nBrTI2JEV4q3rSfeg"
+                  },
+                  "relocation_failure_info": {
+                    "failed_attempts": 0
+                  }
+                }
+              ]
+            ]
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-a-cross-miss",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/route-0",
+          "body": null,
+          "status": 404,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "route-0",
+            "found": false
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-a-cross-hit",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/route-0?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "route-0",
+            "_version": 1,
+            "_seq_no": 1,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "body": "cross shard example"
+            }
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-a-search-all",
+          "method": "GET",
+          "path": "/tut-l15-route/_search?size=10",
+          "body": null,
+          "status": 200,
+          "response": {
+            "took": 2,
+            "timed_out": false,
+            "_shards": {
+              "total": 3,
+              "successful": 3,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "max_score": 1.0,
+              "hits": [
+                {
+                  "_index": "tut-l15-route",
+                  "_id": "brown-1",
+                  "_score": 1.0,
+                  "_routing": "brown",
+                  "_source": {
+                    "body": "brown example"
+                  }
+                },
+                {
+                  "_index": "tut-l15-route",
+                  "_id": "route-0",
+                  "_score": 1.0,
+                  "_routing": "brown",
+                  "_source": {
+                    "body": "cross shard example"
+                  }
+                }
+              ]
+            }
+          },
+          "elapsedMs": 4
+        },
+        {
+          "id": "ch15-a-search-wrong",
+          "method": "GET",
+          "path": "/tut-l15-route/_search?routing=route-0&size=10",
+          "body": null,
+          "status": 200,
+          "response": {
+            "took": 0,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": []
+            }
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-08-replicas-0",
+          "method": "PUT",
+          "path": "/tut-l15-route/_settings",
+          "body": {
+            "number_of_replicas": 0
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          },
+          "elapsedMs": 18
+        },
+        {
+          "id": "ch15-09-health-green",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-route?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-10-segments",
+          "method": "GET",
+          "path": "/_cat/segments/tut-l15-route?v&h=index,shard,prirep,segment,generation,size",
+          "body": null,
+          "status": 200,
+          "response": "index         shard prirep segment generation  size\ntut-l15-route 0     p      _0               0 4.9kb\ntut-l15-route 0     p      _1               1 4.9kb\n",
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-11-final-wall",
+          "method": "PUT",
+          "path": "/tut-l15-route/_settings",
+          "body": {
+            "index.number_of_shards": 5
+          },
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "illegal_argument_exception",
+                  "reason": "Can't update non dynamic setting(s) [[index.number_of_shards]] for open indices [[tut-l15-route/qAYioHEGTfiprAVJHzFA9g]]. The setting(s) [[index.number_of_shards]] cannot be modified on an index once it is created. You will need to create a new index with the desired setting(s) and reindex your data. See https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-reindex"
+                }
+              ],
+              "type": "illegal_argument_exception",
+              "reason": "Can't update non dynamic setting(s) [[index.number_of_shards]] for open indices [[tut-l15-route/qAYioHEGTfiprAVJHzFA9g]]. The setting(s) [[index.number_of_shards]] cannot be modified on an index once it is created. You will need to create a new index with the desired setting(s) and reindex your data. See https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-reindex"
+            },
+            "status": 400
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-b-settings",
+          "method": "GET",
+          "path": "/tut-l15-route/_settings?flat_settings=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tut-l15-route": {
+              "settings": {
+                "index.auto_expand_replicas": "false",
+                "index.creation_date": "1791727672443",
+                "index.default_pipeline": "_none",
+                "index.final_pipeline": "_none",
+                "index.mode": "standard",
+                "index.number_of_replicas": "0",
+                "index.number_of_shards": "3",
+                "index.provided_name": "tut-l15-route",
+                "index.refresh_interval": "-1",
+                "index.routing.allocation.include._tier_preference": "data_content",
+                "index.routing_partition_size": "1",
+                "index.translog.durability": "request",
+                "index.uuid": "qAYioHEGTfiprAVJHzFA9g",
+                "index.version.created": "9094000",
+                "index.write.wait_for_active_shards": "1"
+              }
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-b-after-final",
+          "method": "GET",
+          "path": "/tut-l15-route/_doc/route-0?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-route",
+            "_id": "route-0",
+            "_version": 1,
+            "_seq_no": 1,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "body": "cross shard example"
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-b-replicas-one",
+          "method": "PUT",
+          "path": "/tut-l15-route/_settings",
+          "body": {
+            "number_of_replicas": 1
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          },
+          "elapsedMs": 17
+        },
+        {
+          "id": "ch15-b-yellow-again",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-route?wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "yellow",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 3,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 50.0
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-12-req-create",
+          "method": "PUT",
+          "path": "/tut-l15-req",
+          "body": {
+            "settings": {
+              "index.mode": "standard",
+              "number_of_shards": 3,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": false,
+              "routing_partition_size": 1,
+              "refresh_interval": "-1",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "translog.durability": "request",
+              "write.wait_for_active_shards": "1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "mode": "stored"
+              },
+              "_routing": {
+                "required": true
+              },
+              "properties": {
+                "title": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l15-req"
+          },
+          "elapsedMs": 58
+        },
+        {
+          "id": "ch15-c-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-req?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "elapsedMs": 4
+        },
+        {
+          "id": "ch15-13-req-missing",
+          "method": "PUT",
+          "path": "/tut-l15-req/_doc/1",
+          "body": {
+            "title": "no routing here"
+          },
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "routing_missing_exception",
+                  "reason": "routing is required for [tut-l15-req]/[1]",
+                  "index_uuid": "_na_",
+                  "index": "tut-l15-req"
+                }
+              ],
+              "type": "routing_missing_exception",
+              "reason": "routing is required for [tut-l15-req]/[1]",
+              "index_uuid": "_na_",
+              "index": "tut-l15-req"
+            },
+            "status": 400
+          },
+          "elapsedMs": 3
+        },
+        {
+          "id": "ch15-c-put",
+          "method": "PUT",
+          "path": "/tut-l15-req/_doc/1?routing=brown&refresh=true",
+          "body": {
+            "title": "routing required"
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l15-req",
+            "_id": "1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1
+          },
+          "elapsedMs": 9
+        },
+        {
+          "id": "ch15-c-get-missing",
+          "method": "GET",
+          "path": "/tut-l15-req/_doc/1",
+          "body": null,
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "routing_missing_exception",
+                  "reason": "routing is required for [tut-l15-req]/[1]",
+                  "index_uuid": "_na_",
+                  "index": "tut-l15-req"
+                }
+              ],
+              "type": "routing_missing_exception",
+              "reason": "routing is required for [tut-l15-req]/[1]",
+              "index_uuid": "_na_",
+              "index": "tut-l15-req"
+            },
+            "status": 400
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-c-get-hit",
+          "method": "GET",
+          "path": "/tut-l15-req/_doc/1?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-req",
+            "_id": "1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "title": "routing required"
+            }
+          },
+          "elapsedMs": 4
+        },
+        {
+          "id": "ch15-c-search-all",
+          "method": "GET",
+          "path": "/tut-l15-req/_search?size=10",
+          "body": null,
+          "status": 200,
+          "response": {
+            "took": 2,
+            "timed_out": false,
+            "_shards": {
+              "total": 3,
+              "successful": 3,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "max_score": 1.0,
+              "hits": [
+                {
+                  "_index": "tut-l15-req",
+                  "_id": "1",
+                  "_score": 1.0,
+                  "_routing": "brown",
+                  "_source": {
+                    "title": "routing required"
+                  }
+                }
+              ]
+            }
+          },
+          "elapsedMs": 5
+        },
+        {
+          "id": "ch15-d-close",
+          "method": "POST",
+          "path": "/tut-l15-req/_close",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "indices": {
+              "tut-l15-req": {
+                "closed": true
+              }
+            }
+          },
+          "elapsedMs": 58
+        },
+        {
+          "id": "ch15-d-closed-get",
+          "method": "GET",
+          "path": "/tut-l15-req/_doc/1?routing=brown",
+          "body": null,
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "index_closed_exception",
+                  "reason": "closed",
+                  "index_uuid": "H41xehl_Tuerq2M1do5Xow",
+                  "index": "tut-l15-req"
+                }
+              ],
+              "type": "index_closed_exception",
+              "reason": "closed",
+              "index_uuid": "H41xehl_Tuerq2M1do5Xow",
+              "index": "tut-l15-req"
+            },
+            "status": 400
+          },
+          "elapsedMs": 5
+        },
+        {
+          "id": "ch15-d-open",
+          "method": "POST",
+          "path": "/tut-l15-req/_open",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true
+          },
+          "elapsedMs": 51
+        },
+        {
+          "id": "ch15-d-open-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l15-req?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 3,
+            "active_shards": 3,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-d-open-get",
+          "method": "GET",
+          "path": "/tut-l15-req/_doc/1?routing=brown",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l15-req",
+            "_id": "1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "_routing": "brown",
+            "found": true,
+            "_source": {
+              "title": "routing required"
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-d-recovery",
+          "method": "GET",
+          "path": "/tut-l15-req/_recovery?active_only=false&detailed=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tut-l15-req": {
+              "shards": [
+                {
+                  "id": 0,
+                  "type": "EXISTING_STORE",
+                  "stage": "DONE",
+                  "primary": true,
+                  "start_time_in_millis": 1791727672772,
+                  "stop_time_in_millis": 1791727672785,
+                  "total_time_in_millis": 12,
+                  "source": {
+                    "bootstrap_new_history_uuid": false
+                  },
+                  "target": {
+                    "id": "QSkpyRrVQ7SrCWvutWILMg",
+                    "host": "172.18.0.2",
+                    "transport_address": "172.18.0.2:9300",
+                    "ip": "172.18.0.2",
+                    "name": "de11d253f59a"
+                  },
+                  "index": {
+                    "size": {
+                      "total_in_bytes": 5361,
+                      "reused_in_bytes": 5361,
+                      "recovered_in_bytes": 0,
+                      "recovered_from_snapshot_in_bytes": 0,
+                      "percent": "100.0%"
+                    },
+                    "files": {
+                      "total": 4,
+                      "reused": 4,
+                      "recovered": 0,
+                      "percent": "100.0%",
+                      "details": [
+                        {
+                          "name": "_0.cfe",
+                          "length_in_bytes": 612,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        },
+                        {
+                          "name": "_0.si",
+                          "length_in_bytes": 336,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        },
+                        {
+                          "name": "_0.cfs",
+                          "length_in_bytes": 4080,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        },
+                        {
+                          "name": "segments_3",
+                          "length_in_bytes": 333,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        }
+                      ]
+                    },
+                    "total_time_in_millis": 0,
+                    "source_throttle_time_in_millis": 0,
+                    "target_throttle_time_in_millis": 0
+                  },
+                  "translog": {
+                    "recovered": 0,
+                    "total": 0,
+                    "percent": "100.0%",
+                    "total_on_start": 0,
+                    "total_time_in_millis": 10
+                  },
+                  "verify_index": {
+                    "check_index_time_in_millis": 0,
+                    "total_time_in_millis": 0
+                  }
+                },
+                {
+                  "id": 1,
+                  "type": "EXISTING_STORE",
+                  "stage": "DONE",
+                  "primary": true,
+                  "start_time_in_millis": 1791727672775,
+                  "stop_time_in_millis": 1791727672785,
+                  "total_time_in_millis": 9,
+                  "source": {
+                    "bootstrap_new_history_uuid": false
+                  },
+                  "target": {
+                    "id": "QSkpyRrVQ7SrCWvutWILMg",
+                    "host": "172.18.0.2",
+                    "transport_address": "172.18.0.2:9300",
+                    "ip": "172.18.0.2",
+                    "name": "de11d253f59a"
+                  },
+                  "index": {
+                    "size": {
+                      "total_in_bytes": 249,
+                      "reused_in_bytes": 249,
+                      "recovered_in_bytes": 0,
+                      "recovered_from_snapshot_in_bytes": 0,
+                      "percent": "100.0%"
+                    },
+                    "files": {
+                      "total": 1,
+                      "reused": 1,
+                      "recovered": 0,
+                      "percent": "100.0%",
+                      "details": [
+                        {
+                          "name": "segments_3",
+                          "length_in_bytes": 249,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        }
+                      ]
+                    },
+                    "total_time_in_millis": 0,
+                    "source_throttle_time_in_millis": 0,
+                    "target_throttle_time_in_millis": 0
+                  },
+                  "translog": {
+                    "recovered": 0,
+                    "total": 0,
+                    "percent": "100.0%",
+                    "total_on_start": 0,
+                    "total_time_in_millis": 7
+                  },
+                  "verify_index": {
+                    "check_index_time_in_millis": 0,
+                    "total_time_in_millis": 0
+                  }
+                },
+                {
+                  "id": 2,
+                  "type": "EXISTING_STORE",
+                  "stage": "DONE",
+                  "primary": true,
+                  "start_time_in_millis": 1791727672777,
+                  "stop_time_in_millis": 1791727672786,
+                  "total_time_in_millis": 8,
+                  "source": {
+                    "bootstrap_new_history_uuid": false
+                  },
+                  "target": {
+                    "id": "QSkpyRrVQ7SrCWvutWILMg",
+                    "host": "172.18.0.2",
+                    "transport_address": "172.18.0.2:9300",
+                    "ip": "172.18.0.2",
+                    "name": "de11d253f59a"
+                  },
+                  "index": {
+                    "size": {
+                      "total_in_bytes": 249,
+                      "reused_in_bytes": 249,
+                      "recovered_in_bytes": 0,
+                      "recovered_from_snapshot_in_bytes": 0,
+                      "percent": "100.0%"
+                    },
+                    "files": {
+                      "total": 1,
+                      "reused": 1,
+                      "recovered": 0,
+                      "percent": "100.0%",
+                      "details": [
+                        {
+                          "name": "segments_3",
+                          "length_in_bytes": 249,
+                          "reused": true,
+                          "recovered_in_bytes": 0,
+                          "recovered_from_snapshot_in_bytes": 0
+                        }
+                      ]
+                    },
+                    "total_time_in_millis": 0,
+                    "source_throttle_time_in_millis": 0,
+                    "target_throttle_time_in_millis": 0
+                  },
+                  "translog": {
+                    "recovered": 0,
+                    "total": 0,
+                    "percent": "100.0%",
+                    "total_on_start": 0,
+                    "total_time_in_millis": 7
+                  },
+                  "verify_index": {
+                    "check_index_time_in_millis": 0,
+                    "total_time_in_millis": 0
+                  }
+                }
+              ]
+            }
+          },
+          "elapsedMs": 2
+        },
+        {
+          "id": "ch15-14-cleanup-route",
+          "method": "DELETE",
+          "path": "/tut-l15-route?ignore_unavailable=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          },
+          "elapsedMs": 16
+        },
+        {
+          "id": "ch15-15-cleanup-req",
+          "method": "DELETE",
+          "path": "/tut-l15-req?ignore_unavailable=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          },
+          "elapsedMs": 16
+        }
+      ],
+      "status": "pass",
+      "verified": [
+        "40-status-codes",
+        "0/0/2-target-shards",
+        "same-shard-get-hit",
+        "cross-shard-404-and-routing-recovery",
+        "search-all-two-hits-vs-routed-zero",
+        "yellow-green-yellow-index-health",
+        "Final-rejected-settings-preserved-and-readable",
+        "routing-required-write-and-get-400",
+        "required-search-without-routing",
+        "closed-get-index-resolution-400",
+        "reopen-data-preserved-EXISTING_STORE-DONE",
+        "two-explicit-cleanups"
+      ]
+    }
+  ],
+  "status": "pass",
+  "reviewedExperimentSha256": "98f7b6ca928386d782e148f1e1d1b207105407c1172af4793232e212cd855db8",
+  "requestIdentityVerified": true,
+  "postCleanup": [
+    {
+      "path": "/tut-l15-route",
+      "status": 404,
+      "response": "",
+      "elapsedMs": 8
+    },
+    {
+      "path": "/tut-l15-req",
+      "status": 404,
+      "response": "",
+      "elapsedMs": 2
+    }
+  ]
+}
