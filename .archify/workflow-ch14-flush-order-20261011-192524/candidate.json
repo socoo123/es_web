@@ -1,0 +1,187 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "普通 flush：提交之后再裁日志",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch14-flush-order-20261011-192524/flush-order.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "引擎处理"
+        },
+        "database": {
+          "label": "日志与提交"
+        },
+        "security": {
+          "label": "写后同步"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "commit",
+      "label": "InternalEngine · 提交边界"
+    },
+    {
+      "id": "reader",
+      "label": "内部 reader · 版本衔接"
+    },
+    {
+      "id": "prune",
+      "label": "Translog · 有条件回收"
+    }
+  ],
+  "mainPath": [
+    "roll",
+    "commit-lucene",
+    "internal-refresh",
+    "trim"
+  ],
+  "nodes": [
+    {
+      "id": "roll",
+      "lane": "commit",
+      "col": 2,
+      "type": "database",
+      "label": "同步并滚动日志代次",
+      "sublabel": "空代且 term 未变可不滚动",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 2605,
+          "end_line": 2620,
+          "label": "滚代后提交"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/translog/Translog.java",
+          "line": 1837,
+          "end_line": 1874,
+          "label": "滚动条件"
+        }
+      ],
+      "yOffset": -49
+    },
+    {
+      "id": "commit-lucene",
+      "lane": "commit",
+      "col": 2,
+      "type": "database",
+      "label": "提交 Lucene 与恢复元数据",
+      "sublabel": "commitIndexWriter",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 2613,
+          "end_line": 2624,
+          "label": "提交调用"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 3405,
+          "end_line": 3441,
+          "label": "提交数据"
+        }
+      ],
+      "yOffset": 49
+    },
+    {
+      "id": "internal-refresh",
+      "lane": "reader",
+      "col": 2,
+      "type": "backend",
+      "label": "推进 INTERNAL reader",
+      "sublabel": "version_table_flush",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 2621,
+          "end_line": 2625,
+          "label": "内部 refresh"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/LiveVersionMap.java",
+          "line": 279,
+          "end_line": 305,
+          "label": "刷新衔接版本图"
+        }
+      ]
+    },
+    {
+      "id": "trim",
+      "lane": "prune",
+      "col": 2,
+      "type": "database",
+      "label": "裁掉不再引用的旧日志",
+      "sublabel": "safe commit 与引用锁决定保留",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/translog/Translog.java",
+          "line": 1878,
+          "end_line": 1939,
+          "label": "日志保留与删除"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 2623,
+          "end_line": 2647,
+          "label": "裁剪及更新提交状态"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "roll-commit-lucene",
+      "from": "roll",
+      "to": "commit-lucene",
+      "variant": "emphasis"
+    },
+    {
+      "id": "commit-lucene-internal-refresh",
+      "from": "commit-lucene",
+      "to": "internal-refresh",
+      "variant": "emphasis"
+    },
+    {
+      "id": "internal-refresh-trim",
+      "from": "internal-refresh",
+      "to": "trim",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "普通 flush 成功主线",
+      "items": [
+        "省略锁等待、跳过条件、并发写入与最终提交耐久等待；滚代先于 Lucene commit。",
+        "内部 refresh 让版本查找和 GET 接住旧 location 对应的数据。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "两条不能推导的结论",
+      "items": [
+        "flush 的 INTERNAL refresh 不负责发布 EXTERNAL 搜索视图。",
+        "裁剪受 safe commit、global checkpoint 和引用影响，不保证一次归零或删除全部日志。"
+      ]
+    }
+  ]
+}

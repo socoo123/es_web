@@ -19,7 +19,7 @@
 | ch11 | 映射系统 | ✅ | 35 | 1(动态映射·9 步) | ✅ 更新候选与字段结构（2 图，2 路径动画） |
 | ch12 | 摄取管道 | ✅ | 48 | — | ✅ 摄取写入与失败恢复（2 图，2 路径动画） |
 | ch13 | 批量写入 | ✅ | 40 | 1(bulk 分组·6步) | ✅ 分组结果与写入等待（2 图，2 路径动画） |
-| ch14 | 存储引擎 | ✅ | 29 | 1(写入全路径·旗舰) | 待改造 |
+| ch14 | 存储引擎 | ✅ | 46 | 1(写入全路径·8步) | ✅ 写入顺序与提交边界（2 图，2 路径动画） |
 | ch15 | 索引分片 | ✅ | 16 | 1(路由公式) | 待改造 |
 | ch16 | 搜索流程总览 | ✅ | 14 | 1(Query Then Fetch·旗舰) | 待改造 |
 | ch17 | 搜索服务与搜索上下文 | ✅ | 18 | 1(上下文生命周期) | 待改造 |
@@ -205,7 +205,30 @@
 | ch13 | false返回一定不可搜、wait_for只搭自动刷新且更便宜 | 是否可搜取决于刷新/旧视图；wait_for可由外部刷新满足或强制刷新，只覆盖触及分片、不改设置，无性能/耗时上限承诺 | PostWriteRefresh43–102；TransportWriteAction476–549；C1–C9 |
 | ch13 | 13卡缺完整配置、等待、读回、首次/重复与恢复条件 | 原13ID保留、增27，共4组40卡；三索引显式配置/限定健康等待、错误后GET、刷新对照、all/1、点名清理再完整重做 | [注册表](experiments/ch13.js)、[验收](.archify/CH13-REVIEW.md)；本轮真实API未运行 |
 
+### 第十四章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch14 | 可写实现唯一、Engine 在 recovery 完成后才创建 | 本课限定普通 InternalEngine，不泛化插件与其他形态；移除错误的创建时机断言 | Engine 抽象接口、IndexService1094–1096；本课未重读 tutorial |
+| ch14 | 协调节点不存数据；动画用带符号 murmur3 %5 / 固定 shard0 | 协调是角色，可同节点承接存储；示例明确1主0副，去掉不适用的路由算式 | 本课前提与既有 ch13 角色依据；八步机制同步 |
+| ch14 | refresh 不碰磁盘 / 每次一个新段，写入时任何 segment 都没有 | NRT reader 打开可落文件，IndexWriter 也可自动落段；可见性由 reader 决定，无固定段数 | InternalEngine2374–2438；A3/A7、D3–D5 |
+| ch14 | flush 后一定可搜、translog归零 | 普通 flush 只刷新 INTERNAL；safe commit与引用影响裁剪，统计及文件字节不保证归零 | InternalEngine2621–2625；Engine244–250；Translog1878–1939；C9–C13 |
+| ch14 | uncommitted是精确待重放条数，flush两次必为0；空基线“0或个位数” | 按 safe commit 后所需generation汇总，可夹带已覆盖操作；等待checkpoint后复查，不承诺固定次数；空基线明确0 | Translog1020–1034、1827–1836；B4/C8 |
+| ch14 | async最多丢约5s，写后GET接口不能开且GET零额外耗时 | sync_interval是调度周期非损失上限；async仍可实时GET，业务决定耐久风险；删除未经实测性能承诺 | IndexService1106–1119、1222–1245；TransportWriteAction476–487；B7–B11 |
+| ch14 | refresh_interval=0每次写入都refresh，-1完全控制维护 | 普通周期刷新检查>0；不能把0说成写入触发；-1不关后台flush；本课显式1h年龄阈值仍有后台条件 | IndexService1123–1139；InternalEngine2526–2560；IndexSettings380–395 |
+| ch14 | 失败都补NoOp，GET第一次固定开跟踪且之后稳定走日志 | 提前冲突可无seq_no，已分配序号的特定文档失败可NoOp；GET按条目/location与读取条件走日志或INTERNAL | InternalEngine1247–1311、927–1008、1613–1736 |
+| ch14 | flush阈值下限一概10MB、segment deleted_in_bytes字段、merge后deleted=0 | 10MB仅为磁盘保护阈值下限，显式flush值可更低；无deleted_in_bytes；软删除保留受safe commit/leases约束 | IndexSettings362–379、1762–1775；IndicesSegmentResponse121–137；SoftDeletesPolicy99–151 |
+| ch14 | forcemerge无响应body/只提交后台；实验只给1主0副、无等待与恢复 | 默认同步等待返回_shards，flush=true还有外部刷新；原29ID保留，增17，共4组46卡，显式配置、健康、设置恢复、write block和重复清理 | RestForceMergeAction49–59；InternalEngine2802–2838；[注册表](experiments/ch14.js)、[验收](.archify/CH14-REVIEW.md)；本轮API未实测 |
+
 ## 会话日志
+
+### 2026-10-11(第十四章按统一规范重构)
+
+- 固定 ES9.4.0 核对10源码文件/39精确区间；章节约4238中文字符、lesson约2699。重写成功/失败写入、两套reader、日志追加/同步、safe commit与代次统计、flush可见性及合并历史保留；勘误同步正文、图、解说、卡片、问答和速记。
+- 保留29原操作ID与ch14-write-path，新增17，共4组46卡（A10/B11/C13/D11/清理1）、2幅Workflow v2/2条有限trace/1个八步播放器。显式standard/stored source/strict mapping/1主0副/管道/refresh/耐久/年龄阈值、限定健康等待、async恢复、flush后仍不可搜、停止写入后merge、读回与四索引点名重复清理。全站30正式页/536卡/22机制播放器。
+- 官方Archify3.0.1首次附固定源码与--repo-root，只改JSON；两图validate/deliver/strict check为showcase9/9、0errors/warnings、provenance current。原生file URL政策使browser-check及finalize整体FAIL；update.noticeRequired=false。HTTP独立检查分开记录。
+- HTTP通过：两图四档桌面/双主题、章节六档宽度、880px/≤1px对齐、页面/iframe/所有节点容纳、探索/来源/关闭/展开、暂停后外层重播/Enter、目录/已读、八步机制控制与键盘、46实际控制台请求深链、endpoint/auth alias/raw传递、Pages前缀、reduced motion。390/320源码表和SVG局部滚动通过；24张截图实际复核。手机图细字需探索或展开缩放，旧SVG可局部滑动。共享文件未改。
+- 站点、JS语法、figwidth、diff、29稳定ID/46唯一有序槽位、GET/HEAD无body与静态路径检查通过。真实API首次与清理后重做均未执行：9200拒绝连接、已知runtime缺/proc/self/coredump_filter；未循环启动/降版/改ES/伪造响应。验收[CH14-REVIEW](.archify/CH14-REVIEW.md)，证据绑定[ch14-artifacts](.archify/review/ch14-artifacts.json)；按授权提交推送origin/main，Pages部署未核验。
 
 ### 2026-10-11(第十三章按统一规范重构)
 

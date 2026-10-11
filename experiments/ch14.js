@@ -1,392 +1,675 @@
-/* experiments/ch14.js — 第 14 课:实验 + 第一旗舰动画(写入全路径) */
+/* ch14：固定 9.4.0 源码校对的预期；本轮真实 ES 未运行。 */
 (function () {
   'use strict';
-
-  /* ===== 第一旗舰动画:一次写入的完整旅程 ===== */
-  /* 舞台:上行 = 请求链(客户端 → 协调节点路由 → 主分片);
-     下行 = 主分片内部与外围(index buffer / segments / translog / 副本),
-     底部 = GET 与 SEARCH 两个视角 + 本步结局。
-     与 ch01(只到可见性)、ch13(只到 bulk 分发)不重复:这里画完整存储生命周期。 */
-
-  var OUTCOMES = [
-    'PUT /idx/_doc/1 发出 · 存储层还没被碰过',
-    'murmur3("1") % 5 → shard 0 · 只锁定主分片',
-    'version 检查通过 → indexWriter.addDocuments · 尚不可搜',
-    'translog.add → ensureSynced(fsync)· 按 seqNo 复制给副本',
-    '201 Created 返回 · GET 已可见,SEARCH 仍 0 hits',
-    'refresh:buffer → seg1 · buffer 清空 · translog 不动',
-    'merge:小段并大段 · 软删除的旧文档被物理回收',
-    'flush:IndexWriter.commit → segments_N · translog 归零'
-  ];
-
-  var NOTES = [
-    '起点只有一件事:客户端把 PUT /idx/_doc/1 发向集群。第 13 课的接力棒在这里交接——之前所有层都没碰存储;接下来每一步都在回答同一个问题:这篇文档现在躺在哪。',
-    '协调节点不存数据:解析请求,按 murmur3(有效键) % 主分片数 算出唯一落点(有 routing 用 routing,没有就用 _id),动作转成 indices:data/write/index[p] 发往持有主分片的节点。bulk 的每一行都是独立这么算的。',
-    '主分片上 InternalEngine.index 开工:先 version 检查(indexingStrategyForOperation,冲突根本不写),再 indexWriter.addDocuments 进内存缓冲。注意顺序——先 Lucene 后 translog,与教科书 WAL 相反;此刻两种存放开始分头服务两种保证。',
-    'translog.add 在 Lucene 成功之后:记下这条 Index 操作。默认 durability=request,TransportWriteAction 的 AsyncAfterWriteAction 要等 ensureSynced fsync 完才放行 201;同时按同 seqNo 把操作复制给副本,副本本地再走一遍写入。',
-    '201 返回了。此刻这篇文档同时躺在:内存 buffer、translog(已 fsync)、VersionMap。GET(realtime)第一站问 VersionMap,立即可见;SEARCH 只认 EXTERNAL searcher,而没有任何 segment 装着它——0 hits。fsync 管的是耐久,不是可见性。',
-    'refresh_interval 到点或手动 _refresh:maybeRefreshBlocking 把 buffer 做成一个 NRT segment,EXTERNAL searcher 换新快照——SEARCH 看得见了。buffer 清空;translog 原封不动:refresh 不 commit、不裁日志,这正是它与 flush 的分界线。',
-    '每次 refresh 都可能留下小 segment,写得多段就多。Lucene 后台 merge 把小段合成大段:搜索打开的文件变少,软删除的旧版本文档在合并中物理丢弃。合并落后时 IndexThrottle 卡写入线程——背压,不是错误。',
-    'flush 才是 Lucene commit:rollGeneration 冻结旧日志 → IndexWriter.commit 写出 segments_N(commit user data 带 local checkpoint)→ 内部 refresh 清 VersionMap → trim 删掉不再需要的 .tlog。崩溃恢复从最后 commit 打开,只重放其后的日志。'
-  ];
-
-  var ROW_A = [
-    { x: 10, w: 150, sub: '① 客户端', main: 'PUT /idx/_doc/1', cls: 'fig-key' },
-    { x: 196, w: 180, sub: '② 协调节点', main: 'murmur3(_id) % 5', cls: 'fig-key' },
-    { x: 412, w: 180, sub: '③ 主分片 shard 0', main: 'InternalEngine.index', cls: 'fig-key' }
-  ];
-  var HOT_A = [0, 1, 2, 2, 3, 3, 3, 3]; /* 3 = 全亮,链路走完 */
-
-  /* 下行四块存放:buffer / segments / translog / replica */
-  var BOXES = [
-    { x: 15, w: 140, sub: 'IndexWriter 内存', name: 'index buffer' },
-    { x: 215, w: 190, sub: 'SEARCH 只看这里', name: 'segments' },
-    { x: 427, w: 150, sub: '预写日志 · 耐久', name: 'translog' },
-    { x: 599, w: 145, sub: '副本 · 同 seqNo', name: 'replica' }
-  ];
-  var B_STATE = [
-    ['dim', 'dim', 'dim', 'dim'],
-    ['dim', 'dim', 'dim', 'dim'],
-    ['hot', 'dim', 'dim', 'dim'],
-    ['lit', 'dim', 'hot', 'lit'],
-    ['lit', 'lit', 'dim', 'lit'],
-    ['hot', 'lit', 'hot', 'lit'],
-    ['lit', 'lit', 'hot', 'lit'],
-    ['lit', 'hot', 'hot', 'lit']
-  ];
-  function keyOf(step) {
-    return [
-      step < 2 ? '空' : (step < 5 ? 'Doc1(addDocuments)' : 'refresh 后清空'),
-      step < 5 ? '无 segment'
-        : (step === 5 ? 'seg1(NRT·未 commit)'
-        : (step === 6 ? 'seg1+2 → merge 中' : 'segments_N(commit)')),
-      step < 3 ? '空' : (step < 5 ? 'Index Doc1 + fsync' : (step < 7 ? 'refresh 不动它' : '已裁剪(flush)')),
-      step < 3 ? '等待复制' : 'Doc1(同 seqNo)'
-    ];
-  }
-
-  function stepSvg(step) {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">';
-    s += '<defs><marker id="ah14z" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-      + '<path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>';
-
-    /* 上行:请求链 */
-    var hotA = HOT_A[step];
-    for (var i = 0; i < ROW_A.length; i++) {
-      var a = ROW_A[i];
-      if (i < ROW_A.length - 1) {
-        s += '<line x1="' + (a.x + a.w + 4) + '" y1="47" x2="' + (ROW_A[i + 1].x - 6)
-          + '" y2="47" class="fig-arrow" marker-end="url(#ah14z)"'
-          + (i < hotA ? '' : ' opacity="0.35"') + '/>';
-      }
-      var hot = i === hotA;
-      s += '<g opacity="' + (i <= hotA ? 1 : 0.4) + '">';
-      s += '<rect x="' + a.x + '" y="16" width="' + a.w + '" height="62" rx="9" class="'
-        + (hot ? 'fig-box-hot fp-pop' : 'fig-box') + '"/>';
-      s += '<text x="' + (a.x + a.w / 2) + '" y="40" text-anchor="middle" class="fig-sub">' + a.sub + '</text>';
-      s += '<text x="' + (a.x + a.w / 2) + '" y="62" text-anchor="middle" class="' + a.cls + '">' + a.main + '</text>';
-      s += '</g>';
-    }
-
-    /* 换轨:主分片 → 存储层(step2 起,先指 buffer;step3 起分叉到 translog) */
-    if (step >= 2) {
-      s += '<path d="M 502 82 L 502 104 L 92 104 L 92 144" class="fig-arrow fp-draw" pathLength="1" marker-end="url(#ah14z)"/>';
-      s += '<text x="290" y="98" text-anchor="middle" class="fig-sub">下层 = 主分片内部与副本</text>';
-    }
-    if (step >= 3) {
-      s += '<line x1="502" y1="104" x2="502" y2="144" class="fig-arrow fp-draw" pathLength="1" marker-end="url(#ah14z)"/>';
-      s += '<path d="M 585 80 C 655 95 700 120 671 144" class="fig-arrow fp-draw" pathLength="1" marker-end="url(#ah14z)"/>';
-      s += '<text x="688" y="112" text-anchor="middle" class="fig-sub">同 seqNo 复制</text>';
-    }
-
-    /* 下行:四块存放 */
-    var st = B_STATE[step];
-    var keys = keyOf(step);
-    for (var j = 0; j < 4; j++) {
-      var b = BOXES[j];
-      var state = st[j];
-      s += '<g opacity="' + (state === 'dim' ? 0.35 : 1) + '">';
-      s += '<rect x="' + b.x + '" y="150" width="' + b.w + '" height="92" rx="9" class="'
-        + (state === 'hot' ? 'fig-box-hot fp-pop' : 'fig-box') + '"/>';
-      s += '<text x="' + (b.x + b.w / 2) + '" y="176" text-anchor="middle" class="fig-sub">' + b.sub + '</text>';
-      s += '<text x="' + (b.x + b.w / 2) + '" y="200" text-anchor="middle" class="fig-name">' + b.name + '</text>';
-      s += '<text x="' + (b.x + b.w / 2) + '" y="224" text-anchor="middle" class="fig-key">' + keys[j] + '</text>';
-      s += '</g>';
-    }
-
-    /* refresh 箭头:buffer → segments(step5 起) */
-    if (step >= 5) {
-      s += '<line x1="157" y1="196" x2="211" y2="196" class="fig-arrow fp-draw" pathLength="1" marker-end="url(#ah14z)"/>';
-      s += '<text x="184" y="186" text-anchor="middle" class="fig-sub">refresh</text>';
-    }
-    /* merge 小弧:segments 内部(step6 起) */
-    if (step >= 6) {
-      s += '<path d="M 377 180 A 15 15 0 1 0 377 210" class="fig-arrow fp-draw" pathLength="1" marker-end="url(#ah14z)"/>';
-    }
-
-    /* 两个可见性视角 */
-    var getPill = step < 2 ? 'GET:还没写进来' : (step < 5 ? 'GET:可见(VersionMap)' : 'GET:可见(searcher)');
-    var srPill = step < 5 ? 'SEARCH:不可见(0 hits)' : 'SEARCH:可见(EXTERNAL)';
-    s += '<rect x="110" y="248" width="240" height="22" rx="11" class="fig-box"/>';
-    s += '<text x="230" y="263" text-anchor="middle" class="fig-key">' + getPill + '</text>';
-    s += '<rect x="410" y="248" width="240" height="22" rx="11" class="fig-box"/>';
-    s += '<text x="530" y="263" text-anchor="middle" class="fig-key">' + srPill + '</text>';
-
-    /* 底部:本步结局 */
-    s += '<text x="380" y="292" text-anchor="middle" class="fig-key">' + OUTCOMES[step] + '</text>';
-    s += '</svg>';
-    return s;
-  }
-
-  window.ESFLOWS = window.ESFLOWS || {};
-  window.ESFLOWS['ch14-write-path'] = {
-    version: 1,
-    id: 'ch14-write-path',
-    title: '一次写入的完整旅程:从内存缓冲到 commit 点',
-    speed: 2200,
-    steps: NOTES.map(function (note, i) { return { svg: stepSvg(i), note: note }; })
-  };
-
-  /* ===== 实验 1:关掉定时 refresh,拆开「可见」与「已 commit」 ===== */
   window.ESEXPERIMENTS = window.ESEXPERIMENTS || {};
-  window.ESEXPERIMENTS['ch14-00-nrt-setup'] = {
-    version: 1, id: 'ch14-00-nrt-setup',
-    title: '实验 1 · 建索引 tut-l14-nrt(关定时 refresh)',
-    method: 'PUT', path: '/tut-l14-nrt',
-    body: { settings: { number_of_shards: 1, number_of_replicas: 0, refresh_interval: -1 } },
-    predict: 'refresh_interval=-1 关掉的是谁的时钟?GET 会被拖慢吗?',
-    expect: 'created/acknowledged: true。关的是 SEARCH 的可见性时钟(不再自动把 buffer 变 segment);GET 走 realtime 路径,一毫秒都不多等(第 10 课)。0 副本让单节点保持 green,排除复制干扰。'
-  };
-  window.ESEXPERIMENTS['ch14-01-nrt-put'] = {
-    version: 1, id: 'ch14-01-nrt-put',
-    title: '实验 1 · 写入 _id=1(不带 refresh)',
-    method: 'PUT', path: '/tut-l14-nrt/_doc/1',
-    body: { title: 'engine-nrt', views: 14 },
-    predict: 'result 是什么?此刻这篇文档同时躺在哪几处?',
-    expect: 'result: created。三处:IndexWriter 内存缓冲、translog 的一条 Index 操作、VersionMap 条目;任何 segment 里都没有。回 201 之前,TransportWriteAction.AsyncAfterWriteAction 已按 durability=request 完成一次 fsync——耐久已经定了,可见性还没有。'
-  };
-  window.ESEXPERIMENTS['ch14-02-nrt-get'] = {
-    version: 1, id: 'ch14-02-nrt-get',
-    title: '实验 1 · 立刻 GET(默认 realtime)',
-    method: 'GET', path: '/tut-l14-nrt/_doc/1?filter_path=found,_id,_version,_source',
-    body: null,
-    predict: '还没 refresh,拿得到吗?_version 是多少?',
-    expect: 'found: true,_version: 1,带完整 _source。realtime 路径第一站是 LiveVersionMap;trackTranslogLocation 默认 false,第一次 GET 常由 refreshIfNeeded("realtime_get") 推 INTERNAL searcher 从段读,并顺手打开跟踪——第 10 课走过完整链,这里只确认它不依赖 EXTERNAL。'
-  };
-  window.ESEXPERIMENTS['ch14-03-nrt-search'] = {
-    version: 1, id: 'ch14-03-nrt-search',
-    title: '实验 1 · 立刻 SEARCH(应扑空)',
-    method: 'POST', path: '/tut-l14-nrt/_search?filter_path=hits.total',
-    body: { query: { match: { title: 'engine-nrt' } } },
-    predict: 'GET 都拿到了,match title:engine-nrt 呢?',
-    expect: 'hits.total.value = 0。SEARCH 只认 EXTERNAL searcher;refresh_interval=-1 把「可能扑空」变成「一定扑空」。注意:此刻文档早已 fsync——耐久与可见性互不代言。'
-  };
-  window.ESEXPERIMENTS['ch14-04-nrt-refresh'] = {
-    version: 1, id: 'ch14-04-nrt-refresh',
-    title: '实验 1 · 手动 _refresh',
-    method: 'POST', path: '/tut-l14-nrt/_refresh?filter_path=_shards',
-    body: null,
-    predict: 'refresh 做了什么、没做什么?猜猜下一步 translog 统计会不会变。',
-    expect: '_shards.successful = 1。InternalEngine.refresh(source) 固定 EXTERNAL + 阻塞:maybeRefreshBlocking 把 buffer 做成 NRT segment、换外部 searcher;不 commit、不裁 translog——分界线马上用数字验证。'
-  };
-  window.ESEXPERIMENTS['ch14-05-nrt-search-hit'] = {
-    version: 1, id: 'ch14-05-nrt-search-hit',
-    title: '实验 1 · 再 SEARCH(命中)',
-    method: 'POST', path: '/tut-l14-nrt/_search?filter_path=hits.total',
-    body: { query: { match: { title: 'engine-nrt' } } },
-    predict: 'hits.total 这次是多少?',
-    expect: '1。新 segment 进入 EXTERNAL 快照,buffer 已清空。但 translog 一条没少——下一步看统计。'
-  };
-  window.ESEXPERIMENTS['ch14-06-nrt-stats'] = {
-    version: 1, id: 'ch14-06-nrt-stats',
-    title: '实验 1 · _stats/translog:refresh 之后日志还在',
-    method: 'GET', path: '/tut-l14-nrt/_stats/translog?filter_path=indices.tut-l14-nrt.primaries.translog',
-    body: null,
-    predict: '刚 refresh 过,uncommitted_operations 是 0 吗?',
-    expect: '不是:operations / uncommitted_operations ≥ 1(以你的返回为准)。字段名出自 TranslogStats.toXContent;uncommitted_* 统计 safe commit 的 local checkpoint 之后的 generation(Translog.stats()),refresh 不推进 commit,只有 flush 才能把它裁掉。'
-  };
-
-  /* ===== 实验 2:_stats 读 uncommitted_operations ===== */
-  window.ESEXPERIMENTS['ch14-10-tlog-setup'] = {
-    version: 1, id: 'ch14-10-tlog-setup',
-    title: '实验 2 · 建索引 tut-l14-tlog',
-    method: 'PUT', path: '/tut-l14-tlog',
-    body: { settings: { number_of_shards: 1, number_of_replicas: 0, refresh_interval: -1 } },
-    predict: '为什么这组要先 flush 一次打底?',
-    expect: 'acknowledged: true。建索引自带一次空 commit,但为了把计数基线钉死在干净的 0,下一步再手动 flush 一次——之后的 +1 才可归因到我们的写入。'
-  };
-  window.ESEXPERIMENTS['ch14-11-tlog-flush'] = {
-    version: 1, id: 'ch14-11-tlog-flush',
-    title: '实验 2 · flush 打底',
-    method: 'POST', path: '/tut-l14-tlog/_flush?filter_path=_shards',
-    body: null,
-    predict: 'flush 内部按什么顺序动 translog 和 Lucene?',
-    expect: '_shards.successful = 1。flushHoldingLock 四步:rollGeneration → commitIndexWriter(IndexWriter.commit,commit user data 带 local checkpoint)→ refresh("version_table_flush",INTERNAL)→ trimUnreferencedReaders。对照图 3。'
-  };
-  window.ESEXPERIMENTS['ch14-12-tlog-zero'] = {
-    version: 1, id: 'ch14-12-tlog-zero',
-    title: '实验 2 · 打底后的基线',
-    method: 'GET', path: '/tut-l14-tlog/_stats/translog?filter_path=indices.tut-l14-tlog.primaries.translog',
-    body: null,
-    predict: 'uncommitted_operations 现在是多少?',
-    expect: '0(或个位数,以你的返回为准)。没有未 commit 操作可统计。记住字段全名 primaries.translog.uncommitted_operations——不存在叫 uncommitted 的短键。'
-  };
-  window.ESEXPERIMENTS['ch14-13-tlog-put'] = {
-    version: 1, id: 'ch14-13-tlog-put',
-    title: '实验 2 · 写入一条',
-    method: 'PUT', path: '/tut-l14-tlog/_doc/1',
-    body: { title: 'before-flush' },
-    predict: '201 回来时,这条写已经 fsync 了吗?已经 commit 了吗?',
-    expect: 'result: created。两问两答:REQUEST 耐久下回 201 前 syncAfterWrite → ensureSynced,fsync 完成;Lucene 没有 commit。fsync 管「掉电不丢」,commit 管「恢复起点」——两个不同动作。'
-  };
-  window.ESEXPERIMENTS['ch14-14-tlog-one'] = {
-    version: 1, id: 'ch14-14-tlog-one',
-    title: '实验 2 · 再看统计(+1)',
-    method: 'GET', path: '/tut-l14-tlog/_stats/translog?filter_path=indices.tut-l14-tlog.primaries.translog',
-    body: null,
-    predict: 'operations 和 uncommitted_operations 各是多少?会一样吗?',
-    expect: '通常都是 1(以你的返回为准)。这条操作记在当前 generation,还没被任何 commit 覆盖,两个口径都算它;等 flush 之后才分道扬镳。'
-  };
-  window.ESEXPERIMENTS['ch14-15-tlog-async'] = {
-    version: 1, id: 'ch14-15-tlog-async',
-    title: '实验 2 · durability 换成 async',
-    method: 'PUT', path: '/tut-l14-tlog/_settings',
-    body: { 'index.translog.durability': 'async' },
-    predict: '这个设置能在线改吗?改完之后「201」的含义变了吗?',
-    expect: 'acknowledged: true(IndexSetting,IndexScope Dynamic)。async 下 AsyncAfterWriteAction 不在这条请求上 fsync,由 translog 的 sync_interval(默认 5s)批量补——201 不再等于「已在盘上」,窗口内掉电可能丢最近几条。日志类索引可接受,「写后立刻 GET 确认」的接口不能开。删索引即清理,无需改回。'
-  };
-
-  /* ===== 实验 3:refresh 之后、flush 之前 ===== */
-  window.ESEXPERIMENTS['ch14-20-fl-setup'] = {
-    version: 1, id: 'ch14-20-fl-setup',
-    title: '实验 3 · 建索引 tut-l14-flush',
-    method: 'PUT', path: '/tut-l14-flush',
-    body: { settings: { number_of_shards: 1, number_of_replicas: 0, refresh_interval: -1 } },
-    predict: '这组要对照的窗口是哪一段?',
-    expect: 'acknowledged: true。固定变量:1 主 0 副、关定时 refresh——让「refresh 之后、flush 之前」这一窗口完全由我们手动控制,可见性与 commit 的对照才干净。'
-  };
-  window.ESEXPERIMENTS['ch14-21-fl-put'] = {
-    version: 1, id: 'ch14-21-fl-put',
-    title: '实验 3 · 写入 _id=1',
-    method: 'PUT', path: '/tut-l14-flush/_doc/1',
-    body: { title: 'before-flush' },
-    predict: '这篇现在在 buffer、translog、segment 各几处?',
-    expect: 'result: created。buffer 一份、translog 一条(已 fsync);segment 零份。动画第 4 步的状态。'
-  };
-  window.ESEXPERIMENTS['ch14-22-fl-refresh'] = {
-    version: 1, id: 'ch14-22-fl-refresh',
-    title: '实验 3 · 手动 _refresh',
-    method: 'POST', path: '/tut-l14-flush/_refresh?filter_path=_shards',
-    body: null,
-    predict: 'refresh 之后 SEARCH 能看到了;translog 呢?',
-    expect: '_shards.successful = 1。buffer → 新 NRT segment,EXTERNAL 换快照;translog 不动——这就是第 5 步与第 7 步动画之间的那条分界线。'
-  };
-  window.ESEXPERIMENTS['ch14-23-fl-stats-refresh'] = {
-    version: 1, id: 'ch14-23-fl-stats-refresh',
-    title: '实验 3 · refresh 后看统计',
-    method: 'GET', path: '/tut-l14-flush/_stats/translog?filter_path=indices.tut-l14-flush.primaries.translog',
-    body: null,
-    predict: '都能搜到了,uncommitted_operations 归零了吗?',
-    expect: '没有:仍 ≥ 1(以你的返回为准)。「可见 ≠ 已 commit」的数字形态——refresh 换的是 searcher,没碰 commit 点,translog 一条不少。'
-  };
-  window.ESEXPERIMENTS['ch14-24-fl-search'] = {
-    version: 1, id: 'ch14-24-fl-search',
-    title: '实验 3 · flush 前再 SEARCH(命中)',
-    method: 'GET', path: '/tut-l14-flush/_search?q=before-flush&filter_path=hits.total',
-    body: null,
-    predict: 'flush 还没做,能搜到吗?',
-    expect: 'hits.total.value = 1。可搜索由 EXTERNAL searcher 决定;此刻这篇的耐久在 translog 的 fsync 里,commit 还欠着——两条轴各自独立走到各自的位置。'
-  };
-  window.ESEXPERIMENTS['ch14-25-fl-flush'] = {
-    version: 1, id: 'ch14-25-fl-flush',
-    title: '实验 3 · 手动 _flush',
-    method: 'POST', path: '/tut-l14-flush/_flush?filter_path=_shards',
-    body: null,
-    predict: '哪个计数会归零?Lucene 这边多出什么文件?',
-    expect: '_shards.successful = 1。IndexWriter.commit 写出新的 segments_N(commit user data 带 local_checkpoint / max_seq_no);translog.rollGeneration 冻结旧代,trimUnreferencedReaders 删掉不再被引用的 .tlog。'
-  };
-  window.ESEXPERIMENTS['ch14-26-fl-stats-flush'] = {
-    version: 1, id: 'ch14-26-fl-stats-flush',
-    title: '实验 3 · flush 后看统计(归零)',
-    method: 'GET', path: '/tut-l14-flush/_stats/translog?filter_path=indices.tut-l14-flush.primaries.translog',
-    body: null,
-    predict: 'uncommitted_operations 现在?如果不是 0 呢?',
-    expect: '0(1 主 0 副本通常一次到位;以你的返回为准)。若仍 >0,再 flush 一次——safe commit 还要 global checkpoint 跟上,rest api 测试 20_translog.yml 正是 flush 两次后才断言 0。对照实验 1:同一个字段,refresh 推不动,flush 一推就动。'
-  };
-
-  /* ===== 实验 4:_segments 看段的生老病死 ===== */
-  window.ESEXPERIMENTS['ch14-30-seg-setup'] = {
-    version: 1, id: 'ch14-30-seg-setup',
-    title: '实验 4 · 建索引 tut-l14-seg',
-    method: 'PUT', path: '/tut-l14-seg',
-    body: { settings: { number_of_shards: 1, number_of_replicas: 0, refresh_interval: -1 } },
-    predict: '为什么这组要关定时 refresh?',
-    expect: 'acknowledged: true。让段只在我们的 ?refresh=true 时产生:每写一批、刷一次 → 一个段,段数可控、前后可对照。'
-  };
-  window.ESEXPERIMENTS['ch14-31-seg-bulk-a'] = {
-    version: 1, id: 'ch14-31-seg-bulk-a',
-    title: '实验 4 · 第 1 批 bulk(3 篇,顺手 refresh)',
-    method: 'POST', path: '/tut-l14-seg/_bulk?refresh=true',
-    body: '{"index":{"_id":"1"}}\n{"title":"seg-a","n":1}\n{"index":{"_id":"2"}}\n{"title":"seg-b","n":2}\n{"index":{"_id":"3"}}\n{"title":"seg-c","n":3}\n',
-    predict: '一批 bulk + 一次 refresh,会造出几个段?',
-    expect: 'items 三条 created。这一批进同一个新 segment(refresh=true 是「写完顺手刷」,生产不要当默认;bulk 每行独立路由,1 个分片所以都在本地)。'
-  };
-  window.ESEXPERIMENTS['ch14-32-seg-bulk-b'] = {
-    version: 1, id: 'ch14-32-seg-bulk-b',
-    title: '实验 4 · 第 2 批 bulk(再 3 篇,再 refresh)',
-    method: 'POST', path: '/tut-l14-seg/_bulk?refresh=true',
-    body: '{"index":{"_id":"4"}}\n{"title":"seg-d","n":4}\n{"index":{"_id":"5"}}\n{"title":"seg-e","n":5}\n{"index":{"_id":"6"}}\n{"title":"seg-f","n":6}\n',
-    predict: '第二个段会和第一个合并吗?什么时候合?',
-    expect: 'items 三条 created。又一个新段。TieredMergePolicy 在后台择机合并——不是 refresh 时同步做,所以你有可能在下一步看到 2 段,也可能已被并成 1 段(以你的返回为准,两种都说明「refresh 造段、merge 收段」)。'
-  };
-  window.ESEXPERIMENTS['ch14-33-seg-segments'] = {
-    version: 1, id: 'ch14-33-seg-segments',
-    title: '实验 4 · _segments:数一数段',
-    method: 'GET', path: '/tut-l14-seg/_segments',
-    body: null,
-    predict: '有几个 segment?每段几篇文档、多大?',
-    expect: '常见 2 个段、每段 3 篇(也可能后台 merge 已并成 1 段 6 篇——以你的返回为准)。每段看 generation、num_docs、size;这份「多段底片」留给 merge 对照。'
-  };
-  window.ESEXPERIMENTS['ch14-34-seg-update'] = {
-    version: 1, id: 'ch14-34-seg-update',
-    title: '实验 4 · 更新 _id=1(软删除旧版本)',
-    method: 'POST', path: '/tut-l14-seg/_update/1?refresh=true',
-    body: { doc: { n: 99 } },
-    predict: 'Lucene 有原地更新吗?旧版本去哪了?',
-    expect: 'result: updated,_version: 2。没有原地更新:indexWriter.softUpdateDocument 给旧 uid 打软删除标记,再写入新文档;旧文档仍躺在老段里占空间,只是搜索不可见——回收要等 merge。'
-  };
-  window.ESEXPERIMENTS['ch14-35-seg-deleted'] = {
-    version: 1, id: 'ch14-35-seg-deleted',
-    title: '实验 4 · _segments:看 deleted_docs',
-    method: 'GET', path: '/tut-l14-seg/_segments',
-    body: null,
-    predict: '删除标记体现在哪个字段?',
-    expect: '某个段出现 deleted_docs ≥ 1(或 deleted_in_bytes > 0,以你的返回为准)。软删除的文档在搜索里不可见但要等合并才物理回收——「更新很便宜,回收有延迟」。'
-  };
-  window.ESEXPERIMENTS['ch14-36-seg-forcemerge'] = {
-    version: 1, id: 'ch14-36-seg-forcemerge',
-    title: '实验 4 · _forcemerge 到 1 段',
-    method: 'POST', path: '/tut-l14-seg/_forcemerge?max_num_segments=1',
-    body: null,
-    predict: '段数和 deleted_docs 各变成多少?这一步贵在哪?',
-    expect: '无 body,提交后合并(可能要等一会儿)。所有段并成 1 个,软删除文档被物理丢弃。注意:这是全量重写,只适合归档只读索引;写入还在继续时会立刻再裂出新段,白付一次 CPU/IO。'
-  };
-  window.ESEXPERIMENTS['ch14-37-seg-after'] = {
-    version: 1, id: 'ch14-37-seg-after',
-    title: '实验 4 · _segments:合并后对照',
-    method: 'GET', path: '/tut-l14-seg/_segments',
-    body: null,
-    predict: '现在几个段?num_docs 总共几篇?deleted 呢?',
-    expect: '1 个段,num_docs = 6,deleted_docs = 0(以你的返回为准)。对照第 33/35 步的多段与 deleted——merge 的两个收益(文件变少、删除回收)一次看全。'
-  };
-
-  /* ===== 清理 ===== */
-  window.ESEXPERIMENTS['ch14-90-cleanup'] = {
-    version: 1, id: 'ch14-90-cleanup',
-    title: '清理 · 删除全部 tut-l14-* 索引',
-    method: 'DELETE', path: '/tut-l14-nrt,tut-l14-tlog,tut-l14-flush,tut-l14-seg',
-    body: null,
-    predict: '四个索引一条 DELETE 能全删吗?durability=async 的设置呢?',
-    expect: 'acknowledged: true(逗号分隔多索引)。segment、translog、VersionMap 随分片生命周期一起消失;索引级设置(async)随索引删除,不残留。'
-  };
+  window.ESEXPERIMENTS["ch14-version"] = {
+  "version": 1,
+  "id": "ch14-version",
+  "title": "A0 · 核对运行版本",
+  "method": "GET",
+  "path": "/?filter_path=version.number,version.lucene_version,cluster_name",
+  "body": null,
+  "predict": "端点是否为本课的 9.4.0 / Lucene 10.4.0？",
+  "expect": "HTTP 200；核对 version.number=9.4.0、version.lucene_version=10.4.0。默认 http://localhost:9200、单数据节点、匿名学习端点；认证由控制台选定，版本不同先核对差异。本轮云环境未运行真实 API。"
+};
+  window.ESEXPERIMENTS["ch14-00-nrt-setup"] = {
+  "version": 1,
+  "id": "ch14-00-nrt-setup",
+  "title": "A1 · 新建 tut-l14-nrt",
+  "method": "PUT",
+  "path": "/tut-l14-nrt",
+  "body": {
+    "settings": {
+      "index.mode": "standard",
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "auto_expand_replicas": "false",
+      "refresh_interval": "-1",
+      "translog.durability": "request",
+      "translog.sync_interval": "5s",
+      "translog.flush_threshold_age": "1h",
+      "translog.flush_threshold_size": "10gb",
+      "mapping.source.mode": "stored",
+      "default_pipeline": "_none",
+      "final_pipeline": "_none",
+      "routing_partition_size": 1,
+      "write.wait_for_active_shards": "1"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "_source": {
+        "enabled": true
+      },
+      "properties": {
+        "title": {
+          "type": "keyword"
+        },
+        "views": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "predict": "先清理本课索引；无匹配模板、外部写入或刷新。为什么同时明确刷新与耐久配置？",
+  "expect": "HTTP 200，acknowledged=true；若已存在则 400，先清理再从本组开始。普通索引、1 主 0 副、严格 mapping、stored source、无管道；-1 关闭周期 refresh，request 等待日志同步。1h 推迟年龄 flush，不会关闭全部后台维护。"
+};
+  window.ESEXPERIMENTS["ch14-a-health"] = {
+  "version": 1,
+  "id": "ch14-a-health",
+  "title": "A2 · 等待本组主分片就绪",
+  "method": "GET",
+  "path": "/_cluster/health/tut-l14-nrt?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=10s",
+  "body": null,
+  "predict": "只看本组索引，green 能替代实验前提吗？",
+  "expect": "需 status=green、timed_out=false、active_primary_shards=1、active_shards=1。超时先恢复分配再继续；其他索引可让整个集群 yellow。此卡不证明磁盘同步或源码内部路径。"
+};
+  window.ESEXPERIMENTS["ch14-01-nrt-put"] = {
+  "version": 1,
+  "id": "ch14-01-nrt-put",
+  "title": "A3 · 写入新 ID 1",
+  "method": "PUT",
+  "path": "/tut-l14-nrt/_doc/1",
+  "body": {
+    "title": "engine-nrt",
+    "views": 14
+  },
+  "predict": "result 是什么?此刻这篇文档同时躺在哪几处?",
+  "expect": "首次 HTTP 201 / created / _version=1；重复为 200 / updated，后续计数不再是初始值。request 写后阶段等待该日志位置同步；不会因此发布 EXTERNAL reader。IndexWriter 可自动落段，不能断言“任何 segment 都没有”。"
+};
+  window.ESEXPERIMENTS["ch14-02-nrt-get"] = {
+  "version": 1,
+  "id": "ch14-02-nrt-get",
+  "title": "A4 · realtime GET 读回",
+  "method": "GET",
+  "path": "/tut-l14-nrt/_doc/1?filter_path=found,_id,_version,_source",
+  "body": null,
+  "predict": "还没 refresh,拿得到吗?_version 是多少?",
+  "expect": "新建且只写一次时 found=true、_version=1、_source 原样返回。可能读 translog，也可能按需刷新 INTERNAL 后读 Lucene；API 响应不能辨认内部命中路径。GET 不负责推进 EXTERNAL。"
+};
+  window.ESEXPERIMENTS["ch14-nrt-nonrealtime"] = {
+  "version": 1,
+  "id": "ch14-nrt-nonrealtime",
+  "title": "A5 · GET realtime=false 对照",
+  "method": "GET",
+  "path": "/tut-l14-nrt/_doc/1?realtime=false",
+  "body": null,
+  "predict": "刚刚 realtime GET 成功，外部 reader 也能看到吗？",
+  "expect": "在新建索引、无外部 refresh 的前提下 HTTP 404 / found=false。只关闭周期刷新；若已有搜索视图则回 200，先清理重建恢复前提。"
+};
+  window.ESEXPERIMENTS["ch14-03-nrt-search"] = {
+  "version": 1,
+  "id": "ch14-03-nrt-search",
+  "title": "A6 · 搜索旧的外部视图",
+  "method": "POST",
+  "path": "/tut-l14-nrt/_search?filter_path=hits.total",
+  "body": {
+    "query": {
+      "term": {
+        "title": "engine-nrt"
+      }
+    }
+  },
+  "predict": "GET 都拿到了,match title:engine-nrt 呢?",
+  "expect": "首次顺序且没有外部 refresh：hits.total.value=0。严格 keyword 的 term 精确匹配。realtime GET 的内部 refresh 不发布 EXTERNAL；若命中先检查旧数据、外部刷新及执行顺序。"
+};
+  window.ESEXPERIMENTS["ch14-04-nrt-refresh"] = {
+  "version": 1,
+  "id": "ch14-04-nrt-refresh",
+  "title": "A7 · 显式发布外部视图",
+  "method": "POST",
+  "path": "/tut-l14-nrt/_refresh?filter_path=_shards",
+  "body": null,
+  "predict": "refresh 做了什么、没做什么?猜猜下一步 translog 统计会不会变。",
+  "expect": "_shards.failed=0、successful=1。refresh 可能落出 Lucene NRT 文件并切换外部 reader；不是 commit 或 translog 同步命令，也不因可搜索而裁日志。"
+};
+  window.ESEXPERIMENTS["ch14-05-nrt-search-hit"] = {
+  "version": 1,
+  "id": "ch14-05-nrt-search-hit",
+  "title": "A8 · 搜索读回新视图",
+  "method": "POST",
+  "path": "/tut-l14-nrt/_search?filter_path=hits.total",
+  "body": {
+    "query": {
+      "term": {
+        "title": "engine-nrt"
+      }
+    }
+  },
+  "predict": "hits.total 这次是多少?",
+  "expect": "hits.total.value=1。这是外部 reader 可见性的证据，不是 Lucene commit、translog fsync 或内部缓存命中的证据。"
+};
+  window.ESEXPERIMENTS["ch14-06-nrt-stats"] = {
+  "version": 1,
+  "id": "ch14-06-nrt-stats",
+  "title": "A9 · 记录可见后的日志统计",
+  "method": "GET",
+  "path": "/tut-l14-nrt/_stats/translog?filter_path=indices.tut-l14-nrt.primaries.translog",
+  "body": null,
+  "predict": "刚 refresh 过,uncommitted_operations 是 0 吗?",
+  "expect": "观察 operations、size_in_bytes、uncommitted_operations、uncommitted_size_in_bytes。未后台 flush 的短流程常见 1 条未提交；refresh 自身不推进 commit。计数按 safe commit 后所需 generation 汇总，可包含已提交操作，不能等同精确待重放条数。"
+};
+  window.ESEXPERIMENTS["ch14-10-tlog-setup"] = {
+  "version": 1,
+  "id": "ch14-10-tlog-setup",
+  "title": "B1 · 新建 tut-l14-tlog",
+  "method": "PUT",
+  "path": "/tut-l14-tlog",
+  "body": {
+    "settings": {
+      "index.mode": "standard",
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "auto_expand_replicas": "false",
+      "refresh_interval": "-1",
+      "translog.durability": "request",
+      "translog.sync_interval": "5s",
+      "translog.flush_threshold_age": "1h",
+      "translog.flush_threshold_size": "10gb",
+      "mapping.source.mode": "stored",
+      "default_pipeline": "_none",
+      "final_pipeline": "_none",
+      "routing_partition_size": 1,
+      "write.wait_for_active_shards": "1"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "_source": {
+        "enabled": true
+      },
+      "properties": {
+        "title": {
+          "type": "keyword"
+        }
+      }
+    }
+  },
+  "predict": "先清理本课索引；无匹配模板、外部写入或刷新。为什么同时明确刷新与耐久配置？",
+  "expect": "HTTP 200，acknowledged=true；若已存在则 400，先清理再从本组开始。普通索引、1 主 0 副、严格 mapping、stored source、无管道；-1 关闭周期 refresh，request 等待日志同步。1h 推迟年龄 flush，不会关闭全部后台维护。"
+};
+  window.ESEXPERIMENTS["ch14-b-health"] = {
+  "version": 1,
+  "id": "ch14-b-health",
+  "title": "B2 · 等待本组主分片就绪",
+  "method": "GET",
+  "path": "/_cluster/health/tut-l14-tlog?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=10s",
+  "body": null,
+  "predict": "只看本组索引，green 能替代实验前提吗？",
+  "expect": "需 status=green、timed_out=false、active_primary_shards=1、active_shards=1。超时先恢复分配再继续；其他索引可让整个集群 yellow。此卡不证明磁盘同步或源码内部路径。"
+};
+  window.ESEXPERIMENTS["ch14-11-tlog-flush"] = {
+  "version": 1,
+  "id": "ch14-11-tlog-flush",
+  "title": "B3 · flush 打底",
+  "method": "POST",
+  "path": "/tut-l14-tlog/_flush?force=true&wait_if_ongoing=true",
+  "body": null,
+  "predict": "flush 内部按什么顺序动 translog 和 Lucene?",
+  "expect": "_shards.failed=0、successful=1。普通成功路径：同步并滚代 → Lucene commit → INTERNAL refresh → 条件裁剪。force=true 与 wait_if_ongoing=true 配套；空日志代次可能不变。"
+};
+  window.ESEXPERIMENTS["ch14-12-tlog-zero"] = {
+  "version": 1,
+  "id": "ch14-12-tlog-zero",
+  "title": "B4 · 记录空日志基线",
+  "method": "GET",
+  "path": "/tut-l14-tlog/_stats/translog?filter_path=indices.tut-l14-tlog.primaries.translog",
+  "body": null,
+  "predict": "uncommitted_operations 现在是多少?",
+  "expect": "新建且无其他写入：uncommitted_operations=0。若非 0 先查外部写入、后台恢复和执行顺序，不能把个位数也称为空基线。文件头仍占字节，不要求 size_in_bytes=0。"
+};
+  window.ESEXPERIMENTS["ch14-13-tlog-put"] = {
+  "version": 1,
+  "id": "ch14-13-tlog-put",
+  "title": "B5 · request 模式写入",
+  "method": "PUT",
+  "path": "/tut-l14-tlog/_doc/1",
+  "body": {
+    "title": "before-flush"
+  },
+  "predict": "201 回来时,这条写已经 fsync 了吗?已经 commit 了吗?",
+  "expect": "首次 201 / created。request 等该写入日志位置同步；是否已 commit 由独立 flush 时序决定，单看 201 不知道 commit。重复会 updated，计数和版本随之变化。"
+};
+  window.ESEXPERIMENTS["ch14-14-tlog-one"] = {
+  "version": 1,
+  "id": "ch14-14-tlog-one",
+  "title": "B6 · 记录写后日志",
+  "method": "GET",
+  "path": "/tut-l14-tlog/_stats/translog?filter_path=indices.tut-l14-tlog.primaries.translog",
+  "body": null,
+  "predict": "operations 和 uncommitted_operations 各是多少?会一样吗?",
+  "expect": "短流程且无后台 flush：常见 operations=1、uncommitted_operations=1。这份统计不暴露该操作是否 fsync；默认 request 的同步结论来自设置和写后源码，不来自未提交计数。"
+};
+  window.ESEXPERIMENTS["ch14-15-tlog-async"] = {
+  "version": 1,
+  "id": "ch14-15-tlog-async",
+  "title": "B7 · 临时改 async",
+  "method": "PUT",
+  "path": "/tut-l14-tlog/_settings",
+  "body": {
+    "index.translog.durability": "async"
+  },
+  "predict": "这个设置能在线改吗?改完之后「201」的含义变了吗?",
+  "expect": "acknowledged=true。索引级 Dynamic 设置；请求不再因 async 而等待自己的日志 fsync，后台按 sync_interval 调度同步。默认 5s 是周期，不是损失上限或最坏时限；GET 仍可读，是否接受风险取决于业务恢复要求。"
+};
+  window.ESEXPERIMENTS["ch14-async-put"] = {
+  "version": 1,
+  "id": "ch14-async-put",
+  "title": "B8 · async 写入新 ID 2",
+  "method": "PUT",
+  "path": "/tut-l14-tlog/_doc/2",
+  "body": {
+    "title": "async-readback"
+  },
+  "predict": "async 会拒绝普通写入或阻止 GET 吗？",
+  "expect": "首次 201 / created；重复 200 / updated。响应不要求这条请求等待 fsync，但后台同步可能已完成；不能据此断言此时数据尚未落盘。"
+};
+  window.ESEXPERIMENTS["ch14-async-get"] = {
+  "version": 1,
+  "id": "ch14-async-get",
+  "title": "B9 · async 下实时读回",
+  "method": "GET",
+  "path": "/tut-l14-tlog/_doc/2",
+  "body": null,
+  "predict": "读得到能否证明抗掉电？",
+  "expect": "found=true、_source.title=async-readback。realtime GET 验证当前可读，不证明 fsync、commit 或崩溃恢复；本课不执行故障注入。"
+};
+  window.ESEXPERIMENTS["ch14-restore-request"] = {
+  "version": 1,
+  "id": "ch14-restore-request",
+  "title": "B10 · 恢复 request",
+  "method": "PUT",
+  "path": "/tut-l14-tlog/_settings",
+  "body": {
+    "index.translog.durability": "request"
+  },
+  "predict": "恢复设置就能证明此前所有操作同步了吗？",
+  "expect": "acknowledged=true。后续请求恢复等待同步的策略；这是设置读回前的恢复步骤，响应本身不提供逐条历史 fsync 证据。课末仍删除此索引。"
+};
+  window.ESEXPERIMENTS["ch14-tlog-settings"] = {
+  "version": 1,
+  "id": "ch14-tlog-settings",
+  "title": "B11 · 读回恢复后的设置",
+  "method": "GET",
+  "path": "/tut-l14-tlog/_settings?flat_settings=true&filter_path=*.settings.index.translog.*,*.settings.index.refresh_interval",
+  "body": null,
+  "predict": "恢复后的实际值是什么？",
+  "expect": "核对 index.translog.durability=request、sync_interval=5s、flush_threshold_age=1h、refresh_interval=-1。这些是本课显式设置，不能描述为全部默认值。"
+};
+  window.ESEXPERIMENTS["ch14-20-fl-setup"] = {
+  "version": 1,
+  "id": "ch14-20-fl-setup",
+  "title": "C1 · 新建 tut-l14-flush",
+  "method": "PUT",
+  "path": "/tut-l14-flush",
+  "body": {
+    "settings": {
+      "index.mode": "standard",
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "auto_expand_replicas": "false",
+      "refresh_interval": "-1",
+      "translog.durability": "request",
+      "translog.sync_interval": "5s",
+      "translog.flush_threshold_age": "1h",
+      "translog.flush_threshold_size": "10gb",
+      "mapping.source.mode": "stored",
+      "default_pipeline": "_none",
+      "final_pipeline": "_none",
+      "routing_partition_size": 1,
+      "write.wait_for_active_shards": "1"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "_source": {
+        "enabled": true
+      },
+      "properties": {
+        "title": {
+          "type": "keyword"
+        }
+      }
+    }
+  },
+  "predict": "先清理本课索引；无匹配模板、外部写入或刷新。为什么同时明确刷新与耐久配置？",
+  "expect": "HTTP 200，acknowledged=true；若已存在则 400，先清理再从本组开始。普通索引、1 主 0 副、严格 mapping、stored source、无管道；-1 关闭周期 refresh，request 等待日志同步。1h 推迟年龄 flush，不会关闭全部后台维护。"
+};
+  window.ESEXPERIMENTS["ch14-c-health"] = {
+  "version": 1,
+  "id": "ch14-c-health",
+  "title": "C2 · 等待本组主分片就绪",
+  "method": "GET",
+  "path": "/_cluster/health/tut-l14-flush?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=10s",
+  "body": null,
+  "predict": "只看本组索引，green 能替代实验前提吗？",
+  "expect": "需 status=green、timed_out=false、active_primary_shards=1、active_shards=1。超时先恢复分配再继续；其他索引可让整个集群 yellow。此卡不证明磁盘同步或源码内部路径。"
+};
+  window.ESEXPERIMENTS["ch14-21-fl-put"] = {
+  "version": 1,
+  "id": "ch14-21-fl-put",
+  "title": "C3 · 写入新 ID 1",
+  "method": "PUT",
+  "path": "/tut-l14-flush/_doc/1",
+  "body": {
+    "title": "before-flush"
+  },
+  "predict": "这篇现在在 buffer、translog、segment 各几处?",
+  "expect": "首次 201 / created。后续显式 refresh 发布它；不能从响应推断当前段数或 commit 时刻。无外部写入、无外部 refresh，按本组顺序运行。"
+};
+  window.ESEXPERIMENTS["ch14-22-fl-refresh"] = {
+  "version": 1,
+  "id": "ch14-22-fl-refresh",
+  "title": "C4 · 先 refresh",
+  "method": "POST",
+  "path": "/tut-l14-flush/_refresh?filter_path=_shards",
+  "body": null,
+  "predict": "refresh 之后 SEARCH 能看到了;translog 呢?",
+  "expect": "_shards.failed=0、successful=1。发布 EXTERNAL 新视图；不以这次动作推进 Lucene commit 或裁日志。"
+};
+  window.ESEXPERIMENTS["ch14-23-fl-stats-refresh"] = {
+  "version": 1,
+  "id": "ch14-23-fl-stats-refresh",
+  "title": "C5 · refresh 后记录未提交日志",
+  "method": "GET",
+  "path": "/tut-l14-flush/_stats/translog?filter_path=indices.tut-l14-flush.primaries.translog",
+  "body": null,
+  "predict": "都能搜到了,uncommitted_operations 归零了吗?",
+  "expect": "短流程无后台 flush 时常见 uncommitted_operations=1；refresh 不负责减少它。若为 0 检查后台 flush 和运行间隔，清理重建恢复对照；不能把 -1 当成关闭 flush。"
+};
+  window.ESEXPERIMENTS["ch14-24-fl-search"] = {
+  "version": 1,
+  "id": "ch14-24-fl-search",
+  "title": "C6 · flush 前验证搜索",
+  "method": "POST",
+  "path": "/tut-l14-flush/_search?filter_path=hits.total",
+  "body": {
+    "query": {
+      "term": {
+        "title": "before-flush"
+      }
+    }
+  },
+  "predict": "flush 还没做,能搜到吗?",
+  "expect": "hits.total.value=1。已可搜不能推出 Lucene 已 commit；日志统计与外部 reader 是不同观测维度。"
+};
+  window.ESEXPERIMENTS["ch14-25-fl-flush"] = {
+  "version": 1,
+  "id": "ch14-25-fl-flush",
+  "title": "C7 · 再 flush",
+  "method": "POST",
+  "path": "/tut-l14-flush/_flush?force=true&wait_if_ongoing=true",
+  "body": null,
+  "predict": "哪个计数会归零?Lucene 这边多出什么文件?",
+  "expect": "_shards.failed=0、successful=1。滚代、提交、内部 refresh、条件裁剪。提交数据含 translog_uuid / local_checkpoint / max_seq_no；无义务再发外部 refresh。"
+};
+  window.ESEXPERIMENTS["ch14-26-fl-stats-flush"] = {
+  "version": 1,
+  "id": "ch14-26-fl-stats-flush",
+  "title": "C8 · 对照提交后的日志统计",
+  "method": "GET",
+  "path": "/tut-l14-flush/_stats/translog?filter_path=indices.tut-l14-flush.primaries.translog",
+  "body": null,
+  "predict": "uncommitted_operations 现在?如果不是 0 呢?",
+  "expect": "静止的 1 主 0 副索引通常降到 0；字节不会归零。若仍大于 0，核对 global checkpoint 与恢复/并发活动，等待其追上后再 force flush 并复查。safe commit 与 generation 汇总口径决定保留，重复 flush 不承诺固定次数解决。"
+};
+  window.ESEXPERIMENTS["ch14-fl-put-two"] = {
+  "version": 1,
+  "id": "ch14-fl-put-two",
+  "title": "C9 · 写入未刷新的 ID 2",
+  "method": "PUT",
+  "path": "/tut-l14-flush/_doc/2",
+  "body": {
+    "title": "flush-only"
+  },
+  "predict": "第一篇已经可搜，第二篇未外部刷新会怎样？",
+  "expect": "首次 201 / created。当前外部 reader 仍是 C4 发布的旧视图；新写入恢复了日志增量，本组不再并发写其他文档。"
+};
+  window.ESEXPERIMENTS["ch14-fl-flush-two"] = {
+  "version": 1,
+  "id": "ch14-fl-flush-two",
+  "title": "C10 · 直接 flush 第二篇",
+  "method": "POST",
+  "path": "/tut-l14-flush/_flush?force=true&wait_if_ongoing=true",
+  "body": null,
+  "predict": "Lucene commit 成功会自动让 SEARCH 看见第二篇吗？",
+  "expect": "_shards.failed=0、successful=1。普通 InternalEngine.flush 内的刷新作用域为 INTERNAL；接下来搜索外部视图应仍无第二篇。本前提排除其他外部刷新。"
+};
+  window.ESEXPERIMENTS["ch14-fl-search-old"] = {
+  "version": 1,
+  "id": "ch14-fl-search-old",
+  "title": "C11 · flush 后搜索仍未命中",
+  "method": "POST",
+  "path": "/tut-l14-flush/_search?filter_path=hits.total",
+  "body": {
+    "query": {
+      "term": {
+        "title": "flush-only"
+      }
+    }
+  },
+  "predict": "是否仍是 0？",
+  "expect": "hits.total.value=0，限定普通引擎、refresh=-1、未执行外部刷新。flush 没发布 EXTERNAL；若 1，检查外部刷新/旧数据后清理重做，不能用已有第一篇的可见性代替这条对照。"
+};
+  window.ESEXPERIMENTS["ch14-fl-refresh-two"] = {
+  "version": 1,
+  "id": "ch14-fl-refresh-two",
+  "title": "C12 · 再显式外部 refresh",
+  "method": "POST",
+  "path": "/tut-l14-flush/_refresh",
+  "body": null,
+  "predict": "发布第二篇需要哪个动作？",
+  "expect": "_shards.failed=0、successful=1。现在外部 reader 接住第二篇；refresh 不要求制造新段，已有 commit 中的数据也能被新 reader 接住。"
+};
+  window.ESEXPERIMENTS["ch14-fl-search-new"] = {
+  "version": 1,
+  "id": "ch14-fl-search-new",
+  "title": "C13 · 第二篇终于可搜",
+  "method": "POST",
+  "path": "/tut-l14-flush/_search?filter_path=hits.total",
+  "body": {
+    "query": {
+      "term": {
+        "title": "flush-only"
+      }
+    }
+  },
+  "predict": "和 C11 比，哪个条件变了？",
+  "expect": "hits.total.value=1。唯一主动改变是 C12 的外部 refresh；用这个对照验证 flush 与外部可见性分开，而不是依靠操作速度或固定段数。"
+};
+  window.ESEXPERIMENTS["ch14-30-seg-setup"] = {
+  "version": 1,
+  "id": "ch14-30-seg-setup",
+  "title": "D1 · 新建 tut-l14-seg",
+  "method": "PUT",
+  "path": "/tut-l14-seg",
+  "body": {
+    "settings": {
+      "index.mode": "standard",
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "auto_expand_replicas": "false",
+      "refresh_interval": "-1",
+      "translog.durability": "request",
+      "translog.sync_interval": "5s",
+      "translog.flush_threshold_age": "1h",
+      "translog.flush_threshold_size": "10gb",
+      "mapping.source.mode": "stored",
+      "default_pipeline": "_none",
+      "final_pipeline": "_none",
+      "routing_partition_size": 1,
+      "write.wait_for_active_shards": "1"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "_source": {
+        "enabled": true
+      },
+      "properties": {
+        "title": {
+          "type": "keyword"
+        },
+        "n": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "predict": "先清理本课索引；无匹配模板、外部写入或刷新。为什么同时明确刷新与耐久配置？",
+  "expect": "HTTP 200，acknowledged=true；若已存在则 400，先清理再从本组开始。普通索引、1 主 0 副、严格 mapping、stored source、无管道；-1 关闭周期 refresh，request 等待日志同步。1h 推迟年龄 flush，不会关闭全部后台维护。"
+};
+  window.ESEXPERIMENTS["ch14-d-health"] = {
+  "version": 1,
+  "id": "ch14-d-health",
+  "title": "D2 · 等待本组主分片就绪",
+  "method": "GET",
+  "path": "/_cluster/health/tut-l14-seg?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=10s",
+  "body": null,
+  "predict": "只看本组索引，green 能替代实验前提吗？",
+  "expect": "需 status=green、timed_out=false、active_primary_shards=1、active_shards=1。超时先恢复分配再继续；其他索引可让整个集群 yellow。此卡不证明磁盘同步或源码内部路径。"
+};
+  window.ESEXPERIMENTS["ch14-31-seg-bulk-a"] = {
+  "version": 1,
+  "id": "ch14-31-seg-bulk-a",
+  "title": "D3 · 第一批三篇并 refresh",
+  "method": "POST",
+  "path": "/tut-l14-seg/_bulk?refresh=true",
+  "body": "{\"index\":{\"_id\":\"1\"}}\n{\"title\":\"seg-a\",\"n\":1}\n{\"index\":{\"_id\":\"2\"}}\n{\"title\":\"seg-b\",\"n\":2}\n{\"index\":{\"_id\":\"3\"}}\n{\"title\":\"seg-c\",\"n\":3}\n",
+  "predict": "一批 bulk + 一次 refresh,会造出几个段?",
+  "expect": "首次三条 status=201 / created、errors=false；重复 index 为 200 / updated。refresh=true 发布涉及的分片视图，不修改 refresh_interval。落段与后台 merge 时序独立，不能保证恰好一个新段。"
+};
+  window.ESEXPERIMENTS["ch14-32-seg-bulk-b"] = {
+  "version": 1,
+  "id": "ch14-32-seg-bulk-b",
+  "title": "D4 · 第二批三篇并 refresh",
+  "method": "POST",
+  "path": "/tut-l14-seg/_bulk?refresh=true",
+  "body": "{\"index\":{\"_id\":\"4\"}}\n{\"title\":\"seg-d\",\"n\":4}\n{\"index\":{\"_id\":\"5\"}}\n{\"title\":\"seg-e\",\"n\":5}\n{\"index\":{\"_id\":\"6\"}}\n{\"title\":\"seg-f\",\"n\":6}\n",
+  "predict": "第二个段会和第一个合并吗?什么时候合?",
+  "expect": "首次三条 created、errors=false。此时外部视图有六个业务 ID；段数受自动落段和后台合并影响。多段与已合并都合法，本组记录实际段名而不赌段数。"
+};
+  window.ESEXPERIMENTS["ch14-33-seg-segments"] = {
+  "version": 1,
+  "id": "ch14-33-seg-segments",
+  "title": "D5 · 记录实际段与两种状态",
+  "method": "GET",
+  "path": "/tut-l14-seg/_segments",
+  "body": null,
+  "predict": "有几个 segment?每段几篇文档、多大?",
+  "expect": "逐段记录 num_docs、deleted_docs、size_in_bytes、committed、search。可有 search=true / committed=false，也可已后台 commit。不要依靠恰好 2 段或每段 3 篇；不存在 deleted_in_bytes 字段。"
+};
+  window.ESEXPERIMENTS["ch14-34-seg-update"] = {
+  "version": 1,
+  "id": "ch14-34-seg-update",
+  "title": "D6 · 修改 ID 1",
+  "method": "POST",
+  "path": "/tut-l14-seg/_update/1?refresh=true",
+  "body": {
+    "doc": {
+      "n": 99
+    }
+  },
+  "predict": "Lucene 有原地更新吗?旧版本去哪了?",
+  "expect": "首次 updated / _version=2。旧版本软删除，再写新版本；重复同一个 doc 可 noop。refresh=true 使新外部视图生效；恢复所需的软删除历史可能继续保留。"
+};
+  window.ESEXPERIMENTS["ch14-35-seg-deleted"] = {
+  "version": 1,
+  "id": "ch14-35-seg-deleted",
+  "title": "D7 · 记录更新后的删除统计",
+  "method": "GET",
+  "path": "/tut-l14-seg/_segments",
+  "body": null,
+  "predict": "删除标记体现在哪个字段?",
+  "expect": "观察真实 deleted_docs，可为 0 或正数；后台 merge 与保留策略影响它。不能强求 ≥1，更没有 deleted_in_bytes。判断更新成功用后面的 GET 与业务文档数；段统计只是另一份证据。"
+};
+  window.ESEXPERIMENTS["ch14-seg-stop-writes"] = {
+  "version": 1,
+  "id": "ch14-seg-stop-writes",
+  "title": "D8 · 合并前停止本索引写入",
+  "method": "PUT",
+  "path": "/tut-l14-seg/_settings",
+  "body": {
+    "index.blocks.write": true
+  },
+  "predict": "为什么先明确停止写入？",
+  "expect": "acknowledged=true；后续不再向此索引写文档。write block 不关闭搜索或本课点名 DELETE。只对六篇本课数据做 force merge；不把生产热索引套用这套实验。"
+};
+  window.ESEXPERIMENTS["ch14-36-seg-forcemerge"] = {
+  "version": 1,
+  "id": "ch14-36-seg-forcemerge",
+  "title": "D9 · 等待强制合并完成",
+  "method": "POST",
+  "path": "/tut-l14-seg/_forcemerge?max_num_segments=1&flush=true&wait_for_completion=true",
+  "body": null,
+  "predict": "段数和 deleted_docs 各变成多少?这一步贵在哪?",
+  "expect": "这是同步等待请求，返回 _shards，核对 failed=0、successful=1；不是“无响应 body”。max_num_segments=1 请求最多一个段，flush=true 默认还做 flush 与外部 refresh。软删除保留策略仍有效，不能承诺 deleted_docs=0。"
+};
+  window.ESEXPERIMENTS["ch14-37-seg-after"] = {
+  "version": 1,
+  "id": "ch14-37-seg-after",
+  "title": "D10 · 合并后记录段",
+  "method": "GET",
+  "path": "/tut-l14-seg/_segments",
+  "body": null,
+  "predict": "现在几个段?num_docs 总共几篇?deleted 呢?",
+  "expect": "静止的本组通常一个段；逐段记录 num_docs/deleted_docs/size_in_bytes/committed/search。六个业务 ID 不等于历史物理文档数；retention lease 与 safe commit 可使软删除继续占空间，不能据此判失败。"
+};
+  window.ESEXPERIMENTS["ch14-seg-readback"] = {
+  "version": 1,
+  "id": "ch14-seg-readback",
+  "title": "D11 · 业务结果读回",
+  "method": "GET",
+  "path": "/tut-l14-seg/_doc/1",
+  "body": null,
+  "predict": "段里留着旧历史会让 GET 读错版本吗？",
+  "expect": "found=true、_source.n=99，首次流程 _version=2。这验证当前业务版本；其他五个 ID 未更新。本组业务文档数可用 _count 另查，应为 6，不能把删除历史当成第七篇可见文档。"
+};
+  window.ESEXPERIMENTS["ch14-90-cleanup"] = {
+  "version": 1,
+  "id": "ch14-90-cleanup",
+  "title": "清理 · 点名删除本课四个索引",
+  "method": "DELETE",
+  "path": "/tut-l14-nrt,tut-l14-tlog,tut-l14-flush,tut-l14-seg?ignore_unavailable=true",
+  "body": null,
+  "predict": "只删除这四个本课索引，重复清理会报缺失吗？",
+  "expect": "acknowledged=true；显式点名、无通配符，ignore_unavailable=true 允许重复清理。删除四组数据及其 async/写 block 等索引设置。从 A0→A9、B1→B11、C1→C13、D1→D11 全部顺序重做；中途误重复则清理后重建。"
+};
+  window.ESFLOWS = window.ESFLOWS || {};
+  window.ESFLOWS["ch14-write-path"] = {
+  "version": 1,
+  "id": "ch14-write-path",
+  "title": "一次写入的完整旅程：写入、可见、提交与合并",
+  "speed": 2200,
+  "steps": [
+    {
+      "svg": "<svg viewBox=\"0 0 760 360\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch14-write-step-1\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"fig-arrowhead\"/></marker></defs><text x=\"380\" y=\"22\" text-anchor=\"middle\" class=\"fig-sub\">一次示例轨迹 · refresh / flush / merge 无固定必经顺序</text><rect x=\"20\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box-hot fp-pop\"/><text x=\"120.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">客户端请求</text><text x=\"120.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">PUT _doc/1</text><line x1=\"224\" y1=\"76\" x2=\"274\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-1)\"/><rect x=\"280\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"380.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">协调与 IndexShard</text><text x=\"380.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">1 主分片 → shard 0</text><line x1=\"484\" y1=\"76\" x2=\"534\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-1)\"/><rect x=\"540\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"640.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">主分片内部</text><text x=\"640.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">InternalEngine.index</text><text x=\"380\" y=\"145\" text-anchor=\"middle\" class=\"fig-sub\">下层为状态观测 · 各列并非串行调用链</text><rect x=\"20\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"130.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Lucene / IndexWriter</text><text x=\"130.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">可写缓冲、段与 commit</text><text x=\"130.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">尚未写入</text><rect x=\"270\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"380.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Translog</text><text x=\"380.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">操作追加与耐久同步</text><text x=\"380.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">无本例操作</text><rect x=\"520\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"630.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">读取视图</text><text x=\"630.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">INTERNAL 与 EXTERNAL</text><text x=\"630.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">无新搜索视图</text><text x=\"380\" y=\"315\" text-anchor=\"middle\" class=\"fig-key\">第 1 步 · 请求发出</text><text x=\"380\" y=\"342\" text-anchor=\"middle\" class=\"fig-sub\">示例前提无其他写入或外部刷新；统计不是逐条 fsync 证明</text></svg>",
+      "note": "前提：9.4.0 新建普通索引，1 主 0 副、显式 ID=1、无摄取管道、stored source、refresh=-1、durability=request；起初无数据。本图只举一次成功写入，箭头分别表示请求传递和操作写入，不代表跨分片总顺序。"
+    },
+    {
+      "svg": "<svg viewBox=\"0 0 760 360\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch14-write-step-2\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"fig-arrowhead\"/></marker></defs><text x=\"380\" y=\"22\" text-anchor=\"middle\" class=\"fig-sub\">一次示例轨迹 · refresh / flush / merge 无固定必经顺序</text><rect x=\"20\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"120.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">客户端请求</text><text x=\"120.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">PUT _doc/1</text><line x1=\"224\" y1=\"76\" x2=\"274\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-2)\"/><rect x=\"280\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box-hot fp-pop\"/><text x=\"380.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">协调与 IndexShard</text><text x=\"380.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">1 主分片 → shard 0</text><line x1=\"484\" y1=\"76\" x2=\"534\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-2)\"/><rect x=\"540\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"640.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">主分片内部</text><text x=\"640.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">InternalEngine.index</text><text x=\"380\" y=\"145\" text-anchor=\"middle\" class=\"fig-sub\">下层为状态观测 · 各列并非串行调用链</text><rect x=\"20\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"130.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Lucene / IndexWriter</text><text x=\"130.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">可写缓冲、段与 commit</text><text x=\"130.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">计划待执行</text><rect x=\"270\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"380.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Translog</text><text x=\"380.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">操作追加与耐久同步</text><text x=\"380.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">无本例操作</text><rect x=\"520\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"630.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">读取视图</text><text x=\"630.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">INTERNAL 与 EXTERNAL</text><text x=\"630.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">外部视图不变</text><text x=\"380\" y=\"315\" text-anchor=\"middle\" class=\"fig-key\">第 2 步 · 主分片选定</text><text x=\"380\" y=\"342\" text-anchor=\"middle\" class=\"fig-sub\">示例前提无其他写入或外部刷新；统计不是逐条 fsync 证明</text></svg>",
+      "note": "协调是角色，可和主分片在同一个节点。本例只有一个主分片，路由到 shard 0；IndexShard 准备 Engine.Index，InternalEngine 对 uid 加锁并制定版本计划。省略 bulk、复制、解析、节流和恢复分支。"
+    },
+    {
+      "svg": "<svg viewBox=\"0 0 760 360\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch14-write-step-3\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"fig-arrowhead\"/></marker></defs><text x=\"380\" y=\"22\" text-anchor=\"middle\" class=\"fig-sub\">一次示例轨迹 · refresh / flush / merge 无固定必经顺序</text><rect x=\"20\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"120.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">客户端请求</text><text x=\"120.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">PUT _doc/1</text><line x1=\"224\" y1=\"76\" x2=\"274\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-3)\"/><rect x=\"280\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"380.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">协调与 IndexShard</text><text x=\"380.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">1 主分片 → shard 0</text><line x1=\"484\" y1=\"76\" x2=\"534\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-3)\"/><rect x=\"540\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box-hot fp-pop\"/><text x=\"640.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">主分片内部</text><text x=\"640.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">InternalEngine.index</text><text x=\"380\" y=\"145\" text-anchor=\"middle\" class=\"fig-sub\">下层为状态观测 · 各列并非串行调用链</text><rect x=\"20\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box-hot\"/><text x=\"130.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Lucene / IndexWriter</text><text x=\"130.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">可写缓冲、段与 commit</text><text x=\"130.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">写入已执行</text><rect x=\"270\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"380.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Translog</text><text x=\"380.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">操作追加与耐久同步</text><text x=\"380.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">尚未追加</text><rect x=\"520\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"630.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">读取视图</text><text x=\"630.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">INTERNAL 与 EXTERNAL</text><text x=\"630.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">外部视图不变</text><text x=\"380\" y=\"315\" text-anchor=\"middle\" class=\"fig-key\">第 3 步 · 先写 Lucene</text><text x=\"380\" y=\"342\" text-anchor=\"middle\" class=\"fig-sub\">示例前提无其他写入或外部刷新；统计不是逐条 fsync 证明</text></svg>",
+      "note": "普通显式 ID 成功主路径：版本检查后分配 seq_no，再按计划写 Lucene。新 ID 可 addDocs，替换可 softUpdate；IndexWriter 可能自动落段，但旧 EXTERNAL reader 没因此切换。版本查找本身也可能需要 INTERNAL refresh。"
+    },
+    {
+      "svg": "<svg viewBox=\"0 0 760 360\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch14-write-step-4\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"fig-arrowhead\"/></marker></defs><text x=\"380\" y=\"22\" text-anchor=\"middle\" class=\"fig-sub\">一次示例轨迹 · refresh / flush / merge 无固定必经顺序</text><rect x=\"20\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"120.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">客户端请求</text><text x=\"120.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">PUT _doc/1</text><line x1=\"224\" y1=\"76\" x2=\"274\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-4)\"/><rect x=\"280\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"380.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">协调与 IndexShard</text><text x=\"380.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">1 主分片 → shard 0</text><line x1=\"484\" y1=\"76\" x2=\"534\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-4)\"/><rect x=\"540\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box-hot fp-pop\"/><text x=\"640.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">主分片内部</text><text x=\"640.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">InternalEngine.index</text><text x=\"380\" y=\"145\" text-anchor=\"middle\" class=\"fig-sub\">下层为状态观测 · 各列并非串行调用链</text><rect x=\"20\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"130.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Lucene / IndexWriter</text><text x=\"130.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">可写缓冲、段与 commit</text><text x=\"130.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">写入已执行</text><rect x=\"270\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box-hot\"/><text x=\"380.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Translog</text><text x=\"380.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">操作追加与耐久同步</text><text x=\"380.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">Index 已追加</text><rect x=\"520\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"630.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">读取视图</text><text x=\"630.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">INTERNAL 与 EXTERNAL</text><text x=\"630.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">外部视图不变</text><text x=\"380\" y=\"315\" text-anchor=\"middle\" class=\"fig-key\">第 4 步 · 追加与同步分开</text><text x=\"380\" y=\"342\" text-anchor=\"middle\" class=\"fig-sub\">示例前提无其他写入或外部刷新；统计不是逐条 fsync 证明</text></svg>",
+      "note": "非 translog 重放来源的成功写入随后追加 Translog.Index，按计划登记最近版本。追加不是 fsync；特定文档失败若已有 seq_no 可补 NoOp，未分配序号的冲突不走同一分支。location 默认不跟踪，不能把 VersionMap 当文档仓库。"
+    },
+    {
+      "svg": "<svg viewBox=\"0 0 760 360\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch14-write-step-5\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"fig-arrowhead\"/></marker></defs><text x=\"380\" y=\"22\" text-anchor=\"middle\" class=\"fig-sub\">一次示例轨迹 · refresh / flush / merge 无固定必经顺序</text><rect x=\"20\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"120.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">客户端请求</text><text x=\"120.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">PUT _doc/1</text><line x1=\"224\" y1=\"76\" x2=\"274\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-5)\"/><rect x=\"280\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"380.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">协调与 IndexShard</text><text x=\"380.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">1 主分片 → shard 0</text><line x1=\"484\" y1=\"76\" x2=\"534\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-5)\"/><rect x=\"540\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"640.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">主分片内部</text><text x=\"640.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">InternalEngine.index</text><text x=\"380\" y=\"145\" text-anchor=\"middle\" class=\"fig-sub\">下层为状态观测 · 各列并非串行调用链</text><rect x=\"20\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"130.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Lucene / IndexWriter</text><text x=\"130.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">可写缓冲、段与 commit</text><text x=\"130.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">可能已自动落段</text><rect x=\"270\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box-hot\"/><text x=\"380.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Translog</text><text x=\"380.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">操作追加与耐久同步</text><text x=\"380.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">同步条件已满足</text><rect x=\"520\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"630.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">读取视图</text><text x=\"630.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">INTERNAL 与 EXTERNAL</text><text x=\"630.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">GET 可读 / SEARCH 0</text><text x=\"380\" y=\"315\" text-anchor=\"middle\" class=\"fig-key\">第 5 步 · request 应答</text><text x=\"380\" y=\"342\" text-anchor=\"middle\" class=\"fig-sub\">示例前提无其他写入或外部刷新；统计不是逐条 fsync 证明</text></svg>",
+      "note": "request 且有日志位置时，写后阶段等待同步再成功应答。本例首次为 201。默认 realtime GET 可读，可能读日志或 INTERNAL reader；没有外部 refresh 的 SEARCH 仍不见新数据。async 不要求此请求等同步，但后台可能已经同步。"
+    },
+    {
+      "svg": "<svg viewBox=\"0 0 760 360\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch14-write-step-6\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"fig-arrowhead\"/></marker></defs><text x=\"380\" y=\"22\" text-anchor=\"middle\" class=\"fig-sub\">一次示例轨迹 · refresh / flush / merge 无固定必经顺序</text><rect x=\"20\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"120.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">客户端请求</text><text x=\"120.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">PUT _doc/1</text><line x1=\"224\" y1=\"76\" x2=\"274\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-6)\"/><rect x=\"280\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"380.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">协调与 IndexShard</text><text x=\"380.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">1 主分片 → shard 0</text><line x1=\"484\" y1=\"76\" x2=\"534\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-6)\"/><rect x=\"540\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"640.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">主分片内部</text><text x=\"640.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">InternalEngine.index</text><text x=\"380\" y=\"145\" text-anchor=\"middle\" class=\"fig-sub\">下层为状态观测 · 各列并非串行调用链</text><rect x=\"20\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"130.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Lucene / IndexWriter</text><text x=\"130.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">可写缓冲、段与 commit</text><text x=\"130.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">NRT 文件可供读取</text><rect x=\"270\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"380.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Translog</text><text x=\"380.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">操作追加与耐久同步</text><text x=\"380.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">不因 refresh 裁剪</text><rect x=\"520\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box-hot\"/><text x=\"630.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">读取视图</text><text x=\"630.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">INTERNAL 与 EXTERNAL</text><text x=\"630.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">GET 可读 / SEARCH 1</text><text x=\"380\" y=\"315\" text-anchor=\"middle\" class=\"fig-key\">第 6 步 · 发布外部视图</text><text x=\"380\" y=\"342\" text-anchor=\"middle\" class=\"fig-sub\">示例前提无其他写入或外部刷新；统计不是逐条 fsync 证明</text></svg>",
+      "note": "一次显式外部 refresh 让 EXTERNAL reader 接住数据，SEARCH 可见。NRT reader 打开可能落出 segment 文件；这不是 Lucene commit，也不因可搜索而裁日志。内部刷新只服务 INTERNAL，周期刷新不是可见性时限。"
+    },
+    {
+      "svg": "<svg viewBox=\"0 0 760 360\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch14-write-step-7\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"fig-arrowhead\"/></marker></defs><text x=\"380\" y=\"22\" text-anchor=\"middle\" class=\"fig-sub\">一次示例轨迹 · refresh / flush / merge 无固定必经顺序</text><rect x=\"20\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"120.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">客户端请求</text><text x=\"120.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">PUT _doc/1</text><line x1=\"224\" y1=\"76\" x2=\"274\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-7)\"/><rect x=\"280\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"380.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">协调与 IndexShard</text><text x=\"380.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">1 主分片 → shard 0</text><line x1=\"484\" y1=\"76\" x2=\"534\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-7)\"/><rect x=\"540\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"640.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">主分片内部</text><text x=\"640.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">InternalEngine.index</text><text x=\"380\" y=\"145\" text-anchor=\"middle\" class=\"fig-sub\">下层为状态观测 · 各列并非串行调用链</text><rect x=\"20\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box-hot\"/><text x=\"130.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Lucene / IndexWriter</text><text x=\"130.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">可写缓冲、段与 commit</text><text x=\"130.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">commit 含恢复元数据</text><rect x=\"270\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"380.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Translog</text><text x=\"380.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">操作追加与耐久同步</text><text x=\"380.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">按 safe commit 裁剪</text><rect x=\"520\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"630.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">读取视图</text><text x=\"630.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">INTERNAL 与 EXTERNAL</text><text x=\"630.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">外部视图沿用第 6 步</text><text x=\"380\" y=\"315\" text-anchor=\"middle\" class=\"fig-key\">第 7 步 · 提交与可见性分开</text><text x=\"380\" y=\"342\" text-anchor=\"middle\" class=\"fig-sub\">示例前提无其他写入或外部刷新；统计不是逐条 fsync 证明</text></svg>",
+      "note": "之后一次普通 flush：日志同步并滚代 → Lucene commit → INTERNAL refresh → 条件裁剪。此前已可搜只是本例的旧状态；直接 flush 未刷新的新文档不会负责发布 EXTERNAL。safe commit 与引用决定日志保留，不承诺计数或字节归零。"
+    },
+    {
+      "svg": "<svg viewBox=\"0 0 760 360\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch14-write-step-8\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"fig-arrowhead\"/></marker></defs><text x=\"380\" y=\"22\" text-anchor=\"middle\" class=\"fig-sub\">一次示例轨迹 · refresh / flush / merge 无固定必经顺序</text><rect x=\"20\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"120.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">客户端请求</text><text x=\"120.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">PUT _doc/1</text><line x1=\"224\" y1=\"76\" x2=\"274\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-8)\"/><rect x=\"280\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"380.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">协调与 IndexShard</text><text x=\"380.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">1 主分片 → shard 0</text><line x1=\"484\" y1=\"76\" x2=\"534\" y2=\"76\" class=\"fig-arrow\" marker-end=\"url(#ch14-write-step-8)\"/><rect x=\"540\" y=\"40\" width=\"200\" height=\"72\" rx=\"9\" class=\"fig-box\"/><text x=\"640.0\" y=\"65\" text-anchor=\"middle\" class=\"fig-sub\">主分片内部</text><text x=\"640.0\" y=\"91\" text-anchor=\"middle\" class=\"fig-key\">InternalEngine.index</text><text x=\"380\" y=\"145\" text-anchor=\"middle\" class=\"fig-sub\">下层为状态观测 · 各列并非串行调用链</text><rect x=\"20\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box-hot\"/><text x=\"130.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Lucene / IndexWriter</text><text x=\"130.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">可写缓冲、段与 commit</text><text x=\"130.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">段可被合并重写</text><rect x=\"270\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"380.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">Translog</text><text x=\"380.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">操作追加与耐久同步</text><text x=\"380.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">不由 merge 决定同步</text><rect x=\"520\" y=\"166\" width=\"220\" height=\"116\" rx=\"10\" class=\"fig-box\"/><text x=\"630.0\" y=\"194\" text-anchor=\"middle\" class=\"fig-name\">读取视图</text><text x=\"630.0\" y=\"222\" text-anchor=\"middle\" class=\"fig-sub\">INTERNAL 与 EXTERNAL</text><text x=\"630.0\" y=\"255\" text-anchor=\"middle\" class=\"fig-key\">保留完整静态含义</text><text x=\"380\" y=\"315\" text-anchor=\"middle\" class=\"fig-key\">第 8 步 · 合并时保留所需历史</text><text x=\"380\" y=\"342\" text-anchor=\"middle\" class=\"fig-sub\">示例前提无其他写入或外部刷新；统计不是逐条 fsync 证明</text></svg>",
+      "note": "merge 是独立的可选后台工作，可在 flush 前后发生，也可能暂时没有可合并段。它重写段并按保留策略回收删除历史；恢复所需软删除可能继续存在。不是每次 refresh 都产生一个新段，也不是每次 merge 都清掉全部旧版本。"
+    }
+  ]
+};
 })();

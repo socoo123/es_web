@@ -1,0 +1,216 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "显式 ID 成功写入：Lucene 先于日志",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch14-index-order-20261011-192524/index-order.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "引擎处理"
+        },
+        "database": {
+          "label": "日志与提交"
+        },
+        "security": {
+          "label": "写后同步"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "engine",
+      "label": "主分片 · InternalEngine"
+    },
+    {
+      "id": "log",
+      "label": "操作日志 · Translog"
+    },
+    {
+      "id": "versions",
+      "label": "最近版本 · LiveVersionMap"
+    },
+    {
+      "id": "postwrite",
+      "label": "写后阶段 · request 耐久"
+    }
+  ],
+  "mainPath": [
+    "plan",
+    "lucene",
+    "append",
+    "versions-map",
+    "sync"
+  ],
+  "nodes": [
+    {
+      "id": "plan",
+      "lane": "engine",
+      "col": 2,
+      "type": "backend",
+      "label": "检查版本并制定计划",
+      "sublabel": "显式 ID · 成功主路径",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 1613,
+          "end_line": 1690,
+          "label": "主分片计划"
+        }
+      ],
+      "yOffset": -49
+    },
+    {
+      "id": "lucene",
+      "lane": "engine",
+      "col": 2,
+      "type": "backend",
+      "label": "按计划写入 Lucene",
+      "sublabel": "addDocs 或 updateDocs",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 1265,
+          "end_line": 1285,
+          "label": "分配序号并执行"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 1693,
+          "end_line": 1736,
+          "label": "文档级写入"
+        }
+      ],
+      "yOffset": 49
+    },
+    {
+      "id": "append",
+      "lane": "log",
+      "col": 2,
+      "type": "database",
+      "label": "追加 Index 操作日志",
+      "sublabel": "非 translog 重放来源",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 1293,
+          "end_line": 1311,
+          "label": "成功与失败日志分支"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/translog/Translog.java",
+          "line": 624,
+          "end_line": 655,
+          "label": "追加序列化操作"
+        }
+      ]
+    },
+    {
+      "id": "versions-map",
+      "lane": "versions",
+      "col": 2,
+      "type": "backend",
+      "label": "按计划登记最近版本",
+      "sublabel": "location 跟踪按需开启",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 1312,
+          "end_line": 1325,
+          "label": "版本图与 checkpoint"
+        }
+      ]
+    },
+    {
+      "id": "sync",
+      "lane": "postwrite",
+      "col": 2,
+      "type": "security",
+      "label": "完成写后同步再应答",
+      "sublabel": "request 且存在日志位置",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/TransportWriteAction.java",
+          "line": 476,
+          "end_line": 487,
+          "label": "同步条件"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/TransportWriteAction.java",
+          "line": 489,
+          "end_line": 513,
+          "label": "完成与失败应答"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/TransportWriteAction.java",
+          "line": 544,
+          "end_line": 557,
+          "label": "同步回调"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "plan-lucene",
+      "from": "plan",
+      "to": "lucene",
+      "variant": "emphasis"
+    },
+    {
+      "id": "lucene-append",
+      "from": "lucene",
+      "to": "append",
+      "variant": "emphasis"
+    },
+    {
+      "id": "append-versions-map",
+      "from": "append",
+      "to": "versions-map",
+      "variant": "emphasis"
+    },
+    {
+      "id": "versions-map-sync",
+      "from": "versions-map",
+      "to": "sync",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "图中范围",
+      "items": [
+        "9.4.0 普通 InternalEngine、显式 ID、非恢复的成功主路径。",
+        "省略解析、摄取、复制、节流及版本查找的内部 refresh；同步节点在写后层。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "失败与读取",
+      "items": [
+        "版本冲突可在分配 seq_no 前结束；已分配序号的特定文档失败可记录 NoOp。",
+        "translog.add 不等于 fsync；GET 可回退 INTERNAL reader，SEARCH 使用 EXTERNAL。"
+      ]
+    }
+  ]
+}
