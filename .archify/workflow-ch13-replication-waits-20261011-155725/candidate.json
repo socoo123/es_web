@@ -1,0 +1,234 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "写前的 active 门槛，与写后的完成条件",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch13-replication-waits-20261011-155725/replication-waits.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "协调与分片执行"
+        },
+        "messagebus": {
+          "label": "条目与结果交接"
+        },
+        "security": {
+          "label": "等待条件"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "gate",
+      "label": "写前 · 每份分片请求检查 active 拷贝"
+    },
+    {
+      "id": "execute",
+      "label": "primary · 决定结果，再发起复制"
+    },
+    {
+      "id": "completion",
+      "label": "写后 · 等待复制与要求的刷新、同步"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "active",
+      "lane": "gate",
+      "col": 2,
+      "type": "security",
+      "label": "检查 active 拷贝数",
+      "sublabel": "DEFAULT 取索引设置；不足时等待",
+      "width": 280,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/TransportReplicationAction.java",
+          "line": 303,
+          "end_line": 311
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/ReplicationOperation.java",
+          "line": 120,
+          "end_line": 138
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/ReplicationOperation.java",
+          "line": 482,
+          "end_line": 513
+        }
+      ]
+    },
+    {
+      "id": "primary-result",
+      "lane": "execute",
+      "col": 2,
+      "type": "backend",
+      "label": "primary 执行条目",
+      "sublabel": "失败项继续；update 可转成 noop",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportShardBulkAction.java",
+          "line": 341,
+          "end_line": 379
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportShardBulkAction.java",
+          "line": 451,
+          "end_line": 475
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkPrimaryExecutionContext.java",
+          "line": 319,
+          "end_line": 329
+        }
+      ]
+    },
+    {
+      "id": "replica-dispatch",
+      "lane": "execute",
+      "col": 2,
+      "type": "messagebus",
+      "label": "发起 replica 重放",
+      "sublabel": "序号来自 primary；无需自定顺序",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/ReplicationOperation.java",
+          "line": 149,
+          "end_line": 205
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportShardBulkAction.java",
+          "line": 795,
+          "end_line": 824
+        }
+      ]
+    },
+    {
+      "id": "wait-completion",
+      "lane": "completion",
+      "col": 2,
+      "type": "security",
+      "label": "并行等待写后工作",
+      "sublabel": "复制结果；按策略 refresh / fsync",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/TransportWriteAction.java",
+          "line": 332,
+          "end_line": 345
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/TransportWriteAction.java",
+          "line": 476,
+          "end_line": 549
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/ReplicationOperation.java",
+          "line": 110,
+          "end_line": 119
+        }
+      ]
+    },
+    {
+      "id": "shard-result",
+      "lane": "completion",
+      "col": 2,
+      "type": "messagebus",
+      "label": "完成分片响应",
+      "sublabel": "条目结果与 _shards 是不同账目",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/ReplicationOperation.java",
+          "line": 110,
+          "end_line": 119
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/ReplicationOperation.java",
+          "line": 303,
+          "end_line": 335
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkOperation.java",
+          "line": 529,
+          "end_line": 537
+        }
+      ]
+    }
+  ],
+  "mainPath": [
+    "active",
+    "primary-result",
+    "replica-dispatch",
+    "wait-completion",
+    "shard-result"
+  ],
+  "edges": [
+    {
+      "id": "active-primary-result",
+      "from": "active",
+      "to": "primary-result",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "primary-result-replica-dispatch",
+      "from": "primary-result",
+      "to": "replica-dispatch",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "replica-dispatch-wait-completion",
+      "from": "replica-dispatch",
+      "to": "wait-completion",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "wait-completion-shard-result",
+      "from": "wait-completion",
+      "to": "shard-result",
+      "variant": "emphasis",
+      "role": "main"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "等待的含义",
+      "items": [
+        "图为门槛满足后的正常路径；active 数检查发生在 primary 执行前。",
+        "复制发出后，primary 与 replica 的写后等待可并行；箭头不表示串行等待每个副本。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "结论的条件",
+      "items": [
+        "普通副本故障通常记入 _shards 并处理失效拷贝；不能把条目 status 当成全部副本成功。",
+        "primary 降级、失败处理与写后工作失败可触发重试或分片失败；all 也不是跨文档事务。"
+      ]
+    }
+  ]
+}

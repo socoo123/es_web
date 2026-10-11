@@ -1,0 +1,228 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "按分片分组，按原条目次序收回结果",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch13-bulk-journey-20261011-155725/bulk-journey.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "协调与分片执行"
+        },
+        "messagebus": {
+          "label": "条目与结果交接"
+        },
+        "security": {
+          "label": "等待条件"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "rest",
+      "label": "REST 入口 · 可整包或增量解析"
+    },
+    {
+      "id": "coordinate",
+      "label": "协调工作 · 每个执行批次按目标分片归组"
+    },
+    {
+      "id": "shard",
+      "label": "分片工作 · primary 决定条目结果"
+    },
+    {
+      "id": "reply",
+      "label": "协调汇总 · 等待各组，再按原槽位回填"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "parse",
+      "lane": "rest",
+      "col": 2,
+      "type": "messagebus",
+      "label": "解析有序条目",
+      "sublabel": "index / create / update / delete",
+      "width": 280,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestBulkAction.java",
+          "line": 100,
+          "end_line": 149
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkRequestParser.java",
+          "line": 268,
+          "end_line": 295
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkRequestParser.java",
+          "line": 540,
+          "end_line": 563
+        }
+      ]
+    },
+    {
+      "id": "prepare",
+      "lane": "coordinate",
+      "col": 2,
+      "type": "backend",
+      "label": "摄取与目标准备",
+      "sublabel": "有管道先执行；解析具体写入目标",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportAbstractBulkAction.java",
+          "line": 297,
+          "end_line": 375
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportBulkAction.java",
+          "line": 238,
+          "end_line": 259
+        }
+      ]
+    },
+    {
+      "id": "group",
+      "lane": "coordinate",
+      "col": 2,
+      "type": "backend",
+      "label": "路由后按 ShardId 分组",
+      "sublabel": "保留条目编号；各组可并发推进",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkOperation.java",
+          "line": 278,
+          "end_line": 345
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkOperation.java",
+          "line": 383,
+          "end_line": 427
+        }
+      ]
+    },
+    {
+      "id": "primary",
+      "lane": "shard",
+      "col": 2,
+      "type": "backend",
+      "label": "交给目标 primary",
+      "sublabel": "条目结果与复制；同节点也可承接",
+      "width": 280,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkOperation.java",
+          "line": 477,
+          "end_line": 502
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportShardBulkAction.java",
+          "line": 181,
+          "end_line": 225
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/replication/ReplicationOperation.java",
+          "line": 110,
+          "end_line": 140
+        }
+      ]
+    },
+    {
+      "id": "items",
+      "lane": "reply",
+      "col": 2,
+      "type": "messagebus",
+      "label": "收集 items[]",
+      "sublabel": "按操作序号回填，不按完成先后",
+      "width": 280,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkOperation.java",
+          "line": 513,
+          "end_line": 546
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkResponse.java",
+          "line": 167,
+          "end_line": 187
+        }
+      ]
+    }
+  ],
+  "mainPath": [
+    "parse",
+    "prepare",
+    "group",
+    "primary",
+    "items"
+  ],
+  "edges": [
+    {
+      "id": "parse-prepare",
+      "from": "parse",
+      "to": "prepare",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "prepare-group",
+      "from": "prepare",
+      "to": "group",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "group-primary",
+      "from": "group",
+      "to": "primary",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "primary-items",
+      "from": "primary",
+      "to": "items",
+      "variant": "emphasis",
+      "role": "main"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "图的范围",
+      "items": [
+        "普通 standard 索引的成功受理路径；箭头是处理与交接依赖。",
+        "协调角色可与 primary 位于同一节点；省略自动创建、重试、resharding 与 failure store 分支。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "增量与错误边界",
+      "items": [
+        "9.4.0 支持增量解析与拆批，分组发生在各执行批次内。",
+        "后续解析失败不会撤销先前执行块；HTTP 200 也须逐项检查 error / result。"
+      ]
+    }
+  ]
+}

@@ -18,7 +18,7 @@
 | ch10 | 跟踪一次文档读取 | ✅ | 26 | 1(realtime GET·9 步) | ✅ GET 旅程与读取视图（2 图，2 路径动画） |
 | ch11 | 映射系统 | ✅ | 35 | 1(动态映射·9 步) | ✅ 更新候选与字段结构（2 图，2 路径动画） |
 | ch12 | 摄取管道 | ✅ | 48 | — | ✅ 摄取写入与失败恢复（2 图，2 路径动画） |
-| ch13 | 批量写入 | ✅ | 13 | 1(bulk 分组) | 待改造 |
+| ch13 | 批量写入 | ✅ | 40 | 1(bulk 分组·6步) | ✅ 分组结果与写入等待（2 图，2 路径动画） |
 | ch14 | 存储引擎 | ✅ | 29 | 1(写入全路径·旗舰) | 待改造 |
 | ch15 | 索引分片 | ✅ | 16 | 1(路由公式) | 待改造 |
 | ch16 | 搜索流程总览 | ✅ | 14 | 1(Query Then Fetch·旗舰) | 待改造 |
@@ -191,7 +191,29 @@
 | ch12 | DELETE /_ingest/pipeline/fields,routing 能删除列表 | 删除 id 按单名称 / 简单通配匹配，不拆逗号；仍被 default / final 引用会拒删，先删索引再逐条点名删 | RestDeletePipelineAction 42–47；IngestService 470–490、494–534；D9 / 六张清理卡 |
 | ch12 | 20 卡缺显式配置、等待、重复与恢复条件 | 保留 20 ID，增 28 卡，共 4 组 / 48 卡；三索引显式配置、局部等待 / 刷新、固定 ID、final 恢复与完整重做 | [注册表](experiments/ch12.js)、[验收记录](.archify/CH12-REVIEW.md)；本轮真实 API 未运行 |
 
+### 第十三章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch13 | 两行一组 / action固定奇数行；动画五行却写六行 | action决定行数；delete单行，本例五行三项；操作编号不是物理行号 | BulkRequestParser268–295；保留机制六步 |
+| ch13 | 所有source第二行原样到primary解析 | index/create切字节；update第二行立即fromXContent；文档解析时机受摄取/索引模式影响 | BulkRequestParser540–563；A6–A9 |
+| ch13 | 结构坏发生在切条目前，整请求400无其他已写项 | 9.4.0增量入口可先拆批执行；后续解析失败不回滚先前执行块。错误卡用单项限定前提 | RestBulkAction100–149、235–271；IncrementalBulkService156–194 |
+| ch13 | 协调节点不写Lucene；分组后不再有批；primary始终while | 协调是角色，可本地承接primary；按执行批次分组；批量优化默认关闭、受feature flag及操作类型约束 | BulkOperation278–345；TransportReplicationAction940–973；ShardBatchIndexer38–72 |
+| ch13 | 改主分片数导致原GET找错；公式适用普通索引未限创建版本 | Final更新拒绝，不改变原路由；公式限定新建普通非分区索引，旧创建版本另分支；routing可同片碰撞 | IndexRouting147–175、309–321；既有Final依据 |
+| ch13 | 只逐项扫status；条目完全独立；delete不自动建索引泛化 | error/result/status一起读；delete缺ID404无error，缺索引404有error；同组可有依赖，普通内部版本delete不建索引有外部版本例外 | BulkItemResponse420–422；DeleteResponse63–66；TransportBulkAction315–320 |
+| ch13 | 副本失败不会影响请求、已领号即成功；动画seq_no=0 | 普通故障通常另记_shards，primary降级/写后失败可重试或失败；已领号失败可noop；无固定序号承诺 | ReplicationOperation213–228、303–335、423–455；TransportShardBulkAction795–824 |
+| ch13 | false返回一定不可搜、wait_for只搭自动刷新且更便宜 | 是否可搜取决于刷新/旧视图；wait_for可由外部刷新满足或强制刷新，只覆盖触及分片、不改设置，无性能/耗时上限承诺 | PostWriteRefresh43–102；TransportWriteAction476–549；C1–C9 |
+| ch13 | 13卡缺完整配置、等待、读回、首次/重复与恢复条件 | 原13ID保留、增27，共4组40卡；三索引显式配置/限定健康等待、错误后GET、刷新对照、all/1、点名清理再完整重做 | [注册表](experiments/ch13.js)、[验收](.archify/CH13-REVIEW.md)；本轮真实API未运行 |
+
 ## 会话日志
+
+### 2026-10-11(第十三章按统一规范重构)
+
+- 固定ES9.4.0核对20源码文件/46精确区间，章节约4286中文字符，重写NDJSON类型解析、增量与错误副作用、角色/分组/有序结果、路由创建版本、primary/复制/写后条件及refresh可见性；勘误同步图注、实验、问答、速记与六步机制解说。
+- 原13稳定操作ID及ch13-bulk-group保留，增27卡，共4组/40卡，2幅Workflow v2/2条有限trace/1机制播放器。显式standard/stored source/strict mapping/分片/副本/管道/refresh/active/durability；局部等待、首次/重复、错误读回、周期恢复与三索引点名清理。全站30正式页/519卡/22机制播放器。
+- 官方Archify3.0.1首次附固定源码与真实checkout，只改JSON；两图当前根收据，validate/deliver/strict check均showcase9/9、0errors/warnings、provenance current。原生file URL管理策略使browser-check及finalize整体fail，HTTP独立验收分开记录。
+- HTTP通过：两图四档桌面/双主题、章节六档宽度、880px/≤1px对齐、页面/iframe/所有节点容纳、探索/来源/关闭/展开、暂停外层重播/Enter、目录/已读、六步机制与键盘、40实际控制台deep links及请求内容、四raw错误卡、endpoint/auth alias、Pages前缀、reduced motion。390/320源码表和SVG局部滚动通过；实际查看24张最终截图，手机图细字需探索/展开缩放。共享文件未改。
+- 站点、JS语法、figwidth、diff、稳定ID/槽位/路径通过；真实API首次和清理后重做均未执行：9200拒绝连接、已知runtime缺/proc/self/coredump_filter，未伪造响应或修改环境策略。验收[CH13-REVIEW](.archify/CH13-REVIEW.md)，当前证据绑定[ch13-artifacts](.archify/review/ch13-artifacts.json)；按授权提交推送origin/main，Pages部署未核验。
 
 ### 2026-10-11(第十二章按统一规范重构)
 
