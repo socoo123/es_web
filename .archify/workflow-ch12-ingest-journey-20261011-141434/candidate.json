@@ -1,0 +1,235 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "先处理文档，再回写请求、选择分片",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch12-ingest-journey-20261011-141434/ingest-journey.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "选择、执行与路由"
+        },
+        "messagebus": {
+          "label": "文档与请求交接"
+        },
+        "database": {
+          "label": "映射与存储边界"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "select",
+      "label": "协调入口 · 单条写入也复用 bulk"
+    },
+    {
+      "id": "execute",
+      "label": "摄取执行 · 顺序依赖，允许异步回调"
+    },
+    {
+      "id": "write",
+      "label": "写入阶段 · 使用处理后的请求"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "select",
+      "lane": "select",
+      "col": 2,
+      "type": "backend",
+      "label": "解析管道选择",
+      "sublabel": "请求或 default；独立的 final",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/IngestService.java",
+          "line": 414,
+          "end_line": 423
+        }
+      ]
+    },
+    {
+      "id": "document",
+      "lane": "select",
+      "col": 2,
+      "type": "messagebus",
+      "label": "构造 IngestDocument",
+      "sublabel": "source 与 _index / _id / _routing",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/IngestService.java",
+          "line": 1455,
+          "end_line": 1463
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/TransportAbstractBulkAction.java",
+          "line": 297,
+          "end_line": 314
+        }
+      ]
+    },
+    {
+      "id": "processors",
+      "lane": "execute",
+      "col": 2,
+      "type": "backend",
+      "label": "依次执行处理器",
+      "sublabel": "set → rename；下一步等上一步完成",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java",
+          "line": 149,
+          "end_line": 219
+        }
+      ]
+    },
+    {
+      "id": "writeback",
+      "lane": "execute",
+      "col": 2,
+      "type": "messagebus",
+      "label": "成功后回写请求",
+      "sublabel": "metadata；最后更新 source",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/IngestService.java",
+          "line": 1239,
+          "end_line": 1240
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/IngestService.java",
+          "line": 1346,
+          "end_line": 1355
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/IngestService.java",
+          "line": 1469,
+          "end_line": 1504
+        }
+      ]
+    },
+    {
+      "id": "route",
+      "lane": "write",
+      "col": 2,
+      "type": "backend",
+      "label": "按处理后的键选分片",
+      "sublabel": "BulkOperation → route",
+      "width": 280,
+      "height": 68,
+      "yOffset": -49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/bulk/BulkOperation.java",
+          "line": 320,
+          "end_line": 341
+        }
+      ]
+    },
+    {
+      "id": "mapping",
+      "lane": "write",
+      "col": 2,
+      "type": "database",
+      "label": "解析映射，再提交 Engine",
+      "sublabel": "主分片解析处理后的 JSON",
+      "width": 280,
+      "height": 68,
+      "yOffset": 49,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 1028,
+          "end_line": 1054
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "select-document",
+      "from": "select",
+      "to": "document",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "document-processors",
+      "from": "document",
+      "to": "processors",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "processors-writeback",
+      "from": "processors",
+      "to": "writeback",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "writeback-route",
+      "from": "writeback",
+      "to": "route",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "route-mapping",
+      "from": "route",
+      "to": "mapping",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    }
+  ],
+  "mainPath": [
+    "select",
+    "document",
+    "processors",
+    "writeback",
+    "route",
+    "mapping"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "成功写入路径的职责抽象",
+      "items": [
+        "限定新建普通索引、未重定向的 index 请求。箭头是调用 / 回调交接；省略复制、集群状态与 Engine 内部。",
+        "前一条管道成功保留文档，才会继续 final；未处理失败或 drop 提前结束，不会走到选分片。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "_simulate 共用执行器，验证范围不同",
+      "items": [
+        "管道模拟构造独立 IngestDocument，运行 Pipeline / CompoundProcessor 后返回结果或逐步快照，不写入索引。",
+        "它不执行完整写入路径的管道选择、分片路由与 mapping 校验；final 禁改 _index 的写入约束在 IngestService 检查。"
+      ]
+    }
+  ]
+}

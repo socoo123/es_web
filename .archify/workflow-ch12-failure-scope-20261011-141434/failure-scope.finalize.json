@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "workflow",
+  "quality": "showcase",
+  "startedAt": "2026-10-11T06:17:07.300Z",
+  "specification": {
+    "path": "/workspace/es_web/.archify/workflow-ch12-failure-scope-20261011-141434/candidate.json",
+    "sha256": "4b575490bd6d5003bd4ac6e28ebaa3e751ff2de810e93a1113f5fd04e7672cc4",
+    "bytes": 6460
+  },
+  "artifact": {
+    "path": "/workspace/es_web/.archify/workflow-ch12-failure-scope-20261011-141434/failure-scope.html",
+    "sha256": "0b67d175a9b1d82b4bf1cf1759244aab4c9eefd07630dc14432960d7d3afd1a9",
+    "bytes": 754384
+  },
+  "stages": {
+    "validate": {
+      "status": "not-run",
+      "execution": "embedded-in-deliver"
+    },
+    "deliver": {
+      "status": "fail",
+      "exitCode": 0,
+      "durationMs": 556,
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "/workspace/shared/skills/archify-3.0.1/archify/bin/archify.mjs",
+        "deliver",
+        "workflow",
+        "/workspace/es_web/.archify/workflow-ch12-failure-scope-20261011-141434/candidate.json",
+        "/workspace/es_web/.archify/workflow-ch12-failure-scope-20261011-141434/failure-scope.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "/workspace/scratch/es-v9.4.0",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "b3b5298b-e90d-46f7-8587-080164b9e874",
+        "ok": true,
+        "command": "deliver",
+        "type": "workflow",
+        "input": "/workspace/es_web/.archify/workflow-ch12-failure-scope-20261011-141434/candidate.json",
+        "output": "/workspace/es_web/.archify/workflow-ch12-failure-scope-20261011-141434/failure-scope.html",
+        "specification": {
+          "sha256": "4b575490bd6d5003bd4ac6e28ebaa3e751ff2de810e93a1113f5fd04e7672cc4",
+          "bytes": 6460
+        },
+        "artifact": {
+          "sha256": "0b67d175a9b1d82b4bf1cf1759244aab4c9eefd07630dc14432960d7d3afd1a9",
+          "bytes": 754384
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 1,
+          "compositionIssues": [
+            {
+              "severity": "warning",
+              "code": "composition/viewport-height",
+              "readerFit": null,
+              "viewBoxWidth": 823,
+              "viewBoxHeight": 534,
+              "viewportWidth": 1440,
+              "viewportHeight": 900,
+              "ratio": 1.54,
+              "wideRatio": 1.55,
+              "svgWidthPx": 1346,
+              "svgHeightPx": 873,
+              "fixedChromePx": 126,
+              "pageHeightPx": 999,
+              "overflowPx": 99,
+              "detail": "[composition/viewport-height] Preserve every node, relationship, and label. This 823x534 canvas (ratio 1.54) declares no intrinsic-height fit and is below the 1.55 wide ratio, so the desktop Reader can neither narrow it nor accept vertical scroll: it renders 873px tall at the full 1346px width and the page reaches 999px before cards against 900px, a certain visual-check failure. Either compact vertical spacing so meta.viewBox height is at most 530 at this width, or spread content sideways so the width is at least 828 at this height; for architecture, omitting meta.viewBox lets the renderer size the canvas and declare the fit."
+            }
+          ]
+        },
+        "evidence": {
+          "verified": true,
+          "repository": "https://github.com/elastic/elasticsearch",
+          "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+          "references": 14
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "composition/viewport-height",
+      "severity": "error",
+      "message": "Showcase delivery reported composition/viewport-height; zero warnings are required.",
+      "subject": {
+        "stage": "deliver",
+        "check": "composition"
+      },
+      "evidence": {
+        "reportedSeverity": "warning",
+        "readerFit": null,
+        "viewBoxWidth": 823,
+        "viewBoxHeight": 534,
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "ratio": 1.54,
+        "wideRatio": 1.55,
+        "svgWidthPx": 1346,
+        "svgHeightPx": 873,
+        "fixedChromePx": 126,
+        "pageHeightPx": 999,
+        "overflowPx": 99
+      },
+      "supportedFixes": [
+        "Preserve every node, relationship, and label. This 823x534 canvas (ratio 1.54) declares no intrinsic-height fit and is below the 1.55 wide ratio, so the desktop Reader can neither narrow it nor accept vertical scroll: it renders 873px tall at the full 1346px width and the page reaches 999px before cards against 900px, a certain visual-check failure. Either compact vertical spacing so meta.viewBox height is at most 530 at this width, or spread content sideways so the width is at least 828 at this height; for architecture, omitting meta.viewBox lets the renderer size the canvas and declare the fit."
+      ]
+    }
+  ],
+  "evidence": {
+    "receipt": "/workspace/es_web/.archify/workflow-ch12-failure-scope-20261011-141434/failure-scope.finalize.json",
+    "summaryReceipt": "/workspace/es_web/.archify/workflow-ch12-failure-scope-20261011-141434/failure-scope.finalize-summary.json"
+  },
+  "visualReview": "not-requested",
+  "failedStage": "deliver",
+  "finishedAt": "2026-10-11T06:17:07.906Z",
+  "durationMs": 606,
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  }
+}

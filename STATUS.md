@@ -17,7 +17,7 @@
 | ch09 | 传输层 | ✅ | 12 | — | ✅ 远程往返与帧契约（2 图，2 路径动画） |
 | ch10 | 跟踪一次文档读取 | ✅ | 26 | 1(realtime GET·9 步) | ✅ GET 旅程与读取视图（2 图，2 路径动画） |
 | ch11 | 映射系统 | ✅ | 35 | 1(动态映射·9 步) | ✅ 更新候选与字段结构（2 图，2 路径动画） |
-| ch12 | 摄取管道 | ✅ | 20 | — | 待改造 |
+| ch12 | 摄取管道 | ✅ | 48 | — | ✅ 摄取写入与失败恢复（2 图，2 路径动画） |
 | ch13 | 批量写入 | ✅ | 13 | 1(bulk 分组) | 待改造 |
 | ch14 | 存储引擎 | ✅ | 29 | 1(写入全路径·旗舰) | 待改造 |
 | ch15 | 索引分片 | ✅ | 16 | 1(路由公式) | 待改造 |
@@ -176,7 +176,31 @@
 | ch11 | mapping 除 type 都可改，新增子字段立即用于旧文档 | 参数按 mapper 的更新规则判断；新增 mapping 不自动回填历史值，相关文档需重新解析 | FieldMapper.Builder / 参数合并规则；D1–D3 与正文 |
 | ch11 | 19 卡缺健康等待、重复条件，false 缺原值 / 查询证据 | 原 19 ID 保留，增 16，共 5 组 / 35 卡；显式配置、局部等待 / refresh、错误恢复、四索引点名清理并重做 | [experiments/ch11.js](experiments/ch11.js)、[验收记录](.archify/CH11-REVIEW.md) |
 
+### 第十二章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch12 | 链是单线程顺序；bulk 吞吐受 ingest 线程池限制 | 顺序依赖允许异步回调换线程；普通 bulk 协调使用 write_coordination，不能假设统一 ingest 池 | CompoundProcessor 149–219；TransportAbstractBulkAction 114–122、364–370 |
+| ch12 | on_failure 成功只说文档留下，没有区分续接位置 | 处理器包装层补救成功继续外层主列表；管道根补救成功结束当前管道；ignore 优先且不承诺回滚 | ConfigurationUtils / OnFailureProcessor / Pipeline / CompoundProcessor；图 02，A5 / A7–A9 |
+| ch12 | final 总最后，所有写入都经过，不可绕过安全门 | 普通 index 正常保留路径才继续 final，失败 / drop 提前停；重定向重解析，不泛化到所有修改 API | IngestService 1204–1236、1270–1288、1333–1347；D5–D16 |
+| ch12 | _simulate 与写入差别只有路由 / 落盘；GET 只会 404 | 模拟不组合完整写入管道、不做 mapping / final 执行后约束；不影响原有数据，逐文档 error 也可 HTTP 200 | SimulatePipelineRequest / SimulateExecutionService / IngestService；A2–A9 |
+| ch12 | 不带 / 不同 routing 的 GET 必 404，当前节点可套单一取模公式 | 对照实际分片号，键可碰撞；本课公式限定新建 9.4.0 普通非分区索引，旧创建版本另有分支 | IndexRouting 147–175、309–321；C4–C9 |
+| ch12 | refresh=true 让下一 GET 立即可见 | 显式 refresh 服务搜索视图；默认 realtime GET 不依赖搜索刷新 | 第十章已校对机制；B3–B6、C6 / C9 |
+| ch12 | 管道新字段仍动态建 text + keyword | 仅在本章显式 standard / dynamic:true、检测关闭、无模板覆盖等条件成立；不迁移旧字段或旧文档 | B1 / B7 创建配置；第十一章动态映射依据 |
+| ch12 | pipeline 只说存在本地表，删除即全集群生效 | 定义提交集群状态 IngestMetadata，节点应用后构造本地对象；响应与发布 / 应用不等于瞬间同步 | IngestService 182–198、579–595、1547–1573 |
+| ch12 | DELETE /_ingest/pipeline/fields,routing 能删除列表 | 删除 id 按单名称 / 简单通配匹配，不拆逗号；仍被 default / final 引用会拒删，先删索引再逐条点名删 | RestDeletePipelineAction 42–47；IngestService 470–490、494–534；D9 / 六张清理卡 |
+| ch12 | 20 卡缺显式配置、等待、重复与恢复条件 | 保留 20 ID，增 28 卡，共 4 组 / 48 卡；三索引显式配置、局部等待 / 刷新、固定 ID、final 恢复与完整重做 | [注册表](experiments/ch12.js)、[验收记录](.archify/CH12-REVIEW.md)；本轮真实 API 未运行 |
+
 ## 会话日志
+
+### 2026-10-11(第十二章按统一规范重构)
+
+- 固定 ES v9.4.0 提交核对 23 个源码文件 / 56 个区间，重写摄取 / 回写 / 路由边界、顺序与异步、模拟范围、失败恢复层级、两个管道槽、drop / final 约束与路由碰撞；章节约 4344 中文字，勘误同步图源、实验、问答与速记。
+- 保留原 20 个稳定实验 ID，新增 28 卡，共 4 组 / 48 卡、0 原机制播放器；显式 standard / stored source / 动态映射 / 管道槽 / 分片 / refresh，限定健康等待、首次 / 重复差异、final 错误恢复；先点名删三索引，再逐条删五管道。全站 30 正式页 / 492 卡 / 22 机制播放器；本章 2 图 / 2 条有限 trace。
+- 官方 Archify 3.0.1 的两幅 Workflow v2 首次附真实源码 checkout 与固定证据，只改 JSON。ingest-journey 当前根收据，failure-scope review-3；原生 validate / deliver / strict check 均 showcase 9/9、0 errors / warnings、provenance current。file URL 管理策略使原生 browser-check / finalize 整体仍 fail；初稿桌面比例与手机节点裁切的历史诊断 / 修复证据保留。
+- 独立 HTTP 检查通过：两图四档桌面尺寸、章节六档宽度 / 双主题、880px 列 / ≤1px 对齐、页面 / iframe / 所有节点容纳、探索 / 来源 / 关闭 / 展开、暂停后重播 / Enter、目录 / 已读、48 张实际控制台深链与 method / path / body、端点 / 认证别名 / raw、Pages 前缀及 reduced motion。390 / 320px 源码表自身滚动通过。实际查看 20 张最终截图，长卡截图固定栏伪影另作捕获修复；手机图细字需探索 / 展开缩放。共享 CSS / JS 未改。
+- 站点结构、注册 JS 语法、文字估宽、稳定 ID 与 diff 检查通过。9200 拒绝连接、运行时缺 /proc/self/coredump_filter，真实 API 首次 / 清理后重做均未执行，没有模拟 ES 响应或改运行策略。验收见 [.archify/CH12-REVIEW.md](.archify/CH12-REVIEW.md)，当前文件 / 收据 / 20 图绑定见 [.archify/review/ch12-artifacts.json](.archify/review/ch12-artifacts.json)；按持续授权提交并推送 origin/main。
+
 
 ### 2026-10-11(第十一章按统一规范重构)
 

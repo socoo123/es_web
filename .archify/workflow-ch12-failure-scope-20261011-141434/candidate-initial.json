@@ -1,0 +1,244 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "失败恢复：处理器级与管道级",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch12-failure-scope-20261011-141434/failure-scope.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "失败层级、补救与去向"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "failure",
+      "label": "失败位置 · 两条路径作对照",
+      "variant": "exception"
+    },
+    {
+      "id": "handler",
+      "label": "执行对应层级的 on_failure"
+    },
+    {
+      "id": "result",
+      "label": "补救链成功、文档保留后的去向"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "local-error",
+      "lane": "failure",
+      "col": 1,
+      "type": "backend",
+      "label": "处理器失败",
+      "sublabel": "有本处理器 on_failure",
+      "width": 240,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/ConfigurationUtils.java",
+          "line": 626,
+          "end_line": 658
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/OnFailureProcessor.java",
+          "line": 17,
+          "end_line": 24
+        }
+      ]
+    },
+    {
+      "id": "global-error",
+      "lane": "failure",
+      "col": 3,
+      "type": "backend",
+      "label": "未恢复的失败",
+      "sublabel": "传到 pipeline 根处理器",
+      "width": 240,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/Pipeline.java",
+          "line": 162,
+          "end_line": 174
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/Pipeline.java",
+          "line": 188,
+          "end_line": 202
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java",
+          "line": 223,
+          "end_line": 240
+        }
+      ]
+    },
+    {
+      "id": "local-fix",
+      "lane": "handler",
+      "col": 1,
+      "type": "backend",
+      "label": "执行局部补救",
+      "sublabel": "临时 _ingest 元数据可复制为字段",
+      "width": 240,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java",
+          "line": 244,
+          "end_line": 257
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java",
+          "line": 294,
+          "end_line": 315
+        }
+      ]
+    },
+    {
+      "id": "global-fix",
+      "lane": "handler",
+      "col": 3,
+      "type": "backend",
+      "label": "执行管道补救",
+      "sublabel": "使用根 on_failure 列表",
+      "width": 240,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/Pipeline.java",
+          "line": 188,
+          "end_line": 202
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java",
+          "line": 244,
+          "end_line": 257
+        }
+      ]
+    },
+    {
+      "id": "continue",
+      "lane": "result",
+      "col": 1,
+      "type": "backend",
+      "label": "继续后续主处理器",
+      "sublabel": "外层收到文档，执行下一步",
+      "width": 240,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/OnFailureProcessor.java",
+          "line": 23,
+          "end_line": 24
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java",
+          "line": 170,
+          "end_line": 185
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java",
+          "line": 203,
+          "end_line": 214
+        }
+      ]
+    },
+    {
+      "id": "finish",
+      "lane": "result",
+      "col": 3,
+      "type": "backend",
+      "label": "结束当前管道",
+      "sublabel": "不回到失败点之后的主列表",
+      "width": 240,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java",
+          "line": 178,
+          "end_line": 182
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java",
+          "line": 223,
+          "end_line": 257
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "local-error-local-fix",
+      "from": "local-error",
+      "to": "local-fix",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "local-fix-continue",
+      "from": "local-fix",
+      "to": "continue",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "global-error-global-fix",
+      "from": "global-error",
+      "to": "global-fix",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "global-fix-finish",
+      "from": "global-fix",
+      "to": "finish",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    }
+  ],
+  "mainPath": [
+    "local-error",
+    "local-fix",
+    "continue"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两条箭头链是对照，不是连续步骤",
+      "items": [
+        "左侧为处理器包装层，右侧为 pipeline 根层；都限定 on_failure 成功且没有 drop / terminate / reroute。",
+        "处理器 ignore_failure 优先于该层 on_failure，跳过补救并继续下一步；忽略不承诺回滚此前修改。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "补救失败、drop 与返回状态",
+      "items": [
+        "没有处理器或管道级恢复，错误向外传播；补救处理器也可能再次失败。普通索引不使用数据流 failure store。",
+        "drop 返回 null，当前项不索引；_simulate 的逐文档 error 与真实写入错误不同，HTTP 200 本身不能证明每篇成功。"
+      ]
+    }
+  ]
+}

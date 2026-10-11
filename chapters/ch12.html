@@ -1,368 +1,147 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>第 12 课:摄取管道 — ES 源码精读站</title>
-  <link rel="stylesheet" href="../assets/css/style.css">
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
-    <nav class="tnav">
-      <a href="../index.html">课程</a>
-      <a href="../architecture.html">架构</a><a href="../console.html">控制台</a>
-      <a href="../cheatsheet.html">速查表</a>
-    </nav>
-    <span class="spacer"></span>
-    <button class="theme-toggle" type="button">🌙 深色</button>
-  </header>
-
-  <main class="wrap">
-    <article class="chapter" id="ch12" data-ch="ch12">
-      <header class="ch-header">
-        <div class="ch-kicker">LESSON 12 · 第三篇 · 数据写入</div>
-        <h1>摄取管道</h1>
-        <div class="ch-meta-line">写入前的数据预处理 · 约 18 分钟 · 前置:第 10、11 课 · 20 个实验</div>
-      </header>
-
-      <section class="goal">
-        <h2>学习目标</h2>
-        <ul>
-          <li>建一条 <code>set</code> + <code>rename</code> 管道,用 <code>_simulate</code> 在不写入的前提下说出字段会变成什么,并对上 <code>SetProcessor.execute</code> / <code>RenameProcessor.execute</code> 的关键行。</li>
-          <li>带 <code>?pipeline=</code> 写入后 <code>GET</code>,指出 <code>_source</code> 里多了哪些字段、哪个被改名;说出 pipeline 改的是「即将写入的那份 JSON」,不是已经躺在 Lucene 里的文档。</li>
-          <li>预测 pipeline 把 <code>_routing</code> 改成 <code>tenant-a</code> 后,文档落在 <code>hash(tenant-a)</code> 那个 shard;用 <code>_search_shards</code> 和带/不带 routing 的 GET 验证第 10 课那条不变量。</li>
-        </ul>
-      </section>
-
-      <section class="lesson">
-        <h2>1. 心智模型:先改 JSON,再选 shard</h2>
-        <p>第 11 课把 Mapping 钉成 Schema:JSON 里的字符串凭什么变成倒排表上的 token。但有一类事不该等进 Lucene 再做——加字段、改名、把一行 syslog 拆开、甚至改 <code>_routing</code>。这些发生在 Ingest Pipeline 里,而它必须跑在文档被 <strong>hash 到某个 shard 之前</strong>。Pipeline 是一条 Processor 链:文档还没被路由、还没进 Mapping / Engine,链上每个 processor 依次改<strong>同一份内存里的 JSON</strong>。拿这份输入走路:</p>
-        <pre class="code-block"><code>{ "hostname": "web-01", "level": "INFO" }</code></pre>
-        <p>先 <code>set</code> 一个 <code>environment</code>,再把 <code>hostname</code> <code>rename</code> 成 <code>host</code>:</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah12a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="10" y="24" width="164" height="76" rx="9" class="fig-box"/>
-              <text x="92" y="50" text-anchor="middle" class="fig-name">原始 JSON</text>
-              <text x="92" y="72" text-anchor="middle" class="fig-sub">hostname=web-01</text>
-              <text x="92" y="92" text-anchor="middle" class="fig-sub">level=INFO</text>
-              <line x1="174" y1="62" x2="198" y2="62" class="fig-arrow" marker-end="url(#ah12a)"/>
-              <rect x="202" y="24" width="164" height="76" rx="9" class="fig-box"/>
-              <text x="284" y="50" text-anchor="middle" class="fig-name">set</text>
-              <text x="284" y="72" text-anchor="middle" class="fig-sub">environment</text>
-              <text x="284" y="92" text-anchor="middle" class="fig-sub">= production</text>
-              <line x1="366" y1="62" x2="390" y2="62" class="fig-arrow" marker-end="url(#ah12a)"/>
-              <rect x="394" y="24" width="164" height="76" rx="9" class="fig-box"/>
-              <text x="476" y="50" text-anchor="middle" class="fig-name">rename</text>
-              <text x="476" y="72" text-anchor="middle" class="fig-sub">hostname → host</text>
-              <text x="476" y="92" text-anchor="middle" class="fig-sub">先删旧名再写新名</text>
-              <line x1="558" y1="62" x2="582" y2="62" class="fig-arrow" marker-end="url(#ah12a)"/>
-              <rect x="586" y="24" width="164" height="76" rx="9" class="fig-box-hot"/>
-              <text x="668" y="50" text-anchor="middle" class="fig-name">改完的 JSON</text>
-              <text x="668" y="72" text-anchor="middle" class="fig-sub">host=web-01</text>
-              <text x="668" y="92" text-anchor="middle" class="fig-sub">+ environment</text>
-              <text x="380" y="126" text-anchor="middle" class="fig-sub">顺序就是 processors 数组的顺序;链跑完之后,协调节点才拿(可能已被改过的)_id / _routing 去 hash 选 shard</text>
-            </svg>
-          </div>
-          <figcaption>图 1 · 一条 set + rename 链:字段出现、消失、改名,全都发生在文档被路由之前。</figcaption>
-        </figure>
-
-        <p>这张图钉死两件事:<strong>pipeline 改的是文档本身</strong>(字段出现、消失、改名),<strong>顺序就是 <code>processors</code> 数组的顺序</strong>——<code>set</code> 不会替你改名,<code>rename</code> 不会凭空造值,各做一步。更关键的是时间点:链跑完之后,协调节点才拿(可能已被改过的)<code>_id</code> / <code>_routing</code> 去 hash 选 shard。改 <code>_routing</code> 会改变文档落在哪一个 shard——这不是旁注,第 4 节用源码证,实验 13-18 用集群证。</p>
-        <p>Mapping 在 <strong>pipeline 之后、写入 Lucene 之时</strong>才看字段类型:pipeline 新加的 <code>environment</code> 如果索引里还没有这个字段,仍走第 11 课的动态映射,建成 <code>text</code> + <code>keyword</code>。一句话:<strong>ingest 先改 JSON,mapping 再决定这份 JSON 怎么进倒排</strong>。Pipeline 和 Processor 也不要画成两套架构:</p>
-        <table class="ktable">
-          <tr><th></th><th>Pipeline</th><th>Processor</th></tr>
-          <tr><td>是什么</td><td>有 id 的处理器列表(可带 <code>on_failure</code>、version、description)</td><td>列表里的一步:读字段、写字段、或失败</td></tr>
-          <tr><td>REST</td><td><code>PUT /_ingest/pipeline/{id}</code></td><td>写在 pipeline 的 <code>processors</code> 数组里</td></tr>
-          <tr><td>源码</td><td><code>Pipeline</code> 握着一个 <code>CompoundProcessor</code></td><td><code>Processor.execute(IngestDocument)</code></td></tr>
-          <tr><td>例子</td><td><code>tut-l12-fields</code></td><td><code>set</code>、<code>rename</code>、<code>grok</code></td></tr>
-        </table>
-        <p>一个 pipeline 可以有多个 processor;同一种 processor(比如 <code>set</code>)可以在一条链里出现多次。<code>pipeline</code> 类型的 processor 会再调用另一条 pipeline,那是嵌套,上限默认 100(第 5 节)。</p>
-
-        <h2>2. 关键源码文件</h2>
-        <table class="ktable">
-          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
-          <tr><td><code>server/…/ingest/IngestService.java</code></td><td><code>executeBulkRequest</code> 建 <code>IngestDocument</code>、跑链;<code>updateIndexRequestMetadata</code> 把 <code>_routing</code> / <code>_index</code> / <code>_id</code> 写回 <code>IndexRequest</code></td></tr>
-          <tr><td><code>server/…/action/bulk/TransportAbstractBulkAction.java</code></td><td>有 pipeline 先 <code>processBulkIndexIngestRequest</code>,跑完才 <code>doInternalExecute</code>。<strong>9.4.0:这段不再写在 <code>TransportBulkAction</code> 本体里</strong></td></tr>
-          <tr><td><code>server/…/action/bulk/BulkOperation.java</code></td><td>ingest <strong>之后</strong> <code>groupBulkRequestsByShards</code>:<code>docWriteRequest.route(indexRouting)</code> 才选出 shard</td></tr>
-          <tr><td><code>modules/ingest-common/…/SetProcessor.java</code></td><td><code>set</code> 怎么改字段;<code>field</code> 可以是 <code>_routing</code></td></tr>
-          <tr><td><code>server/…/action/ingest/SimulatePipelineTransportAction.java</code></td><td><code>_simulate</code> 在 ingest 节点上跑同一条 <code>Pipeline.execute</code>,<strong>不</strong>走 <code>BulkOperation</code> 选 shard</td></tr>
-        </table>
-        <p>对照时打开即可、不必进表:<code>RenameProcessor.java</code>(先删旧名再写新名)、<code>CompoundProcessor.java</code>(顺序执行 / <code>on_failure</code>)、<code>IngestDocument.java</code>(元数据、嵌套上限 100)、<code>RestSimulatePipelineAction.java</code>(四条 <code>_simulate</code> 路由)、<code>IndexRouting.java</code> 的 <code>Unpartitioned.indexShard</code>(第 10 课引过 <code>shardId(id, routing)</code>)。</p>
-
-        <h2>3. 一份 JSON 怎么被改掉:set 然后 rename</h2>
-        <p>Processor 的契约是「拿到一份 <code>IngestDocument</code>,改完再交出去」。9.4.0 的接口分同步/异步两份,不要背旧材料那份「async 默认包一层 sync」的伪代码:同步实现覆盖 <code>execute(IngestDocument)</code>;异步实现(enrich、第 5 节的 <code>pipeline</code> processor)覆盖带 handler 的那份,并让 <code>isAsync()</code> 返回 true。同步那份<strong>返回 <code>null</code> 表示 drop</strong>:这篇文档不会被索引,<code>CompoundProcessor</code> 看到 null 立刻结束整条链。</p>
-        <p>图 1 的第一步是 <code>set</code>。<code>field</code> 支持 Mustache 模板(<code>{{some_field}}</code>),<code>value</code> 走 <code>ValueSource</code>(字面量,或含 <code>{{_ingest.timestamp}}</code>);9.4.0 不再是旧材料的 <code>this.value.copyAndResolve(document)</code>:</p>
-        <pre class="code-block"><code>// modules/ingest-common/src/main/java/org/elasticsearch/ingest/common/SetProcessor.java
-public IngestDocument execute(IngestDocument document) {
-    String path = document.renderTemplate(field);   // field 支持 {{some_field}} 模板
-    if (overrideEnabled || document.hasField(path) == false
-            || document.getFieldValue(path, Object.class) == null) {
-        document.setFieldValue(path, value, ignoreEmptyValue);  // copy_from 分支同理
-    }
-    return document;
-}</code></pre>
-        <p><code>override</code> 默认 true:字段已存在就覆盖。<code>copy_from</code> 和 <code>value</code> 不能同时出现(Factory 里直接抛配置异常)。<code>path</code> 可以是 <code>_source</code> 里的普通字段,也可以是元数据名 <code>_routing</code> / <code>_index</code> / <code>_id</code>——<code>IngestDocument.setFieldValue</code> 对这两类走同一套路径 API,底层 <code>IngestCtxMap</code> 把以下划线开头的键交给 metadata。</p>
-        <p>图 1 的第二步是 <code>rename</code>:读出旧字段、删掉、写到新名字。目标已存在且 <code>override</code> 为 false(默认)会抛 <code>field [target] already exists</code>;写失败会把值写回原字段,避免「删了却没贴上」:</p>
-        <pre class="code-block"><code>// modules/ingest-common/src/main/java/org/elasticsearch/ingest/common/RenameProcessor.java
-Object value = document.getFieldValue(path, Object.class);
-document.removeField(path);                  // 先删旧名
-try {
-    document.setFieldValue(target, value);   // 再写新名
-} catch (Exception e) {
-    document.setFieldValue(path, value);     // 贴不上就把值写回原字段
-    throw e;
-}</code></pre>
-        <p>对应图 1 的中间态:<code>hostname</code> 先还在,<code>set</code> 之后多了 <code>environment</code>,<code>rename</code> 之后 <code>hostname</code> 消失、<code>host</code> 出现。实验 2 的 <code>_simulate</code> 要对的就是这份新 JSON,不是「pipeline 对象被创建了」。这两步都在 <code>modules/ingest-common</code> 里,不在 <code>server/</code>:<code>Processor.Factory</code> 由 <code>IngestPlugin</code> 注册进 <code>IngestService</code> 的 factory 表,pipeline 的 JSON 被解析时按 <code>"set"</code> / <code>"rename"</code> 找到对应 Factory(插件加载见第 4 课)。</p>
-
-        <h2>4. 为什么必须在路由之前跑</h2>
-        <p>第 10 课钉过选 shard:普通索引(<code>IndexRouting.Unpartitioned</code>)里,<strong>有 routing 就只 hash routing,不再混入 <code>_id</code></strong>。如果 pipeline 能改 <code>_routing</code>,而改完之后才 hash,文档就会落到另一号 shard——9.4.0 仍然如此,不要凭记忆说「现在改不了了」。单条 <code>PUT /idx/_doc/1?pipeline=...</code> 也进这条路:<code>TransportIndexAction</code> 的 javadoc 标着 <em>Deprecated use TransportBulkAction with a single item instead</em>,它继承 <code>TransportSingleItemBulkWriteAction</code>,真正干活的是 bulk。</p>
-        <p>时间顺序用一份具体输入写出来:写入 <code>PUT /tut-l12-routed/_doc/1?pipeline=tut-l12-routing</code>,body 里没有 routing 字段,pipeline 里只有一步 <code>set: {"field": "_routing", "value": "tenant-a"}</code>:</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah12b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="10" y="24" width="164" height="76" rx="9" class="fig-box-hot"/>
-              <text x="92" y="50" text-anchor="middle" class="fig-name">PUT _doc/1</text>
-              <text x="92" y="72" text-anchor="middle" class="fig-sub">?pipeline=tut-l12</text>
-              <text x="92" y="92" text-anchor="middle" class="fig-sub">请求没带 routing</text>
-              <line x1="174" y1="62" x2="198" y2="62" class="fig-arrow" marker-end="url(#ah12b)"/>
-              <rect x="202" y="24" width="164" height="76" rx="9" class="fig-box"/>
-              <text x="284" y="50" text-anchor="middle" class="fig-name">ingest 先跑</text>
-              <text x="284" y="72" text-anchor="middle" class="fig-sub">set _routing</text>
-              <text x="284" y="92" text-anchor="middle" class="fig-sub">= tenant-a</text>
-              <line x1="366" y1="62" x2="390" y2="62" class="fig-arrow" marker-end="url(#ah12b)"/>
-              <rect x="394" y="24" width="164" height="76" rx="9" class="fig-box"/>
-              <text x="476" y="50" text-anchor="middle" class="fig-name">写回 IndexRequest</text>
-              <text x="476" y="72" text-anchor="middle" class="fig-sub">request.routing(...)</text>
-              <text x="476" y="92" text-anchor="middle" class="fig-sub">_source 一并覆盖</text>
-              <line x1="558" y1="62" x2="582" y2="62" class="fig-arrow" marker-end="url(#ah12b)"/>
-              <rect x="586" y="24" width="164" height="76" rx="9" class="fig-box-hot"/>
-              <text x="668" y="50" text-anchor="middle" class="fig-name">route() 选 shard</text>
-              <text x="668" y="72" text-anchor="middle" class="fig-sub">hash(tenant-a) 取模</text>
-              <text x="668" y="92" text-anchor="middle" class="fig-sub">不是 hash(_id)</text>
-              <text x="380" y="126" text-anchor="middle" class="fig-sub">三站源码:TransportAbstractBulkAction 先 ingest,IngestService 把 _routing 写回 IndexRequest,BulkOperation.route 才选 shard</text>
-            </svg>
-          </div>
-          <figcaption>图 2 · 若 route() 发生在 ingest 之前,最后一步用的还是旧键,文档会进错那份拷贝——第 10 课「GET 必须带同一把键」直接乱掉。</figcaption>
-        </figure>
-
-        <p>源码把这四步拆在三个类里。第一站,协调节点发现请求带 pipeline(或索引的 <code>default_pipeline</code> / <code>final_pipeline</code>),<strong>先跑 ingest,再进入真正的写入</strong>——<code>TransportAbstractBulkAction</code> 的类注释直说:遍历请求要去的所有索引、执行所有 applicable pipelines、然后才 <code>doInternalExecute</code>。<code>applyPipelines</code> 里:若 <code>hasIndexRequestsWithPipelines</code>,本节点是 ingest 节点就 <code>processBulkIndexIngestRequest</code>,否则 <code>ingestForwarder.forwardIngestRequest</code> 转发到 ingest 节点;跑完之后的回调才 <code>applyPipelinesAndDoInternalExecute(..., haveRunIngestService=true)</code>,最终 <code>TransportBulkAction.doInternalExecute</code> 走到 <code>executeBulk</code> → <code>new BulkOperation(...).run()</code>。<strong>选 shard 不在 ingest 之前。</strong></p>
-        <p>第二站,<code>IngestService.executeBulkRequest</code> 为每条 <code>IndexRequest</code> 建文档、跑链、把元数据写回。构造时就把请求上已有的 routing 带进 <code>IngestDocument</code>(<code>newIngestDocument</code> 读 <code>request.routing()</code>);每跑完一条 pipeline,把 metadata 同步回请求——<strong><code>_routing</code> 在这里被写进 <code>IndexRequest</code></strong>:</p>
-        <pre class="code-block"><code>// server/src/main/java/org/elasticsearch/ingest/IngestService.java
-private static void updateIndexRequestMetadata(final IndexRequest request, final Metadata metadata) {
-    // ingest document holds their starting values before ingestion,
-    // which might also get modified during ingestion.
-    request.index(metadata.getIndex());
-    request.id(metadata.getId());
-    request.routing(metadata.getRouting());   // set 进去的 _routing 在这里写回
-    request.version(metadata.getVersion());
-    // ... versionType / ifSeqNo / ifPrimaryTerm / dynamic templates ...
-}</code></pre>
-        <p>全部 pipeline 结束后还有 <code>updateIndexRequestSource</code>:用 ingest 之后的 map 覆盖 <code>IndexRequest</code> 的 <code>_source</code>——所以实验 8 里 GET 到的是改过的 JSON。第三站,<code>BulkOperation.doRun</code> 调 <code>groupBulkRequestsByShards</code>,这里才出现 <code>IndexRouting</code>:</p>
-        <pre class="code-block"><code>// server/src/main/java/org/elasticsearch/action/bulk/BulkOperation.java
-IndexRouting indexRouting = concreteIndices.routing(concreteIndex);
-docWriteRequest.preRoutingProcess(indexRouting);
-int shardId = docWriteRequest.route(indexRouting);   // ← ingest 之后才发生
-docWriteRequest.postRoutingProcess(indexRouting);</code></pre>
-        <p><code>IndexRequest.route</code> 就是 <code>indexRouting.indexShard(this)</code>,普通索引落到第 10 课那条 <code>Unpartitioned.indexShard</code> → <code>shardId(id, routing)</code>,仍是 <code>hash(routing == null ? id : routing)</code> 再对主分片数取模。pipeline 刚写回的 <code>tenant-a</code> 在这里变成有效键。时序索引(<code>IndexMode.TIME_SERIES</code>)走另一套 <code>hashSource</code>,本课建的是普通索引,别把那条分支套过来。</p>
-        <p><code>_routing</code> 之所以能被 <code>set</code> 改掉,是因为 ingest 侧把它标成可写:<code>IngestDocMetadata.PROPERTIES</code> 里 <code>ROUTING</code> 是 <code>StringField.withWritable().withNullable()</code>(名字取自 <code>RoutingFieldMapper.NAME</code>,即 <code>"_routing"</code>);<code>IngestCtxMap</code> 的 javadoc 还要求 <code>_index</code> / <code>_id</code> / <code>_routing</code> 必须是 String 或 null——你不能 <code>set</code> 一个数字进去当 routing。</p>
-
-        <h3>请求 pipeline、default_pipeline、final_pipeline</h3>
-        <p>不是只有 <code>?pipeline=</code>。<code>IngestService.setPipelineOnRequest</code> 的规则:请求带的 pipeline 永远优先,没带才用解析出来的 default;<code>final_pipeline</code> 与二者无关、总是最后。</p>
-        <table class="ktable">
-          <tr><th>来源</th><th>何时跑</th><th>谁优先</th></tr>
-          <tr><td>请求 <code>?pipeline=</code> 或 bulk meta 的 <code>"pipeline"</code></td><td>第一条</td><td><strong>请求覆盖</strong>索引上的 <code>index.default_pipeline</code></td></tr>
-          <tr><td><code>index.default_pipeline</code></td><td>请求没指定 pipeline 时,占据同一条「第一条」槽</td><td>来自索引 settings 或匹配到的 index template</td></tr>
-          <tr><td><code>index.final_pipeline</code></td><td><strong>总是最后</strong>,与请求 pipeline 无关</td><td>不能改目标 <code>_index</code>(改了抛 <code>IngestPipelineException</code>)</td></tr>
-        </table>
-        <p>两者都是 <code>_none</code>(<code>IngestService.NOOP_PIPELINE_NAME</code>)时视为没有 pipeline,跳过 ingest。<code>PipelineIterator</code> 最多排出两格:先 default(请求或 <code>default_pipeline</code>),再 final。pipeline 改 <code>_index</code> 会触发重新 <code>resolvePipelinesAndUpdateIndexRequest</code>(文档 reroute 到另一个索引);无 <code>reroute</code> 标记、只是把 <code>_index</code> 改掉时,新索引的 <code>default_pipeline</code> <strong>不会</strong>再跑(源码注释:backwards compatibility)。本节点不是 ingest 节点时,整份 bulk 会被 <code>IngestActionForwarder</code> 转到 ingest 节点跑完再回来;单节点通常自身就是 ingest 节点,实验不必处理转发。</p>
-
-        <h2>5. CompoundProcessor:顺序执行,失败可拦可抛</h2>
-        <p><code>Pipeline.execute</code> 几乎只做三件事:记 metrics、把文档交给 <code>compoundProcessor</code>、回调里把 <code>terminate</code> 标志清掉好让外层 pipeline 继续。<code>CompoundProcessor.innerExecute</code> 按列表下标往前走:同步 processor 在一个 while 里直接 <code>execute(ingestDocument)</code>,碰到异步的才切到带 handler 的那条。<strong>链是单线程顺序的:下一步看见的是上一步改过的 map</strong>,成功路径没有菱形。失败的出路有三条(<code>executeOnFailureOuter</code>):</p>
-        <table class="ktable">
-          <tr><th>出路</th><th>条件</th><th>结果</th></tr>
-          <tr><td>继续下一个</td><td>整条 <code>CompoundProcessor</code> 带了 <code>ignore_failure</code></td><td>记下失败 metrics,接着跑</td></tr>
-          <tr><td><code>on_failure</code> 链</td><td>这个 processor(或 pipeline)配了 <code>on_failure</code> 列表</td><td>先 <code>putFailureMetadata</code> 再跑补救链;链成功则文档留下</td></tr>
-          <tr><td>抛出</td><td>都没有</td><td><code>IngestProcessorException</code> 交给 handler,这一篇写入失败(bulk 里其它条仍可成功,第 13 课)</td></tr>
-        </table>
-        <p>失败时 <code>putFailureMetadata</code> 往管道元数据里塞四项(有 pipeline origin 才有第四项):</p>
-        <pre class="code-block"><code>{ "_ingest": {
-    "on_failure_message": "field [timestamp] not present",
-    "on_failure_processor_type": "date",
-    "on_failure_processor_tag": "parse-date",
-    "on_failure_pipeline": "my-pipeline" } }</code></pre>
-        <p><code>on_failure</code> 里的 <code>set</code> 可以用 <code>{{_ingest.on_failure_message}}</code> 把原因写进 <code>_source</code>,于是「解析失败的日志」仍能进索引,而不是整条 400——实验 5 就是这个形状。on_failure 链跑完后这些键会被 <code>removeFailureMetadata</code> 清掉:它们活在 <code>_ingest</code> 元数据里,默认不进 <code>_source</code>。循环的出口还有 <code>isReroute()</code> / <code>isTerminate()</code>:为 true 时不再跑后面的 processor;<code>drop</code> processor 返回 null,整篇被丢弃,回调会把 bulk 里这一 slot 标成 dropped。</p>
-        <p>嵌套 pipeline:<code>pipeline</code> processor 是异步的(<code>isAsync()</code> 恒为 true),它按模板取出名字、<code>ingestService.getPipeline</code> 拿到另一条 <code>Pipeline</code>、再 <code>executePipeline</code>。守卫在 <code>IngestDocument</code>:<code>MAX_PIPELINES</code> 默认 100(系统属性 <code>es.ingest.max_pipelines</code> 可改);<code>executedPipelines</code> 是 <code>LinkedHashSet</code>,加不进去说明同名 pipeline 已在栈上 → <code>Cycle detected for pipeline: {id}</code>,超过上限 → <code>Too many nested pipelines</code>。</p>
-
-        <h2>6. IngestDocument:一份 _source,外加可改的元数据</h2>
-        <p><code>IngestDocument</code> 不是「只有 JSON body」。它有三块:</p>
-        <table class="ktable">
-          <tr><th>块</th><th>存在哪</th><th>例子</th></tr>
-          <tr><td>文档内容</td><td><code>ctxMap</code> 的 source</td><td><code>hostname</code>、<code>level</code>、<code>environment</code></td></tr>
-          <tr><td>文档元数据</td><td><code>ctxMap</code> 的 <code>IngestDocMetadata</code></td><td><code>_index</code>、<code>_id</code>、<code>_routing</code>、<code>_version</code>、<code>_dynamic_templates</code></td></tr>
-          <tr><td>管道元数据</td><td><code>ingestMetadata</code></td><td><code>_ingest.timestamp</code>、当前 pipeline、on_failure 四字段</td></tr>
-        </table>
-        <p><code>IngestDocument.Metadata</code> 枚举把元数据名字钉死(<code>INDEX / _type / ID / ROUTING / VERSION / …</code>);<code>_type</code> 还在枚举里但标了 <code>@UpdateForV10</code>,不要再往文档里写它。字段 API 支持点号路径:<code>getFieldValue("author.name", String.class)</code>、<code>setFieldValue("processed", true)</code>、<code>hasField</code>、<code>removeField</code>;改元数据和改 <code>_source</code> 用同一套 <code>setFieldValue("_routing", "tenant-a")</code>——图 2 才能成立。<code>_ingest.timestamp</code> 在构造函数里写成 UTC 的 <code>ZonedDateTime.now</code>,<code>set</code> 的 <code>"{{_ingest.timestamp}}"</code> 才能展开;<code>executePipeline</code> 会把当前 pipeline id 放进 <code>ingestMetadata["pipeline"]</code>,嵌套返回时再恢复——这就是 <code>_simulate</code> verbose 输出里「现在跑的是哪条 pipeline」的来源。</p>
-
-        <h2>7. _simulate:同一条执行链,不选 shard、不落盘</h2>
-        <p>建 pipeline 的 REST 是 <code>PUT /_ingest/pipeline/{id}</code>(<code>RestPutPipelineAction</code>)。试跑不要用真实写入,用 <code>_simulate</code>:<code>RestSimulatePipelineAction</code> 注册了四条路由——<code>GET/POST /_ingest/pipeline/{id}/_simulate</code> 和 <code>GET/POST /_ingest/pipeline/_simulate</code>。路径带 <code>{id}</code> 就跑已经 PUT 进去的那条;不带 id 则在 body 里内联一条 <code>"pipeline": {"processors": [...]}</code>。Action 权限是 <code>cluster:admin/ingest/pipeline/simulate</code>,不是写入那条 <code>indices:data/write/...</code>。</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 176" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah12c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="10" y="57" width="182" height="66" rx="9" class="fig-box"/>
-              <text x="101" y="81" text-anchor="middle" class="fig-name">Pipeline.execute</text>
-              <text x="101" y="103" text-anchor="middle" class="fig-sub">set/rename 依次改</text>
-              <line x1="192" y1="76" x2="216" y2="52" class="fig-arrow" marker-end="url(#ah12c)"/>
-              <line x1="192" y1="104" x2="216" y2="126" class="fig-arrow" marker-end="url(#ah12c)"/>
-              <rect x="220" y="20" width="238" height="62" rx="9" class="fig-box-hot"/>
-              <text x="339" y="45" text-anchor="middle" class="fig-name">_simulate 到这里返回</text>
-              <text x="339" y="66" text-anchor="middle" class="fig-sub">改过的 JSON,不选 shard</text>
-              <line x1="458" y1="51" x2="484" y2="51" class="fig-arrow" marker-end="url(#ah12c)"/>
-              <rect x="220" y="100" width="238" height="62" rx="9" class="fig-box"/>
-              <text x="339" y="125" text-anchor="middle" class="fig-name">PUT _doc 还要往下</text>
-              <text x="339" y="146" text-anchor="middle" class="fig-sub">route() 选 shard 落盘</text>
-              <line x1="458" y1="131" x2="484" y2="131" class="fig-arrow" marker-end="url(#ah12c)"/>
-              <rect x="488" y="20" width="262" height="62" rx="9" class="fig-box"/>
-              <text x="619" y="45" text-anchor="middle" class="fig-name">看到的是新 JSON</text>
-              <text x="619" y="66" text-anchor="middle" class="fig-sub">GET 索引 → 404,没写入</text>
-              <rect x="488" y="100" width="262" height="62" rx="9" class="fig-box"/>
-              <text x="619" y="125" text-anchor="middle" class="fig-name">看到的是文档落盘</text>
-              <text x="619" y="146" text-anchor="middle" class="fig-sub">GET 带对 routing 键才命中</text>
-              <text x="380" y="170" text-anchor="middle" class="fig-sub">验证 JSON 怎么变用 _simulate;要证明落在哪个 shard,必须走真实写入</text>
-            </svg>
-          </div>
-          <figcaption>图 3 · _simulate 与真实写入共用同一条 Pipeline.execute:差别只在 simulate 拿到结果就返回,写入还要 route() 选 shard、进 Lucene。</figcaption>
-        </figure>
-
-        <p><code>SimulatePipelineTransportAction.doExecute</code> 若本节点不是 ingest 节点会转走(geoip 一类资源只在 ingest 节点上);是 ingest 节点则解析请求,交给 <code>SimulateExecutionService</code>,真正执行就是 <code>ingestDocument.executePipeline(pipeline, ...)</code>——和写入路径同一条 <code>Pipeline</code> / <code>CompoundProcessor</code> 链。<code>verbose=true</code> 时用 <code>TrackingResultProcessor.decorate</code> 把每个 processor 包一层,把每一步的 <code>SimulateProcessorResult</code> 收集起来,于是能看见「set 之后、rename 之前」的中间态。所以实验 2 能看见 <code>host</code> 和 <code>environment</code>;要看见 shard 号变了,必须走实验 15 的真实写入。<code>_simulate</code> 结果里就算出现 <code>_routing</code>,也只说明 metadata 被改了,<strong>没有</strong>经过 <code>IndexRouting.shardId</code>。生产习惯三条:改 pipeline 先 <code>_simulate</code>;用 <code>verbose</code> 看中间态;用真实脏样本(缺字段、日期格式不对)覆盖失败分支。不要用 <code>_simulate</code> 当写入。</p>
-
-        <h2>8. 本课会碰到的处理器(不必背清单)</h2>
-        <p>内置 processor 有四十来个,不要背。下面只留本课图 / 实验 / 失败路径会碰到的;<code>convert</code>、<code>gsub</code>、<code>geoip</code>、<code>user_agent</code>、<code>attachment</code> 用到再查。</p>
-        <table class="ktable">
-          <tr><th>类型</th><th>模块</th><th>本课用它做什么</th></tr>
-          <tr><td><code>set</code></td><td>ingest-common</td><td>加 <code>environment</code>;把 <code>_routing</code> 写成 <code>tenant-a</code></td></tr>
-          <tr><td><code>rename</code></td><td>ingest-common</td><td><code>hostname</code> → <code>host</code></td></tr>
-          <tr><td><code>grok</code></td><td>ingest-common</td><td>一行日志拆成 <code>log_timestamp</code> / <code>level</code> / <code>log_message</code></td></tr>
-          <tr><td><code>date</code></td><td>ingest-common</td><td>解析日期;失败时配 <code>on_failure</code></td></tr>
-          <tr><td><code>remove</code></td><td>ingest-common</td><td>grok 之后丢掉原始 <code>message</code></td></tr>
-          <tr><td><code>pipeline</code></td><td>server(<code>PipelineProcessor</code>)</td><td>嵌套调用另一条 pipeline</td></tr>
-        </table>
-        <p><code>grok</code> 对 match 字段做 <code>grok.captures</code>,匹配失败抛 <code>Provided Grok expressions do not match field value</code>;命中则 <code>matches.forEach(ingestDocument::setFieldValue)</code>——把每个捕获组写成字段。输入 <code>"2024-01-15T10:30:00 ERROR Out of memory"</code>,pattern <code>%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:level} %{GREEDYDATA:msg}</code> 会加上三个字段;随后 <code>remove</code> 掉 <code>message</code>,索引里就不再存原始行。<code>date</code> 按 <code>formats</code> 列表依次试,全失败则 <code>unable to parse date [value]</code>,正好配 <code>on_failure</code>;默认 <code>target_field</code> 是 <code>@timestamp</code>。<code>remove</code> 对每个字段调 <code>removeField</code>;反过来还有 <code>keep</code> 只保留列出的字段。</p>
-      </section>
-
-      <section class="drills">
-        <h2>动手实验</h2>
-        <p>全部单节点可跑、零依赖。前半场(<code>_simulate</code>)不建索引、不落盘;后半场用两个小索引(<code>tut-l12-docs</code>、<code>tut-l12-routed</code>),用完即删。涉及具体数字与报错文案,以你的返回为准。</p>
-
-        <h3>准备:一条 set + rename 管道</h3>
-        <div class="exp-slot" data-exp="ch12-01-put-fields"></div>
-
-        <h3>_simulate:不落盘看 JSON 怎么变</h3>
-        <div class="exp-slot" data-exp="ch12-02-simulate-fields"></div>
-        <div class="exp-slot" data-exp="ch12-03-simulate-verbose"></div>
-
-        <h3>内联管道:grok 拆日志、on_failure 兜底</h3>
-        <div class="exp-slot" data-exp="ch12-04-grok-inline"></div>
-        <div class="exp-slot" data-exp="ch12-05-onfailure-inline"></div>
-
-        <h3>真实写入对照:pipeline 只影响这一条</h3>
-        <div class="exp-slot" data-exp="ch12-06-create-index"></div>
-        <div class="exp-slot" data-exp="ch12-07-write-pipelined"></div>
-        <div class="exp-slot" data-exp="ch12-08-get-doc1"></div>
-        <div class="exp-slot" data-exp="ch12-09-write-plain"></div>
-        <div class="exp-slot" data-exp="ch12-10-get-mapping"></div>
-
-        <h3>改 _routing:文档落到哪个 shard</h3>
-        <div class="exp-slot" data-exp="ch12-11-create-routed"></div>
-        <div class="exp-slot" data-exp="ch12-12-put-routing-pipeline"></div>
-        <div class="exp-slot" data-exp="ch12-13-shards-by-id"></div>
-        <div class="exp-slot" data-exp="ch12-14-shards-by-tenant"></div>
-        <div class="exp-slot" data-exp="ch12-15-write-routed"></div>
-        <div class="exp-slot" data-exp="ch12-16-get-miss"></div>
-        <div class="exp-slot" data-exp="ch12-17-get-hit"></div>
-        <div class="exp-slot" data-exp="ch12-18-search-fanout"></div>
-
-        <h3>清理</h3>
-        <div class="exp-slot" data-exp="ch12-19-clean-indices"></div>
-        <div class="exp-slot" data-exp="ch12-20-clean-pipelines"></div>
-
-        <h2>思考题</h2>
-        <details>
-          <summary>1. 实验 15 已经用 pipeline 把 _id=1 写进 hash(tenant-a) 那个 shard。GET .../_doc/1?routing=tenant-b 会怎样?若再建一条管道把 _id set 成 99(不改 routing),GET 该用哪个 id?q=_id:1 还能找到吗?</summary>
-          <div class="answer">
-            <p>tenant-b 的 GET 几乎总是 <code>found: false</code>:有效键既不是写入时的 tenant-a,也不是 <code>_id</code>,而 GET 仍然只打一个 shard,不会换去试 tenant-a 那份拷贝。<code>set _id=99</code> 之后,文档的 <code>_id</code> 就是 99——<code>request.id(metadata.getId())</code> 在选 shard 之前就改了;GET 要用 <code>/_doc/99</code>(若同时还被 set 了 <code>_routing</code>,还得带那把键)。<code>q=_id:1</code> 找不到旧 id:倒排里的 <code>_id</code> 是 ingest 之后的值;SEARCH 不带 routing 仍可能找到 99 那篇,因为搜索扇出全部 shard。把 metadata 当成 <code>_source</code> 里的装饰字段,就会错判这两问。</p>
-          </div>
-        </details>
-        <details>
-          <summary>2. 为什么 ingest 必须在 BulkOperation.route() 之前?若先按原始 _id 选 shard、再在数据节点上跑 pipeline,即使禁止改 _routing,改 _source 仍安全吗?final_pipeline 禁止改目标索引,保护的是哪条不变量?</summary>
-          <div class="answer">
-            <p><code>route()</code> 读的是<strong>当时</strong> <code>IndexRequest</code> 上的 id / routing / index。先选 shard 再改 <code>_routing</code>,文档躺在 hash(旧键) 的拷贝上,而 GET 和后续写入用新键去另一号 shard——第 10 课「键必须一致」直接破裂,且 GET 不广播、没有补救。即便冻结 <code>_routing</code>,先选 shard 再改 <code>_index</code> 仍会把文档写进错误索引的某个 shard(mapping 推断也发生在具体索引上)。只改 <code>_source</code> 理论上可以延后,但 9.4.0 把元数据和 source 放在同一次回写里,没有「只改 source 的延后通道」。final_pipeline 禁改 <code>_index</code>,是让管理员钉死「进这个索引的文档最后必经这条链,且不能逃到别的索引」——请求 pipeline 和 default_pipeline 都可能 reroute,final 是最后一道不能搬目标的关卡。</p>
-          </div>
-        </details>
-        <details>
-          <summary>3. 字段改名、加环境标签,可以在客户端做、在 ingest pipeline 做、也可以事后用 runtime field / reindex。什么时候值得付 ingest 这笔 CPU?什么时候应该坚持 index.final_pipeline 做脱敏?</summary>
-          <div class="answer">
-            <p>客户端改名便宜但不强制:多个采集器各写各的 <code>hostname</code> / <code>host</code>,动态 mapping 会建出两套字段,搜索还得记别名。ingest pipeline 把契约收口到集群——所有写入(含改不动的 Beats / 旧程序)都过同一条链;代价是协调 / ingest 节点在写路径上多一次 JSON 解析和 processor CPU,bulk 吞吐受 ingest 线程池限制。进索引后再 reindex 能补历史,但双倍存储、延迟大;runtime field 不改倒排,不适合「按新字段热聚合」。脱敏、强制安全标签该用 <code>final_pipeline</code>:它在请求 pipeline 之后仍跑,调用方没法用 <code>?pipeline=</code> 绕过。改新链前先 <code>_simulate</code> 加真实脏样本,别让 on_failure 在生产第一次触发。没有「写入零成本又保证字段契约」的免费午餐。</p>
-          </div>
-        </details>
-      </section>
-
-      <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 「_simulate 顺手把文档写进去了」:</span>它跑的是同一条 <code>Pipeline.execute</code>,但拿到结果就返回——不选 shard、不落盘;去 GET 只会 404(那个索引压根没被创建,路由命中、资源不存在)。要验证落盘,必须真实写入。</div>
-        <div class="callout warn"><span class="co-title">🕳 「pipeline 改 _routing 只是让响应里多个字段」:</span>错。<code>set</code> 经 <code>updateIndexRequestMetadata</code> 写回 <code>IndexRequest</code> 之后,<code>route()</code> 用的就是这把键。不带键的 GET 会 404——那是路由算错了 shard,不是数据丢了;SEARCH 扇出全部 shard,不受影响。</div>
-        <div class="callout warn"><span class="co-title">🕳 「用过一次 ?pipeline= 就成了索引默认」:</span>不会,它只作用于这一次请求。整索引默认要设 <code>index.default_pipeline</code>(请求 pipeline 会覆盖它);<code>index.final_pipeline</code> 与二者无关、总在最后跑,且不能改目标 <code>_index</code>。</div>
-        <div class="callout warn"><span class="co-title">🕳 「on_failure 的 _ingest.* 会留在文档里」:</span>它们活在管道元数据,补救链跑完被 <code>removeFailureMetadata</code> 清掉,默认不进 <code>_source</code>;想要留证据,得在 on_failure 里自己 <code>set</code> 一个普通字段(如 <code>date_parse_error</code>)。</div>
-      </section>
-
-      <section class="recap">
-        <h2>速记</h2>
-        <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>链</td><td><code>Pipeline</code> 握 <code>CompoundProcessor</code>;顺序 = <code>processors</code> 数组顺序,单线程依次改同一份 JSON</td></tr>
-          <tr><td>时机</td><td>ingest 在 route() 之前:TransportAbstractBulkAction → IngestService → BulkOperation.route</td></tr>
-          <tr><td>元数据</td><td><code>_routing</code> / <code>_index</code> / <code>_id</code> 可写(withWritable);<code>updateIndexRequestMetadata</code> 写回 IndexRequest,值必须 String 或 null</td></tr>
-          <tr><td>失败</td><td>ignore_failure → on_failure(<code>_ingest</code> 四字段)→ 抛出;返回 null = drop;嵌套默认 100、环被检出</td></tr>
-          <tr><td>优先级</td><td><code>?pipeline=</code> 覆盖 <code>index.default_pipeline</code>;<code>final_pipeline</code> 总最后且禁改 <code>_index</code>;都为 <code>_none</code> 则跳过</td></tr>
-          <tr><td>验证</td><td><code>_simulate</code> 跑同一条 <code>Pipeline.execute</code>,不落盘不选 shard;verbose 看每步中间态</td></tr>
-          <tr><td>与 mapping</td><td>ingest 先改 JSON,mapping 之后才看字段;新字段仍动态建成 text + keyword</td></tr>
-        </table>
-        <p><strong>心法:pipeline 改的是「即将写入的那份 JSON」;链跑完,才轮到 hash 选 shard。</strong></p>
-      </section>
-
-      <footer class="ch-footer">
-        <button class="read-toggle" type="button">标记本课已读</button>
-        <div class="pager">
-          <a href="ch11.html">← 第 11 课:映射系统</a>
-          <a href="ch13.html">第 13 课:批量写入 →</a>
-        </div>
-      </footer>
-    </article>
-  </main>
-
-  <script src="../experiments/ch12.js"></script>
-  <script src="../assets/js/nav.js"></script>
-  <script src="../assets/js/es-client.js"></script>
-  <script src="../assets/js/flow-player.js"></script>
-  <script src="../assets/js/experiments.js"></script>
-  <script src="../assets/js/progress.js"></script>
-</body>
-</html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>第 12 课：摄取管道 — ES 源码精读站</title>
+<link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
+<style>
+#diagram-ch12-ingest-journey{--diagram-height:940px;--diagram-mobile-height:780px}
+#diagram-ch12-failure-scope{--diagram-height:820px;--diagram-mobile-height:700px}
+@media(max-width:600px){#diagram-ch12-ingest-journey{--diagram-mobile-height:500px}#diagram-ch12-failure-scope{--diagram-mobile-height:450px}}
+</style></head>
+<body class="chapter-visual-page">
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a><nav class="tnav"><a href="../index.html">课程</a><a href="../architecture.html">架构</a><a href="../console.html">控制台</a><a href="../cheatsheet.html">速查表</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="ch12" data-ch="ch12">
+<header class="ch-header"><div class="ch-kicker">LESSON 12 · 第三篇 · 数据写入</div><span class="visual-badge">从原始文档到写入请求</span><h1>摄取管道</h1>
+<div class="ch-meta-line">约 28 分钟 · 前置：第 10、11 课 · 4 组实验 / 48 张操作卡 · 2 幅交互图 / 2 条路径动画 · 0 个机制播放器</div>
+<p class="ch-intro">写入前怎样统一字段、补标签，甚至改变分片键？摄取管道先处理文档，再把内容与元数据写回请求。读懂执行顺序、失败恢复层级和管道选择，才能判断模拟成功究竟证明了什么，以及一篇文档为什么写入、失败或被丢弃。</p>
+<nav class="diagram-jumps" aria-label="本课图解"><a href="#fig-ch12-ingest-journey"><span>01</span>从摄取到分片写入</a><a href="#fig-ch12-failure-scope"><span>02</span>失败在哪层恢复</a><a href="#practice"><span>03</span>实验与重做</a></nav>
+<details class="chapter-outline"><summary>本课目录</summary><nav aria-label="本课目录"><a href="#goals">学习目标</a><a href="#journey">12.1 摄取与写入边界</a><a href="#document">12.2 文档与字段变换</a><a href="#simulate">12.3 模拟验证范围</a><a href="#failures">12.4 失败与恢复层级</a><a href="#selection">12.5 管道选择与约束</a><a href="#routing">12.6 路由与读取</a><a href="#source-map">12.7 源码入口</a><a href="#practice">实验与清理</a><a href="#pitfalls">陷阱</a><a href="#recap">速记</a></nav></details></header>
+<section class="goal" id="goals"><h2>学习目标</h2><ul><li>用 set / rename 的模拟、verbose 与真实 GET 区分处理后的文档、映射和搜索可见性。</li><li>用相同坏日期对照未处理失败、ignore_failure、处理器级与管道级 on_failure，预测后续处理器是否执行。</li><li>用三份 source 验证请求 / default / final 的选择；对照 drop、final 约束与 routing，说明成功状态和 GET 命中各自的条件。</li></ul></section>
+<section class="lesson">
+<h2 id="journey">12.1 管道跑完，才用哪份请求选分片？</h2>
+<p>本课锚定 Elasticsearch <strong>9.4.0</strong>、Lucene <strong>10.4.0</strong>，引用官方固定提交 <code>2e8528e</code>。主线限定<strong>新建普通 standard 索引、stored source、无匹配模板的 index 写入</strong>，不展开数据流 failure store、时序路由与重定向。Pipeline 是有名称的处理器列表；Processor 是其中一个步骤。注册定义与运行文档是不同操作：PUT 把定义提交到集群状态的 IngestMetadata，各节点再构造本地 Pipeline，不会因此创建文档。</p>
+<figure class="fig archify-figure" id="fig-ch12-ingest-journey">
+<div class="archify-shell"><div class="archify-tools"><span class="archify-label">01 · 成功保留文档后，回写请求再路由</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch12-ingest-journey">↻ 重新播放</button><a href="../.archify/workflow-ch12-ingest-journey-20261011-141434/ingest-journey.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+<iframe class="archify-frame" id="diagram-ch12-ingest-journey" title="成功保留文档后，回写请求再路由" loading="lazy" src="../.archify/workflow-ch12-ingest-journey-20261011-141434/ingest-journey.html?theme=light&amp;present=1"></iframe></div>
+<figcaption>箭头表示调用 / 回调交接，展示普通写入成功路径。实际摄取可由本节点执行，或转发到 ingest 节点；只有文档成功保留，才继续后续管道和写入。复制、发布与 Engine 内部作省略。<span class="figure-tip">点击节点探索职责与源码；可暂停、重播或展开图解。窄屏先读完整路径，再展开缩放查看细节。</span></figcaption></figure><p>单条 <code>PUT /index/_doc/1</code> 也复用 bulk 写入。<code>TransportAbstractBulkAction.applyPipelines</code> 先解析请求需要的管道：本节点有 ingest 角色就执行，否则转发。完成回调才进入具体 bulk 实现，随后 <code>BulkOperation.groupBulkRequestsByShards</code> 调 <code>route</code> 分组。它读的是处理后的 index / id / routing；Mapping 则在主分片解析这份 JSON 时决定索引结构。管道改字段，不会直接替你建立或修改 mapping。</p>
+<p>成功回调中，<code>IngestService.updateIndexRequestMetadata</code> 回写元数据；所有适用管道结束后，<code>updateIndexRequestSource</code> 序列化改后的 source。这解释了两条证据：B4 读到新增的 environment 与改名后的 host；C8 读到由管道写入的 _routing。失败或 drop 提前终止，不能把图中的箭头理解为每次请求都必走到底。</p>
+<details><summary>源码依据：定义存储、执行入口与回写</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L579-L595" target="_blank" rel="noopener">putPipeline：验证并提交状态任务</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L182-L198" target="_blank" rel="noopener">状态任务写入 IngestMetadata</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L1547-L1573" target="_blank" rel="noopener">innerUpdatePipelines：构造本地执行对象</a>。运行入口见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/bulk/TransportAbstractBulkAction.java#L297-L375" target="_blank" rel="noopener">applyPipelines / 完成回调</a>，回写见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L1469-L1504" target="_blank" rel="noopener">updateIndexRequestMetadata / Source</a>，路由见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/bulk/BulkOperation.java#L320-L341" target="_blank" rel="noopener">groupBulkRequestsByShards</a>。</p></div></details>
+<h2 id="document">12.2 set 与 rename 改的是哪块数据？</h2>
+<p><code>IngestDocument</code> 同时提供三种信息：文档 source、_index / _id / _routing 等文档元数据，以及 _ingest.timestamp / 当前 pipeline / 临时失败信息等摄取元数据。字段 API 用路径读写；本课采用 classic 访问模式，点号表示路径。不是所有元数据都可任意赋值：_index、_id、_routing 在 ingest 侧是可写 String 或 null，仍要满足后续写入验证；数值字段等有各自类型约束。普通 <code>routing</code> 字段不会自动变成 <code>_routing</code>。</p>
+<pre class="code-block"><code>输入：{ "hostname": "web-01", "level": "INFO" }
+set environment：{ "hostname": "web-01", "level": "INFO", "environment": "production" }
+rename hostname → host：{ "host": "web-01", "level": "INFO", "environment": "production" }</code></pre>
+<p><code>set</code> 的 override 默认 true；显式 false 时，字段不存在或为 null 仍可设置。字段名和值可使用模板，copy_from 与 value 互斥。<code>rename</code> 默认不忽略缺失，也不覆盖已有目标；先检查目标，再取值、删旧字段、设新字段，设置失败时尝试恢复原字段。这是 rename 的局部处理，不能推广成整条管道的事务回滚。</p>
+<p>处理器按列表顺序依赖：下一步拿到上一步返回的文档；同步实现直接执行，异步实现通过 handler 完成后继续。<strong>顺序不等于一直占用同一线程</strong>。普通 bulk 协调使用 write_coordination；异步回调换线程后，继续协调可切回其 executor。这里没有一个可用来解释所有摄取吞吐的“独立 ingest 线程池”；实际成本受 CPU、处理器、异步外部工作及写入背压共同影响。</p>
+<p>本课另用 grok 捕获日志中的字符串，再 remove 原始 message；捕获时间字符串不等于按 date mapping 索引。date 处理器按指定 formats 解析并写目标字段，本课显式 UTC；解析失败时仍有原始 raw_date。_ingest.timestamp 与失败元数据默认不进入 source，想保留应显式 set 到普通字段。</p>
+<details><summary>源码依据：字段操作、顺序与线程交接</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/ingest-common/src/main/java/org/elasticsearch/ingest/common/SetProcessor.java#L82-L92" target="_blank" rel="noopener">SetProcessor.execute</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/ingest-common/src/main/java/org/elasticsearch/ingest/common/SetProcessor.java#L116-L137" target="_blank" rel="noopener">set 配置与默认</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/ingest-common/src/main/java/org/elasticsearch/ingest/common/RenameProcessor.java#L66-L93" target="_blank" rel="noopener">RenameProcessor.execute</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/ingest-common/src/main/java/org/elasticsearch/ingest/common/RenameProcessor.java#L127-L129" target="_blank" rel="noopener">rename 默认</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestDocMetadata.java#L24-L42" target="_blank" rel="noopener">元数据属性</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java#L149-L219" target="_blank" rel="noopener">同步循环与异步回调</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/bulk/TransportAbstractBulkAction.java#L114-L122" target="_blank" rel="noopener">协调 executor</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/bulk/TransportAbstractBulkAction.java#L364-L370" target="_blank" rel="noopener">异步后继续协调</a>。<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/ingest-common/src/main/java/org/elasticsearch/ingest/common/GrokProcessor.java#L70-L98" target="_blank" rel="noopener">grok 捕获</a>与<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/ingest-common/src/main/java/org/elasticsearch/ingest/common/DateProcessor.java#L98-L146" target="_blank" rel="noopener">date 解析 / UTC 回退</a>分别回答值转换问题。</p></div></details>
+<h2 id="simulate">12.3 _simulate 成功，证明了什么？</h2>
+<p><code>POST /_ingest/pipeline/id/_simulate</code> 使用已注册定义；不带 id 则在 body 中内联 pipeline。它在 ingest 节点构造独立 IngestDocument，运行同样的 Pipeline / CompoundProcessor，返回处理结果。<code>verbose=true</code> 包装处理器，收集每步快照；A3 能区分 set 后与 rename 后的文档。它不创建所填的 _index，也不进入分片路由、mapping 解析或 Engine。</p>
+<p>因此 A6 对显式模拟名字执行 HEAD 应是 404，前提是它原本不存在；已有索引里的旧文档不会因为模拟消失。“没有落盘”不能推出任意 GET 必然 404。模拟也不按索引自动组合 default / final；final 禁改 _index 的约束在真实 IngestService 写入路径中检查。用该 API测试处理器，是实际写入验收之前的一步。</p>
+<p>还要分开请求成功与文档成功：有效模拟请求中，一篇处理失败可返回 HTTP 200，并在该项包含 error；无 ingest 节点、错误配置或请求解析失败则可直接报错。真实写入有自己的单条 / bulk 错误结果。看 docs 中的 doc / error，而不是只看状态；动态时间与包装错误层级以真实响应为准。</p>
+<p>依据：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/ingest/SimulatePipelineTransportAction.java#L95-L154" target="_blank" rel="noopener">模拟节点选择与解析</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/ingest/SimulatePipelineRequest.java#L175-L218" target="_blank" rel="noopener">构造模拟文档</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/ingest/SimulateExecutionService.java#L36-L66" target="_blank" rel="noopener">执行与逐文档结果</a>。</p>
+<h2 id="failures">12.4 同一个错误，在哪层补救会改变后续步骤？</h2>
+<p>在 date 后放一个 set after_date，再输入 not-a-date。成功的处理器级补救让外层继续，于是 after_date 出现；未处理的失败上抛到管道根，根 on_failure 成功后当前管道返回，after_date 不执行。区别来自<strong>捕获失败的包装层</strong>，不是由补救字段名称决定。</p>
+<figure class="fig archify-figure" id="fig-ch12-failure-scope">
+<div class="archify-shell"><div class="archify-tools"><span class="archify-label">02 · 处理器补救继续主链；管道补救结束本链</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch12-failure-scope">↻ 重新播放</button><a href="../.archify/workflow-ch12-failure-scope-20261011-141434/failure-scope.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+<iframe class="archify-frame" id="diagram-ch12-failure-scope" title="处理器补救继续主链；管道补救结束本链" loading="lazy" src="../.archify/workflow-ch12-failure-scope-20261011-141434/failure-scope.html?theme=light&amp;present=1"></iframe></div>
+<figcaption>上、下两条独立路径作层级对照，箭头表示错误处理与返回去向，不表示它们接续执行。限定补救成功保留文档且没有 terminate / reroute；ignore_failure、补救失败与 drop 另见正文。<span class="figure-tip">点击节点探索职责与源码；可暂停、重播或展开图解。窄屏先读完整路径，再展开缩放查看细节。</span></figcaption></figure><table class="ktable"><tr><th>配置层级</th><th>失败后动作</th><th>date 后的 set</th></tr><tr><td>处理器 ignore_failure:true</td><td>忽略该失败，优先于同层 on_failure</td><td>继续执行；不保证回滚修改</td></tr><tr><td>处理器 on_failure</td><td>包装层执行局部补救，成功返回文档</td><td>外层继续主列表</td></tr><tr><td>pipeline 根 on_failure</td><td>根层执行补救并结束本管道</td><td>不再执行本管道后续主列表</td></tr><tr><td>没有恢复 / 恢复也失败</td><td>错误向外传播</td><td>不执行；普通索引本项失败</td></tr></table>
+<p>进入补救时会放入 _ingest.on_failure_message / processor_type / processor_tag；有来源 pipeline 时还包括 on_failure_pipeline。补救成功返回前移除临时失败信息；把消息 set 成 date_parse_error 才会作为普通字段保留。错误信息不是自动持久化的审计日志。A5 / A7–A9 用同一坏日期分别验证恢复位置；不声称本轮已发送这些 API。</p>
+<p><code>drop</code> 返回 null，结束当前项，后续 final 和分片写入都不再执行；真实单条请求可得到 result:noop，首次全新 ID 的 GET 仍是 404。它也不会删除同 ID 的旧文档。嵌套 pipeline 的处理器使用异步接口；活动调用栈用名称检环，默认允许至 100 个活动管道（含外层，系统属性可调整）。这是嵌套深度约束，不是一条长列表只能执行 100 步；顺序完成后可再次调用同名管道。</p>
+<details><summary>源码依据：恢复层级、drop 与嵌套守卫</summary><div class="answer"><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/ConfigurationUtils.java#L626-L658" target="_blank" rel="noopener">构造处理器失败包装</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/OnFailureProcessor.java#L17-L24" target="_blank" rel="noopener">仅包装当前一个处理器</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/Pipeline.java#L188-L202" target="_blank" rel="noopener">管道根 CompoundProcessor</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java#L223-L257" target="_blank" rel="noopener">忽略、上抛与补救返回</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java#L294-L315" target="_blank" rel="noopener">临时失败元数据</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/DropProcessor.java#L28-L30" target="_blank" rel="noopener">drop 返回 null</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L1204-L1236" target="_blank" rel="noopener">失败 / drop 提前停止</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/bulk/BulkRequestModifier.java#L238-L251" target="_blank" rel="noopener">dropped 转 noop</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestDocument.java#L60-L63" target="_blank" rel="noopener">默认深度</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestDocument.java#L1137-L1170" target="_blank" rel="noopener">活动栈守卫与完成清理</a>。</p></div></details>
+<h2 id="selection">12.5 两个槽，为什么 final 也有提前停止条件？</h2>
+<p>普通 index 请求首先选择<strong>请求 pipeline，若未指定才选择索引 default_pipeline</strong>；随后是独立的 final_pipeline。不是 default、请求、final 三条相继运行。请求 pipeline=_none 跳过第一槽，不覆盖索引设置，也不跳过已配置的 final。D5–D8 对照三篇文档：默认标签、请求字段变换、跳过第一槽，它们在成功保留后都有 audited:true。</p>
+<p>“final 总在最后”应读为：已配置 final 的正常路径里，前链成功保留文档后执行它；未处理失败或 drop 不会继续。这个设置能收口受其约束的 index 写入，<strong>不能泛化为所有更新 / 删除 / 其他写 API 的统一安全门</strong>。final 执行后的 _index 若改变，会在选分片前被拒；合法的 set 定义能 PUT，不代表执行到 final 就合法。D13–D16 触发该检查并恢复。</p>
+<p>改变目标索引还会重新解析管道。直接 set _index 而未使用 reroute 标志时，为兼容旧行为，新目标的 default 不再执行，final 仍按新目标解析；reroute 路径不同，并受索引循环检查。这是图 01 省略的分支，不能用普通路径推断原目标 final 必定继续。</p>
+<p>删除也有约束：仍被任意索引 default / final 引用的管道会拒删。<code>GET pipeline</code> 的多 ID 读取规则不能套到 DELETE；删除请求 id 是单个名称或简单通配模式，逗号不会拆成列表。本课先删三个索引，再逐条点名删五条管道，避免误删其他资源。</p>
+<p>依据：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L414-L423" target="_blank" rel="noopener">选择两个槽</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L1109-L1137" target="_blank" rel="noopener">PipelineIterator</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L1270-L1288" target="_blank" rel="noopener">final 禁改目标</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L1333-L1347" target="_blank" rel="noopener">新目标重解析</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L470-L490" target="_blank" rel="noopener">删除匹配</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L494-L534" target="_blank" rel="noopener">引用保护</a>。</p>
+<h2 id="routing">12.6 _routing 改了，GET 会不会一定 miss？</h2>
+<p>C 组新建五主分片、0 副本、非分区路由索引，未要求 routing。管道 set _routing=tenant-a，成功回写后 route 用它选分片。对本课创建版本，分片号是 floorMod(Murmur3(有效键),5)；有 routing 用它，否则用 _id。旧创建版本还有 routingNumShards / routingFactor 分支，不能把当前节点版本当作旧索引的路由公式。</p>
+<p>先用 _search_shards 比较键 1 与 tenant-a 的分片号；这个 API计算选择，不证明数据位于那里。异号时，不带 routing 的 GET 查错分片而 404；同号时可能命中。五个桶不意味着不同字符串必落在不同分片，routing 不是安全隔离键。带 tenant-a 的 GET 回显 _routing 与 source；写入已显式 refresh=true，所以不带 routing 的搜索可在全部分片找到文档。GET 的默认 realtime 可见性与这次搜索刷新是不同机制。</p>
+<p>依据：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L1469-L1475" target="_blank" rel="noopener">回写路由</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java#L147-L175" target="_blank" rel="noopener">创建版本分支与取模</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/routing/IndexRouting.java#L309-L321" target="_blank" rel="noopener">Unpartitioned 有效键</a>。</p>
+<h2 id="source-map">12.7 带着五个问题走读</h2>
+<table class="ktable"><tr><th>固定源码 · 文件 → 方法</th><th>读懂哪条边界</th></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/bulk/TransportAbstractBulkAction.java#L297-L375" target="_blank" rel="noopener"><code>TransportAbstractBulkAction → applyPipelines</code></a></td><td>谁执行 / 转发，何时继续协调？</td></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/IngestService.java#L1160-L1355" target="_blank" rel="noopener"><code>IngestService → executePipelines</code></a></td><td>谁回写，何时停止或重解析管道？</td></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/ingest/CompoundProcessor.java#L149-L257" target="_blank" rel="noopener"><code>CompoundProcessor → innerExecute / executeOnFailure</code></a></td><td>同步、回调与失败层级如何续接？</td></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/ingest/SimulateExecutionService.java#L36-L95" target="_blank" rel="noopener"><code>SimulateExecutionService → executeDocument</code></a></td><td>模拟返回什么，省掉了哪些写入阶段？</td></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/bulk/BulkOperation.java#L320-L341" target="_blank" rel="noopener"><code>BulkOperation → groupBulkRequestsByShards</code></a></td><td>什么时候读取最终请求并选分片？</td></tr></table>
+<details><summary>源码练习：沿错误返回找到恢复位置</summary><div class="answer"><p>检索 ConfigurationUtils 中 new OnFailureProcessor，再沿 CompoundProcessor 的 handler 返回追到外层。给 A5 与 A9 画出各自回到哪个栈层，解释 after_date 的差异；再查 IngestService 中 keep==false 与 isFinalPipeline 两处 return，说明为什么 noop 和 final 错误都不会到 BulkOperation.route。点号字段访问另有 flexible 模式，本课只使用显式 classic，不把普通路径假设推广到含字面量点号的 JSON。</p></div></details>
+</section>
+<section class="drills" id="practice"><h2>实验：先模拟，再验证真实写入</h2>
+<p>前提：自建 ES 9.4.0 / Lucene 10.4.0，单节点具备 ingest 与数据角色；默认端点 <code>http://localhost:9200</code>、安全关闭、本地 CORS 已配置。其他端点可在连接设置选择；启用安全时需对应索引读写、管道 / 索引管理、健康监控权限。三个索引与五条管道的本课名称首次不存在，没有匹配模板、外部写入 / 刷新或修改管道的任务。探针 <code>tut-l12-probe</code> 也不存在，但本课只模拟和 HEAD，不建它、不清理它。</p>
+<div class="callout warn"><span class="co-title">源码已核对；本轮真实 API 未实测</span>9200 连接拒绝，既有启动记录显示运行时缺少 <code>/proc/self/coredump_filter</code>。首次实验及清理后完整重做均未运行。下列卡片给出固定源码预期；HTTP 浏览器检查验证页面与请求传递，不模拟 ES 响应。</div>
+<p><strong>完整顺序：</strong>A0–A9 核对版本 / 注册 / 模拟与失败 → B1 创建、B2 等待，再 B3–B7 写读与 mapping → C1–C3 准备并等待、C4–C9 比较路由并写读 → D1–D4 准备优先级配置、D5–D8 对照、D9 删除保护、D10–D12 drop、D13–D15 final 错误、D16 恢复 → 六张清理卡依次运行。三索引均显式 standard / stored source、周期 refresh=-1、两个管道槽、主副本数；搜索相关写入显式 refresh=true。</p>
+<p>创建索引不能覆盖现有设置，重复报 400；固定 ID 的正常首次写入 created，重复 updated / 版本增加。PUT 同名管道是创建或替换，不等于“已存在就拒绝”；D13–D15 中断后先 D16 恢复。预期失败卡不应留下新 ID，也不删除已有文档。清理索引允许不存在，逐条删管道重复可 404；若引用拒删，检查端点与残余索引引用。清理全部完成后从 A0 重做，别依赖操作速度或孤立卡片推断完整结果。</p>
+<h3>A · 模拟与失败边界</h3>
+<div class="exp-slot" data-exp="ch12-00-version"></div>
+<div class="exp-slot" data-exp="ch12-01-put-fields"></div>
+<div class="exp-slot" data-exp="ch12-02-simulate-fields"></div>
+<div class="exp-slot" data-exp="ch12-03-simulate-verbose"></div>
+<div class="exp-slot" data-exp="ch12-04-grok-inline"></div>
+<div class="exp-slot" data-exp="ch12-05-onfailure-inline"></div>
+<div class="exp-slot" data-exp="ch12-05-probe-missing"></div>
+<div class="exp-slot" data-exp="ch12-05-unhandled-inline"></div>
+<div class="exp-slot" data-exp="ch12-05-ignore-inline"></div>
+<div class="exp-slot" data-exp="ch12-05-pipeline-failure-inline"></div>
+<h3>B · 文档变换与映射</h3>
+<div class="exp-slot" data-exp="ch12-06-create-index"></div>
+<div class="exp-slot" data-exp="ch12-06-health"></div>
+<div class="exp-slot" data-exp="ch12-07-write-pipelined"></div>
+<div class="exp-slot" data-exp="ch12-08-get-doc1"></div>
+<div class="exp-slot" data-exp="ch12-09-write-plain"></div>
+<div class="exp-slot" data-exp="ch12-09-get-plain"></div>
+<div class="exp-slot" data-exp="ch12-10-get-mapping"></div>
+<h3>C · 管道改路由</h3>
+<div class="exp-slot" data-exp="ch12-11-create-routed"></div>
+<div class="exp-slot" data-exp="ch12-12-put-routing-pipeline"></div>
+<div class="exp-slot" data-exp="ch12-12-health"></div>
+<div class="exp-slot" data-exp="ch12-13-shards-by-id"></div>
+<div class="exp-slot" data-exp="ch12-14-shards-by-tenant"></div>
+<div class="exp-slot" data-exp="ch12-15-write-routed"></div>
+<div class="exp-slot" data-exp="ch12-16-get-miss"></div>
+<div class="exp-slot" data-exp="ch12-17-get-hit"></div>
+<div class="exp-slot" data-exp="ch12-18-search-fanout"></div>
+<h3>D · 优先级与提前终止</h3>
+<div class="exp-slot" data-exp="ch12-21-put-default"></div>
+<div class="exp-slot" data-exp="ch12-22-put-final"></div>
+<div class="exp-slot" data-exp="ch12-23-create-policy"></div>
+<div class="exp-slot" data-exp="ch12-24-policy-health"></div>
+<div class="exp-slot" data-exp="ch12-25-write-default"></div>
+<div class="exp-slot" data-exp="ch12-26-write-override"></div>
+<div class="exp-slot" data-exp="ch12-27-write-none"></div>
+<div class="exp-slot" data-exp="ch12-28-policy-search"></div>
+<div class="exp-slot" data-exp="ch12-29-delete-bound-final"></div>
+<div class="exp-slot" data-exp="ch12-30-put-drop"></div>
+<div class="exp-slot" data-exp="ch12-31-write-drop"></div>
+<div class="exp-slot" data-exp="ch12-32-get-dropped"></div>
+<div class="exp-slot" data-exp="ch12-33-final-change-index"></div>
+<div class="exp-slot" data-exp="ch12-34-final-write-error"></div>
+<div class="exp-slot" data-exp="ch12-35-final-error-missing"></div>
+<div class="exp-slot" data-exp="ch12-36-restore-final"></div>
+<h3>清理 · 索引先，管道后</h3>
+<p>只删除 tut-l12-docs、tut-l12-routed、tut-l12-policy 及数据 / 映射，再删除 fields、routing、default、final、drop 五条 tut-l12-* 管道。按下面顺序逐条点名；确认选中的端点。其他章节资源与探针索引不在清理范围。</p>
+<div class="exp-slot" data-exp="ch12-19-clean-indices"></div>
+<div class="exp-slot" data-exp="ch12-20-clean-pipelines"></div>
+<div class="exp-slot" data-exp="ch12-37-clean-routing"></div>
+<div class="exp-slot" data-exp="ch12-38-clean-default"></div>
+<div class="exp-slot" data-exp="ch12-39-clean-final"></div>
+<div class="exp-slot" data-exp="ch12-40-clean-drop"></div>
+<h2>思考题</h2>
+<details><summary>1. 同样复制错误消息，为什么处理器级补救有 after_date，管道级却没有？</summary><div class="answer"><p>处理器级失败只结束包装这个 date 的内层 CompoundProcessor；成功文档返回外层后，继续下一处理器。根管道捕获的是尚未恢复的失败；根 on_failure 完成就回调返回当前管道，不从 date 后继续。忽略优先、补救再次失败和 drop 都会改变这条路径。</p></div></details>
+<details><summary>2. 请求 pipeline=_none，为什么还有 audited？若请求管道 drop 呢？</summary><div class="answer"><p>_none 只选择第一槽无操作，final 槽独立，因此成功保留文档后写 audited。drop 返回 null，IngestService 提前返回，不执行 final，不提交新文档；旧同 ID 文档仍保留。这个结论限定本课普通 index 写入，不扩展到所有修改 API。</p></div></details>
+<details><summary>3. 不带 routing 的 GET 命中了，能否否定管道改 routing？</summary><div class="answer"><p>不能。两把不同字符串可能映射到同一分片。比较 _search_shards 的分片号，再看正确 GET 回显的 _routing；不要把键空间与分片结果空间混为一谈。换键演示时要同步修改管道和全部带键请求，并清理后重做。</p></div></details>
+<details><summary>4. _simulate 返回 200，能否直接发布新管道并断言所有写入安全？</summary><div class="answer"><p>先检查逐文档结果是否含 error，再对照真实写入的管道选择、final 约束、路由、mapping 与可见性。样本应覆盖缺字段、已有目标、坏日期等条件。模拟不证明历史文档已被回填，也不代表 processor 的运行成本或所有生产写入路径。</p></div></details>
+</section>
+<section class="pitfalls" id="pitfalls"><h2>陷阱</h2>
+<div class="callout warn"><span class="co-title">顺序执行不等于同一线程或自动回滚</span>异步处理器完成后才继续；ignore_failure 不承诺恢复 source，rename 的局部恢复不能当整条链的事务。</div>
+<div class="callout warn"><span class="co-title">成功响应不等于新文档已存储</span>模拟 HTTP 200 可含逐文档 error；drop 的 noop 不落新文档。是否持久化需结合实际写入与 GET / 搜索。</div>
+<div class="callout warn"><span class="co-title">final 不是无条件的最后一步</span>前链未处理失败 / drop 会提前结束；重定向重新选管道。不能把普通 index 的约束描述为所有写 API 的不可绕过安全保证。</div>
+<div class="callout warn"><span class="co-title">_source 的变化不替换已有 mapping</span>改名后的新字段仍按索引配置解析，旧字段和旧文档不会自动迁移；本课 text + keyword 结论有显式动态配置前提。</div>
+<div class="callout warn"><span class="co-title">DELETE 的逗号清单不能照搬 GET</span>管道逐条点名删除；先解除索引 default / final 引用。本课不使用通配清理，也不承诺重复删除仍 acknowledged。</div>
+</section>
+<section class="recap" id="recap"><h2>速记</h2><table class="ktable"><tr><th>问题</th><th>本课结论</th></tr>
+<tr><td>执行顺序</td><td>处理器按列表依赖，异步回调完成后续接；不承诺同线程</td></tr><tr><td>变换对象</td><td>source 与可写文档元数据；_ingest 信息需显式复制才留 source</td></tr><tr><td>模拟</td><td>运行相同处理器执行链，不做完整写入选择、路由 / mapping / Engine；逐文档检查 error</td></tr><tr><td>失败恢复</td><td>ignore 优先；局部 on_failure 后继续主链；根 on_failure 后结束本管道</td></tr><tr><td>两个槽</td><td>请求或 default → 文档保留后 final；_none 只跳过第一槽，drop 提前结束</td></tr><tr><td>回写与路由</td><td>成功处理后回写请求，再 route；新建普通非分区索引用有效键取模，不同键可碰撞</td></tr><tr><td>清理重做</td><td>删索引解除引用，再逐条删管道；D13–D15 中断先恢复 final</td></tr></table><p><strong>心法：先判断文档是否保留、在哪层恢复，再沿处理后的请求追到分片。</strong></p></section>
+<footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a href="ch11.html">← 第 11 课：映射系统</a><a href="ch13.html">第 13 课：批量写入 →</a></div></footer>
+</article></main>
+<script src="../experiments/ch12.js"></script><script src="../assets/js/nav.js"></script><script src="../assets/js/es-client.js"></script><script src="../assets/js/flow-player.js"></script><script src="../assets/js/experiments.js"></script><script src="../assets/js/progress.js"></script><script src="../assets/js/chapter-diagrams.js"></script>
+</body></html>
