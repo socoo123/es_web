@@ -1,0 +1,255 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "同一个 uid：实时分支与对外搜索视图",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch10-realtime-read-20261011-123611/realtime-read.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "读取与执行"
+        },
+        "messagebus": {
+          "label": "请求与响应"
+        },
+        "database": {
+          "label": "分片读取视图"
+        },
+        "security": {
+          "label": "不存在的终态"
+        }
+      }
+    },
+    "viewBox": [
+      1062,
+      534
+    ]
+  },
+  "lanes": [
+    {
+      "id": "entry",
+      "label": "Engine 入口 · 默认请求，不带版本冲突条件"
+    },
+    {
+      "id": "lookup",
+      "label": "选择视图 · 实时检查或 EXTERNAL 快照"
+    },
+    {
+      "id": "result",
+      "label": "实时结果 · 删除、内部视图或 translog reader"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "engine",
+      "lane": "entry",
+      "col": 2,
+      "type": "backend",
+      "label": "InternalEngine.get",
+      "sublabel": "realtime 决定读取分支",
+      "width": 240,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 892,
+          "end_line": 907
+        }
+      ]
+    },
+    {
+      "id": "map",
+      "lane": "lookup",
+      "col": 2,
+      "type": "backend",
+      "label": "VersionMap 按 uid 查",
+      "sublabel": "unsafe 时先刷新 INTERNAL",
+      "width": 240,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 934,
+          "end_line": 958
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 1106,
+          "end_line": 1127
+        }
+      ]
+    },
+    {
+      "id": "external",
+      "lane": "lookup",
+      "col": 4,
+      "type": "database",
+      "label": "EXTERNAL searcher",
+      "sublabel": "realtime=false；可返回旧版本",
+      "width": 220,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 904,
+          "end_line": 906
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/Engine.java",
+          "line": 938,
+          "end_line": 982
+        }
+      ]
+    },
+    {
+      "id": "deleted",
+      "lane": "result",
+      "col": 0,
+      "type": "security",
+      "label": "NOT_EXISTS",
+      "sublabel": "命中删除条目",
+      "width": 190,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 956,
+          "end_line": 958
+        }
+      ]
+    },
+    {
+      "id": "internal",
+      "lane": "result",
+      "col": 2,
+      "type": "database",
+      "label": "INTERNAL searcher",
+      "sublabel": "必要时内部 refresh；再查 uid",
+      "width": 240,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 988,
+          "end_line": 997
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 3771,
+          "end_line": 3778
+        }
+      ]
+    },
+    {
+      "id": "translog",
+      "lane": "result",
+      "col": 4,
+      "type": "database",
+      "label": "translog reader",
+      "sublabel": "location 读出 Index 操作",
+      "width": 220,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 977,
+          "end_line": 987
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 853,
+          "end_line": 880
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/TranslogDirectoryReader.java",
+          "line": 76,
+          "end_line": 118
+        }
+      ]
+    }
+  ],
+  "mainPath": [
+    "engine",
+    "map",
+    "translog"
+  ],
+  "edges": [
+    {
+      "id": "realtime",
+      "from": "engine",
+      "to": "map",
+      "label": "true",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "non-realtime",
+      "from": "engine",
+      "to": "external",
+      "label": "false",
+      "role": "branch",
+      "variant": "default",
+      "fromSide": "right",
+      "toSide": "right",
+      "route": "outside-right"
+    },
+    {
+      "id": "delete",
+      "from": "map",
+      "to": "deleted",
+      "label": "删除条目",
+      "role": "branch",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "top",
+      "route": "auto"
+    },
+    {
+      "id": "fallback",
+      "from": "map",
+      "to": "internal",
+      "label": "未命中 / 无可读操作",
+      "role": "branch",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "location",
+      "from": "map",
+      "to": "translog",
+      "label": "未删且 location 可读",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "route": "auto"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "实时不是固定读 translog",
+      "items": [
+        "默认 Engine.Get 允许 translog 读取。location 未跟踪、操作已移出或 VersionMap 未命中时会回退 INTERNAL。",
+        "trackTranslogLocation 初始 false；需要时启用，后续写入才可能保存 location。VersionMap 的 unsafe 检查也可能内部刷新。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "reader 不等于每次重建完整索引",
+      "items": [
+        "普通 stored _source 可由 TranslogLeafReader 直接提供；额外字段或 synthetic source 可能需内存索引。",
+        "所有存在结果继续走 ShardGetService 的字段 / _source 加载。内部 refresh 不自动发布 EXTERNAL，不能推断 SEARCH 立即可见。"
+      ]
+    }
+  ]
+}

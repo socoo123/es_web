@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/candidate.json",
+    "sha256": "2c7285c8e6d71360794b10333977cedc4c4f751bc9eea50ba7c8be59ea73bf75",
+    "bytes": 6167
+  },
+  "artifact": {
+    "path": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/realtime-read.html"
+  },
+  "gates": {
+    "validate": "fail",
+    "deliver": "not-run",
+    "check": "not-run",
+    "browser-check": "not-run"
+  },
+  "failedStage": "validate",
+  "diagnostics": [
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[0] id \"delete\" \"map\" -> \"deleted\" shares a 12px corridor with edges[4] id \"realtime\" \"engine\" -> \"map\" at [20, 246] -> [20, 258] (segments 1 and 1; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 0,
+        "id": "delete",
+        "from": "map",
+        "to": "deleted"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 4,
+          "id": "realtime",
+          "from": "engine",
+          "to": "map"
+        },
+        "overlapLengthPx": 12,
+        "minimumPx": 8,
+        "from": [
+          20,
+          246
+        ],
+        "to": [
+          20,
+          258
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 1
+      },
+      "supportedFixes": [
+        "adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    },
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[2] id \"location\" \"map\" -> \"translog\" shares a 84px corridor with edges[3] id \"non-realtime\" \"engine\" -> \"external\" at [749, 162] -> [749, 246] (segments 2 and 2; minimum 8px) — adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 2,
+        "id": "location",
+        "from": "map",
+        "to": "translog"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 3,
+          "id": "non-realtime",
+          "from": "engine",
+          "to": "external"
+        },
+        "overlapLengthPx": 84,
+        "minimumPx": 8,
+        "from": [
+          749,
+          162
+        ],
+        "to": [
+          749,
+          246
+        ],
+        "segmentIndex": 2,
+        "otherSegmentIndex": 2
+      },
+      "supportedFixes": [
+        "adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 2,
+    "shown": 2,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/realtime-read.finalize.json",
+    "summaryReceipt": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/realtime-read.finalize-summary.json"
+  },
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 471,
+  "nextAction": {
+    "action": "edit-in-place",
+    "candidate": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/candidate.json",
+    "constraint": "Preserve unaffected semantics and geometry; do not replace the whole candidate.",
+    "then": "finalize-once"
+  }
+}

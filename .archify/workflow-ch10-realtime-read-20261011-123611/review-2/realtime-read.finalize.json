@@ -1,0 +1,392 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "workflow",
+  "quality": "showcase",
+  "startedAt": "2026-10-11T04:39:01.153Z",
+  "specification": {
+    "path": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/candidate.json",
+    "sha256": "4487783385e59702a78290ed6b6f19b42abea8dc983fc49f36281188dfa848db",
+    "bytes": 6422
+  },
+  "artifact": {
+    "path": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/realtime-read.html"
+  },
+  "stages": {
+    "validate": {
+      "status": "fail",
+      "exitCode": 1,
+      "durationMs": null,
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "/workspace/shared/skills/archify-3.0.1/archify/bin/archify.mjs",
+        "deliver",
+        "workflow",
+        "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/candidate.json",
+        "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/realtime-read.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "/workspace/scratch/es-v9.4.0",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": false,
+        "command": "deliver",
+        "receiptId": "bb7132c5-efb1-448f-87b9-dc5a38141ed8",
+        "stage": "render",
+        "type": "workflow",
+        "input": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/candidate.json",
+        "output": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/realtime-read.html",
+        "error": "Workflow layout validation failed:\n- [composition/ambiguous-corridor] showcase workflow edges[0] id \"delete\" \"map\" -> \"deleted\" shares a 430.4px corridor with edges[1] id \"fallback\" \"map\" -> \"internal\" at [593.6, 296] -> [1024, 296] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.\n- [composition/ambiguous-corridor] showcase workflow edges[0] id \"delete\" \"map\" -> \"deleted\" shares a 416.4px corridor with edges[2] id \"location\" \"map\" -> \"translog\" at [607.6, 296] -> [1024, 296] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.\n- [composition/ambiguous-corridor] showcase workflow edges[1] id \"fallback\" \"map\" -> \"internal\" shares a 783.2px corridor with edges[2] id \"location\" \"map\" -> \"translog\" at [607.6, 296] -> [1390.8, 296] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.\n- [composition/ambiguous-corridor] showcase workflow edges[3] id \"non-realtime\" \"engine\" -> \"external\" shares a 423.4px corridor with edges[4] id \"realtime\" \"engine\" -> \"map\" at [600.6, 170] -> [1024, 170] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+        "diagnostics": [
+          {
+            "code": "composition/ambiguous-corridor",
+            "severity": "error",
+            "message": "[composition/ambiguous-corridor] showcase workflow edges[0] id \"delete\" \"map\" -> \"deleted\" shares a 430.4px corridor with edges[1] id \"fallback\" \"map\" -> \"internal\" at [593.6, 296] -> [1024, 296] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+            "subject": {
+              "diagramType": "workflow",
+              "collection": "edges",
+              "index": 0,
+              "id": "delete",
+              "from": "map",
+              "to": "deleted"
+            },
+            "evidence": {
+              "otherRelationship": {
+                "diagramType": "workflow",
+                "collection": "edges",
+                "index": 1,
+                "id": "fallback",
+                "from": "map",
+                "to": "internal"
+              },
+              "overlapLengthPx": 430.4,
+              "minimumPx": 8,
+              "from": [
+                593.6,
+                296
+              ],
+              "to": [
+                1024,
+                296
+              ],
+              "segmentIndex": 1,
+              "otherSegmentIndex": 1
+            },
+            "supportedFixes": [
+              "if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+            ]
+          },
+          {
+            "code": "composition/ambiguous-corridor",
+            "severity": "error",
+            "message": "[composition/ambiguous-corridor] showcase workflow edges[0] id \"delete\" \"map\" -> \"deleted\" shares a 416.4px corridor with edges[2] id \"location\" \"map\" -> \"translog\" at [607.6, 296] -> [1024, 296] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+            "subject": {
+              "diagramType": "workflow",
+              "collection": "edges",
+              "index": 0,
+              "id": "delete",
+              "from": "map",
+              "to": "deleted"
+            },
+            "evidence": {
+              "otherRelationship": {
+                "diagramType": "workflow",
+                "collection": "edges",
+                "index": 2,
+                "id": "location",
+                "from": "map",
+                "to": "translog"
+              },
+              "overlapLengthPx": 416.4,
+              "minimumPx": 8,
+              "from": [
+                607.6,
+                296
+              ],
+              "to": [
+                1024,
+                296
+              ],
+              "segmentIndex": 1,
+              "otherSegmentIndex": 1
+            },
+            "supportedFixes": [
+              "if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+            ]
+          },
+          {
+            "code": "composition/ambiguous-corridor",
+            "severity": "error",
+            "message": "[composition/ambiguous-corridor] showcase workflow edges[1] id \"fallback\" \"map\" -> \"internal\" shares a 783.2px corridor with edges[2] id \"location\" \"map\" -> \"translog\" at [607.6, 296] -> [1390.8, 296] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+            "subject": {
+              "diagramType": "workflow",
+              "collection": "edges",
+              "index": 1,
+              "id": "fallback",
+              "from": "map",
+              "to": "internal"
+            },
+            "evidence": {
+              "otherRelationship": {
+                "diagramType": "workflow",
+                "collection": "edges",
+                "index": 2,
+                "id": "location",
+                "from": "map",
+                "to": "translog"
+              },
+              "overlapLengthPx": 783.2,
+              "minimumPx": 8,
+              "from": [
+                607.6,
+                296
+              ],
+              "to": [
+                1390.8,
+                296
+              ],
+              "segmentIndex": 1,
+              "otherSegmentIndex": 1
+            },
+            "supportedFixes": [
+              "if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+            ]
+          },
+          {
+            "code": "composition/ambiguous-corridor",
+            "severity": "error",
+            "message": "[composition/ambiguous-corridor] showcase workflow edges[3] id \"non-realtime\" \"engine\" -> \"external\" shares a 423.4px corridor with edges[4] id \"realtime\" \"engine\" -> \"map\" at [600.6, 170] -> [1024, 170] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+            "subject": {
+              "diagramType": "workflow",
+              "collection": "edges",
+              "index": 3,
+              "id": "non-realtime",
+              "from": "engine",
+              "to": "external"
+            },
+            "evidence": {
+              "otherRelationship": {
+                "diagramType": "workflow",
+                "collection": "edges",
+                "index": 4,
+                "id": "realtime",
+                "from": "engine",
+                "to": "map"
+              },
+              "overlapLengthPx": 423.4,
+              "minimumPx": 8,
+              "from": [
+                600.6,
+                170
+              ],
+              "to": [
+                1024,
+                170
+              ],
+              "segmentIndex": 1,
+              "otherSegmentIndex": 1
+            },
+            "supportedFixes": [
+              "if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+            ]
+          }
+        ],
+        "provenance": "absent",
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      },
+      "execution": "embedded-in-deliver"
+    },
+    "deliver": {
+      "status": "not-run",
+      "execution": "blocked-by-validate"
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[0] id \"delete\" \"map\" -> \"deleted\" shares a 430.4px corridor with edges[1] id \"fallback\" \"map\" -> \"internal\" at [593.6, 296] -> [1024, 296] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 0,
+        "id": "delete",
+        "from": "map",
+        "to": "deleted"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 1,
+          "id": "fallback",
+          "from": "map",
+          "to": "internal"
+        },
+        "overlapLengthPx": 430.4,
+        "minimumPx": 8,
+        "from": [
+          593.6,
+          296
+        ],
+        "to": [
+          1024,
+          296
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 1
+      },
+      "supportedFixes": [
+        "if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    },
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[0] id \"delete\" \"map\" -> \"deleted\" shares a 416.4px corridor with edges[2] id \"location\" \"map\" -> \"translog\" at [607.6, 296] -> [1024, 296] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 0,
+        "id": "delete",
+        "from": "map",
+        "to": "deleted"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 2,
+          "id": "location",
+          "from": "map",
+          "to": "translog"
+        },
+        "overlapLengthPx": 416.4,
+        "minimumPx": 8,
+        "from": [
+          607.6,
+          296
+        ],
+        "to": [
+          1024,
+          296
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 1
+      },
+      "supportedFixes": [
+        "if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    },
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[1] id \"fallback\" \"map\" -> \"internal\" shares a 783.2px corridor with edges[2] id \"location\" \"map\" -> \"translog\" at [607.6, 296] -> [1390.8, 296] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 1,
+        "id": "fallback",
+        "from": "map",
+        "to": "internal"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 2,
+          "id": "location",
+          "from": "map",
+          "to": "translog"
+        },
+        "overlapLengthPx": 783.2,
+        "minimumPx": 8,
+        "from": [
+          607.6,
+          296
+        ],
+        "to": [
+          1390.8,
+          296
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 1
+      },
+      "supportedFixes": [
+        "if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    },
+    {
+      "code": "composition/ambiguous-corridor",
+      "severity": "error",
+      "message": "[composition/ambiguous-corridor] showcase workflow edges[3] id \"non-realtime\" \"engine\" -> \"external\" shares a 423.4px corridor with edges[4] id \"realtime\" \"engine\" -> \"map\" at [600.6, 170] -> [1024, 170] (segments 1 and 1; minimum 8px) — if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge.",
+      "subject": {
+        "diagramType": "workflow",
+        "collection": "edges",
+        "index": 3,
+        "id": "non-realtime",
+        "from": "engine",
+        "to": "external"
+      },
+      "evidence": {
+        "otherRelationship": {
+          "diagramType": "workflow",
+          "collection": "edges",
+          "index": 4,
+          "id": "realtime",
+          "from": "engine",
+          "to": "map"
+        },
+        "overlapLengthPx": 423.4,
+        "minimumPx": 8,
+        "from": [
+          600.6,
+          170
+        ],
+        "to": [
+          1024,
+          170
+        ],
+        "segmentIndex": 1,
+        "otherSegmentIndex": 1
+      },
+      "supportedFixes": [
+        "if the authored fromSide/toSide are not required by the user, remove them so the renderer can re-plan; otherwise preserve that intent and adjust route/via, bias, or channel coordinates so unrelated edges do not visually merge"
+      ]
+    }
+  ],
+  "evidence": {
+    "receipt": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/review-2/realtime-read.finalize.json",
+    "summaryReceipt": "/workspace/es_web/.archify/workflow-ch10-realtime-read-20261011-123611/review-2/realtime-read.finalize-summary.json"
+  },
+  "visualReview": "not-requested",
+  "failedStage": "validate",
+  "finishedAt": "2026-10-11T04:39:01.592Z",
+  "durationMs": 439,
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  }
+}

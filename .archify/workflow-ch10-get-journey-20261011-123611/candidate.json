@@ -1,0 +1,253 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "一次 GET：构造请求，选分片，取回文档",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch10-get-journey-20261011-123611/get-journey.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "读取与执行"
+        },
+        "messagebus": {
+          "label": "请求与响应"
+        },
+        "database": {
+          "label": "分片读取视图"
+        },
+        "security": {
+          "label": "不存在的终态"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "rest",
+      "label": "REST 入口 · 组装请求与本地动作执行"
+    },
+    {
+      "id": "coordinate",
+      "label": "协调侧 · 解析索引、routing 与副本候选"
+    },
+    {
+      "id": "data",
+      "label": "数据侧 · 读取所选分片并返回结果"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "rest",
+      "lane": "rest",
+      "col": 2,
+      "type": "messagebus",
+      "label": "RestGetAction",
+      "sublabel": "GetRequest；realtime 默认 true",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 43,
+          "end_line": 76
+        }
+      ],
+      "yOffset": -49
+    },
+    {
+      "id": "client",
+      "lane": "rest",
+      "col": 2,
+      "type": "backend",
+      "label": "NodeClient 执行动作",
+      "sublabel": "indices:data/read/get",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/client/internal/node/NodeClient.java",
+          "line": 100,
+          "end_line": 137
+        }
+      ],
+      "yOffset": 49
+    },
+    {
+      "id": "route",
+      "lane": "coordinate",
+      "col": 2,
+      "type": "backend",
+      "label": "解析索引与选分片",
+      "sublabel": "id / routing 定 shard；preference 排副本",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/single/shard/TransportSingleShardAction.java",
+          "line": 172,
+          "end_line": 207
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java",
+          "line": 105,
+          "end_line": 124
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/OperationRouting.java",
+          "line": 62,
+          "end_line": 73
+        }
+      ],
+      "yOffset": -49
+    },
+    {
+      "id": "dispatch",
+      "lane": "coordinate",
+      "col": 2,
+      "type": "messagebus",
+      "label": "发送 get[s] 子动作",
+      "sublabel": "一次尝试一个副本；本地也走 Transport",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/support/single/shard/TransportSingleShardAction.java",
+          "line": 232,
+          "end_line": 281
+        }
+      ],
+      "yOffset": 49
+    },
+    {
+      "id": "get",
+      "lane": "data",
+      "col": 2,
+      "type": "backend",
+      "label": "分片读取",
+      "sublabel": "ShardGetService → IndexShard → Engine",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/get/TransportGetAction.java",
+          "line": 127,
+          "end_line": 168
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/get/ShardGetService.java",
+          "line": 117,
+          "end_line": 141
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/get/ShardGetService.java",
+          "line": 184,
+          "end_line": 217
+        }
+      ],
+      "yOffset": -49
+    },
+    {
+      "id": "fetch",
+      "lane": "data",
+      "col": 2,
+      "type": "messagebus",
+      "label": "字段与 HTTP 响应",
+      "sublabel": "SourceLoader；found 决定 200 / 404",
+      "width": 280,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/get/ShardGetService.java",
+          "line": 389,
+          "end_line": 419
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/get/ShardGetService.java",
+          "line": 455,
+          "end_line": 485
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/document/RestGetAction.java",
+          "line": 76,
+          "end_line": 76
+        }
+      ],
+      "yOffset": 49
+    }
+  ],
+  "mainPath": [
+    "rest",
+    "client",
+    "route",
+    "dispatch",
+    "get",
+    "fetch"
+  ],
+  "edges": [
+    {
+      "id": "rest-client",
+      "from": "rest",
+      "to": "client",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "client-route",
+      "from": "client",
+      "to": "route",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "route-dispatch",
+      "from": "route",
+      "to": "dispatch",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "dispatch-get",
+      "from": "dispatch",
+      "to": "get",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "get-fetch",
+      "from": "get",
+      "to": "fetch",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "本图只追踪一次成功往返",
+      "items": [
+        "ES 9.4.0 普通索引、固定路由表、可提升为主的分片。过滤器、任务、wire 编码和回调展开见前四课。",
+        "箭头是调用或异步交接；各层收到 GetResult / GetResponse 后沿 listener 返回。不是每个框占用一条独立线程。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "失败与特殊分支",
+      "items": [
+        "普通异常会尝试迭代器中的下一副本；found:false 是正常响应，不触发换副本。StaleRequestException 可等待路由更新后重新解析。",
+        "非 realtime 先确保搜索活跃；普通分片只在 realtime=false 且 refresh=true 时显式 externalRefresh。不可提升分片的接力另有分支。"
+      ]
+    }
+  ]
+}

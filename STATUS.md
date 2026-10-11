@@ -15,7 +15,7 @@
 | ch07 | 动作框架 | ✅ | 15 | — | ✅ 动作登记与执行边界（2 图，2 路径动画） |
 | ch08 | 异步编程模型 | ✅ | 15 | 1(线程池背压) | ✅ 回调与调度边界（2 图，2 路径动画） |
 | ch09 | 传输层 | ✅ | 12 | — | ✅ 远程往返与帧契约（2 图，2 路径动画） |
-| ch10 | 跟踪一次文档读取 | ✅ | 19 | 1(realtime GET) | 待改造 |
+| ch10 | 跟踪一次文档读取 | ✅ | 26 | 1(realtime GET·9 步) | ✅ GET 旅程与读取视图（2 图，2 路径动画） |
 | ch11 | 映射系统 | ✅ | 19 | 1(动态映射) | 待改造 |
 | ch12 | 摄取管道 | ✅ | 20 | — | 待改造 |
 | ch13 | 批量写入 | ✅ | 13 | 1(bulk 分组) | 待改造 |
@@ -146,7 +146,30 @@
 | ch09 | 本地零复制 / 单节点统计全零泛化，GET 成功暗示已验证 wire | 本地只跳过该跳请求 / 响应 wire 编解码；按同节点新基线观察增量，历史与其他流量可非零，不能验证远程 / 混合版本兼容 | localNodeConnection、DirectResponseChannel、StatsTracker；保留旧实测记录并限定范围 |
 | ch09 | 缺独立 GET / 健康等待 / 基线，重复版本与清理条件不全 | 原 7 ID 保留、增 5 卡；显式 mapping / refresh / 健康等待 / GET 前后基线，固定 ID 版本随重写变，点名清理后重新等待并取基线；未知路由 400 是顶层 error 字符串 | [experiments/ch09.js](experiments/ch09.js)、RestController.handleBadRequest；本轮 API 未实测 |
 
+### 第十章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch10 | 首次 GET / 动画固定为 VersionMap → translog，GET 全程不碰 Lucene、不等 refresh | location 跟踪初始 false；unsafe 检查、无可读操作 / 未命中时可能内部刷新并从 INTERNAL 读，通路仍使用 reader / fetch；响应不能证明具体分支 | InternalEngine.get / realtimeGetUnderLock / getVersionFromMap；固定提交链接见正文与图 |
+| ch10 | translog 每次解析再建完整内存索引，必比 segment 更贵 | 普通 stored source 的 TranslogLeafReader 可直接提供 ID / source；synthetic 或额外字段可建内存索引；性能需按负载实测 | TranslogDirectoryReader.create / readStoredFieldsDirectly |
+| ch10 | 默认 GET 加 refresh=true 在所有部署都无视，非实时 refresh 等同全索引 _refresh | 普通可提升分片显式 externalRefresh 需 refresh && !realtime，限定所选分片；非实时搜索唤醒可能刷新；不可提升分片另有刷新 / translog 接力 | TransportGetAction.asyncGet / handleGetOnUnpromotableShard、IndexShard.ensureShardSearchActive |
+| ch10 | GET 缺省即自适应副本选择，_primary / _replica 有效，自定义 preference 粘住同副本 | 该 GET 未传排名统计，候选保留随机化顺序；9.4.0 不支持两旧值；自定义字符串只稳定排序，分配变化 / 失败可换拷贝 | OperationRouting.getShards / preferenceActiveShardIterator、IndexShardRoutingTable.rankShardsAndUpdateStats、Preference.parse |
+| ch10 | routing 键不同几乎必 404，忘带就是 404，routing 不单独保存 | 不同键可同片；required 只拒绝缺失，错误字符串仍可通过；routing 保存为文档元数据并回显；跨不同片可有相同 ID | IndexRouting.getShard / Unpartitioned、RoutingFieldMapper.preParse、ShardGetService.innerGetFetch |
+| ch10 | 图注 hash % 主分片数泛化，固定 routing 落点称本站本轮实测 | 新公式用 floorMod，按创建版本 / 普通非分区 / 无 routing_path 与 resharding 限定；固定键离线计算 4 / 2，另要求 API 比实际返回 | IndexRouting.hashToShardId / 策略分支、Murmur3HashFunction；本轮 API 未实测 |
+| ch10 | 失败只换副本、不改 shard 是全部路径规则；found=false 暗示读失败 | 普通异常换同一候选迭代器；不存在是正常响应不重试；StaleRequestException 可等待路由更新并重启解析 | TransportSingleShardAction.perform / waitForRoutingUpdateAndRestart |
+| ch10 | Engine 有 if_seq_no 就可在该 REST GET 带条件 | 此路由解析 version / version_type，不解析 if_seq_no / if_primary_term，getService 此入口传 UNASSIGNED；底层能力不等于 REST 参数 | RestGetAction.prepareRequest、ShardGetService.get、Engine.getFromSearcher |
+| ch10 | refresh_interval=-1 就必不生成 segment，非实时只可能 404；GET 分池不会被搜索拖慢，可最多一秒旧 | -1 只关闭周期刷新；INTERNAL / EXTERNAL 分开，已发布旧值可 200；分池仍共享资源，调度周期不保证可见性时限 | InternalEngine、IndexShard、TransportGetAction.getExecutor；新增 A12–A14 新旧版本对照 |
+| ch10 | 19 卡缺显式 mapping / 等待 / 重复与旧视图恢复条件 | 保留全部 19 ID，增 7 卡，共 2 组 / 26 卡；显式 standard / stored source / mapping / refresh / 健康等待，点名 清理后完整重做；预期与实测分开 | [experiments/ch10.js](experiments/ch10.js)、[本轮验收](.archify/CH10-REVIEW.md) |
+
 ## 会话日志
+
+### 2026-10-11(第十章按统一规范重构)
+
+- 固定 ES v9.4.0 提交核对 19 个文件 / 49 个区间，修正首次实时读取、reader / refresh、偏好、routing、重试 / REST 参数及性能承诺。按请求旅程、目标分片、读取视图和字段输出重写七段式；正文、图注、播放器、思考题、实验与速记同步。
+- 原 19 个实验 ID 与 ch10-realtime-get ID 保留：新增 7 卡，2 组 / 26 卡；播放器由 7 步修正为 9 步。显式 settings / mapping / 健康等待 / 新旧版本对照 / 预期错误与点名清理。全站 30 正式页 / 448 卡 / 22 机制播放器，本章 2 图 / 2 条有限 trace / 1 机制播放器。
+- 官方 Archify 3.0.1 两幅 Workflow v2 首次即附固定源码证据与真实 checkout；只改 JSON。get-journey 当前收据 review-2、realtime-read review-7，旧候选与失败记录保留。两图原生 validate / deliver / strict check 均 showcase 9/9、零错误 / 警告、provenance current；file URL 策略使原生 browser-check 与 finalize 整体仍 fail。读取分支图的通道共用和手机裁切按测量修复。
+- 独立 HTTP 检查通过：两图四档桌面尺寸、章节六档宽度 / 两主题、880px 列 / ≤1px 对齐、页面与 iframe 容纳、主 SVG 全节点、探索 / 来源 / 关闭 / 展开、暂停后重播 / Enter、目录 / 已读、九步播放器及键盘、26 卡实际控制台导航与请求内容、端点 / 认证别名 / raw、Pages 前缀及 reduced motion。390 / 320px 原 SVG 舞台 / 表格自身滚动另测通过。实际查看 24 张最终截图；共享 CSS / JS 未改。
+- 站点结构、JS、文字估宽、stable ID 与 diff 检查通过。9200 连接拒绝、运行时缺 /proc/self/coredump_filter，真实 API 首次 / 清理后重做未执行；源码离线 hash 计算与 API 预期均未冒充实测。验收见 [.archify/CH10-REVIEW.md](.archify/CH10-REVIEW.md)，当前哈希 / 收据 / 24 图绑定见 [.archify/review/ch10-artifacts.json](.archify/review/ch10-artifacts.json)；按持续授权提交并推送 origin/main。
 
 ### 2026-10-11(第九章按统一规范重构)
 
