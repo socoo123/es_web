@@ -1,0 +1,225 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "同一份词频：候选容量怎样改变全局第二名",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch19-terms-candidates-20261012-205114/terms-candidates.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "构建与归并"
+        },
+        "database": {
+          "label": "聚合结果"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "small",
+      "label": "显式 shard_size=2 · size=2"
+    },
+    {
+      "id": "default",
+      "label": "默认 shard_size · size=2"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "small-cap",
+      "lane": "small",
+      "col": 2,
+      "type": "backend",
+      "label": "每片容量 2",
+      "sublabel": "cherry 在两片均为本地第 3",
+      "width": 360,
+      "height": 56,
+      "yOffset": -84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregatorFactory.java",
+          "line": 294,
+          "end_line": 305,
+          "label": "显式容量不套启发式"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregator.java",
+          "line": 91,
+          "end_line": 111,
+          "label": "容量至少 size"
+        }
+      ]
+    },
+    {
+      "id": "small-send",
+      "lane": "small",
+      "col": 2,
+      "type": "database",
+      "label": "局部候选不含 cherry",
+      "sublabel": "s0: apple / banana；s1: apple / date",
+      "width": 360,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/GlobalOrdinalsStringTermsAggregator.java",
+          "line": 555,
+          "end_line": 598,
+          "label": "局部优先队列选桶"
+        }
+      ]
+    },
+    {
+      "id": "small-final",
+      "lane": "small",
+      "col": 2,
+      "type": "database",
+      "label": "归并后 apple:10、date:4",
+      "sublabel": "sum_other=8 · 聚合 error_bound=7",
+      "width": 360,
+      "height": 56,
+      "yOffset": 84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java",
+          "line": 95,
+          "end_line": 117,
+          "label": "同 key 加总"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java",
+          "line": 303,
+          "end_line": 340,
+          "label": "最终选择与误差"
+        }
+      ]
+    },
+    {
+      "id": "default-cap",
+      "lane": "default",
+      "col": 2,
+      "type": "backend",
+      "label": "默认容量 13",
+      "sublabel": "floor(2×1.5+10) · 本例足够",
+      "width": 360,
+      "height": 56,
+      "yOffset": -84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/BucketUtils.java",
+          "line": 26,
+          "end_line": 37,
+          "label": "启发式公式"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregatorFactory.java",
+          "line": 294,
+          "end_line": 305,
+          "label": "未指定且非 key 序"
+        }
+      ]
+    },
+    {
+      "id": "default-send",
+      "lane": "default",
+      "col": 2,
+      "type": "database",
+      "label": "每片三个值全部入选",
+      "sublabel": "cherry:2 + cherry:3 可见",
+      "width": 360,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/GlobalOrdinalsStringTermsAggregator.java",
+          "line": 555,
+          "end_line": 598,
+          "label": "候选选桶"
+        }
+      ]
+    },
+    {
+      "id": "default-final",
+      "lane": "default",
+      "col": 2,
+      "type": "database",
+      "label": "归并后 apple:10、cherry:5",
+      "sublabel": "sum_other=7 · error_bound=0",
+      "width": 360,
+      "height": 56,
+      "yOffset": 84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java",
+          "line": 95,
+          "end_line": 117,
+          "label": "同 key 加总"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java",
+          "line": 303,
+          "end_line": 340,
+          "label": "最终选择与误差"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "small-cap-small-send",
+      "from": "small-cap",
+      "to": "small-send",
+      "variant": "emphasis"
+    },
+    {
+      "id": "small-send-small-final",
+      "from": "small-send",
+      "to": "small-final",
+      "variant": "emphasis"
+    },
+    {
+      "id": "default-cap-default-send",
+      "from": "default-cap",
+      "to": "default-send",
+      "variant": "emphasis"
+    },
+    {
+      "id": "default-send-default-final",
+      "from": "default-send",
+      "to": "default-final",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "真实实验前提",
+      "items": [
+        "两个单主分片索引合搜，均无副本；单值 keyword，默认 count 降序。",
+        "s0: apple6 / banana3 / cherry2；s1: apple4 / date4 / cherry3。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "不能把图外推为保证",
+      "items": [
+        "两段为独立请求对照，不是先失败再自动补桶。",
+        "本例默认13覆盖全部值；更大数据仍可能丢 key 或低估 count。",
+        "sum_other 是未返回桶计数之和，error_bound 是保守上界。"
+      ]
+    }
+  ],
+  "mainPath": [
+    "small-cap",
+    "small-send",
+    "small-final"
+  ]
+}

@@ -38,7 +38,7 @@
 | ch16 | 搜索流程总览 | ✅ | 29 | 1(Query Then Fetch·旗舰) | ✅ 两阶段职责与分页窗口（2 图，2 路径动画） |
 | ch17 | 搜索服务与搜索上下文 | ✅ | 32 | 1(上下文生命周期) | ✅ 执行上下文与保留读者（2图，2路径动画） |
 | ch18 | 查询语法 | ✅ | 34 | 1(match→SHOULD) | ✅ 查询翻译与收集边界（2图，2路径动画） |
-| ch19 | 聚合框架 | ✅ | 17 | 1(cherry/shardSize) | 待改造 |
+| ch19 | 聚合框架 | ✅ | 30 | 1(cherry/shardSize) | ✅ 收集归并与候选误差（2图，2路径动画） |
 | ch20 | 评分与排序 | ✅ | 12 | 1(BM25 演算·旗舰) | 待改造 |
 | ch21 | 集群状态 | ✅ | 16 | — | 待改造 |
 | ch22 | 主节点选举与共识 | ✅ | 10 | 1(选举时序·旗舰) | 待改造 |
@@ -288,7 +288,30 @@
 | ch18 | filter可直接缓存回放，精确命中≥1%选bitset | 仍受策略/可缓存性/segment/容量约束；表示按scorer.cost估计选择，四篇不证明性能 | XLRUQueryCache501–513/730–776；Lucene固定策略 |
 | ch18 | 19卡无就绪等待/完整重做，重复bulk永远201 | 保留19ID增15；显式配置/局部green/固定ID+refresh；重复创建400、写入updated200、重复清理404分别实测 | [注册表](experiments/ch18.js)、[两轮+8项](.archify/review/ch18-es-review.json) |
 
+### 第十九章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch19 | 聚合Query已算完，所有聚合不碰Fetch；统计所有命中 | Query是局部结果、后续仍归并；普通桶/指标不依赖主hits Fetch，top_hits另取字段；范围按query/global/nested等条件 | AggregationPhase、TopHitsAggregator199–231/252–265；A6/A7实测 |
+| ch19 | innerBuild按字段选执行器，keyword固定GlobalOrdinals计数 | Builder创建Factory，字段供应商选Aggregator；本轮profile为StringTermsAggregatorFromFilters/FilterByFilter，有其他优化分支 | TermsAggregatorFactory95–150/449–592；两轮C6实测 |
+| ch19 | 每片实际回桶至少size；默认公式没有取整与上限 | shardSize≥size只约束容量，实际桶可少；未显式且非_key套floor(size×1.5+10)，上限MAX | BucketUtils26–34、TermsAggregator91–111、Factory294–305 |
+| ch19 | error_bound是没送桶文档总数，过采样无法为0/只有全量才0 | 是保守计数上界，聚合/桶级分开；本例容量2聚合7/桶0和3，默认13为0，显式3计数准确但上界仍5 | AbstractInternalTerms120–140/250–340；B9–B12实测 |
+| ch19 | sum_other18全是分片队列丢弃，证明20计数器 | 局部/最终都可贡献，不是key数/内存布局；bucket_sort裁剪不回记terms账，B13仍7/B14仍0 | GlobalOrdinals构建、AbstractInternalTerms；BucketSortPipelineAggregator50–83；两轮实测 |
+| ch19 | partial都不裁、avg等父桶截完才算；nested或需分数都强制depth | count降序partial保候选，_key有特例；depth/breadth影响子聚合时机；nested与需分数为合取，时序条件另列 | AbstractInternalTerms283–331、TermsAggregator213–226/269–272 |
+| ch19 | size完全不省内存、百万值必百万计数器先撞breaker；tripped应0 | 队列/候选/子聚合亦受容量影响，策略与负载决定状态；5120B初始估计，tripped累计且可非0；20值非压力测试 | AggregatorBase39–42/148–158；Factory优化分支；C组实测 |
+| ch19 | histogram/date_histogram key请求预列，各片同key仅加总 | 由字段值和间隔/日历/时区算key；range预给区间，空桶/bounds有条件；没有terms Top-N截断不等于无其他边界 | A5月计数2/2/3/1、range4/2/2；正文限定 |
+| ch19 | 自动ID重复bulk累加、缺健康/恢复；均价写死349.99 | 保留17ID增13，固定ID/显式配置/三组健康/refresh/点名清理重做；float尾数容差；加权avg42/10=4.2 | [注册表](experiments/ch19.js)、[两轮30卡+29观察](.archify/review/ch19-es-review.json) |
+
 ## 会话日志
+
+### 2026-10-12(第十九章按统一规范重构)
+
+- 固定ES9.4.0/Lucene10.4.0核对17源码文件/36精确区间；重排输入与hits、四层职责、候选截断/保守误差、avg与Pipeline、执行策略与资源。正文/两图/六步/卡片/5问答/4陷阱/速记一致；不重读tutorial、不用子代理。
+- 原17稳定ID保留，3组30卡（A7/B15/C7/清理1）、2交互图/2有限trace/1六步机制。显式1主0副/strict/stored source/无管道/周期refresh关闭/request cache关闭；固定ID、三组局部green、bulk refresh、完整点名清理与重做。全站30正式页/617卡/22机制；共享CSS/JS与其他章节未改。
+- 官方Archify3.0.1 Workflow v2，首次附固定源码/真实checkout，只改JSON。两图review-2：validate/deliver/strict check均showcase9/9、0errors/warnings、provenance current；原生browser-check与finalize整体PASS。初稿源码行号越界门禁拒绝，修正实际区间后通过，旧候选与失败收据保留；许可及HTML字体许可保留。
+- HTTP两图四档桌面/双主题、章节六档宽度、880px/≤1px对齐、页面/iframe/节点完整、探索/关闭/展开、暂停后重播/Enter、目录/已读、六步控制/键盘、30真实控制台导航method/path/body/endpoint/auth/raw、Pages前缀、reduced motion PASS。390/320源码表/旧SVG局部横滑PASS。实际查看7张拼图覆盖24最终截图及全部6步，另查看独立旅程/深色手机候选图；手机图为概览，细字探索或展开缩放，必要说明在正文/图注。
+- **真实API两轮每轮30卡PASS，另29重复性观察PASS**：小店3/3/2、月份2/2/3/1、range4/2/2，1 hit仍聚合8篇/query只books3；两片各11篇、cherry全局5；容量2→apple10/date4、other8/error7/桶0和3，默认13→apple10/cherry5、other7/error0，抬3→准确前三、other3但保守error5；key序apple/banana、other9/error0；两次bucket_sort仅cherry5/date4，terms.other仍7/0；apple均值42/10=4.2；20值size2/20的other18/0，两轮profile实为StringTermsAggregatorFromFilters/FilterByFilter。四索引settings/mapping、重复创建400/写入updated200/计数不增/重复清理404确认，最终HEAD四索引404。浏览器阻断ES自动执行，API单列；未实测多节点/slice/百万基数/故障/熔断/性能。
+- 站点、JS语法、figwidth、diff、17稳定ID/30有序唯一槽位、GET/HEAD无body与.nojekyll PASS。验收[CH19-REVIEW](.archify/CH19-REVIEW.md)、[HTTP](.archify/review/ch19-http-review.json)、[真实API](.archify/review/ch19-es-review.json)、[artifacts](.archify/review/ch19-artifacts.json)。按授权提交推送origin/main；远端/Pages交付时另核对，原有.gitignore修改不纳入。
 
 ### 2026-10-12（框架篇提升为核心：45 课旅游门户与 155 案例）
 

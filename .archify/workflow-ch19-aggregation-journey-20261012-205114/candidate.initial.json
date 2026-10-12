@@ -1,0 +1,250 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "普通 terms：描述如何成为可归并结果",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch19-aggregation-journey-20261012-205114/aggregation-journey.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "构建与归并"
+        },
+        "database": {
+          "label": "聚合结果"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "definition",
+      "label": "分片上下文 · 描述与装配"
+    },
+    {
+      "id": "shard",
+      "label": "Query · 收集与局部结果"
+    },
+    {
+      "id": "reduce",
+      "label": "协调 · 归并与派生"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "builder",
+      "lane": "definition",
+      "col": 2,
+      "type": "backend",
+      "label": "Builder · 描述聚合",
+      "sublabel": "terms 名称、字段与 size",
+      "width": 360,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/AggregatorFactories.java",
+          "line": 446,
+          "end_line": 458,
+          "label": "构建工厂"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregationBuilder.java",
+          "line": 415,
+          "end_line": 440,
+          "label": "创建 Terms 工厂"
+        }
+      ]
+    },
+    {
+      "id": "factory",
+      "lane": "definition",
+      "col": 2,
+      "type": "backend",
+      "label": "Factory · 创建执行器",
+      "sublabel": "字段供应商与桶容量条件",
+      "width": 360,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregatorFactory.java",
+          "line": 294,
+          "end_line": 343,
+          "label": "校正容量并创建执行器"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/AggregatorFactories.java",
+          "line": 241,
+          "end_line": 254,
+          "label": "创建顶层执行器"
+        }
+      ]
+    },
+    {
+      "id": "collect",
+      "lane": "shard",
+      "col": 2,
+      "type": "backend",
+      "label": "Aggregator · 统计桶",
+      "sublabel": "普通收集 / 可有优化分支",
+      "width": 360,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/AggregationPhase.java",
+          "line": 26,
+          "end_line": 60,
+          "label": "注册与创建 collector"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregatorFactory.java",
+          "line": 449,
+          "end_line": 482,
+          "label": "条件性 filters 优化"
+        }
+      ]
+    },
+    {
+      "id": "build",
+      "lane": "shard",
+      "col": 2,
+      "type": "database",
+      "label": "InternalAggregation · 局部树",
+      "sublabel": "buildTopLevel → Query 结果",
+      "width": 360,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/AggregatorCollector.java",
+          "line": 44,
+          "end_line": 53,
+          "label": "构建并释放执行器"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/Aggregator.java",
+          "line": 155,
+          "end_line": 163,
+          "label": "唯一顶层 ordinal"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/AggregatorCollectorManager.java",
+          "line": 45,
+          "end_line": 57,
+          "label": "多 slice 部分归并"
+        }
+      ]
+    },
+    {
+      "id": "final",
+      "lane": "reduce",
+      "col": 2,
+      "type": "backend",
+      "label": "final reduce · 合并桶",
+      "sublabel": "同 key 加计数 / 合并子指标",
+      "width": 360,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java",
+          "line": 95,
+          "end_line": 117,
+          "label": "计数与子聚合归并"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java",
+          "line": 283,
+          "end_line": 331,
+          "label": "key 特例与最终 count 截断"
+        }
+      ]
+    },
+    {
+      "id": "pipeline",
+      "lane": "reduce",
+      "col": 2,
+      "type": "database",
+      "label": "Pipeline · 读取结果",
+      "sublabel": "只访问普通聚合保留的桶",
+      "width": 360,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/InternalAggregations.java",
+          "line": 227,
+          "end_line": 247,
+          "label": "最终普通归并后执行 pipeline"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "builder-factory",
+      "from": "builder",
+      "to": "factory",
+      "variant": "emphasis"
+    },
+    {
+      "id": "factory-collect",
+      "from": "factory",
+      "to": "collect",
+      "variant": "emphasis"
+    },
+    {
+      "id": "collect-build",
+      "from": "collect",
+      "to": "build",
+      "variant": "emphasis"
+    },
+    {
+      "id": "build-final",
+      "from": "build",
+      "to": "final",
+      "variant": "emphasis"
+    },
+    {
+      "id": "final-pipeline",
+      "from": "final",
+      "to": "pipeline",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "本图抽象范围",
+      "items": [
+        "ES 9.4.0 普通 terms；箭头为构建、结果传递与归并。",
+        "省略 hits、Fetch、网络编码、分片故障；协调角色可在同一节点。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "结果边界",
+      "items": [
+        "Query 返回的是 InternalAggregation，执行器本身不传回。",
+        "可先做 slice / 批量 partial reduce；count 降序最终再截 size。",
+        "Pipeline 不会发起第二轮请求补回丢失的 terms 桶。"
+      ]
+    }
+  ],
+  "mainPath": [
+    "builder",
+    "factory",
+    "collect",
+    "build",
+    "final",
+    "pipeline"
+  ]
+}

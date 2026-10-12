@@ -1,290 +1,108 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>第 19 课:聚合框架 — ES 源码精读站</title>
-  <link rel="stylesheet" href="../assets/css/style.css">
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
-    <nav class="tnav">
-      <a href="../index.html">课程</a>
-      <a href="../architecture.html">架构</a><a href="../console.html">控制台</a>
-      <a href="../cheatsheet.html">速查表</a>
-    </nav>
-    <span class="spacer"></span>
-    <button class="theme-toggle" type="button">🌙 深色</button>
-  </header>
-
-  <main class="wrap">
-    <article class="chapter" id="ch19" data-ch="ch19">
-      <header class="ch-header">
-        <div class="ch-kicker">LESSON 19 · 第四篇 · 搜索查询</div>
-        <h1>聚合框架</h1>
-        <div class="ch-meta-line">分片先截桶,协调节点再合并 · 约 15 分钟 · 前置:第 16 课 · 17 个实验</div>
-      </header>
-
-      <section class="goal">
-        <h2>学习目标</h2>
-        <ul>
-          <li>用「<code>size=2</code> 的 terms、两份具体词频」说出:每 shard 若只回 2 桶,合并后谁会失踪、真正的全局第 2 名是哪个;并写出默认 <code>shardSize</code> 公式算出的数字。</li>
-          <li>打开 <code>Aggregator.buildTopLevel</code> 和 <code>InternalAggregations.reduce</code>,指出 shard 上 build 出的是 <code>InternalAggregation</code>,协调节点 reduce 才按同名桶把 <code>doc_count</code> 加起来、再截 <code>size</code>。</li>
-          <li>对高基数字段(每文档一个 <code>user_id</code>)的 terms 预测执行期要追踪多少桶;熔断的字节账留给第 25 课,本课只指到那条边界。</li>
-        </ul>
-      </section>
-
-      <section class="lesson">
-        <h2>1. 心智模型:聚合跟 hits 走同一趟 Query,不走 Fetch</h2>
-        <p>第 16 课把 SEARCH 钉死成 Query Then Fetch。hits 可以先比分再取正文;聚合不行——<code>terms</code> 要按字段值给<strong>所有命中文档</strong>分桶,没进全局 Top-10 的文档仍然可能是某个桶的主力。所以聚合在 Query 阶段就算完,塞进 <code>QuerySearchResult.aggregations</code>,和 <code>(docId, score)</code> 同一包回来;Fetch 只搬正文,碰不到这棵树。</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg">
-              <rect x="15" y="20" width="355" height="120" rx="10" class="fig-box-hot"/>
-              <text x="192" y="46" text-anchor="middle" class="fig-name">Query 相位:一包回来</text>
-              <text x="192" y="76" text-anchor="middle" class="fig-key">(docId, score) 候选</text>
-              <text x="192" y="100" text-anchor="middle" class="fig-sub">+ 局部聚合树(最多 shardSize 桶)</text>
-              <text x="192" y="124" text-anchor="middle" class="fig-sub">聚合的贵,贵在每个命中都进桶</text>
-              <rect x="390" y="20" width="355" height="120" rx="10" class="fig-box"/>
-              <text x="567" y="46" text-anchor="middle" class="fig-name">Fetch 相位:只搬正文</text>
-              <text x="567" y="76" text-anchor="middle" class="fig-sub">只取全局 Top-N 的 _source</text>
-              <text x="567" y="100" text-anchor="middle" class="fig-sub">碰不到桶——桶不能等 Fetch</text>
-              <text x="567" y="124" text-anchor="middle" class="fig-sub">没进 Top-N 的文档仍是桶的主力</text>
-              <text x="380" y="162" text-anchor="middle" class="fig-sub">两列无箭头:不是先后状态机,是同一趟请求里两个相位各拿各的</text>
-            </svg>
-          </div>
-          <figcaption>图 1 · 聚合跟 hits 同车回来,不走 Fetch。所以 <code>QuerySearchResult</code> 里 <code>aggregations</code> 那一行「可能很大」——桶在 Query 阶段就必须完整存在。</figcaption>
-        </figure>
-
-        <p>聚合本身三类,一张表够,不要画成三列箭头网:</p>
-        <table class="ktable">
-          <tr><th>类型</th><th>输入</th><th>输出</th><th>本课主例子</th></tr>
-          <tr><td><strong>Bucket</strong></td><td>命中文档</td><td>若干桶(每桶一组文档)</td><td><code>terms</code> 按 category / fruit</td></tr>
-          <tr><td><strong>Metric</strong></td><td>一个桶里的文档</td><td>一个数(或一组数)</td><td>桶上的 <code>avg(price)</code></td></tr>
-          <tr><td><strong>Pipeline</strong></td><td><strong>已经 reduce 完的</strong>聚合树</td><td>再算出的新聚合</td><td><code>bucket_sort</code>、<code>max_bucket</code>,final reduce 之后才跑</td></tr>
-        </table>
-        <p>Bucket 改变「文档怎么分组」,Metric 改变「这一组得出什么数」,嵌套时数据方向是父桶 → 子指标;Pipeline 不进这张对照——它吃的是别的聚合的<strong>结果</strong>,不是原始文档,所以看不到被 <code>size</code> 截掉的桶。</p>
-
-        <h2>2. 关键源码文件</h2>
-        <table class="ktable">
-          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
-          <tr><td><code>search/aggregations/Aggregator.java</code></td><td>shard 上的执行器:收集完 <code>buildTopLevel()</code>(断言无 parent)→ 可跨节点传送的 <code>InternalAggregation</code></td></tr>
-          <tr><td><code>search/aggregations/InternalAggregations.java</code></td><td>协调节点入口:<code>reduce</code> / <code>topLevelReduce</code> 按聚合名字归组;final reduce 之后才跑 Pipeline</td></tr>
-          <tr><td><code>search/aggregations/bucket/BucketUtils.java</code></td><td>默认 <code>shardSize</code>:<code>(int) min(MAX, size * 1.5 + 10)</code></td></tr>
-          <tr><td><code>search/aggregations/bucket/terms/TermsAggregatorFactory.java</code></td><td>用户没写 <code>shard_size</code> 且不是按 key 排序时,才套启发式</td></tr>
-          <tr><td><code>search/aggregations/bucket/terms/AbstractInternalTerms.java</code></td><td>同 key 桶把 <code>doc_count</code> 相加;final reduce 用 <code>TopBucketBuilder</code> 截 <code>requiredSize</code>(即请求里的 size)</td></tr>
-        </table>
-        <p>对照时打开即可、不必进表:<code>AggregationBuilder</code>(JSON 解析后的构建器)、<code>AggregationPhase</code> / <code>AggregatorCollector</code>(数据节点挂 Lucene collector,<code>doPostCollection</code> 调 build)、<code>StringTerms</code>(<code>getLeaderReducer → termsAggregationReducer</code>)、<code>GlobalOrdinalsStringTermsAggregator</code>(keyword 默认实现,优先队列长 <code>shardSize</code>)、<code>QueryPhaseResultConsumer</code>(协调节点调 topLevelReduce)。</p>
-
-        <h2>3. 三层对象:一份 JSON 怎样变成能收集文档的 Aggregator</h2>
-        <p><code>{"aggs":{"by_fruit":{"terms":{"field":"fruit","size":2}}}}</code> 在协调节点解析成 <code>TermsAggregationBuilder</code>(名字 by_fruit,<code>requiredSize=2</code>,<code>shardSize</code> 还是哨兵 <code>-1</code>),随 SearchRequest 发到每个数据节点。数据节点上要的不是 builder,是能进 Lucene collector 的 Aggregator:</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 275" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah19b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="230" y="15" width="300" height="48" rx="9" class="fig-box"/>
-              <text x="380" y="36" text-anchor="middle" class="fig-name">AggregationBuilder</text>
-              <text x="380" y="56" text-anchor="middle" class="fig-sub">只描述「要什么」:size=2,shardSize=-1</text>
-              <line x1="380" y1="63" x2="380" y2="77" class="fig-arrow" marker-end="url(#ah19b)"/>
-              <rect x="205" y="81" width="350" height="48" rx="9" class="fig-box"/>
-              <text x="380" y="102" text-anchor="middle" class="fig-name">AggregatorFactory</text>
-              <text x="380" y="122" text-anchor="middle" class="fig-sub">innerBuild 按字段类型选出实现</text>
-              <line x1="380" y1="129" x2="380" y2="143" class="fig-arrow" marker-end="url(#ah19b)"/>
-              <rect x="205" y="147" width="350" height="48" rx="9" class="fig-box"/>
-              <text x="380" y="168" text-anchor="middle" class="fig-name">Aggregator(= BucketCollector)</text>
-              <text x="380" y="188" text-anchor="middle" class="fig-sub">Lucene 每碰一个命中就记一笔账</text>
-              <line x1="380" y1="195" x2="380" y2="209" class="fig-arrow" marker-end="url(#ah19b)"/>
-              <rect x="205" y="213" width="350" height="48" rx="9" class="fig-box-hot"/>
-              <text x="380" y="234" text-anchor="middle" class="fig-name">InternalAggregation</text>
-              <text x="380" y="254" text-anchor="middle" class="fig-sub">buildTopLevel 出 StringTerms,随 Query 结果上网</text>
-            </svg>
-          </div>
-          <figcaption>图 2 · Builder 描述请求 → Factory 按字段选实现 → Aggregator 碰文档 → 网上走的是 <code>InternalAggregation</code>,不是 Aggregator 本身。网上传输与执行的边界就在第 3、4 层之间。</figcaption>
-        </figure>
-
-        <pre class="code-block"><code>// AggregatorFactories.build(节选)——SearchService 建 SearchContext 时跑
-for (AggregationBuilder agg : aggregationBuilders) {
-    aggFactories[i] = agg.build(context, parent);   // terms → TermsAggregatorFactory
-}</code></pre>
-        <p>keyword / IP 走 bytes 供应商(默认 <code>ExecutionMode.GLOBAL_ORDINALS</code>,没有序数才 MAP);numeric / date / boolean 走 <code>NumericTermsAggregator</code>(<code>LongHash</code>)。Query 开始前 <code>AggregationPhase.preProcess → createTopLevelAggregators()</code>:每个 factory <code>create(parent=null)</code>;顶层聚合的 <code>owningBucketOrd</code> 只有 0——「恰好一个父桶」,就是整次搜索的命中集。收集结束不在 Aggregator 自己的 close 里出结果,而在:</p>
-        <pre class="code-block"><code>// AggregatorCollector.doPostCollection(节选)
-for (Aggregator aggregator : aggregators) {
-    internalAggregations.add(aggregator.buildTopLevel());
-    aggregator.releaseAggregations();   // 立刻还字节——Aggregator 不再需要
-}
-
-// Aggregator.buildTopLevel:顶层专用,断言没有 parent
-assert parent() == null;
-return buildAggregations(newLongArray(1))[0];   // 对唯一的 owning ordinal 0 出结果</code></pre>
-        <p>子聚合不能走这条:父聚合知道自己的优先队列留下了哪些桶,把那些桶的 ordinal 数组传进 <code>buildAggregations(ordsToCollect)</code>。这就是 <code>size=2</code> 的 terms 套 <code>avg</code> 时,avg 不会对「没进 shard 本地 top」的值再算一遍的原因——那些桶在父的 build 里已经被丢掉了。同一 shard 若切成多个 Lucene slice 并行搜,<code>AggregatorCollectorManager.reduce</code> 会先做一次分片内 partial reduce,再交给协调节点——主路径仍是:每个 shard 组交出一棵局部树。</p>
-
-        <h2>4. 深潜:size=2 时,cherry 为什么会被挤掉</h2>
-        <p>两个单分片索引合搜,<code>{"size":0,"aggs":{"top":{"terms":{"field":"fruit","size":2}}}}</code>。两片上的真实词频:</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg">
-              <rect x="15" y="15" width="355" height="118" rx="10" class="fig-box"/>
-              <text x="192" y="40" text-anchor="middle" class="fig-name">shard 0 真实词频</text>
-              <text x="192" y="70" text-anchor="middle" class="fig-key">apple:6 banana:3 cherry:2</text>
-              <text x="192" y="96" text-anchor="middle" class="fig-sub">cherry 本地第 3</text>
-              <text x="192" y="118" text-anchor="middle" class="fig-sub">11 篇,3 个值</text>
-              <rect x="390" y="15" width="355" height="118" rx="10" class="fig-box"/>
-              <text x="567" y="40" text-anchor="middle" class="fig-name">shard 1 真实词频</text>
-              <text x="567" y="70" text-anchor="middle" class="fig-key">date:4 apple:4 cherry:3</text>
-              <text x="567" y="96" text-anchor="middle" class="fig-sub">cherry 本地第 3</text>
-              <text x="567" y="118" text-anchor="middle" class="fig-sub">11 篇,3 个值</text>
-              <rect x="15" y="148" width="730" height="48" rx="10" class="fig-box-hot"/>
-              <text x="380" y="168" text-anchor="middle" class="fig-key">全局真实:apple:10 cherry:5 date:4 banana:3</text>
-              <text x="380" y="188" text-anchor="middle" class="fig-sub">cherry 两边都是本地第 3,加起来却是全局第 2</text>
-            </svg>
-          </div>
-          <figcaption>图 3 · 反例账本。若每片只回 2 桶:shard 0 送 apple/banana、shard 1 送 date/apple,cherry 两边都被丢——合并 apple:10、date:4,<strong>全局第 2 名 cherry:5 失踪</strong>。</figcaption>
-        </figure>
-
-        <p>把这场挤掉连起来看:</p>
-        <div class="fp-slot" data-flow="ch19-shard-size"></div>
-
-        <p>默认策略是过采样,公式一行:</p>
-        <pre class="code-block"><code>// BucketUtils.suggestShardSideQueueSize
-final long shardSampleSize = (long) (finalSize * 1.5 + 10);   // 多要 50% + 给小 size 的常数垫
-return (int) Math.min(Integer.MAX_VALUE, shardSampleSize);</code></pre>
-        <p>谁在什么时候套:<code>TermsAggregatorFactory.adjustBucketCountThresholds</code>——只在哨兵 <code>shardSize == -1</code>(用户没写)且<strong>不是按 key 排序</strong>时。两条例外:① 用户显式写了 <code>shard_size</code>,启发式不跑(实验 9 故意写 2 制造挤掉);② 按 <code>_key</code> 排序不存在「按 count 排名被分布式计数弄错」的问题,不套,随后 <code>ensureValidity</code> 发现 <code>-1 &lt; requiredSize</code>,把 shardSize 抬到至少等于 size。不变量:<strong>每个 shard 送回的桶数至少是 size</strong>,否则连填满全局 Top-size 都做不到。</p>
-        <p>shard 上的截断发生在 <code>buildAggregations</code>,不是收集时提前只记 2 个词。keyword 默认实现把优先队列长度设成 <code>min(valueCount, shardSize)</code>:收集阶段仍给出现过的每个全局序数计数;出结果时只弹出队列里的 Top-shardSize,被挤出队列的桶 <code>doc_count</code> 累加进 <code>sum_other_doc_count</code>——所以 <code>shard_size=2</code> 的响应里常看到它 &gt; 0;打开 <code>show_term_doc_count_error</code> 还能看到 <code>doc_count_error_upper_bound</code>:「没被送上来的桶最多可能有多少文档」的上界,不是精确误差。过采样把上界压小,但压不成理论 0——除非 shardSize 大到每片全量回传。</p>
-
-        <h2>5. 协调节点 reduce:同名桶相加,再截 size</h2>
-        <pre class="code-block"><code>// InternalAggregations.reduce(节选)——QueryPhaseResultConsumer 收齐各 shard 后调
-if (aggregationsList.size() == 1) {
-    return reduce(aggregationsList.getFirst(), context);   // 单份仍可能 reduce,见下
-}
-try (AggregatorsReducer reducer = new AggregatorsReducer(...)) {
-    for (InternalAggregations aggregations : aggregationsList) { reducer.accept(aggregations); }
-    return reducer.get();
-}
-
-// AggregatorsReducer.accept:按「聚合名字」(请求 JSON 里那个 key)归组
-AggregatorReducer reducer = aggByName.computeIfAbsent(
-    aggregation.getName(), k -> aggregation.getReducer(context.forAgg(k), size));
-reducer.accept(aggregation);</code></pre>
-        <p>keyword terms 的 leader reducer 落在 <code>StringTerms.getLeaderReducer → termsAggregationReducer</code>(<code>AbstractInternalTerms</code>)。同 key 合并时 <code>doc_count</code> 加总、子聚合递归 reduce;final reduce(那一次 <code>isFinalReduce()</code> 为真)用 <code>TopBucketBuilder</code> 只留 <code>requiredSize</code> 个——这才是请求里的 <code>size</code>,不是 shardSize。partial reduce(slice 之间、<code>batched_reduce_size</code> 触发的中间合并不按 size 截到最终窗口,只是先加起来省内存;Pipeline 也在 final 之后才跑,看不到被 size 丢掉的桶。即使只有 1 个 shard,terms 仍会 <code>mustReduceOnSingleInternalAgg() == true</code>:单 shard 时 shardSize=13 带回 13 桶,协调节点还得截成 2、处理 min_doc_count 与 pipeline——「单 shard 跳过 reduce」不成立。</p>
-        <table class="ktable">
-          <tr><th></th><th>Query 阶段每 shard 回什么</th><th>协调节点留下什么</th><th>默认公式</th></tr>
-          <tr><td>hits</td><td><code>from+size</code> 条 (docId,score)</td><td>全局窗口 size 条,再 Fetch _source</td><td><code>from+size</code>(第 16 课,严格)</td></tr>
-          <tr><td>terms</td><td>最多 <code>shardSize</code> 个桶(含 doc_count、子聚合)</td><td>全局 size 个桶;<strong>没有</strong>第二阶段补桶</td><td><code>size×1.5+10</code>(未指定且非 key 序,近似)</td></tr>
-        </table>
-        <p>hits 能严格保证,是因为排名键是可比较的 score:全局第 k 名一定落在某 shard 的本地前 k 名里。terms 按 count 加总:一个 key 的全局 count 依赖<strong>所有</strong> shard 上该 key 的局部 count,本地第 3 仍可能合计成全局第 2——协调节点看不见的 key,reduce 永远加不回来。</p>
-
-        <h2>6. 高基数与速查:执行期追踪的是全部值</h2>
-        <p><code>size=2</code> 只限制<strong>返回</strong>和<strong>跨节点传送</strong>。收集阶段 <code>GlobalOrdinalsStringTermsAggregator</code> 仍要给见过的每个全局序数记账:一百万个不同 user_id 就是一百万个计数器,哪怕只要 Top-10。这和 cherry 不是一件事——cherry 是「送少了排名错」,高基数是「还没上网,堆上已经胀了」。保护机制是 <code>AggregatorBase</code> 向 request circuit breaker 记账(每个聚合先挂约 5kb 的 DEFAULT_WEIGHT,数组扩张再 <code>addEstimateBytesAndMaybeBreak</code>);怎么撞、95% 水位,第 25 课拆。子聚合收集方式也有权衡:桶多时倾向 <code>breadth_first</code>(先建父桶、截完 Top-shardSize 再重放文档算子聚合),<code>depth_first</code> 单次扫描但子聚合跟着每个父桶走;嵌套在 nested 下或子聚合要分数时强制后者。</p>
-        <table class="ktable">
-          <tr><th>类型</th><th>聚合</th><th>这一课需要记住的</th></tr>
-          <tr><td>Bucket</td><td><code>terms</code></td><td>size vs shardSize;本课主路径</td></tr>
-          <tr><td>Bucket</td><td><code>range</code> / <code>histogram</code> / <code>date_histogram</code></td><td>桶 key 事先知道,没有排名误差、没有过采样</td></tr>
-          <tr><td>Bucket</td><td><code>filters</code> / <code>nested</code></td><td>过滤器分桶;进嵌套文档</td></tr>
-          <tr><td>Metric</td><td><code>sum</code> / <code>avg</code> / <code>min</code> / <code>max</code> / <code>stats</code></td><td>挂在桶下;reduce 时对同名桶再合并</td></tr>
-          <tr><td>Metric</td><td><code>cardinality</code></td><td>去重近似(HyperLogLog),不是 terms</td></tr>
-          <tr><td>Metric</td><td><code>percentiles</code> / <code>top_hits</code></td><td>近似分位;每桶 Top-N 文档</td></tr>
-          <tr><td>Pipeline</td><td><code>bucket_sort</code> / <code>max_bucket</code> / <code>cumulative_sum</code></td><td>final reduce 之后才跑</td></tr>
-        </table>
-      </section>
-
-      <section class="drills">
-        <h2>动手实验</h2>
-        <p>三条线:<code>tut-l19-shop</code> 做 Bucket 套 Metric 与「桶 key 事先定」的对照;<code>tut-l19-s0</code> + <code>tut-l19-s1</code> 两个单分片索引合搜,把动画里的 cherry 账本在真实 ES 上跑一遍(真实全局 → 故意 shard_size=2 挤掉 → 默认 13 救回 → ensureValidity 抬底);<code>tut-l19-card</code> 20 个唯一 user_id 看「size 只管返回,不管收集」。</p>
-
-        <h3>实验 0-3:小店,Bucket 套 Metric</h3>
-        <div class="exp-slot" data-exp="ch19-00-setup-shop"></div>
-        <div class="exp-slot" data-exp="ch19-01-bulk-shop"></div>
-        <div class="exp-slot" data-exp="ch19-02-terms-avg"></div>
-        <div class="exp-slot" data-exp="ch19-03-fixed-keys"></div>
-
-        <h3>实验 4-7:深潜数据,两份局部词频</h3>
-        <div class="exp-slot" data-exp="ch19-04-setup-s0"></div>
-        <div class="exp-slot" data-exp="ch19-05-setup-s1"></div>
-        <div class="exp-slot" data-exp="ch19-06-bulk-s0"></div>
-        <div class="exp-slot" data-exp="ch19-07-bulk-s1"></div>
-
-        <h3>实验 8-11:cherry 失踪与救回</h3>
-        <div class="exp-slot" data-exp="ch19-08-true-global"></div>
-        <div class="exp-slot" data-exp="ch19-09-shard-size-2"></div>
-        <div class="exp-slot" data-exp="ch19-10-default"></div>
-        <div class="exp-slot" data-exp="ch19-11-size3-shard2"></div>
-
-        <h3>实验 12-15:高基数与 breaker 边界</h3>
-        <div class="exp-slot" data-exp="ch19-12-setup-card"></div>
-        <div class="exp-slot" data-exp="ch19-13-bulk-card"></div>
-        <div class="exp-slot" data-exp="ch19-14-card-terms"></div>
-        <div class="exp-slot" data-exp="ch19-15-breakers"></div>
-
-        <h3>清理</h3>
-        <div class="exp-slot" data-exp="ch19-16-cleanup"></div>
-
-        <h2>思考题</h2>
-        <details>
-          <summary>1. 仍用 s0+s1 词频:请求 size=3 且显式 shard_size=2,ensureValidity 会把 shardSize 抬到几?抬完之后三个桶是谁?cherry 在不在?</summary>
-          <div class="answer">
-            <p>抬到 <strong>3</strong>——不变量是 <code>shardSize ≥ size</code>,不是「保持用户写的 2」。每片回本地 Top-3:s0 送 apple/banana/cherry,s1 送 date/apple/cherry;cherry 两边都在,合并 apple:10、cherry:5、date:4,cherry 在。若不抬,s0 只回 2 个,cherry 失踪,连全局第 3 都会错——这正是那条源码注释要防的(实验 11 验证)。</p>
-          </div>
-        </details>
-        <details>
-          <summary>2. 为什么不能让每 shard 只回 size 个桶、指望协调节点凑出全局 Top-size?hits 的 from+size 为什么能严格保证、terms 不能?</summary>
-          <div class="answer">
-            <p><code>shardSize = size</code> 只保证「各片本地第 1」进得了候选,不保证全局第 size 名进得了:cherry 在两片都排第 3,各回 2 个就把真正的第 2 丢了。不变量是<strong>协调节点看不见的 key,reduce 无法凭空加回来</strong>。hits 的排名键是可比较的 score,全局第 k 名必在某片本地前 k;terms 的全局 count 依赖所有片上的局部 count,除非全量回传,只能过采样近似。</p>
-          </div>
-        </details>
-        <details>
-          <summary>3. 默认 size×1.5+10、shard_size=size、极大 shard_size,各在付什么换什么?高基数字段上选「极大 shard_size」和选默认比,谁先撞第 25 课的 breaker?</summary>
-          <div class="answer">
-            <p>默认:付每片多传约 50%+10 桶的网卡与协调内存,换小 size 时很难丢全局前几。shard_size=size:付排名可能错(date 顶替 cherry),换传输最少。极大 shard_size:付每片几乎全量序列化,换误差上界趋近 0——但<strong>收集期</strong>该胀的数组已经胀过了,高基数先撞的是数据节点上 Aggregator 的 request breaker,与 shard_size 写 13 还是极大关系不大。要降高基数内存:换 cardinality、加 include/min_doc_count、或别对 user_id 做 terms——把 size 写成 2 不省内存(实验 14 的 18 个 sum_other 就是证据)。</p>
-          </div>
-        </details>
-      </section>
-
-      <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 把 size 当每 shard 的配额:</span>size 是客户端要的<strong>全局</strong>桶数;每片默认送 size×1.5+10。以为「size=10 每片就只算 10 个值」和实验 14 的 18 个 sum_other 撞个正着——收集期跟基数走,不跟 size 走。</div>
-        <div class="callout warn"><span class="co-title">🕳 shard_size 写小了还信排名:</span>shard_size=size 时全局第 2 可以在每片都只排第 3,cherry 就这么失踪。响应里的 sum_other_doc_count / doc_count_error_upper_bound 是「丢了的账」,不是修正;要的是过采样,不是读账。</div>
-        <div class="callout warn"><span class="co-title">🕳 以为单 shard 就跳过 reduce:</span>terms 的 <code>mustReduceOnSingleInternalAgg() == true</code>——单 shard 时 shardSize=13 带回 13 桶,还得截成 size、跑 pipeline。reduce 不只是「跨节点相加」。</div>
-        <div class="callout warn"><span class="co-title">🕳 给 range/histogram 套过采样心智:</span>它们的桶 key 在请求里就定了(区间、日历间隔),各 shard 回同一组 key,协调节点只加总——没有 cherry 问题,也没有 shardSize。</div>
-        <div class="callout warn"><span class="co-title">🕳 指望 pipeline 看到被截掉的桶:</span>pipeline 吃的是 final reduce <strong>之后</strong>的树,被 size 丢掉的桶它根本看不见。想对完整桶集做排序/统计,先放大 size。</div>
-      </section>
-
-      <section class="recap">
-        <h2>速记</h2>
-        <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>本课位置</td><td>聚合跟 hits 同一趟 Query 回来,不走 Fetch;桶在 Query 阶段必须完整存在</td></tr>
-          <tr><td>三层对象</td><td>Builder 描述请求 → Factory 按字段选实现 → Aggregator 收集 → buildTopLevel 出 InternalAggregation 上网</td></tr>
-          <tr><td>size vs shardSize</td><td>size=全局留几桶;每片默认送 size×1.5+10(没写 shard_size 且非 key 序);shardSize ≥ size 兜底</td></tr>
-          <tr><td>cherry 反例</td><td>两片都本地第 3,合计全局第 2;每片只回 2 桶 → 失踪,reduce 加不回来</td></tr>
-          <tr><td>reduce</td><td>按聚合名归组 → 同 key doc_count 相加 → final reduce 截 requiredSize;pipeline 在 final 之后</td></tr>
-          <tr><td>高基数</td><td>收集期追踪全部出现过的值;sum_other 是「收集了但被丢」的账;breaker 第 25 课</td></tr>
-        </table>
-        <p><strong>心法:size 管全局留下谁,shardSize 管每片送来谁;协调节点看不见的 key,永远加不回来。</strong></p>
-      </section>
-
-      <footer class="ch-footer">
-        <button class="read-toggle" type="button">标记本课已读</button>
-        <div class="pager">
-          <a href="ch18.html">← 第 18 课:查询语法</a>
-          <a href="ch20.html">第 20 课:评分与排序 →</a>
-        </div>
-      </footer>
-    </article>
-  </main>
-
-  <script src="../experiments/ch19.js"></script>
-  <script src="../assets/js/nav.js"></script>
-  <script src="../assets/js/es-client.js"></script>
-  <script src="../assets/js/flow-player.js"></script>
-  <script src="../assets/js/experiments.js"></script>
-  <script src="../assets/js/progress.js"></script>
-</body>
-</html>
+<html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>第 19 课：聚合框架 — ES 源码精读站</title>
+<link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
+<style>
+#diagram-ch19-aggregation-journey { --diagram-height: 790px; --diagram-mobile-height: 540px; }
+#diagram-ch19-terms-candidates { --diagram-height: 790px; --diagram-mobile-height: 540px; }
+#ch19 h2[id], #ch19 h3[id], #ch19 .fp-slot { scroll-margin-top: 90px; }
+#ch19 .ktable { display: block; overflow-x: auto; }
+#ch19 .source-table td:first-child { min-width: 260px; }
+#ch19 .source-table td:nth-child(2) { min-width: 260px; }
+#ch19 .fp-stage { overflow-x: auto; }
+#ch19 .fp-stage svg { min-width: 700px; }
+</style></head>
+<body class="chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a><nav class="tnav"><a href="../index.html">课程</a><a href="../architecture.html">架构</a><a href="../console.html">控制台</a><a href="../cheatsheet.html">速查表</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="ch19" data-ch="ch19">
+<header class="ch-header"><div class="ch-kicker">LESSON 19 · 第四篇 · 搜索查询</div><span class="visual-badge">收集、归并与候选误差</span><h1>聚合框架</h1>
+<p class="ch-intro">搜索只返回一条商品，为什么分面仍能统计整家店？每片只送两个桶，为什么全局第二名会消失？聚合先在分片形成局部统计，再由协调角色归并；窗口限制、候选截断和执行期内存属于不同边界。沿着一棵聚合树，分别验证这三件事。</p>
+<div class="ch-meta-line">约 25 分钟 · 前置：第 11、16、18 课 · 3 组实验 / 30 张操作卡（含清理） · 2 幅交互图（2 条路径动画） / 1 个六步机制动画</div>
+<nav class="diagram-jumps" aria-label="图解跳转"><a href="#fig-ch19-aggregation-journey"><span>01</span>描述到归并</a><a href="#fig-ch19-terms-candidates"><span>02</span>候选与全局第二</a><a href="#terms-mechanism"><span>▶</span>六步演算</a><a href="#experiments"><span>API</span>动手验证</a></nav>
+<details class="chapter-outline"><summary>本课目录</summary><nav aria-label="本课目录"><a href="#scope">19.1 聚合统计谁</a><a href="#journey">19.2 描述到执行</a><a href="#candidates">19.3 terms 候选截断</a><a href="#reduce">19.4 指标与 Pipeline</a><a href="#memory">19.5 基数与资源</a><a href="#source-map">源码入口</a><a href="#experiments">实验与重做</a><a href="#questions">思考题</a></nav></details></header>
+<section class="goal"><h2>学习目标</h2><ul><li>用 size=1、size=0 与 query 过滤三个请求，区分 hits 窗口和普通顶层聚合的输入范围。</li><li>计算两片 fruit 的全局排名，预测 shard_size=2、默认容量和 _key 排序的桶、sum_other 与误差上界，并用真实响应对照。</li><li>沿 Builder → Factory → Aggregator → InternalAggregation → reduce 找到执行与结果边界；用加权 avg、bucket_sort 和 profile 验证归并、派生及策略差异。</li></ul></section>
+<section class="lesson">
+<h2 id="scope">19.1 返回一条 hit，聚合为什么仍有八篇？</h2>
+<p>本章限定 ES <strong>9.4.0 / Lucene 10.4.0</strong> 的普通搜索，主例为单值 keyword 的 terms，默认按 <code>_count:desc</code> 排序，无采样、global、min_score、terminate_after 或分片失败。聚合在 Query 阶段统计主查询范围，不是对最终 hits 列表做一次 GROUP BY。A6 只返回一条最便宜的商品，三个 category 桶仍计数 3、3、2；A7 把 query 限定为 books，聚合输入才缩到三篇。</p>
+<p>顶层 <code>size</code> 控制 hits 数，<code>terms.size</code> 控制最终桶数，是两个不同参数。<code>size:0</code> 不取 hits，普通桶/数值聚合仍执行。第 18 课的 post_filter 只约束 hits 收集，普通顶层聚合保留主 query 的范围；global、nested、filter 等聚合则各自定义范围，不能都称“所有命中文档”。</p>
+<table class="ktable"><tr><th>聚合类别</th><th>读取什么</th><th>本章例子</th></tr><tr><td>Bucket</td><td>在当前范围按规则分组；文档可进入多个桶</td><td>terms(category)、range(price)</td></tr><tr><td>Metric</td><td>当前范围内合格字段值；缺失和多值按聚合规则处理</td><td>avg(price)、sum、value_count</td></tr><tr><td>Pipeline</td><td>普通聚合结果；不重新遍历原文档</td><td>bucket_sort 重排已保留的桶</td></tr></table>
+<p>普通聚合结果随 <code>QuerySearchResult</code> 返回，之后还需全局 reduce。它不依赖主 hits 的 Fetch 来补齐统计；但“所有聚合绝不取字段”也过强：<code>top_hits</code> 聚合在分片构建自己的命中结果时会执行取字段工作。概念图省略这条专用路径。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/AggregationPhase.java#L26-L60" target="_blank" rel="noopener">Query 聚合注册</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/metrics/TopHitsAggregator.java#L199-L231" target="_blank" rel="noopener">top_hits 自己取结果</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/metrics/TopHitsAggregator.java#L252-L265" target="_blank" rel="noopener">专用 Fetch</a>。
+<h2 id="journey">19.2 从描述到执行，跨节点返回的是哪层对象？</h2>
+<p>请求中的 <code>by_fruit</code> 是聚合名称，terms 的 field、size 等成为 <code>TermsAggregationBuilder</code> 的配置。分片上下文建立工厂树，Factory 按字段供应商、父桶条件和参数创建 Aggregator。Builder 描述要什么，Factory 装配实现，Aggregator 负责统计，InternalAggregation 携带可归并的结果；这是四种职责，不是同一对象换名字。</p>
+<figure class="fig archify-figure" id="fig-ch19-aggregation-journey"><div class="archify-shell"><div class="archify-tools"><span class="archify-label">01 · 聚合描述怎样成为可归并结果</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch19-aggregation-journey">↻ 重新播放</button><a href="../.archify/workflow-ch19-aggregation-journey-20261012-205114/aggregation-journey.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div><iframe class="archify-frame" id="diagram-ch19-aggregation-journey" title="聚合描述怎样成为可归并结果" loading="lazy" src="../.archify/workflow-ch19-aggregation-journey-20261012-205114/aggregation-journey.html?theme=light&amp;present=1"></iframe></div><figcaption>箭头表示构建、局部结果传递与归并；三个分组表示职责阶段，不是三个独立物理节点。限定普通 terms；省略 hits、网络编解码、失败分支和 top_hits。可先做分片 slice 或协调批次的 partial reduce，图只突出最终结果路径。<span class="figure-tip">点击节点查看关系和固定版本源码；可暂停、重播或展开图解。手机显示完整概览，细字可探索或展开缩放。</span></figcaption></figure><p><code>AggregationPhase.preProcess</code> 注册 collector manager；<code>newAggregatorCollector</code> 创建顶层执行器并 preCollection。普通收集时，叶子 collector 遍历合格文档/字段值。收集结束由 <code>AggregatorCollector.doPostCollection</code> 调 <code>buildTopLevel()</code> 得到局部树，再释放执行器的相关状态；这不表示结果树也消失。顶层只有 owning bucket ordinal 0，子聚合由父聚合传入所需桶的 ordinals 构建结果。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/AggregatorCollector.java#L44-L53" target="_blank" rel="noopener">收集后构建与释放</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/Aggregator.java#L155-L163" target="_blank" rel="noopener">顶层结果入口</a>。
+<details><summary>字段与子聚合选择：没有一个固定的 keyword 执行器</summary><div class="answer"><p>bytes 供应商通常选择 global_ordinals；不支持序数时用 map。9.4.0 还有条件性的 filter-by-filter 适配、低基数、dense/remap 等路径，所以 profile 可能显示 StringTermsAggregatorFromFilters。数值/日期等使用 NumericTermsAggregator，并区分浮点和整数结果策略。选择实现的是工厂的供应商/创建逻辑；Builder 的 innerBuild 是构建 Factory。</p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregatorFactory.java#L95-L150" target="_blank" rel="noopener">bytes 选择</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregatorFactory.java#L175-L232" target="_blank" rel="noopener">numeric 选择</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregatorFactory.java#L449-L592" target="_blank" rel="noopener">global ordinals 优化分支</a><p>breadth_first 可推迟不参与排序的子聚合，只对入选父桶重放；depth_first 则在主收集时维护子聚合。不能说“avg 总是等父桶截完才开始算”。强制 depth_first 的条件包括<strong>子聚合需要分数且祖先为 nested</strong>，或按时间序列排序执行；不是满足任意一项就都强制。</p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregator.java#L213-L226" target="_blank" rel="noopener">强制模式条件</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregator.java#L269-L272" target="_blank" rel="noopener">不延迟用于排序的子聚合</a></div></details>
+<h2 id="candidates">19.3 每片只送两桶，全局第二名为什么丢失？</h2>
+<p>B 组把词频放在两个单主分片索引上，避免 routing 改变分布。固定 ID、显式 refresh 后局部/全局响应如下。每文档一个 fruit；这里 doc_count 的求和才可以按一篇一次来读。</p>
+<table class="ktable"><tr><th>范围</th><th>局部/全局词频</th><th>cherry 名次</th></tr><tr><td>s0：11 篇</td><td>apple6、banana3、cherry2</td><td>本地第三</td></tr><tr><td>s1：11 篇</td><td>apple4、date4、cherry3</td><td>本地第三；apple/date 同 count 按 key 排</td></tr><tr><td>合计：22 篇</td><td>apple10、cherry5、date4、banana3</td><td>全局第二</td></tr></table>
+<figure class="fig archify-figure" id="fig-ch19-terms-candidates"><div class="archify-shell"><div class="archify-tools"><span class="archify-label">02 · 候选容量怎样改变全局第二名</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch19-terms-candidates">↻ 重新播放</button><a href="../.archify/workflow-ch19-terms-candidates-20261012-205114/terms-candidates.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div><iframe class="archify-frame" id="diagram-ch19-terms-candidates" title="候选容量怎样改变全局第二名" loading="lazy" src="../.archify/workflow-ch19-terms-candidates-20261012-205114/terms-candidates.html?theme=light&amp;present=1"></iframe></div><figcaption>上下两段是对同一数据发出的独立请求；不会自动从上段补发到下段。箭头表示候选选取与结果归并。size=2，显式容量2让cherry从两片候选中消失；默认容量13在本例覆盖全部值。统计数字来自本课真实响应，不能当作任意数据上的精度保证。<span class="figure-tip">点击节点查看关系和固定版本源码；可暂停、重播或展开图解。手机显示完整概览，细字可探索或展开缩放。</span></figcaption></figure><h3 id="terms-mechanism">六步演算：先计数，后选候选，再归并</h3><div class="fp-slot" data-flow="ch19-shard-size"></div>
+<p>默认候选容量在未显式选择 shard_size 且非 _key 排序时计算：<code>min(Integer.MAX_VALUE, floor(size×1.5+10))</code>；size=2 得13。然后 <code>ensureValidity</code> 把容量下限抬到 size。它约束的是<strong>容量</strong>，不是实际返回桶数：字段只有一个值、min_doc_count 或过滤条件，都可能让响应少于 size。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/BucketUtils.java#L26-L34" target="_blank" rel="noopener">公式与取整</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregatorFactory.java#L294-L305" target="_blank" rel="noopener">默认容量条件</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregator.java#L91-L111" target="_blank" rel="noopener">参数有效性</a>。
+<p>普通序数路径在构建局部结果时使用至多 shardSize 的优先队列；size 小不等于从一开始只统计两个值。s0 丢 cherry2，s1 丢 cherry3；协调角色只能合并收到的 apple、banana、date，最终保留 apple10、date4，没有补桶的第二阶段。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/GlobalOrdinalsStringTermsAggregator.java#L555-L598" target="_blank" rel="noopener">局部候选队列</a>。
+<table class="ktable"><tr><th>真实请求</th><th>返回桶</th><th>sum_other</th><th>聚合误差上界</th></tr><tr><td>size2 / shard_size2</td><td>apple10、date4</td><td>8：局部丢 cherry5 + 最终丢 banana3</td><td>7；桶内 apple0、date3</td></tr><tr><td>size2 / 默认13</td><td>apple10、cherry5</td><td>7：date4 + banana3</td><td>0</td></tr><tr><td>size3 / shard_size2→3</td><td>apple10、cherry5、date4</td><td>3：banana3</td><td>5；本例实际计数仍准确</td></tr><tr><td>size2 / _key:asc</td><td>apple10、banana3</td><td>9：cherry5 + date4</td><td>0</td></tr></table>
+<p><code>sum_other_doc_count</code> 是 terms 阶段因候选/最终窗口截断而未返回桶的计数总和，不是遗漏 key 数，也不是内存分配量；多值字段里一篇可计入多个桶。<code>doc_count_error_upper_bound</code> 则是计数误差的保守上界。聚合级7不表示 apple/date 实际都少7篇；本例date实际完整，上界仍为3。9.4.0 在 count 降序下可能用满队列的末尾返回计数估计缺失上界，显式3恰好满队列，因此全量正确计数仍可伴随上界5。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java#L120-L140" target="_blank" rel="noopener">误差估计条件</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java#L250-L340" target="_blank" rel="noopener">累计与桶级误差</a>。
+<p>增加 shard_size 通常改善 count 降序候选覆盖，但不构成任意数据的精度证明。_key 排序解决的是“按 key 选桶”，不是 count 排名；本章默认 min_doc_count=1 下无需这条过采样启发式。按 count 升序或某些子指标排序，误差可能不可界定而返回 -1。不能把 count 降序的上界解释直接套到所有 order。</p>
+<h2 id="reduce">19.4 reduce 如何合并指标，Pipeline 能补回谁？</h2>
+<p>协调入口 <code>InternalAggregations.topLevelReduce</code> 先归并普通聚合；内部按聚合名称选择 reducer，terms 再按相同 key 合并 doc_count 并递归归并子聚合。默认 count 降序的 partial reduce 保留供后续合并的候选，final reduce 才按 requiredSize 与 min_doc_count 做最终选取；并不是“所有 partial 都永不裁桶”，_key 与默认计数门槛满足特例时可以提前限制结果。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java#L95-L117" target="_blank" rel="noopener">同 key 合并</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java#L283-L331" target="_blank" rel="noopener">key 特例与 final 选择</a>。
+<p>单片也需要最终处理：InternalMultiBucketAggregation 的 <code>mustReduceOnSingleInternalAgg()</code> 返回 true，单份输入仍可进入 reducer。C4 的20个唯一值只返回2个，sum_other=18包含了局部与最终窗口的丢弃，不能简单说18个都在分片优先队列中被丢。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/InternalMultiBucketAggregation.java#L198-L201" target="_blank" rel="noopener">单份多桶仍归并</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/InternalAggregations.java#L292-L313" target="_blank" rel="noopener">单份入口</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/AggregatorCollectorManager.java#L43-L54" target="_blank" rel="noopener">slice 部分归并</a>。
+<p>avg 不能直接平均各片均值。B15 只统计 apple：s0六个 price=1，s1四个 price=9，全局 sum42 / value_count10 = <strong>4.2</strong>；(1+9)/2=5把两片误当同权。InternalAvg 在结果中携带 sum 与 count，合并后再除；多值/缺失时 count 是参与计算的数值个数，不一定等于 doc_count。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/metrics/InternalAvg.java#L43-L47" target="_blank" rel="noopener">携带 sum/count</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/metrics/InternalAvg.java#L81-L101" target="_blank" rel="noopener">合并 sum/count</a>。
+<p>只有最终普通聚合归并后才执行 Pipeline。B13 的 terms size2 先保留 apple/cherry，bucket_sort 按 key 降序取1桶，只能得到 cherry5；B14 先保留4桶，同样排序才得到 date4。这两卡的sum_other仍分别为7与0：bucket_sort移除的桶不会重新回记到terms的sum_other，因此不能用它反推Pipeline之后全部未显示桶的计数。<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/aggregations/src/main/java/org/elasticsearch/aggregations/pipeline/BucketSortPipelineAggregator.java#L50-L83" target="_blank" rel="noopener">bucket_sort读取并重建桶列表</a>。Pipeline 没有向分片要新候选，所以也不能修复之前的漏桶。放大上游 size 只是扩大可见集合；若局部候选仍不足，仍不能保证完整。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/InternalAggregations.java#L227-L247" target="_blank" rel="noopener">最终 Pipeline 执行</a>。
+<h2 id="memory">19.5 高基数的代价，不能由返回两桶推算</h2>
+<p>C 组用20个唯一 user_id 演示逻辑基数与返回桶数：size2返回两个桶、sum_other18；size20返回20桶、sum_other0。它证明的是结果截断，不是20个实际计数器，更不是百万级压力测试。执行状态可能按字段全局序数空间、命中后 remap 哈希、父桶与子聚合增长，也可能改写成 filters。C6 用 profile 查看本轮实际选择的执行器，本轮两次profile均见 <code>StringTermsAggregatorFromFilters</code>，delegate为 <code>FilterByFilterAggregator</code>；这是当前小数据的观测，不能推广成所有keyword请求的默认实现。</p>
+<p>size、shard_size 会影响优先队列、候选序列化、协调内存和部分子聚合工作；不能说“缩小 size 完全不省内存”或“放大 shard_size 必定先撞某个 breaker”。高基数、命中比例、父桶数、收集策略、字段数据与节点并发一起决定消耗。min_doc_count 主要约束输出，不保证省去前期统计；cardinality 是近似去重指标，不能替代返回具体 key 的 terms。需要枚举大量 key 时应按需求考虑 composite 分页，而不是无界增大 size。</p>
+<p><code>AggregatorBase.DEFAULT_WEIGHT=5120</code> 是每个执行器的初始估计记账，后续另有状态分配；request、fielddata 与 parent 的保护边界不同。C7只读本地节点 breaker 状态，不改限额。tripped 为节点累计值，历史请求可非零；一张瞬时统计也不能恢复本次峰值。具体熔断机制留给第25课。</p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/AggregatorBase.java#L39-L42" target="_blank" rel="noopener">初始估计</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/AggregatorBase.java#L148-L158" target="_blank" rel="noopener">请求 breaker 记账</a>。
+<table class="ktable"><tr><th>聚合</th><th>怎样理解桶/结果</th></tr><tr><td>range</td><td>请求列出区间；可以重叠，不是每篇只能进一桶</td></tr><tr><td>histogram / date_histogram</td><td>字段值与数值/日历间隔产生 key；范围、空桶与 bounds 决定结果，不是请求预列全部 key</td></tr><tr><td>cardinality / percentiles</td><td>近似指标；误差机制不同于 terms 候选截断</td></tr><tr><td>top_hits</td><td>每桶选命中文档，含专用取字段工作</td></tr></table>
+<p>这些聚合不使用 terms 的 count Top-N 候选选择，不代表没有数值近似、桶数量限制、时区边界或资源成本。</p>
+<h3 id="source-map">五个核心源码入口</h3><table class="ktable source-table"><tr><th>文件 → 方法</th><th>本课阅读问题</th></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregatorFactory.java#L294-L343" target="_blank" rel="noopener">TermsAggregatorFactory.adjustBucketCountThresholds / doCreateInternal</a></td><td>容量何时调整，如何创建执行器？</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/AggregationPhase.java#L26-L60" target="_blank" rel="noopener">AggregationPhase.preProcess / newAggregatorCollector</a></td><td>如何进入 Query 收集？</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/AggregatorCollector.java#L44-L53" target="_blank" rel="noopener">AggregatorCollector.doPostCollection</a></td><td>何时构建结果、释放执行器？</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/AbstractInternalTerms.java#L283-L340" target="_blank" rel="noopener">AbstractInternalTerms reducer.get</a></td><td>什么时候截断，误差如何保留？</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/InternalAggregations.java#L227-L257" target="_blank" rel="noopener">InternalAggregations.topLevelReduce</a></td><td>普通聚合与 Pipeline 谁先执行？</td></tr></table><details><summary>版本与证据范围</summary><div class="answer"><p>链接固定到9.4.0构建提交；图节点来源由真实ES checkout核验。真实API为本机匿名单节点；多节点网络、并发slice、百万基数、故障与熔断未实测，正文对应结论仅据固定源码和明确条件。profile不是内存测量或完整请求计时。</p></div></details>
+</section><section class="drills"><h2 id="experiments">动手实验：按 A → B → C → 清理运行</h2>
+<p>前提：ES9.4.0，本机单节点 <code>http://localhost:9200</code>、无认证；若端点不同先配置连接。只使用本课四个 <code>tut-l19-*</code> 索引，须可由你创建/删除。创建显式1主0副、auto-expand=false、strict mapping、stored source、周期 refresh=-1、关闭 request cache、无默认/最终摄取管道；没有同名模板覆盖本例。健康卡成功后再bulk，固定ID+refresh=true消除搜索可见性竞态。</p>
+<p>首次创建200；重复创建400并不会清空数据。固定ID重复bulk为updated/200，不增加样本篇数，但也不删之前额外写入的文档。每卡先预测，再核对响应；本文数字是指定前提下的实测样本。若数据不符，先点名删除四索引，再从A1完整重做。清理将删除四索引全部数据；全部缺失时重复DELETE为404，资源已处于重做前提。</p>
+<h3>A · 小店分组、指标与查询范围（7卡）</h3><p>依次创建、等待、写8篇；看桶内avg、月份/区间，再比较1 hit与query缩小范围。</p>
+<div class="exp-slot" data-exp="ch19-00-setup-shop"></div>
+<div class="exp-slot" data-exp="ch19-17-wait-shop"></div>
+<div class="exp-slot" data-exp="ch19-01-bulk-shop"></div>
+<div class="exp-slot" data-exp="ch19-02-terms-avg"></div>
+<div class="exp-slot" data-exp="ch19-03-fixed-keys"></div>
+<div class="exp-slot" data-exp="ch19-18-hits-one"></div>
+<div class="exp-slot" data-exp="ch19-19-query-scope"></div>
+<h3>B · 两份局部词频、候选与归并（15卡）</h3><p>两索引创建后一起等待；各写11篇，先看局部和全量，再测容量2、默认13、抬底、key序、两次Pipeline及加权avg。</p>
+<div class="exp-slot" data-exp="ch19-04-setup-s0"></div>
+<div class="exp-slot" data-exp="ch19-05-setup-s1"></div>
+<div class="exp-slot" data-exp="ch19-20-wait-fruits"></div>
+<div class="exp-slot" data-exp="ch19-06-bulk-s0"></div>
+<div class="exp-slot" data-exp="ch19-07-bulk-s1"></div>
+<div class="exp-slot" data-exp="ch19-21-local-s0"></div>
+<div class="exp-slot" data-exp="ch19-22-local-s1"></div>
+<div class="exp-slot" data-exp="ch19-08-true-global"></div>
+<div class="exp-slot" data-exp="ch19-09-shard-size-2"></div>
+<div class="exp-slot" data-exp="ch19-10-default"></div>
+<div class="exp-slot" data-exp="ch19-11-size3-shard2"></div>
+<div class="exp-slot" data-exp="ch19-23-key-order"></div>
+<div class="exp-slot" data-exp="ch19-24-pipeline-small"></div>
+<div class="exp-slot" data-exp="ch19-25-pipeline-full"></div>
+<div class="exp-slot" data-exp="ch19-29-avg-merge"></div>
+<h3>C · 逻辑基数与实际执行策略（7卡）</h3><p>创建、等待、写20篇；比较2桶与20桶，查看profile和本地节点breaker，不制造资源压力。</p>
+<div class="exp-slot" data-exp="ch19-12-setup-card"></div>
+<div class="exp-slot" data-exp="ch19-26-wait-card"></div>
+<div class="exp-slot" data-exp="ch19-13-bulk-card"></div>
+<div class="exp-slot" data-exp="ch19-14-card-terms"></div>
+<div class="exp-slot" data-exp="ch19-27-card-full"></div>
+<div class="exp-slot" data-exp="ch19-28-card-profile"></div>
+<div class="exp-slot" data-exp="ch19-15-breakers"></div>
+<h3>清理与重做（1卡）</h3><p>点名删除tut-l19-shop、tut-l19-s0、tut-l19-s1、tut-l19-card；之后从A组第一卡重新开始。</p>
+<div class="exp-slot" data-exp="ch19-16-cleanup"></div>
+<h2 id="questions">思考题</h2><details><summary>1. hits size=1、terms size=2、query过滤，各限制什么？</summary><div class="answer"><p>顶层size只限返回hits；terms.size限最终桶，输入仍是当前聚合范围；query会缩小普通顶层聚合范围。post_filter另只门控hits，global/nested等范围需各自判断。</p></div></details>
+<details><summary>2. cherry为何丢失？size3/shard_size2抬底是否保证每片回三桶？</summary><div class="answer"><p>cherry两片都本地第三，容量2都没送，全局第二无从归并。容量抬到3在本例覆盖全部值；若合格值少于3，实际仍可少回。容量下限不是返回数量下限。</p></div></details>
+<details><summary>3. error_bound=7是否表示date实际少7篇？上界0是否意味着返回全部桶？</summary><div class="answer"><p>不是。聚合级与桶级不同，桶date上界3、本例真实count4仍完整；满队列会保守估计。默认13上界0但只回apple/cherry，sum_other7仍表示窗口丢弃date/banana。</p></div></details>
+<details><summary>4. 两片均值1与9，为何不是5？bucket_sort能找回date吗？</summary><div class="answer"><p>apple文档数6与4，应合并sum42/count10得4.2。terms先回apple/cherry时bucket_sort看不到date；扩大上游至本例四桶才能按key降序选到date。</p></div></details>
+<details><summary>5. sum_other18能证明20个计数器、min_doc_count能保证降低峰值吗？</summary><div class="answer"><p>不能。它是未返回桶计数总和，可能在局部和final两个阶段累积。具体状态由序数/哈希/filters与子聚合等策略决定；min_doc_count约束输出不保证跳过前期统计，须按实际负载测量。</p></div></details>
+</section><section class="pitfalls"><h2>陷阱</h2><div class="callout warn"><span class="co-title">把两个size混在一起：</span>顶层size0不关聚合；terms.size管最终桶，shard_size管局部候选容量，两者都不是内存字节限额。</div><div class="callout warn"><span class="co-title">误差字段当作修复或精确差值：</span>sum_other不告诉遗漏key，上界不等于实际少计；非count降序不能照搬本例解释。</div><div class="callout warn"><span class="co-title">Pipeline替代全局补桶：</span>它只访问普通归并结果；扩大上游size仍需确认分片候选覆盖。</div><div class="callout warn"><span class="co-title">桶规则等于预列所有key：</span>range给区间，date_histogram按值、日历与时区算key；无terms截断不等于无边界或成本。</div></section>
+<section class="recap"><h2>速记</h2><table class="ktable"><tr><th>边界</th><th>结论</th></tr><tr><td>输入与hits</td><td>普通顶层聚合统计query范围，不是最终hits；主hits Fetch不补统计，top_hits另取字段</td></tr><tr><td>执行与结果</td><td>Builder描述 → Factory创建 → Aggregator统计 → InternalAggregation传递/归并</td></tr><tr><td>容量</td><td>未指定且非_key：floor(size×1.5+10)，上限MAX；容量≥size，不保证实际桶数</td></tr><tr><td>默认count降序</td><td>partial合并候选，final选size；_key有提前限制特例，排序条件必须说明</td></tr><tr><td>误差与丢弃</td><td>sum_other记录terms截断；Pipeline二次裁剪不回记；error_bound是保守上界，不补key</td></tr><tr><td>指标/Pipeline</td><td>avg合sum/count；最终普通聚合后执行Pipeline，只看已保留结果</td></tr><tr><td>资源</td><td>逻辑基数不等于计数器布局；5120B只是初始估计，需查策略与测量</td></tr></table><p><strong>心法：先分清统计范围，再看谁进入候选；归并只能使用收到的状态。</strong></p></section>
+<footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a href="ch18.html">← 第18课：查询语法</a><a href="ch20.html">第20课：评分与排序 →</a></div></footer></article></main>
+<script src="../experiments/ch19.js"></script><script src="../assets/js/nav.js"></script><script src="../assets/js/es-client.js"></script><script src="../assets/js/flow-player.js"></script><script src="../assets/js/experiments.js"></script><script src="../assets/js/progress.js"></script><script src="../assets/js/chapter-diagrams.js"></script></body></html>
