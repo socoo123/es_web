@@ -1,0 +1,231 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "分页窗口：候选上限与最终页分开计算",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "协调处理"
+        },
+        "database": {
+          "label": "分片读者"
+        },
+        "security": {
+          "label": "窗口检查"
+        }
+      }
+    },
+    "output": ".archify/workflow-ch16-page-window-20261011-230620/page-window.html"
+  },
+  "lanes": [
+    {
+      "id": "guard",
+      "label": "数据侧 · 普通非 scroll 分页"
+    },
+    {
+      "id": "candidates",
+      "label": "Query 候选 · 本地排名与全局归并"
+    },
+    {
+      "id": "page",
+      "label": "Fetch 命中 · 只取最终页"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "gate",
+      "lane": "guard",
+      "col": 1,
+      "type": "security",
+      "label": "检查 from + size",
+      "sublabel": "默认 max_result_window=10000",
+      "width": 250,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java",
+          "line": 359,
+          "end_line": 380,
+          "label": "分片预处理窗口检查"
+        }
+      ]
+    },
+    {
+      "id": "reject",
+      "lane": "guard",
+      "col": 3,
+      "type": "security",
+      "label": "超过窗口 → 拒绝",
+      "sublabel": "本例 10010 > 10000",
+      "width": 200,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java",
+          "line": 366,
+          "end_line": 380,
+          "label": "抛出参数异常"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/AbstractSearchAsyncAction.java",
+          "line": 328,
+          "end_line": 341,
+          "label": "全部分片失败"
+        }
+      ]
+    },
+    {
+      "id": "local",
+      "lane": "candidates",
+      "col": 2,
+      "type": "database",
+      "label": "每片至多 k = from + size",
+      "sublabel": "还受实际匹配数与本地文档数限制",
+      "width": 340,
+      "height": 68,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollectorManager.java",
+          "line": 237,
+          "end_line": 260,
+          "label": "普通 collector 窗口"
+        }
+      ]
+    },
+    {
+      "id": "merge",
+      "lane": "candidates",
+      "col": 2,
+      "type": "backend",
+      "label": "全局归并这些本地候选",
+      "sublabel": "3 个片候选总量至多 3k",
+      "width": 320,
+      "height": 68,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 145,
+          "end_line": 169,
+          "label": "合并各片 TopDocs"
+        }
+      ]
+    },
+    {
+      "id": "page",
+      "lane": "page",
+      "col": 2,
+      "type": "backend",
+      "label": "跳过 from，留下当前页",
+      "sublabel": "假设足量命中：from=10、size=10",
+      "width": 340,
+      "height": 68,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 100,
+          "end_line": 110,
+          "label": "分页参数传入归并"
+        }
+      ]
+    },
+    {
+      "id": "hits",
+      "lane": "page",
+      "col": 2,
+      "type": "database",
+      "label": "取回至多 size 条命中",
+      "sublabel": "候选至多 60 · 本页至多 10",
+      "width": 340,
+      "height": 68,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 202,
+          "end_line": 214,
+          "label": "只分组最终窗口"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/FetchSearchPhase.java",
+          "line": 111,
+          "end_line": 119,
+          "label": "空页直接完成"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "gate-local",
+      "from": "gate",
+      "to": "local",
+      "variant": "emphasis",
+      "label": "未超窗"
+    },
+    {
+      "id": "gate-reject",
+      "from": "gate",
+      "to": "reject",
+      "variant": "security",
+      "label": "超窗",
+      "role": "error"
+    },
+    {
+      "id": "local-merge",
+      "from": "local",
+      "to": "merge",
+      "variant": "emphasis"
+    },
+    {
+      "id": "merge-page",
+      "from": "merge",
+      "to": "page",
+      "variant": "emphasis"
+    },
+    {
+      "id": "page-hits",
+      "from": "page",
+      "to": "hits",
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "gate",
+    "local",
+    "merge",
+    "page",
+    "hits"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "公式的条件",
+      "items": [
+        "size>0，无 scroll、rescore、rank、collapse、suggest；sort 时候选携带排序值。",
+        "30 篇的本课数据为 12/9/9；size=10 的本地候选上限合计 28，不是固定 30。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "替代与空结果",
+      "items": [
+        "size=0 不收集普通 hits；聚合可继续执行。from 超过总命中可过闸但返回空页。",
+        "search_after 使用上一页末项 sort 值并保持 from=0；跨请求稳定读者另需 PIT。"
+      ]
+    }
+  ]
+}

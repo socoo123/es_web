@@ -21,7 +21,7 @@
 | ch13 | 批量写入 | ✅ | 40 | 1(bulk 分组·6步) | ✅ 分组结果与写入等待（2 图，2 路径动画） |
 | ch14 | 存储引擎 | ✅ | 46 | 1(写入全路径·8步) | ✅ 写入顺序与提交边界（2 图，2 路径动画） |
 | ch15 | 索引分片 | ✅ | 40 | 1(路由公式·7步) | ✅ 路由碰撞与本地生命周期（2 图，2 路径动画） |
-| ch16 | 搜索流程总览 | ✅ | 14 | 1(Query Then Fetch·旗舰) | 待改造 |
+| ch16 | 搜索流程总览 | ✅ | 29 | 1(Query Then Fetch·旗舰) | ✅ 两阶段职责与分页窗口（2 图，2 路径动画） |
 | ch17 | 搜索服务与搜索上下文 | ✅ | 18 | 1(上下文生命周期) | 待改造 |
 | ch18 | 查询语法 | ✅ | 19 | 1(match→SHOULD) | 待改造 |
 | ch19 | 聚合框架 | ✅ | 17 | 1(cherry/shardSize) | 待改造 |
@@ -234,7 +234,31 @@
 | ch15 | _close后GET固定403 cluster_block_exception | 本例实测400 index_closed_exception/closed；SingleShardRequest禁止closed，具体解析先于索引block，403是block自身映射；本地闸门404另层 | IndexNameExpressionResolver805–818、TransportSingleShardAction190–203、IndexClosedException；两轮API |
 | ch15 | 16卡缺显式mapping/等待/重复条件，健康请求含无效v | 原16ID及七步机制保留，增24共4组40卡；显式配置、同片/跨片、search/required、Final读回、close/open与两索引点名清理重做 | [注册表](experiments/ch15.js)、[两轮真实响应](.archify/review/ch15-es-review.json)、[验收](.archify/CH15-REVIEW.md) |
 
+### 第十六章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch16 | 三片size=10固定回30元组、hits恰等size，collector只扫描窗口 | 普通窗口为上限且限定分支，实际受匹配/reader限制；本例12/9/9→候选上限28、最终10；维护Top-k不等于只扫描k | QueryPhaseCollectorManager225–260、SearchPhaseController543–558；两轮真实分布/响应 |
+| ch16 | SEARCH必打所有片、单节点代表网络往返；跨片快照暗示同一时刻 | 默认目标分片组每组选一份，routing/can-match可缩范围；角色可共节点，各片读者非全局事务时刻 | TransportSearchAction1984–2005、IndexShard1772–1798；本章抽象范围 |
+| ch16 | 发完就释放线程，归并永远在最后网络回调线程 | 每节点并发可排队、同步回调；consume完成再倒数，FetchSearchPhase.run经context.execute调度reduce | AbstractSearchAsyncAction249–279/503–527/796–798、FetchSearchPhase78–119 |
+| ch16 | doc是段内文档号，Query只有doc/score固定小字段 | doc属于当前分片reader空间；sort还有排序值，Query可带聚合/统计等，不保证固定字节 | SearchPhaseController100–169/202–214；QueryPhaseCollectorManager237–260 |
+| ch16 | profile过滤掉searches；把时间当加载篇数，关闭source等同无Fetch | 保留searches与fetch；load_stored_fields_count本例合计10，next_reader_count是段切换；source-off仍fetch，size0仍聚合；profile不测完整网络/协调 | [注册表](experiments/ch16.js)、[两轮响应](.archify/review/ch16-es-review.json)、官方profile范围 |
+| ch16 | 超窗顶层400 illegal_argument_exception，合法空页过滤后可见[] | 顶层search_phase_execution_exception/all shards failed，内层illegal_argument_exception；failed_shards可分组；空页filter_path保留hits.hits | DefaultSearchContext359–380、AbstractSearchAsyncAction328–356；真实400/200及修复前响应 |
+| ch16 | 单片无条件合并；9.x默认批量Query；DFS大数据几乎白付、所有向量强制DFS | 普通无rank/kNN单片QTF可合并；批量/预过滤受开关与其他条件；hasKnnSearch分支改DFS，收益按查询/数据判断 | SearchService977–1034/308–317、FetchSearchPhase101–108、TransportSearchAction790–813、SearchQueryThenFetchAsyncAction472–495 |
+| ch16 | from/size与search_after“无上下文”，refresh=-1使NRT绝对确定 | 普通仍创建临时reader；PIT/scroll跨请求保留；-1只关周期刷新，C组先删并refresh建0基线，无其他刷新条件下0→1 | SearchService1105–1177；官方分页说明；两轮GET/count0→refresh/count1 |
+| ch16 | 14卡缺健康/设置/完整profile/可见性重置/单片对照 | 保留14ID和七步；增15共4组29卡，显式mapping/设置、排序翻页、NRT重置、点名清理重做；步骤2/5快照底部排印修复 | [验收](.archify/CH16-REVIEW.md)、[HTTP](.archify/review/ch16-http-review.json)、[真实API](.archify/review/ch16-es-review.json) |
+
 ## 会话日志
+
+### 2026-10-12(第十六章按统一规范重构)
+
+- 固定ES9.4.0/Lucene10.4.0核对13源码文件/30精确区间；重排搜索范围/EXTERNAL读者、两阶段职责、受控异步/归并调度、普通候选上限与窗口、profile证据、单片/DFS/批量与预过滤条件。正文/两图/七步/卡片/问答/速记一致，保留14稳定ID。
+- 4组29卡（A6/B10/C7/D3/清理3）、2交互图/2有限trace/1七步机制。显式设置/mapping、局部健康、同组重置、完整顺序和点名清理；全站30正式页/575卡/22机制播放器。共享CSS/JS与其他章节未改。
+- 官方Archify3.0.1 Workflow v2，首次附固定源码/真实checkout，只改JSON；当前两图review-2。validate/deliver/strict check均showcase9/9、0errors/warnings、provenance current；原生browser-check与finalize整体PASS。page-window可选绕行提示经实际浅深截图审阅，无交叉/含糊路径；旧图源/收据保留。
+- HTTP两图四档桌面/双主题、章节六档宽度、880px/≤1px对齐、页面/iframe/所有节点完整、探索/固定来源/关闭/展开、暂停后外层重播/Enter、目录/已读、七步与键盘、29真实控制台深链请求内容、endpoint/auth alias/raw、Pages前缀及reduced motion均PASS；390/320表格/旧SVG局部滚动PASS。实际查看24张章节/图截图和7步快照，修复2/5步底部说明并复看、回归。手机细字需探索/展开，旧SVG局部滚动。
+- **真实API两轮各29卡PASS**：匿名单节点9200、9.4.0/构建号匹配；分布12/9/9、候选上限28与最终10、3 searches/size1单fetch、source-off仍fetch、size0聚合sum465、超窗顶层/内层错误、合法空页、末页21..30、search_after1..5→6..10、重置后GET可见/count0→refresh/count1、单片query/fetch。清理后重建重做、最终HEAD两索引404。浏览器深链验收显式阻断ES自动执行，真实API单列；未制造多节点/部分失败/DFS/kNN/PIT并发场景。
+- 站点、JS语法、figwidth、diff、14稳定ID/29有序唯一槽位和.nojekyll通过。验收[CH16-REVIEW](.archify/CH16-REVIEW.md)、当前证据[ch16-artifacts](.archify/review/ch16-artifacts.json)；按授权提交推送origin/main，远端提交和Pages部署在交付时单独核对。
+
 
 ### 2026-10-11(第十五章按统一规范重构)
 
@@ -487,6 +511,7 @@
 - 下一步:ch18-20(查询语法/聚合/评分;ch20 BM25 演算动画),token 允许时 3 个一批或继续单课直写
 
 ### 2026-09-23(P4 开局:ch16 单课直写)
+- 此节为首次转写的历史记录；当前数量、勘误与实测以第十六章重构校对及 2026-10-12 日志为准。
 - 背景:用户 token 紧张,指示「单独把 ch16 写完」,不起转写代理,主会话直写
 - ch16 ✅ 14 实验/3 图 + **Query Then Fetch 两阶段旗舰动画 7 步**(PLAN 旗舰清单 #2):扇出即返回 → 每 shard 收 from+size 条 → 30 选 10 归并 → fillDocIdsToLoad 分组 → 只向持有者发 fetch → merge 组装,末帧对照 GET
 - 实验设计:索引 refresh_interval=-1 冻结自动 refresh,让「GET 可见 / SEARCH 不可见」实验(9-12)无 1 秒竞态、结果确定;profile 用 size=10 与 size=1 对照观察「谁的 fetch 消失」

@@ -1,0 +1,254 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "两阶段搜索：先确定名次，再取命中",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "协调处理"
+        },
+        "database": {
+          "label": "分片读者"
+        },
+        "security": {
+          "label": "窗口检查"
+        }
+      }
+    },
+    "output": ".archify/workflow-ch16-qtf-journey-20261011-230620/qtf-journey.html"
+  },
+  "lanes": [
+    {
+      "id": "dispatch",
+      "label": "协调节点 · 普通多分片 QTF"
+    },
+    {
+      "id": "query",
+      "label": "数据侧 · 每个分片组选择一份拷贝"
+    },
+    {
+      "id": "reduce",
+      "label": "协调节点 · 选取全局页并分组"
+    },
+    {
+      "id": "finish",
+      "label": "数据侧取命中 → 协调侧合成响应"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "request",
+      "lane": "dispatch",
+      "col": 2,
+      "type": "backend",
+      "label": "解析本次 SearchRequest",
+      "sublabel": "默认 QTF · from=0、size=10",
+      "width": 300,
+      "height": 68,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/search/RestSearchAction.java",
+          "line": 110,
+          "end_line": 148,
+          "label": "REST 解析和委托"
+        }
+      ]
+    },
+    {
+      "id": "dispatch",
+      "lane": "dispatch",
+      "col": 2,
+      "type": "backend",
+      "label": "向各分片组发出 Query",
+      "sublabel": "受每节点并发限制 · 可重试拷贝",
+      "width": 300,
+      "height": 68,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/AbstractSearchAsyncAction.java",
+          "line": 249,
+          "end_line": 279,
+          "label": "扇出与并发控制"
+        }
+      ]
+    },
+    {
+      "id": "query",
+      "lane": "query",
+      "col": 2,
+      "type": "database",
+      "label": "查询已打开的分片读者",
+      "sublabel": "返回候选 doc / score 或 sort 值",
+      "width": 330,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 977,
+          "end_line": 1034,
+          "label": "Query 与单分片分支"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollectorManager.java",
+          "line": 225,
+          "end_line": 260,
+          "label": "候选收集"
+        }
+      ]
+    },
+    {
+      "id": "reduce",
+      "lane": "reduce",
+      "col": 2,
+      "type": "backend",
+      "label": "消费完成 → 全局归并",
+      "sublabel": "跳过 from · 选取至多 size 条",
+      "width": 330,
+      "height": 68,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/AbstractSearchAsyncAction.java",
+          "line": 503,
+          "end_line": 527,
+          "label": "先消费结果再倒数"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/FetchSearchPhase.java",
+          "line": 78,
+          "end_line": 119,
+          "label": "调度与 reduce"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 100,
+          "end_line": 110,
+          "label": "全局分页"
+        }
+      ]
+    },
+    {
+      "id": "group",
+      "lane": "reduce",
+      "col": 2,
+      "type": "backend",
+      "label": "按 shardIndex 分组 doc",
+      "sublabel": "空分组不发 Fetch · 释放普通读者",
+      "width": 330,
+      "height": 68,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 202,
+          "end_line": 214,
+          "label": "文档号分组"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/FetchSearchPhase.java",
+          "line": 147,
+          "end_line": 178,
+          "label": "空分组与释放"
+        }
+      ]
+    },
+    {
+      "id": "fetch",
+      "lane": "finish",
+      "col": 2,
+      "type": "database",
+      "label": "Fetch 取命中并合成 hits",
+      "sublabel": "同一读者 · 默认返回 _source",
+      "width": 330,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 1105,
+          "end_line": 1177,
+          "label": "Fetch 执行"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/FetchSearchPhase.java",
+          "line": 268,
+          "end_line": 279,
+          "label": "响应 merge"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "request-dispatch",
+      "from": "request",
+      "to": "dispatch",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dispatch-query",
+      "from": "dispatch",
+      "to": "query",
+      "variant": "emphasis",
+      "role": "async"
+    },
+    {
+      "id": "query-reduce",
+      "from": "query",
+      "to": "reduce",
+      "variant": "emphasis",
+      "role": "return"
+    },
+    {
+      "id": "reduce-group",
+      "from": "reduce",
+      "to": "group",
+      "variant": "emphasis"
+    },
+    {
+      "id": "group-fetch",
+      "from": "group",
+      "to": "fetch",
+      "variant": "emphasis",
+      "role": "async"
+    }
+  ],
+  "mainPath": [
+    "request",
+    "dispatch",
+    "query",
+    "reduce",
+    "group",
+    "fetch"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "箭头与抽象范围",
+      "items": [
+        "箭头表示调用、结果返回及处理依赖，不保证网络包数或固定线程。",
+        "限定普通多分片查询；省略 DFS、CCS、rank、suggest、collapse、重试细节与部分失败处理。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "两个必要边界",
+      "items": [
+        "Query 候选不含完整 _source；带排序、聚合时还有相应数据，不能按固定字节估算。",
+        "普通单分片无 rank / kNN 可合并 Query 与 Fetch；_source:false 仍可能执行 Fetch。"
+      ]
+    }
+  ]
+}
