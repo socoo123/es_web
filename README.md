@@ -11,6 +11,12 @@
 
 第一章已采用 [Archify 3.0.1](https://github.com/tt-a1i/archify) 重画倒排索引、分析链、分片副本三幅交互图，支持路径动画、暂停、重播和节点探索。[在线阅读第一章](https://socoo123.github.io/es_web/chapters/ch01.html)；可编辑图源、再生成方法和验证记录见 [.archify/README.md](.archify/README.md)。原有 11 个实验操作及近实时机制动画保留。
 
+## 新增学习路线（规划中）
+
+站点将分为「框架学习篇」和「ES 源码篇」：先通过 F01–F14 学会 API、中文搜索与 Java / Spring Boot 集成，再完成一个旅游网站搜索实验，带着业务问题进入源码学习。现有源码 Chapter 01–30 的编号与链接继续保留，逐章重构进度见 STATUS。
+
+完整目录、旅游项目范围、中文分词对比方法和分阶段交付顺序见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)。目前新增部分仅有规划，课程页面和 Java 项目尚未实现。
+
 ## 快速开始
 
 ```bash
