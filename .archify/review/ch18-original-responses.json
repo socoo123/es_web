@@ -1,0 +1,456 @@
+[
+  {
+    "id": "ch18-00-setup",
+    "method": "PUT",
+    "path": "/tut-l18-dsl",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "acknowledged": true,
+      "shards_acknowledged": true,
+      "index": "tut-l18-dsl"
+    }
+  },
+  {
+    "id": "ch18-01-bulk",
+    "method": "POST",
+    "path": "/_bulk?refresh=true",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "errors": false,
+      "took": 0,
+      "items": [
+        {
+          "index": {
+            "_index": "tut-l18-dsl",
+            "_id": "1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "index": {
+            "_index": "tut-l18-dsl",
+            "_id": "2",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 1,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "index": {
+            "_index": "tut-l18-dsl",
+            "_id": "3",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 2,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "index": {
+            "_index": "tut-l18-dsl",
+            "_id": "4",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 3,
+            "_primary_term": 1,
+            "status": 201
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "ch18-02-analyze",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_analyze?filter_path=tokens.token",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "tokens": [
+        {
+          "token": "the"
+        },
+        {
+          "token": "quick"
+        },
+        {
+          "token": "brown"
+        },
+        {
+          "token": "fox"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ch18-03-match",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 2,
+          "relation": "eq"
+        },
+        "hits": [
+          {
+            "_id": "2",
+            "_score": 1.560387
+          },
+          {
+            "_id": "1",
+            "_score": 1.1689311
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch18-04-term-whole",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 0,
+          "relation": "eq"
+        }
+      }
+    }
+  },
+  {
+    "id": "ch18-05-term-quick",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 2,
+          "relation": "eq"
+        },
+        "hits": [
+          {
+            "_id": "2"
+          },
+          {
+            "_id": "1"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch18-06-term-Quick",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 0,
+          "relation": "eq"
+        }
+      }
+    }
+  },
+  {
+    "id": "ch18-07-term-status",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 3,
+          "relation": "eq"
+        },
+        "hits": [
+          {
+            "_id": "1"
+          },
+          {
+            "_id": "3"
+          },
+          {
+            "_id": "4"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch18-08-match-and",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 1,
+          "relation": "eq"
+        },
+        "hits": [
+          {
+            "_id": "1"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch18-09-explain-1",
+    "method": "GET",
+    "path": "/tut-l18-dsl/_explain/1",
+    "browserClientOmitsGetBody": true,
+    "status": 400,
+    "response": {
+      "error": {
+        "root_cause": [
+          {
+            "type": "action_request_validation_exception",
+            "reason": "Validation Failed: 1: query is missing;"
+          }
+        ],
+        "type": "action_request_validation_exception",
+        "reason": "Validation Failed: 1: query is missing;"
+      },
+      "status": 400
+    }
+  },
+  {
+    "id": "ch18-10-explain-3",
+    "method": "GET",
+    "path": "/tut-l18-dsl/_explain/3?filter_path=matched,explanation.description",
+    "browserClientOmitsGetBody": true,
+    "status": 400,
+    "response": {
+      "error": {
+        "root_cause": [
+          {
+            "type": "action_request_validation_exception",
+            "reason": "Validation Failed: 1: query is missing;"
+          }
+        ],
+        "type": "action_request_validation_exception",
+        "reason": "Validation Failed: 1: query is missing;"
+      },
+      "status": 400
+    }
+  },
+  {
+    "id": "ch18-11-explain-in-search",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.hits._id,hits.hits._score,hits.hits._explanation.description",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "hits": [
+          {
+            "_id": "2",
+            "_score": 1.560387,
+            "_explanation": {
+              "description": "sum of:"
+            }
+          },
+          {
+            "_id": "1",
+            "_score": 1.1689311,
+            "_explanation": {
+              "description": "sum of:"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch18-12-bool-filter",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 1,
+          "relation": "eq"
+        },
+        "hits": [
+          {
+            "_id": "4",
+            "_score": 1.1608025
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch18-13-bool-must",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 1,
+          "relation": "eq"
+        },
+        "hits": [
+          {
+            "_id": "4",
+            "_score": 1.5174774
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch18-14-post-filter",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,aggregations",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 3,
+          "relation": "eq"
+        },
+        "hits": [
+          {
+            "_id": "1"
+          },
+          {
+            "_id": "3"
+          },
+          {
+            "_id": "4"
+          }
+        ]
+      },
+      "aggregations": {
+        "by_status": {
+          "doc_count_error_upper_bound": 0,
+          "sum_other_doc_count": 0,
+          "buckets": [
+            {
+              "key": "published",
+              "doc_count": 3
+            },
+            {
+              "key": "draft",
+              "doc_count": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "ch18-15-match-keyword",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 0,
+          "relation": "eq"
+        }
+      }
+    }
+  },
+  {
+    "id": "ch18-16-phrase-right",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 2,
+          "relation": "eq"
+        },
+        "hits": [
+          {
+            "_id": "2"
+          },
+          {
+            "_id": "1"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch18-17-phrase-wrong",
+    "method": "POST",
+    "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "hits": {
+        "total": {
+          "value": 0,
+          "relation": "eq"
+        }
+      }
+    }
+  },
+  {
+    "id": "ch18-18-cleanup",
+    "method": "DELETE",
+    "path": "/tut-l18-dsl",
+    "browserClientOmitsGetBody": false,
+    "status": 200,
+    "response": {
+      "acknowledged": true
+    }
+  }
+]

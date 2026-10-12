@@ -1,0 +1,3948 @@
+{
+  "kind": "real-es-api",
+  "endpoint": "http://localhost:9200",
+  "version": {
+    "status": 200,
+    "response": {
+      "name": "de11d253f59a",
+      "cluster_name": "docker-cluster",
+      "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+      "version": {
+        "number": "9.4.0",
+        "build_flavor": "default",
+        "build_type": "docker",
+        "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+        "build_date": "2026-04-30T15:05:34.751113474Z",
+        "build_snapshot": false,
+        "lucene_version": "10.4.0",
+        "minimum_wire_compatibility_version": "8.19.0",
+        "minimum_index_compatibility_version": "8.0.0"
+      },
+      "tagline": "You Know, for Search"
+    }
+  },
+  "nodes": {
+    "status": 200,
+    "response": {
+      "nodes": {
+        "QSkpyRrVQ7SrCWvutWILMg": {
+          "version": "9.4.0"
+        }
+      }
+    }
+  },
+  "reviewedAt": "2026-10-12T20:29:35.887237+08:00",
+  "registeredRequests": [
+    {
+      "id": "ch18-00-setup",
+      "method": "PUT",
+      "path": "/tut-l18-dsl",
+      "body": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "auto_expand_replicas": false,
+          "refresh_interval": "-1",
+          "requests.cache.enable": false,
+          "default_pipeline": "_none",
+          "final_pipeline": "_none",
+          "mapping.source.mode": "stored",
+          "analysis": {
+            "normalizer": {
+              "fold_status": {
+                "type": "custom",
+                "filter": [
+                  "lowercase"
+                ]
+              }
+            }
+          }
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "properties": {
+            "title": {
+              "type": "text",
+              "analyzer": "standard",
+              "search_analyzer": "standard",
+              "term_vector": "with_positions_offsets"
+            },
+            "status": {
+              "type": "keyword"
+            },
+            "status_fold": {
+              "type": "keyword",
+              "normalizer": "fold_status"
+            },
+            "price": {
+              "type": "float"
+            },
+            "date": {
+              "type": "date",
+              "format": "strict_date_optional_time"
+            }
+          }
+        },
+        "aliases": {
+          "tut-l18-published": {
+            "filter": {
+              "term": {
+                "status": "published"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-19-health",
+      "method": "GET",
+      "path": "/_cluster/health/tut-l18-dsl?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=10s",
+      "body": null
+    },
+    {
+      "id": "ch18-01-bulk",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_bulk?refresh=true",
+      "body": "{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"1\"}}\n{\"title\":\"The quick brown fox\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"2\"}}\n{\"title\":\"quick brown\",\"status\":\"draft\",\"price\":29.99,\"date\":\"2024-06-20\",\"status_fold\":\"DRAFT\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"3\"}}\n{\"title\":\"lazy dog\",\"status\":\"published\",\"price\":49.99,\"date\":\"2023-11-01\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"4\"}}\n{\"title\":\"Elasticsearch in Action\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n"
+    },
+    {
+      "id": "ch18-02-analyze",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_analyze?filter_path=tokens.token",
+      "body": {
+        "field": "title",
+        "text": "The quick brown fox"
+      }
+    },
+    {
+      "id": "ch18-20-termvectors",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_termvectors/1",
+      "body": {
+        "fields": [
+          "title"
+        ],
+        "positions": true,
+        "offsets": true,
+        "term_statistics": false,
+        "field_statistics": false
+      }
+    },
+    {
+      "id": "ch18-21-query-analyze",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_analyze",
+      "body": {
+        "field": "title",
+        "text": "Quick, BROWN!"
+      }
+    },
+    {
+      "id": "ch18-03-match",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "match": {
+            "title": "quick brown"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-04-term-whole",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+      "body": {
+        "query": {
+          "term": {
+            "title": "quick brown"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-05-term-quick",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+      "body": {
+        "query": {
+          "term": {
+            "title": "quick"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-06-term-Quick",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+      "body": {
+        "query": {
+          "term": {
+            "title": "Quick"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-07-term-status",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+      "body": {
+        "query": {
+          "term": {
+            "status": "published"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-15-match-keyword",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+      "body": {
+        "query": {
+          "match": {
+            "status": "published draft"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-25-normalized-term",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "term": {
+            "status_fold": "PUBLISHED"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-22-match-or",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "match": {
+            "title": "quick fox"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-08-match-and",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+      "body": {
+        "query": {
+          "match": {
+            "title": {
+              "query": "quick fox",
+              "operator": "and"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-23-and-reversed",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "match": {
+            "title": {
+              "query": "brown quick",
+              "operator": "and"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-16-phrase-right",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+      "body": {
+        "query": {
+          "match_phrase": {
+            "title": "quick brown"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-17-phrase-wrong",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+      "body": {
+        "query": {
+          "match_phrase": {
+            "title": "brown quick"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-24-phrase-gap",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "match_phrase": {
+            "title": "quick fox"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-26-zero-none",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "match": {
+            "title": {
+              "query": "the",
+              "analyzer": "stop",
+              "zero_terms_query": "none"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-27-zero-all",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "match": {
+            "title": {
+              "query": "the",
+              "analyzer": "stop",
+              "zero_terms_query": "all"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-32-validate-should",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_validate/query?explain=true&rewrite=true",
+      "body": {
+        "query": {
+          "match": {
+            "title": "quick brown"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-09-explain-1",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_explain/1",
+      "body": {
+        "query": {
+          "match": {
+            "title": "quick brown"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-10-explain-3",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_explain/3?filter_path=matched,explanation.description",
+      "body": {
+        "query": {
+          "match": {
+            "title": "quick brown"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-11-explain-in-search",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.hits._id,hits.hits._score,hits.hits._explanation.description",
+      "body": {
+        "explain": true,
+        "query": {
+          "match": {
+            "title": "quick brown"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-33-explain-alias",
+      "method": "POST",
+      "path": "/tut-l18-published/_explain/2",
+      "body": {
+        "query": {
+          "match": {
+            "title": "quick brown"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-12-bool-filter",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "match": {
+                  "title": "elasticsearch"
+                }
+              }
+            ],
+            "filter": [
+              {
+                "term": {
+                  "status": "published"
+                }
+              },
+              {
+                "range": {
+                  "price": {
+                    "lte": 50
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-13-bool-must",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "match": {
+                  "title": "elasticsearch"
+                }
+              },
+              {
+                "term": {
+                  "status": "published"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-28-filter-only",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "bool": {
+            "filter": {
+              "term": {
+                "status": "published"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-29-should-optional",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "bool": {
+            "filter": {
+              "term": {
+                "status": "published"
+              }
+            },
+            "should": [
+              {
+                "match": {
+                  "title": "quick"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-30-should-required",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+      "body": {
+        "query": {
+          "bool": {
+            "filter": {
+              "term": {
+                "status": "published"
+              }
+            },
+            "should": [
+              {
+                "match": {
+                  "title": "quick"
+                }
+              }
+            ],
+            "minimum_should_match": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-14-post-filter",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,aggregations",
+      "body": {
+        "query": {
+          "match_all": {}
+        },
+        "aggs": {
+          "by_status": {
+            "terms": {
+              "field": "status"
+            }
+          }
+        },
+        "post_filter": {
+          "term": {
+            "status": "published"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-31-aggregation-filter",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,aggregations",
+      "body": {
+        "query": {
+          "bool": {
+            "filter": {
+              "term": {
+                "status": "published"
+              }
+            }
+          }
+        },
+        "aggs": {
+          "by_status": {
+            "terms": {
+              "field": "status"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch18-18-cleanup",
+      "method": "DELETE",
+      "path": "/tut-l18-dsl",
+      "body": null
+    }
+  ],
+  "preCleanup": {
+    "status": 200,
+    "response": {
+      "acknowledged": true
+    }
+  },
+  "runs": [
+    {
+      "run": 1,
+      "operations": [
+        {
+          "id": "ch18-00-setup",
+          "method": "PUT",
+          "path": "/tut-l18-dsl",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": false,
+              "refresh_interval": "-1",
+              "requests.cache.enable": false,
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "mapping.source.mode": "stored",
+              "analysis": {
+                "normalizer": {
+                  "fold_status": {
+                    "type": "custom",
+                    "filter": [
+                      "lowercase"
+                    ]
+                  }
+                }
+              }
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "properties": {
+                "title": {
+                  "type": "text",
+                  "analyzer": "standard",
+                  "search_analyzer": "standard",
+                  "term_vector": "with_positions_offsets"
+                },
+                "status": {
+                  "type": "keyword"
+                },
+                "status_fold": {
+                  "type": "keyword",
+                  "normalizer": "fold_status"
+                },
+                "price": {
+                  "type": "float"
+                },
+                "date": {
+                  "type": "date",
+                  "format": "strict_date_optional_time"
+                }
+              }
+            },
+            "aliases": {
+              "tut-l18-published": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l18-dsl"
+          }
+        },
+        {
+          "id": "ch18-19-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l18-dsl?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch18-01-bulk",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_bulk?refresh=true",
+          "body": "{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"1\"}}\n{\"title\":\"The quick brown fox\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"2\"}}\n{\"title\":\"quick brown\",\"status\":\"draft\",\"price\":29.99,\"date\":\"2024-06-20\",\"status_fold\":\"DRAFT\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"3\"}}\n{\"title\":\"lazy dog\",\"status\":\"published\",\"price\":49.99,\"date\":\"2023-11-01\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"4\"}}\n{\"title\":\"Elasticsearch in Action\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n",
+          "status": 200,
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l18-dsl",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l18-dsl",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l18-dsl",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l18-dsl",
+                  "_id": "4",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch18-02-analyze",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_analyze?filter_path=tokens.token",
+          "body": {
+            "field": "title",
+            "text": "The quick brown fox"
+          },
+          "status": 200,
+          "response": {
+            "tokens": [
+              {
+                "token": "the"
+              },
+              {
+                "token": "quick"
+              },
+              {
+                "token": "brown"
+              },
+              {
+                "token": "fox"
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch18-20-termvectors",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_termvectors/1",
+          "body": {
+            "fields": [
+              "title"
+            ],
+            "positions": true,
+            "offsets": true,
+            "term_statistics": false,
+            "field_statistics": false
+          },
+          "status": 200,
+          "response": {
+            "_index": "tut-l18-dsl",
+            "_id": "1",
+            "_version": 1,
+            "found": true,
+            "took": 0,
+            "term_vectors": {
+              "title": {
+                "terms": {
+                  "brown": {
+                    "term_freq": 1,
+                    "tokens": [
+                      {
+                        "position": 2,
+                        "start_offset": 10,
+                        "end_offset": 15
+                      }
+                    ]
+                  },
+                  "fox": {
+                    "term_freq": 1,
+                    "tokens": [
+                      {
+                        "position": 3,
+                        "start_offset": 16,
+                        "end_offset": 19
+                      }
+                    ]
+                  },
+                  "quick": {
+                    "term_freq": 1,
+                    "tokens": [
+                      {
+                        "position": 1,
+                        "start_offset": 4,
+                        "end_offset": 9
+                      }
+                    ]
+                  },
+                  "the": {
+                    "term_freq": 1,
+                    "tokens": [
+                      {
+                        "position": 0,
+                        "start_offset": 0,
+                        "end_offset": 3
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-21-query-analyze",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_analyze",
+          "body": {
+            "field": "title",
+            "text": "Quick, BROWN!"
+          },
+          "status": 200,
+          "response": {
+            "tokens": [
+              {
+                "token": "quick",
+                "start_offset": 0,
+                "end_offset": 5,
+                "type": "<ALPHANUM>",
+                "position": 0
+              },
+              {
+                "token": "brown",
+                "start_offset": 7,
+                "end_offset": 12,
+                "type": "<ALPHANUM>",
+                "position": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch18-03-match",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2",
+                  "_score": 1.560387
+                },
+                {
+                  "_id": "1",
+                  "_score": 1.1689311
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-04-term-whole",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+          "body": {
+            "query": {
+              "term": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-05-term-quick",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+          "body": {
+            "query": {
+              "term": {
+                "title": "quick"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2"
+                },
+                {
+                  "_id": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-06-term-Quick",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+          "body": {
+            "query": {
+              "term": {
+                "title": "Quick"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-07-term-status",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+          "body": {
+            "query": {
+              "term": {
+                "status": "published"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1"
+                },
+                {
+                  "_id": "3"
+                },
+                {
+                  "_id": "4"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-15-match-keyword",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+          "body": {
+            "query": {
+              "match": {
+                "status": "published draft"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-25-normalized-term",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "term": {
+                "status_fold": "PUBLISHED"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.35667494
+                },
+                {
+                  "_id": "3",
+                  "_score": 0.35667494
+                },
+                {
+                  "_id": "4",
+                  "_score": 0.35667494
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-22-match-or",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick fox"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 1.5996621
+                },
+                {
+                  "_id": "2",
+                  "_score": 0.7801935
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-08-match-and",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+          "body": {
+            "query": {
+              "match": {
+                "title": {
+                  "query": "quick fox",
+                  "operator": "and"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-23-and-reversed",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": {
+                  "query": "brown quick",
+                  "operator": "and"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2",
+                  "_score": 1.560387
+                },
+                {
+                  "_id": "1",
+                  "_score": 1.1689311
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-16-phrase-right",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+          "body": {
+            "query": {
+              "match_phrase": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2"
+                },
+                {
+                  "_id": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-17-phrase-wrong",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+          "body": {
+            "query": {
+              "match_phrase": {
+                "title": "brown quick"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-24-phrase-gap",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match_phrase": {
+                "title": "quick fox"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-26-zero-none",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": {
+                  "query": "the",
+                  "analyzer": "stop",
+                  "zero_terms_query": "none"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-27-zero-all",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": {
+                  "query": "the",
+                  "analyzer": "stop",
+                  "zero_terms_query": "all"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 4,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 1.0
+                },
+                {
+                  "_id": "2",
+                  "_score": 1.0
+                },
+                {
+                  "_id": "3",
+                  "_score": 1.0
+                },
+                {
+                  "_id": "4",
+                  "_score": 1.0
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-32-validate-should",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_validate/query?explain=true&rewrite=true",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "valid": true,
+            "explanations": [
+              {
+                "index": "tut-l18-dsl",
+                "valid": true,
+                "explanation": "title:quick title:brown"
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch18-09-explain-1",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_explain/1",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "_index": "tut-l18-dsl",
+            "_id": "1",
+            "matched": true,
+            "explanation": {
+              "value": 1.1689311,
+              "description": "sum of:",
+              "details": [
+                {
+                  "value": 0.58446556,
+                  "description": "weight(title:quick in 0) [PerFieldSimilarity], result of:",
+                  "details": [
+                    {
+                      "value": 0.58446556,
+                      "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                      "details": [
+                        {
+                          "value": 2.2,
+                          "description": "boost",
+                          "details": []
+                        },
+                        {
+                          "value": 0.6931472,
+                          "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                          "details": [
+                            {
+                              "value": 2,
+                              "description": "n, number of documents containing term",
+                              "details": []
+                            },
+                            {
+                              "value": 4,
+                              "description": "N, total number of documents with field",
+                              "details": []
+                            }
+                          ]
+                        },
+                        {
+                          "value": 0.38327527,
+                          "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                          "details": [
+                            {
+                              "value": 1.0,
+                              "description": "freq, occurrences of term within document",
+                              "details": []
+                            },
+                            {
+                              "value": 1.2,
+                              "description": "k1, term saturation parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 0.75,
+                              "description": "b, length normalization parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 4.0,
+                              "description": "dl, length of field",
+                              "details": []
+                            },
+                            {
+                              "value": 2.75,
+                              "description": "avgdl, average length of field",
+                              "details": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "value": 0.58446556,
+                  "description": "weight(title:brown in 0) [PerFieldSimilarity], result of:",
+                  "details": [
+                    {
+                      "value": 0.58446556,
+                      "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                      "details": [
+                        {
+                          "value": 2.2,
+                          "description": "boost",
+                          "details": []
+                        },
+                        {
+                          "value": 0.6931472,
+                          "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                          "details": [
+                            {
+                              "value": 2,
+                              "description": "n, number of documents containing term",
+                              "details": []
+                            },
+                            {
+                              "value": 4,
+                              "description": "N, total number of documents with field",
+                              "details": []
+                            }
+                          ]
+                        },
+                        {
+                          "value": 0.38327527,
+                          "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                          "details": [
+                            {
+                              "value": 1.0,
+                              "description": "freq, occurrences of term within document",
+                              "details": []
+                            },
+                            {
+                              "value": 1.2,
+                              "description": "k1, term saturation parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 0.75,
+                              "description": "b, length normalization parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 4.0,
+                              "description": "dl, length of field",
+                              "details": []
+                            },
+                            {
+                              "value": 2.75,
+                              "description": "avgdl, average length of field",
+                              "details": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-10-explain-3",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_explain/3?filter_path=matched,explanation.description",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "matched": false,
+            "explanation": {
+              "description": "No matching clauses"
+            }
+          }
+        },
+        {
+          "id": "ch18-11-explain-in-search",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.hits._id,hits.hits._score,hits.hits._explanation.description",
+          "body": {
+            "explain": true,
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "hits": [
+                {
+                  "_id": "2",
+                  "_score": 1.560387,
+                  "_explanation": {
+                    "description": "sum of:"
+                  }
+                },
+                {
+                  "_id": "1",
+                  "_score": 1.1689311,
+                  "_explanation": {
+                    "description": "sum of:"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-33-explain-alias",
+          "method": "POST",
+          "path": "/tut-l18-published/_explain/2",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "_index": "tut-l18-dsl",
+            "_id": "2",
+            "matched": false,
+            "explanation": {
+              "value": 0.0,
+              "description": "Failure to meet condition(s) of required/prohibited clause(s)",
+              "details": [
+                {
+                  "value": 0.0,
+                  "description": "no match on required clause (status:published)",
+                  "details": [
+                    {
+                      "value": 0.0,
+                      "description": "status:published doesn't match id 1",
+                      "details": []
+                    }
+                  ]
+                },
+                {
+                  "value": 0.7801935,
+                  "description": "weight(title:quick in 1) [PerFieldSimilarity], result of:",
+                  "details": [
+                    {
+                      "value": 0.7801935,
+                      "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                      "details": [
+                        {
+                          "value": 2.2,
+                          "description": "boost",
+                          "details": []
+                        },
+                        {
+                          "value": 0.6931472,
+                          "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                          "details": [
+                            {
+                              "value": 2,
+                              "description": "n, number of documents containing term",
+                              "details": []
+                            },
+                            {
+                              "value": 4,
+                              "description": "N, total number of documents with field",
+                              "details": []
+                            }
+                          ]
+                        },
+                        {
+                          "value": 0.51162785,
+                          "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                          "details": [
+                            {
+                              "value": 1.0,
+                              "description": "freq, occurrences of term within document",
+                              "details": []
+                            },
+                            {
+                              "value": 1.2,
+                              "description": "k1, term saturation parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 0.75,
+                              "description": "b, length normalization parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 2.0,
+                              "description": "dl, length of field",
+                              "details": []
+                            },
+                            {
+                              "value": 2.75,
+                              "description": "avgdl, average length of field",
+                              "details": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "value": 0.7801935,
+                  "description": "weight(title:brown in 1) [PerFieldSimilarity], result of:",
+                  "details": [
+                    {
+                      "value": 0.7801935,
+                      "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                      "details": [
+                        {
+                          "value": 2.2,
+                          "description": "boost",
+                          "details": []
+                        },
+                        {
+                          "value": 0.6931472,
+                          "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                          "details": [
+                            {
+                              "value": 2,
+                              "description": "n, number of documents containing term",
+                              "details": []
+                            },
+                            {
+                              "value": 4,
+                              "description": "N, total number of documents with field",
+                              "details": []
+                            }
+                          ]
+                        },
+                        {
+                          "value": 0.51162785,
+                          "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                          "details": [
+                            {
+                              "value": 1.0,
+                              "description": "freq, occurrences of term within document",
+                              "details": []
+                            },
+                            {
+                              "value": 1.2,
+                              "description": "k1, term saturation parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 0.75,
+                              "description": "b, length normalization parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 2.0,
+                              "description": "dl, length of field",
+                              "details": []
+                            },
+                            {
+                              "value": 2.75,
+                              "description": "avgdl, average length of field",
+                              "details": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-12-bool-filter",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "must": [
+                  {
+                    "match": {
+                      "title": "elasticsearch"
+                    }
+                  }
+                ],
+                "filter": [
+                  {
+                    "term": {
+                      "status": "published"
+                    }
+                  },
+                  {
+                    "range": {
+                      "price": {
+                        "lte": 50
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "4",
+                  "_score": 1.1608025
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-13-bool-must",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "must": [
+                  {
+                    "match": {
+                      "title": "elasticsearch"
+                    }
+                  },
+                  {
+                    "term": {
+                      "status": "published"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "4",
+                  "_score": 1.5174774
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-28-filter-only",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.0
+                },
+                {
+                  "_id": "3",
+                  "_score": 0.0
+                },
+                {
+                  "_id": "4",
+                  "_score": 0.0
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-29-should-optional",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                },
+                "should": [
+                  {
+                    "match": {
+                      "title": "quick"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.58446556
+                },
+                {
+                  "_id": "3",
+                  "_score": 0.0
+                },
+                {
+                  "_id": "4",
+                  "_score": 0.0
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-30-should-required",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                },
+                "should": [
+                  {
+                    "match": {
+                      "title": "quick"
+                    }
+                  }
+                ],
+                "minimum_should_match": 1
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.58446556
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-14-post-filter",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,aggregations",
+          "body": {
+            "query": {
+              "match_all": {}
+            },
+            "aggs": {
+              "by_status": {
+                "terms": {
+                  "field": "status"
+                }
+              }
+            },
+            "post_filter": {
+              "term": {
+                "status": "published"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1"
+                },
+                {
+                  "_id": "3"
+                },
+                {
+                  "_id": "4"
+                }
+              ]
+            },
+            "aggregations": {
+              "by_status": {
+                "doc_count_error_upper_bound": 0,
+                "sum_other_doc_count": 0,
+                "buckets": [
+                  {
+                    "key": "published",
+                    "doc_count": 3
+                  },
+                  {
+                    "key": "draft",
+                    "doc_count": 1
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-31-aggregation-filter",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,aggregations",
+          "body": {
+            "query": {
+              "bool": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                }
+              }
+            },
+            "aggs": {
+              "by_status": {
+                "terms": {
+                  "field": "status"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1"
+                },
+                {
+                  "_id": "3"
+                },
+                {
+                  "_id": "4"
+                }
+              ]
+            },
+            "aggregations": {
+              "by_status": {
+                "doc_count_error_upper_bound": 0,
+                "sum_other_doc_count": 0,
+                "buckets": [
+                  {
+                    "key": "published",
+                    "doc_count": 3
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-18-cleanup",
+          "method": "DELETE",
+          "path": "/tut-l18-dsl",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        }
+      ],
+      "status": "pass",
+      "verified": [
+        "34-actual-registered-requests",
+        "browser-compatible-POST-query-bodies",
+        "explicit-one-shard-green-health",
+        "fixed-ID-created-and-refreshed",
+        "stored-termvectors-positions",
+        "standard-punctuation-lowercase",
+        "match-term-case-and-keyword-normalizer",
+        "OR-AND-reversed-phrase-gap",
+        "explicit-request-stop-zero-none-all",
+        "two-Explain-entrances-rewritten-query-and-alias-filter",
+        "filter-must-score-contribution",
+        "pure-filter-zero-score",
+        "should-default-optional-and-explicit-minimum",
+        "post-filter-and-query-filter-aggregation-scope",
+        "validate-two-term-OR",
+        "pointed-cleanup-and-rebuild"
+      ]
+    },
+    {
+      "run": 2,
+      "operations": [
+        {
+          "id": "ch18-00-setup",
+          "method": "PUT",
+          "path": "/tut-l18-dsl",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": false,
+              "refresh_interval": "-1",
+              "requests.cache.enable": false,
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "mapping.source.mode": "stored",
+              "analysis": {
+                "normalizer": {
+                  "fold_status": {
+                    "type": "custom",
+                    "filter": [
+                      "lowercase"
+                    ]
+                  }
+                }
+              }
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "properties": {
+                "title": {
+                  "type": "text",
+                  "analyzer": "standard",
+                  "search_analyzer": "standard",
+                  "term_vector": "with_positions_offsets"
+                },
+                "status": {
+                  "type": "keyword"
+                },
+                "status_fold": {
+                  "type": "keyword",
+                  "normalizer": "fold_status"
+                },
+                "price": {
+                  "type": "float"
+                },
+                "date": {
+                  "type": "date",
+                  "format": "strict_date_optional_time"
+                }
+              }
+            },
+            "aliases": {
+              "tut-l18-published": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l18-dsl"
+          }
+        },
+        {
+          "id": "ch18-19-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l18-dsl?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch18-01-bulk",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_bulk?refresh=true",
+          "body": "{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"1\"}}\n{\"title\":\"The quick brown fox\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"2\"}}\n{\"title\":\"quick brown\",\"status\":\"draft\",\"price\":29.99,\"date\":\"2024-06-20\",\"status_fold\":\"DRAFT\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"3\"}}\n{\"title\":\"lazy dog\",\"status\":\"published\",\"price\":49.99,\"date\":\"2023-11-01\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"4\"}}\n{\"title\":\"Elasticsearch in Action\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n",
+          "status": 200,
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l18-dsl",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l18-dsl",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l18-dsl",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l18-dsl",
+                  "_id": "4",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch18-02-analyze",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_analyze?filter_path=tokens.token",
+          "body": {
+            "field": "title",
+            "text": "The quick brown fox"
+          },
+          "status": 200,
+          "response": {
+            "tokens": [
+              {
+                "token": "the"
+              },
+              {
+                "token": "quick"
+              },
+              {
+                "token": "brown"
+              },
+              {
+                "token": "fox"
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch18-20-termvectors",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_termvectors/1",
+          "body": {
+            "fields": [
+              "title"
+            ],
+            "positions": true,
+            "offsets": true,
+            "term_statistics": false,
+            "field_statistics": false
+          },
+          "status": 200,
+          "response": {
+            "_index": "tut-l18-dsl",
+            "_id": "1",
+            "_version": 1,
+            "found": true,
+            "took": 0,
+            "term_vectors": {
+              "title": {
+                "terms": {
+                  "brown": {
+                    "term_freq": 1,
+                    "tokens": [
+                      {
+                        "position": 2,
+                        "start_offset": 10,
+                        "end_offset": 15
+                      }
+                    ]
+                  },
+                  "fox": {
+                    "term_freq": 1,
+                    "tokens": [
+                      {
+                        "position": 3,
+                        "start_offset": 16,
+                        "end_offset": 19
+                      }
+                    ]
+                  },
+                  "quick": {
+                    "term_freq": 1,
+                    "tokens": [
+                      {
+                        "position": 1,
+                        "start_offset": 4,
+                        "end_offset": 9
+                      }
+                    ]
+                  },
+                  "the": {
+                    "term_freq": 1,
+                    "tokens": [
+                      {
+                        "position": 0,
+                        "start_offset": 0,
+                        "end_offset": 3
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-21-query-analyze",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_analyze",
+          "body": {
+            "field": "title",
+            "text": "Quick, BROWN!"
+          },
+          "status": 200,
+          "response": {
+            "tokens": [
+              {
+                "token": "quick",
+                "start_offset": 0,
+                "end_offset": 5,
+                "type": "<ALPHANUM>",
+                "position": 0
+              },
+              {
+                "token": "brown",
+                "start_offset": 7,
+                "end_offset": 12,
+                "type": "<ALPHANUM>",
+                "position": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch18-03-match",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2",
+                  "_score": 1.560387
+                },
+                {
+                  "_id": "1",
+                  "_score": 1.1689311
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-04-term-whole",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+          "body": {
+            "query": {
+              "term": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-05-term-quick",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+          "body": {
+            "query": {
+              "term": {
+                "title": "quick"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2"
+                },
+                {
+                  "_id": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-06-term-Quick",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+          "body": {
+            "query": {
+              "term": {
+                "title": "Quick"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-07-term-status",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+          "body": {
+            "query": {
+              "term": {
+                "status": "published"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1"
+                },
+                {
+                  "_id": "3"
+                },
+                {
+                  "_id": "4"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-15-match-keyword",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+          "body": {
+            "query": {
+              "match": {
+                "status": "published draft"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-25-normalized-term",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "term": {
+                "status_fold": "PUBLISHED"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.35667494
+                },
+                {
+                  "_id": "3",
+                  "_score": 0.35667494
+                },
+                {
+                  "_id": "4",
+                  "_score": 0.35667494
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-22-match-or",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick fox"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 1.5996621
+                },
+                {
+                  "_id": "2",
+                  "_score": 0.7801935
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-08-match-and",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+          "body": {
+            "query": {
+              "match": {
+                "title": {
+                  "query": "quick fox",
+                  "operator": "and"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-23-and-reversed",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": {
+                  "query": "brown quick",
+                  "operator": "and"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2",
+                  "_score": 1.560387
+                },
+                {
+                  "_id": "1",
+                  "_score": 1.1689311
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-16-phrase-right",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id",
+          "body": {
+            "query": {
+              "match_phrase": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2"
+                },
+                {
+                  "_id": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-17-phrase-wrong",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total",
+          "body": {
+            "query": {
+              "match_phrase": {
+                "title": "brown quick"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-24-phrase-gap",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match_phrase": {
+                "title": "quick fox"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-26-zero-none",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": {
+                  "query": "the",
+                  "analyzer": "stop",
+                  "zero_terms_query": "none"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-27-zero-all",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "match": {
+                "title": {
+                  "query": "the",
+                  "analyzer": "stop",
+                  "zero_terms_query": "all"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 4,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 1.0
+                },
+                {
+                  "_id": "2",
+                  "_score": 1.0
+                },
+                {
+                  "_id": "3",
+                  "_score": 1.0
+                },
+                {
+                  "_id": "4",
+                  "_score": 1.0
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-32-validate-should",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_validate/query?explain=true&rewrite=true",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "valid": true,
+            "explanations": [
+              {
+                "index": "tut-l18-dsl",
+                "valid": true,
+                "explanation": "title:quick title:brown"
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch18-09-explain-1",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_explain/1",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "_index": "tut-l18-dsl",
+            "_id": "1",
+            "matched": true,
+            "explanation": {
+              "value": 1.1689311,
+              "description": "sum of:",
+              "details": [
+                {
+                  "value": 0.58446556,
+                  "description": "weight(title:quick in 0) [PerFieldSimilarity], result of:",
+                  "details": [
+                    {
+                      "value": 0.58446556,
+                      "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                      "details": [
+                        {
+                          "value": 2.2,
+                          "description": "boost",
+                          "details": []
+                        },
+                        {
+                          "value": 0.6931472,
+                          "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                          "details": [
+                            {
+                              "value": 2,
+                              "description": "n, number of documents containing term",
+                              "details": []
+                            },
+                            {
+                              "value": 4,
+                              "description": "N, total number of documents with field",
+                              "details": []
+                            }
+                          ]
+                        },
+                        {
+                          "value": 0.38327527,
+                          "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                          "details": [
+                            {
+                              "value": 1.0,
+                              "description": "freq, occurrences of term within document",
+                              "details": []
+                            },
+                            {
+                              "value": 1.2,
+                              "description": "k1, term saturation parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 0.75,
+                              "description": "b, length normalization parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 4.0,
+                              "description": "dl, length of field",
+                              "details": []
+                            },
+                            {
+                              "value": 2.75,
+                              "description": "avgdl, average length of field",
+                              "details": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "value": 0.58446556,
+                  "description": "weight(title:brown in 0) [PerFieldSimilarity], result of:",
+                  "details": [
+                    {
+                      "value": 0.58446556,
+                      "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                      "details": [
+                        {
+                          "value": 2.2,
+                          "description": "boost",
+                          "details": []
+                        },
+                        {
+                          "value": 0.6931472,
+                          "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                          "details": [
+                            {
+                              "value": 2,
+                              "description": "n, number of documents containing term",
+                              "details": []
+                            },
+                            {
+                              "value": 4,
+                              "description": "N, total number of documents with field",
+                              "details": []
+                            }
+                          ]
+                        },
+                        {
+                          "value": 0.38327527,
+                          "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                          "details": [
+                            {
+                              "value": 1.0,
+                              "description": "freq, occurrences of term within document",
+                              "details": []
+                            },
+                            {
+                              "value": 1.2,
+                              "description": "k1, term saturation parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 0.75,
+                              "description": "b, length normalization parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 4.0,
+                              "description": "dl, length of field",
+                              "details": []
+                            },
+                            {
+                              "value": 2.75,
+                              "description": "avgdl, average length of field",
+                              "details": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-10-explain-3",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_explain/3?filter_path=matched,explanation.description",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "matched": false,
+            "explanation": {
+              "description": "No matching clauses"
+            }
+          }
+        },
+        {
+          "id": "ch18-11-explain-in-search",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.hits._id,hits.hits._score,hits.hits._explanation.description",
+          "body": {
+            "explain": true,
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "hits": [
+                {
+                  "_id": "2",
+                  "_score": 1.560387,
+                  "_explanation": {
+                    "description": "sum of:"
+                  }
+                },
+                {
+                  "_id": "1",
+                  "_score": 1.1689311,
+                  "_explanation": {
+                    "description": "sum of:"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-33-explain-alias",
+          "method": "POST",
+          "path": "/tut-l18-published/_explain/2",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "_index": "tut-l18-dsl",
+            "_id": "2",
+            "matched": false,
+            "explanation": {
+              "value": 0.0,
+              "description": "Failure to meet condition(s) of required/prohibited clause(s)",
+              "details": [
+                {
+                  "value": 0.0,
+                  "description": "no match on required clause (status:published)",
+                  "details": [
+                    {
+                      "value": 0.0,
+                      "description": "status:published doesn't match id 1",
+                      "details": []
+                    }
+                  ]
+                },
+                {
+                  "value": 0.7801935,
+                  "description": "weight(title:quick in 1) [PerFieldSimilarity], result of:",
+                  "details": [
+                    {
+                      "value": 0.7801935,
+                      "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                      "details": [
+                        {
+                          "value": 2.2,
+                          "description": "boost",
+                          "details": []
+                        },
+                        {
+                          "value": 0.6931472,
+                          "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                          "details": [
+                            {
+                              "value": 2,
+                              "description": "n, number of documents containing term",
+                              "details": []
+                            },
+                            {
+                              "value": 4,
+                              "description": "N, total number of documents with field",
+                              "details": []
+                            }
+                          ]
+                        },
+                        {
+                          "value": 0.51162785,
+                          "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                          "details": [
+                            {
+                              "value": 1.0,
+                              "description": "freq, occurrences of term within document",
+                              "details": []
+                            },
+                            {
+                              "value": 1.2,
+                              "description": "k1, term saturation parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 0.75,
+                              "description": "b, length normalization parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 2.0,
+                              "description": "dl, length of field",
+                              "details": []
+                            },
+                            {
+                              "value": 2.75,
+                              "description": "avgdl, average length of field",
+                              "details": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "value": 0.7801935,
+                  "description": "weight(title:brown in 1) [PerFieldSimilarity], result of:",
+                  "details": [
+                    {
+                      "value": 0.7801935,
+                      "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                      "details": [
+                        {
+                          "value": 2.2,
+                          "description": "boost",
+                          "details": []
+                        },
+                        {
+                          "value": 0.6931472,
+                          "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                          "details": [
+                            {
+                              "value": 2,
+                              "description": "n, number of documents containing term",
+                              "details": []
+                            },
+                            {
+                              "value": 4,
+                              "description": "N, total number of documents with field",
+                              "details": []
+                            }
+                          ]
+                        },
+                        {
+                          "value": 0.51162785,
+                          "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                          "details": [
+                            {
+                              "value": 1.0,
+                              "description": "freq, occurrences of term within document",
+                              "details": []
+                            },
+                            {
+                              "value": 1.2,
+                              "description": "k1, term saturation parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 0.75,
+                              "description": "b, length normalization parameter",
+                              "details": []
+                            },
+                            {
+                              "value": 2.0,
+                              "description": "dl, length of field",
+                              "details": []
+                            },
+                            {
+                              "value": 2.75,
+                              "description": "avgdl, average length of field",
+                              "details": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-12-bool-filter",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "must": [
+                  {
+                    "match": {
+                      "title": "elasticsearch"
+                    }
+                  }
+                ],
+                "filter": [
+                  {
+                    "term": {
+                      "status": "published"
+                    }
+                  },
+                  {
+                    "range": {
+                      "price": {
+                        "lte": 50
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "4",
+                  "_score": 1.1608025
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-13-bool-must",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "must": [
+                  {
+                    "match": {
+                      "title": "elasticsearch"
+                    }
+                  },
+                  {
+                    "term": {
+                      "status": "published"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "4",
+                  "_score": 1.5174774
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-28-filter-only",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.0
+                },
+                {
+                  "_id": "3",
+                  "_score": 0.0
+                },
+                {
+                  "_id": "4",
+                  "_score": 0.0
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-29-should-optional",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                },
+                "should": [
+                  {
+                    "match": {
+                      "title": "quick"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.58446556
+                },
+                {
+                  "_id": "3",
+                  "_score": 0.0
+                },
+                {
+                  "_id": "4",
+                  "_score": 0.0
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-30-should-required",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "body": {
+            "query": {
+              "bool": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                },
+                "should": [
+                  {
+                    "match": {
+                      "title": "quick"
+                    }
+                  }
+                ],
+                "minimum_should_match": 1
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.58446556
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch18-14-post-filter",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,aggregations",
+          "body": {
+            "query": {
+              "match_all": {}
+            },
+            "aggs": {
+              "by_status": {
+                "terms": {
+                  "field": "status"
+                }
+              }
+            },
+            "post_filter": {
+              "term": {
+                "status": "published"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1"
+                },
+                {
+                  "_id": "3"
+                },
+                {
+                  "_id": "4"
+                }
+              ]
+            },
+            "aggregations": {
+              "by_status": {
+                "doc_count_error_upper_bound": 0,
+                "sum_other_doc_count": 0,
+                "buckets": [
+                  {
+                    "key": "published",
+                    "doc_count": 3
+                  },
+                  {
+                    "key": "draft",
+                    "doc_count": 1
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-31-aggregation-filter",
+          "method": "POST",
+          "path": "/tut-l18-dsl/_search?filter_path=hits.total,hits.hits._id,aggregations",
+          "body": {
+            "query": {
+              "bool": {
+                "filter": {
+                  "term": {
+                    "status": "published"
+                  }
+                }
+              }
+            },
+            "aggs": {
+              "by_status": {
+                "terms": {
+                  "field": "status"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1"
+                },
+                {
+                  "_id": "3"
+                },
+                {
+                  "_id": "4"
+                }
+              ]
+            },
+            "aggregations": {
+              "by_status": {
+                "doc_count_error_upper_bound": 0,
+                "sum_other_doc_count": 0,
+                "buckets": [
+                  {
+                    "key": "published",
+                    "doc_count": 3
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "ch18-18-cleanup",
+          "method": "DELETE",
+          "path": "/tut-l18-dsl",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        }
+      ],
+      "status": "pass",
+      "verified": [
+        "34-actual-registered-requests",
+        "browser-compatible-POST-query-bodies",
+        "explicit-one-shard-green-health",
+        "fixed-ID-created-and-refreshed",
+        "stored-termvectors-positions",
+        "standard-punctuation-lowercase",
+        "match-term-case-and-keyword-normalizer",
+        "OR-AND-reversed-phrase-gap",
+        "explicit-request-stop-zero-none-all",
+        "two-Explain-entrances-rewritten-query-and-alias-filter",
+        "filter-must-score-contribution",
+        "pure-filter-zero-score",
+        "should-default-optional-and-explicit-minimum",
+        "post-filter-and-query-filter-aggregation-scope",
+        "validate-two-term-OR",
+        "pointed-cleanup-and-rebuild"
+      ]
+    }
+  ],
+  "status": "pass",
+  "repeatabilityRecoveryCleanup": {
+    "status": 200,
+    "response": {
+      "acknowledged": true
+    }
+  },
+  "repeatabilityChecks": [
+    {
+      "name": "fresh-create",
+      "method": "PUT",
+      "path": "/tut-l18-dsl",
+      "body": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "auto_expand_replicas": false,
+          "refresh_interval": "-1",
+          "requests.cache.enable": false,
+          "default_pipeline": "_none",
+          "final_pipeline": "_none",
+          "mapping.source.mode": "stored",
+          "analysis": {
+            "normalizer": {
+              "fold_status": {
+                "type": "custom",
+                "filter": [
+                  "lowercase"
+                ]
+              }
+            }
+          }
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "properties": {
+            "title": {
+              "type": "text",
+              "analyzer": "standard",
+              "search_analyzer": "standard",
+              "term_vector": "with_positions_offsets"
+            },
+            "status": {
+              "type": "keyword"
+            },
+            "status_fold": {
+              "type": "keyword",
+              "normalizer": "fold_status"
+            },
+            "price": {
+              "type": "float"
+            },
+            "date": {
+              "type": "date",
+              "format": "strict_date_optional_time"
+            }
+          }
+        },
+        "aliases": {
+          "tut-l18-published": {
+            "filter": {
+              "term": {
+                "status": "published"
+              }
+            }
+          }
+        }
+      },
+      "status": 200,
+      "response": {
+        "acknowledged": true,
+        "shards_acknowledged": true,
+        "index": "tut-l18-dsl"
+      }
+    },
+    {
+      "name": "actual-mapping",
+      "method": "GET",
+      "path": "/tut-l18-dsl/_mapping",
+      "body": null,
+      "status": 200,
+      "response": {
+        "tut-l18-dsl": {
+          "mappings": {
+            "dynamic": "strict",
+            "properties": {
+              "date": {
+                "type": "date",
+                "format": "strict_date_optional_time"
+              },
+              "price": {
+                "type": "float"
+              },
+              "status": {
+                "type": "keyword"
+              },
+              "status_fold": {
+                "type": "keyword",
+                "normalizer": "fold_status"
+              },
+              "title": {
+                "type": "text",
+                "term_vector": "with_positions_offsets",
+                "analyzer": "standard"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "actual-settings",
+      "method": "GET",
+      "path": "/tut-l18-dsl/_settings?flat_settings=true",
+      "body": null,
+      "status": 200,
+      "response": {
+        "tut-l18-dsl": {
+          "settings": {
+            "index.analysis.normalizer.fold_status.filter": [
+              "lowercase"
+            ],
+            "index.analysis.normalizer.fold_status.type": "custom",
+            "index.auto_expand_replicas": "false",
+            "index.creation_date": "1791808205509",
+            "index.default_pipeline": "_none",
+            "index.final_pipeline": "_none",
+            "index.mapping.source.mode": "stored",
+            "index.number_of_replicas": "0",
+            "index.number_of_shards": "1",
+            "index.provided_name": "tut-l18-dsl",
+            "index.refresh_interval": "-1",
+            "index.requests.cache.enable": "false",
+            "index.routing.allocation.include._tier_preference": "data_content",
+            "index.uuid": "K5nSO2sRSa-6bTdWnJAKvg",
+            "index.version.created": "9094000"
+          }
+        }
+      }
+    },
+    {
+      "name": "repeat-create",
+      "method": "PUT",
+      "path": "/tut-l18-dsl",
+      "body": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "auto_expand_replicas": false,
+          "refresh_interval": "-1",
+          "requests.cache.enable": false,
+          "default_pipeline": "_none",
+          "final_pipeline": "_none",
+          "mapping.source.mode": "stored",
+          "analysis": {
+            "normalizer": {
+              "fold_status": {
+                "type": "custom",
+                "filter": [
+                  "lowercase"
+                ]
+              }
+            }
+          }
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "properties": {
+            "title": {
+              "type": "text",
+              "analyzer": "standard",
+              "search_analyzer": "standard",
+              "term_vector": "with_positions_offsets"
+            },
+            "status": {
+              "type": "keyword"
+            },
+            "status_fold": {
+              "type": "keyword",
+              "normalizer": "fold_status"
+            },
+            "price": {
+              "type": "float"
+            },
+            "date": {
+              "type": "date",
+              "format": "strict_date_optional_time"
+            }
+          }
+        },
+        "aliases": {
+          "tut-l18-published": {
+            "filter": {
+              "term": {
+                "status": "published"
+              }
+            }
+          }
+        }
+      },
+      "status": 400,
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "resource_already_exists_exception",
+              "reason": "index [tut-l18-dsl/K5nSO2sRSa-6bTdWnJAKvg] already exists",
+              "index_uuid": "K5nSO2sRSa-6bTdWnJAKvg",
+              "index": "tut-l18-dsl"
+            }
+          ],
+          "type": "resource_already_exists_exception",
+          "reason": "index [tut-l18-dsl/K5nSO2sRSa-6bTdWnJAKvg] already exists",
+          "index_uuid": "K5nSO2sRSa-6bTdWnJAKvg",
+          "index": "tut-l18-dsl"
+        },
+        "status": 400
+      }
+    },
+    {
+      "name": "fresh-bulk",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_bulk?refresh=true",
+      "body": "{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"1\"}}\n{\"title\":\"The quick brown fox\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"2\"}}\n{\"title\":\"quick brown\",\"status\":\"draft\",\"price\":29.99,\"date\":\"2024-06-20\",\"status_fold\":\"DRAFT\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"3\"}}\n{\"title\":\"lazy dog\",\"status\":\"published\",\"price\":49.99,\"date\":\"2023-11-01\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"4\"}}\n{\"title\":\"Elasticsearch in Action\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n",
+      "status": 200,
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-l18-dsl",
+              "_id": "1",
+              "_version": 1,
+              "result": "created",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 0,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l18-dsl",
+              "_id": "2",
+              "_version": 1,
+              "result": "created",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 1,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l18-dsl",
+              "_id": "3",
+              "_version": 1,
+              "result": "created",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 2,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l18-dsl",
+              "_id": "4",
+              "_version": 1,
+              "result": "created",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 3,
+              "_primary_term": 1,
+              "status": 201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "repeat-bulk",
+      "method": "POST",
+      "path": "/tut-l18-dsl/_bulk?refresh=true",
+      "body": "{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"1\"}}\n{\"title\":\"The quick brown fox\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"2\"}}\n{\"title\":\"quick brown\",\"status\":\"draft\",\"price\":29.99,\"date\":\"2024-06-20\",\"status_fold\":\"DRAFT\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"3\"}}\n{\"title\":\"lazy dog\",\"status\":\"published\",\"price\":49.99,\"date\":\"2023-11-01\",\"status_fold\":\"PUBLISHED\"}\n{\"index\":{\"_index\":\"tut-l18-dsl\",\"_id\":\"4\"}}\n{\"title\":\"Elasticsearch in Action\",\"status\":\"published\",\"price\":39.99,\"date\":\"2024-01-15\",\"status_fold\":\"PUBLISHED\"}\n",
+      "status": 200,
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-l18-dsl",
+              "_id": "1",
+              "_version": 2,
+              "result": "updated",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 4,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l18-dsl",
+              "_id": "2",
+              "_version": 2,
+              "result": "updated",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 5,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l18-dsl",
+              "_id": "3",
+              "_version": 2,
+              "result": "updated",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 6,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l18-dsl",
+              "_id": "4",
+              "_version": 2,
+              "result": "updated",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 7,
+              "_primary_term": 1,
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "cleanup",
+      "method": "DELETE",
+      "path": "/tut-l18-dsl",
+      "body": null,
+      "status": 200,
+      "response": {
+        "acknowledged": true
+      }
+    },
+    {
+      "name": "repeat-cleanup",
+      "method": "DELETE",
+      "path": "/tut-l18-dsl",
+      "body": null,
+      "status": 404,
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "index_not_found_exception",
+              "reason": "no such index [tut-l18-dsl]",
+              "resource.type": "index_or_alias",
+              "resource.id": "tut-l18-dsl",
+              "index_uuid": "_na_",
+              "index": "tut-l18-dsl"
+            }
+          ],
+          "type": "index_not_found_exception",
+          "reason": "no such index [tut-l18-dsl]",
+          "resource.type": "index_or_alias",
+          "resource.id": "tut-l18-dsl",
+          "index_uuid": "_na_",
+          "index": "tut-l18-dsl"
+        },
+        "status": 404
+      }
+    }
+  ],
+  "postCleanup": [
+    {
+      "path": "/tut-l18-dsl",
+      "status": 404,
+      "response": null
+    },
+    {
+      "path": "/tut-l18-published",
+      "status": 404,
+      "response": null
+    }
+  ],
+  "requestIdentityVerified": true,
+  "experimentSha256": "747ac997f98c831c2c9e33444b3a54252aeaf2ac7c3d24416fd5b0999fde8b56"
+}

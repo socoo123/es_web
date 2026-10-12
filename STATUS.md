@@ -35,7 +35,7 @@
 | ch15 | 索引分片 | ✅ | 40 | 1(路由公式·7步) | ✅ 路由碰撞与本地生命周期（2 图，2 路径动画） |
 | ch16 | 搜索流程总览 | ✅ | 29 | 1(Query Then Fetch·旗舰) | ✅ 两阶段职责与分页窗口（2 图，2 路径动画） |
 | ch17 | 搜索服务与搜索上下文 | ✅ | 32 | 1(上下文生命周期) | ✅ 执行上下文与保留读者（2图，2路径动画） |
-| ch18 | 查询语法 | ✅ | 19 | 1(match→SHOULD) | 待改造 |
+| ch18 | 查询语法 | ✅ | 34 | 1(match→SHOULD) | ✅ 查询翻译与收集边界（2图，2路径动画） |
 | ch19 | 聚合框架 | ✅ | 17 | 1(cherry/shardSize) | 待改造 |
 | ch20 | 评分与排序 | ✅ | 12 | 1(BM25 演算·旗舰) | 待改造 |
 | ch21 | 集群状态 | ✅ | 16 | — | 待改造 |
@@ -272,7 +272,30 @@
 | ch17 | open_contexts为全节点0→1→0，每PIT独占reader/到点立即放；PIT重建可无条件重试并发 | 本索引基线N比较；解除上下文引用不保证底层全放，后台reaper/使用引用保护；相同searcher重建有条件，不承诺所有故障恢复 | ReaderContext87–96/134–154；SearchService1460–1488/1887–1900；PIT官方API |
 | ch17 | 18卡缺mapping/健康/配置/基线/重做，关闭响应只笼统succeeded | 保留18ID增14，3组32卡；显式配置、局部健康/统计、合法脚本基线、PIT完整游标与点名清理重做；关闭true/num_freed1 | [注册表](experiments/ch17.js)、[验收](.archify/CH17-REVIEW.md) |
 
+### 第十八章重构校对
+
+| 课 | 网页旧说法 | 修正 | 依据 |
+|---|---|---|---|
+| ch18 | 两卡 GET _explain 带 body，可在网页直接运行 | 浏览器 ESClient 不发送 GET body，旧卡真实400缺query；保留ID改POST后200 | [原响应](.archify/review/ch18-original-responses.json)、[当前两轮](.archify/review/ch18-es-review.json) |
+| ch18 | _explain / highlight 都只对 originalQuery 说话 | 默认高亮取原ParsedQuery；Explain先preProcess，再解释rewrittenQuery，别名约束参与；search Explain亦然 | TransportExplainAction156–179/ExplainPhase40–49；[别名实测](.archify/review/ch18-es-review.json) |
+| ch18 | keyword match一定到parser才短路，term所有字段原样不变 | 默认keyword可先Builder改写；parser另有短路，normalizer单词项归一化/显式analyzer有条件 | MatchQueryBuilder360–409；KeywordFieldMapper1085–1101；本轮normalizer实测 |
+| ch18 | standard按空白分；_analyze直接看词典 | 词边界tokenizer+lowercase、默认空停用词；analyze是分析输出，本例显式保存词向量核对词项/位置/offsets | [固定Lucene核对](.archify/review/ch18-lucene-source-review.json)、[真实词向量](.archify/review/ch18-es-review.json) |
+| ch18 | 多token一概SHOULD；更多词必排更高；反向短语是“两词不相邻” | 本例无同义词/模糊两位置OR；跨文档排名有其他统计；反向两词相邻但词序不符，另测同序间隔 | MatchQueryParser410–450/621–645；OR/AND/phrase真实对照 |
+| ch18 | must必评分，keyword term为常数分；should通常可选 | must评分限定普通评分上下文；本例keyword用相似度；should门槛按同层must/filter及显式minimum判断 | BoolQueryBuilder305–327；C5/C6/C7/C8/C9实测 |
+| ch18 | post_filter在hits已排完/聚合已算完后再删Top-N | Query阶段无分Weight，hits收集路径检查，聚合独立收集；query.bool.filter缩小两路 | QueryPhase191–221/QueryPhaseCollector286–318；聚合两轮对照 |
+| ch18 | filter可直接缓存回放，精确命中≥1%选bitset | 仍受策略/可缓存性/segment/容量约束；表示按scorer.cost估计选择，四篇不证明性能 | XLRUQueryCache501–513/730–776；Lucene固定策略 |
+| ch18 | 19卡无就绪等待/完整重做，重复bulk永远201 | 保留19ID增15；显式配置/局部green/固定ID+refresh；重复创建400、写入updated200、重复清理404分别实测 | [注册表](experiments/ch18.js)、[两轮+8项](.archify/review/ch18-es-review.json) |
+
 ## 会话日志
+
+### 2026-10-12(第十八章按统一规范重构)
+
+- 固定ES9.4.0/Lucene10.4.0：18源码文件/39精确区间及2个Lucene固定tag文件；重排Builder/Lucene改写、字段分析/工厂、词项/位置、评分/should门槛、缓存条件、两路收集和Explain。正文/两图/六步/卡片/5问答/4陷阱/速记一致。
+- 保留原19稳定ID，3组34卡（A13/B9/C11/清理1）、2交互图/2有限trace/1六步机制；显式standard/keyword normalizer/strict/stored source/词向量、一主零副/无管道/周期刷新关闭/局部green/固定ID+refresh/点名清理与重做。全站30正式页/604卡/22机制；共享CSS/JS和其他章节未改。
+- 官方Archify3.0.1 Workflow v2，首次附真实固定源码/checkout、仅改JSON。translation当前review-2，collection review-3；validate/deliver/strict check showcase9/9、0errors/warnings、provenance current，原生browser-check与finalize整体PASS。双列手机裁切修复为纵向独立路径，主收集路径直连；聚合绕行保留且实际审阅无交叉/语义错误。旧图源/收据/诊断保留，许可及HTML字体许可保留。
+- HTTP两图四档桌面/双主题、章节六档宽度、880px/≤1px对齐、页面/iframe/节点完整、探索/来源/关闭/展开、暂停后重播/Enter、目录/已读、六步控制/键盘、34实际控制台导航method/path/body、endpoint/auth/raw、Pages前缀、reduced motion PASS。390/320源码表/旧SVG局部滚动PASS。实际查看24张最终截图与全部六步；手机图为概览，细字需探索/展开，必要解释在正文/图注。
+- **真实API两轮每轮34卡PASS**：旧GET Explain两卡真实400缺query，POST后200；词项/保存位置/标点小写、text match/term/keyword normalizer、OR/AND/反向与间隔phrase、stop零词项none0/all4、validate OR、两入口Explain/别名false且含status约束；filter→must分数1.1608025→1.5174774，纯filter三篇0，should默认可选与显式门槛对照；post_filter聚合published3/draft1，query.filter只published3。另8条重复性观察确认重复创建400/写入updated200/删除404及实际mapping/settings。mapping冗余search_analyzer省略导致初始验收守卫失败，修正后针对性重做通过，最终父索引/别名HEAD404。浏览器阻断ES自动执行，真实API单列；未实测多节点/词图/模糊/缓存收益或性能。
+- 站点、JS语法、figwidth、diff、19稳定ID/34有序唯一槽位、GET/HEAD无body与.nojekyll PASS。验收[CH18-REVIEW](.archify/CH18-REVIEW.md)、[HTTP](.archify/review/ch18-http-review.json)、[真实API](.archify/review/ch18-es-review.json)、[artifacts](.archify/review/ch18-artifacts.json)。按授权提交推送origin/main；远端与Pages在交付时另核对，原有.gitignore修改不纳入。
 
 ### 2026-10-12（框架学习篇与旅游搜索综合实验规划）
 

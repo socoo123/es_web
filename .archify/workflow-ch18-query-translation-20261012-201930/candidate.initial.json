@@ -1,0 +1,232 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "text + standard：同一串的两条翻译路径",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch18-query-translation-20261012-201930/query-translation.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "查询构造与收集"
+        },
+        "security": {
+          "label": "无分命中过滤"
+        },
+        "database": {
+          "label": "查询产物与统计"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "dsl",
+      "label": "查询描述 · Builder rewrite 后调用 toQuery"
+    },
+    {
+      "id": "transform",
+      "label": "字段转换 · 全文分析与单词项查询"
+    },
+    {
+      "id": "lucene",
+      "label": "Lucene 查询 · 交给执行层"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "match",
+      "lane": "dsl",
+      "col": 0,
+      "type": "backend",
+      "label": "match · title",
+      "sublabel": "quick brown · 默认 OR",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/query/SearchExecutionContext.java",
+          "line": 557,
+          "end_line": 565,
+          "label": "先 rewrite 再 toQuery"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/query/MatchQueryBuilder.java",
+          "line": 387,
+          "end_line": 409,
+          "label": "match 配置与 parse"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/query/Operator.java",
+          "line": 24,
+          "end_line": 29,
+          "label": "OR 转 SHOULD"
+        }
+      ]
+    },
+    {
+      "id": "term",
+      "lane": "dsl",
+      "col": 1,
+      "type": "backend",
+      "label": "term · title",
+      "sublabel": "quick brown · 单个查询值",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/query/TermQueryBuilder.java",
+          "line": 209,
+          "end_line": 217,
+          "label": "默认 term 调字段工厂"
+        }
+      ]
+    },
+    {
+      "id": "analyze",
+      "lane": "transform",
+      "col": 0,
+      "type": "backend",
+      "label": "tokenStream 分析",
+      "sublabel": "quick / brown · 两个位置",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/search/MatchQueryParser.java",
+          "line": 276,
+          "end_line": 285,
+          "label": "BOOLEAN 分析入口"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/search/MatchQueryParser.java",
+          "line": 456,
+          "end_line": 470,
+          "label": "tokenStream"
+        }
+      ]
+    },
+    {
+      "id": "lookup",
+      "lane": "transform",
+      "col": 1,
+      "type": "backend",
+      "label": "字段 termQuery",
+      "sublabel": "quick brown 整串 · 不分词",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/TermBasedFieldType.java",
+          "line": 44,
+          "end_line": 46,
+          "label": "BytesRef 原样转换"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/TermBasedFieldType.java",
+          "line": 66,
+          "end_line": 69,
+          "label": "构造 TermQuery"
+        }
+      ]
+    },
+    {
+      "id": "boolean",
+      "lane": "lucene",
+      "col": 0,
+      "type": "database",
+      "label": "BooleanQuery · SHOULD",
+      "sublabel": "至少一个词 · 不要求相邻",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/search/MatchQueryParser.java",
+          "line": 604,
+          "end_line": 617,
+          "label": "每位置添加子句"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/search/MatchQueryParser.java",
+          "line": 621,
+          "end_line": 645,
+          "label": "多位置组 BooleanQuery"
+        }
+      ]
+    },
+    {
+      "id": "literal",
+      "lane": "lucene",
+      "col": 1,
+      "type": "database",
+      "label": "TermQuery · 整串",
+      "sublabel": "本例无该 term · 零命中",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/mapper/TermBasedFieldType.java",
+          "line": 66,
+          "end_line": 69,
+          "label": "单词项查询"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "match-analyze",
+      "from": "match",
+      "to": "analyze",
+      "variant": "emphasis"
+    },
+    {
+      "id": "analyze-boolean",
+      "from": "analyze",
+      "to": "boolean",
+      "variant": "emphasis"
+    },
+    {
+      "id": "term-lookup",
+      "from": "term",
+      "to": "lookup",
+      "variant": "emphasis"
+    },
+    {
+      "id": "lookup-literal",
+      "from": "lookup",
+      "to": "literal",
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "match",
+    "analyze",
+    "boolean"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "箭头与本例范围",
+      "items": [
+        "两列是独立查询的构造与数据变换，不是 match 失败再执行 term。限定本课显式 standard 的 title、默认 OR、quick brown，无同义词、模糊或 analyzer 覆盖。",
+        "匹配 1、2 与零命中是本课四篇数据的实测结果；查询构造完成后仍需 Lucene rewrite 与搜索执行。省略倒排遍历、评分和 Query→Fetch。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "字段和词流会改变形状",
+      "items": [
+        "默认 keyword 的 match 可在 Builder rewrite 提前变为 TermQueryBuilder；带 normalizer 时归一化单词项。不能说 match 永远分成多词或 term 对所有字段都原样比较。",
+        "本例的两项 SHOULD 由 analyzeMultiBoolean 构造；零词项、单词项、同义词图或显式 AND 走不同构造。关键条件见正文与节点源码。"
+      ]
+    }
+  ]
+}

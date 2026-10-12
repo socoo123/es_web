@@ -1,0 +1,210 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "过滤范围：主 query、hits 与聚合两路",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch18-collection-scope-20261012-201930/collection-scope.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "查询构造与收集"
+        },
+        "security": {
+          "label": "无分命中过滤"
+        },
+        "database": {
+          "label": "查询产物与统计"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "query",
+      "label": "主查询 · 决定候选集与评分语义"
+    },
+    {
+      "id": "collect",
+      "label": "Query 阶段 · 同一次 search 中分别收集"
+    },
+    {
+      "id": "result",
+      "label": "本课 C10 · match_all + published post_filter"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "query",
+      "lane": "query",
+      "col": 0,
+      "type": "backend",
+      "label": "主 query · 本例四篇",
+      "sublabel": "must 算分 · filter 无分约束",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/query/BoolQueryBuilder.java",
+          "line": 305,
+          "end_line": 327,
+          "label": "四种 Occur 构造"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhase.java",
+          "line": 166,
+          "end_line": 167,
+          "label": "取主执行查询"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhase.java",
+          "line": 207,
+          "end_line": 221,
+          "label": "search 收集器"
+        }
+      ]
+    },
+    {
+      "id": "hits",
+      "lane": "collect",
+      "col": 0,
+      "type": "security",
+      "label": "hits 收集 · post_filter",
+      "sublabel": "published 才进入 TopDocs",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhase.java",
+          "line": 191,
+          "end_line": 199,
+          "label": "无分 post_filter Weight"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollector.java",
+          "line": 118,
+          "end_line": 120,
+          "label": "TopDocs 过滤判断"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollector.java",
+          "line": 286,
+          "end_line": 304,
+          "label": "过滤后收集 hits"
+        }
+      ]
+    },
+    {
+      "id": "aggs",
+      "lane": "collect",
+      "col": 1,
+      "type": "backend",
+      "label": "聚合收集 · 不检查它",
+      "sublabel": "继续使用主 query 的候选集",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollector.java",
+          "line": 306,
+          "end_line": 318,
+          "label": "聚合独立收集"
+        }
+      ]
+    },
+    {
+      "id": "top",
+      "lane": "result",
+      "col": 0,
+      "type": "database",
+      "label": "hits · 三篇 published",
+      "sublabel": "ID 1、3、4",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollector.java",
+          "line": 286,
+          "end_line": 304,
+          "label": "TopDocs 分支"
+        }
+      ]
+    },
+    {
+      "id": "buckets",
+      "lane": "result",
+      "col": 1,
+      "type": "database",
+      "label": "桶 · published 3 / draft 1",
+      "sublabel": "普通 terms 聚合按四篇统计",
+      "width": 310,
+      "height": 68,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollector.java",
+          "line": 306,
+          "end_line": 318,
+          "label": "聚合收集分支"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "query-hits",
+      "from": "query",
+      "to": "hits",
+      "variant": "emphasis"
+    },
+    {
+      "id": "query-aggs",
+      "from": "query",
+      "to": "aggs",
+      "variant": "emphasis",
+      "label": "同一候选集",
+      "role": "branch"
+    },
+    {
+      "id": "hits-top",
+      "from": "hits",
+      "to": "top",
+      "variant": "emphasis"
+    },
+    {
+      "id": "aggs-buckets",
+      "from": "aggs",
+      "to": "buckets",
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "query",
+    "hits",
+    "top"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "箭头与抽象范围",
+      "items": [
+        "箭头是候选文档流向不同收集器，不表达“先排完 hits 再聚合再过滤”的时间顺序。限定普通 query、顶层 terms 聚合，无 global、min_score 或 terminate_after。",
+        "本例 C10 的 query 是 match_all；post_filter 的 Weight 为无分模式，在 Query 阶段只门控 hits 收集，不能对已截取的 Top-N 才删文档。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "把条件放在哪里",
+      "items": [
+        "C11 把 published 放进 bool.filter 后，主查询只剩三篇，两路集合一起缩小，draft 桶消失；filter 不贡献分数。",
+        "缓存是另一个有条件的机制：按 query/segment 缓存无分集合仍受策略、可缓存性与 segment 条件约束。四篇演示不证明缓存命中，更不承诺性能。"
+      ]
+    }
+  ]
+}
