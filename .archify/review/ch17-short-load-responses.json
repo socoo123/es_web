@@ -1,0 +1,5353 @@
+{
+  "kind": "real-es-api",
+  "endpoint": "http://localhost:9200",
+  "version": {
+    "status": 200,
+    "response": {
+      "name": "de11d253f59a",
+      "cluster_name": "docker-cluster",
+      "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+      "version": {
+        "number": "9.4.0",
+        "build_flavor": "default",
+        "build_type": "docker",
+        "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+        "build_date": "2026-04-30T15:05:34.751113474Z",
+        "build_snapshot": false,
+        "lucene_version": "10.4.0",
+        "minimum_wire_compatibility_version": "8.19.0",
+        "minimum_index_compatibility_version": "8.0.0"
+      },
+      "tagline": "You Know, for Search"
+    }
+  },
+  "nodes": {
+    "status": 200,
+    "response": {
+      "nodes": {
+        "QSkpyRrVQ7SrCWvutWILMg": {
+          "version": "9.4.0"
+        }
+      }
+    }
+  },
+  "reviewedAt": "2026-10-12T08:45:47.820299+08:00",
+  "experimentSha256": "9f722de3fdb11a1b7afae87bcb626fd52e52d56620f835b85bd26a75be181979",
+  "registeredRequests": [
+    {
+      "id": "ch17-00-setup",
+      "method": "PUT",
+      "path": "/tut-l17-timeout",
+      "body": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "auto_expand_replicas": "false",
+          "refresh_interval": "-1",
+          "default_pipeline": "_none",
+          "final_pipeline": "_none",
+          "requests.cache.enable": false
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "_source": {
+            "enabled": true
+          },
+          "properties": {
+            "title": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "n": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch17-18-health-timeout",
+      "method": "GET",
+      "path": "/_cluster/health/tut-l17-timeout?wait_for_status=green&wait_for_active_shards=1&timeout=10s",
+      "body": null
+    },
+    {
+      "id": "ch17-19-settings",
+      "method": "GET",
+      "path": "/tut-l17-timeout/_settings?flat_settings=true",
+      "body": null
+    },
+    {
+      "id": "ch17-01-bulk3",
+      "method": "POST",
+      "path": "/tut-l17-timeout/_bulk?refresh=true",
+      "body": "{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"1\"}}\n{\"title\":\"quick brown fox\",\"n\":1}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"2\"}}\n{\"title\":\"lazy dog\",\"n\":2}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"3\"}}\n{\"title\":\"quick brown\",\"n\":3}\n"
+    },
+    {
+      "id": "ch17-20-analyze",
+      "method": "POST",
+      "path": "/tut-l17-timeout/_analyze",
+      "body": {
+        "field": "title",
+        "text": "quick brown"
+      }
+    },
+    {
+      "id": "ch17-21-validate",
+      "method": "POST",
+      "path": "/tut-l17-timeout/_validate/query?rewrite=true&explain=true",
+      "body": {
+        "query": {
+          "match": {
+            "title": "quick brown"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch17-22-alias",
+      "method": "POST",
+      "path": "/_aliases",
+      "body": {
+        "actions": [
+          {
+            "add": {
+              "index": "tut-l17-timeout",
+              "alias": "tut-l17-filtered",
+              "filter": {
+                "term": {
+                  "n": 1
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "ch17-23-alias-profile",
+      "method": "POST",
+      "path": "/tut-l17-filtered/_search?request_cache=false",
+      "body": {
+        "query": {
+          "match": {
+            "title": "quick brown"
+          }
+        },
+        "profile": true,
+        "explain": true,
+        "highlight": {
+          "fields": {
+            "title": {}
+          }
+        },
+        "size": 10
+      }
+    },
+    {
+      "id": "ch17-02-timeout-fast",
+      "method": "POST",
+      "path": "/tut-l17-timeout/_search?request_cache=false&allow_partial_search_results=true",
+      "body": {
+        "timeout": "1ms",
+        "track_total_hits": true,
+        "query": {
+          "match_all": {}
+        }
+      }
+    },
+    {
+      "id": "ch17-03-bulk30",
+      "method": "POST",
+      "path": "/tut-l17-timeout/_bulk?refresh=true",
+      "body": "{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"10\"}}\n{\"title\":\"doc 10\",\"n\":10}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"11\"}}\n{\"title\":\"doc 11\",\"n\":11}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"12\"}}\n{\"title\":\"doc 12\",\"n\":12}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"13\"}}\n{\"title\":\"doc 13\",\"n\":13}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"14\"}}\n{\"title\":\"doc 14\",\"n\":14}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"15\"}}\n{\"title\":\"doc 15\",\"n\":15}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"16\"}}\n{\"title\":\"doc 16\",\"n\":16}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"17\"}}\n{\"title\":\"doc 17\",\"n\":17}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"18\"}}\n{\"title\":\"doc 18\",\"n\":18}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"19\"}}\n{\"title\":\"doc 19\",\"n\":19}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"20\"}}\n{\"title\":\"doc 20\",\"n\":20}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"21\"}}\n{\"title\":\"doc 21\",\"n\":21}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"22\"}}\n{\"title\":\"doc 22\",\"n\":22}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"23\"}}\n{\"title\":\"doc 23\",\"n\":23}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"24\"}}\n{\"title\":\"doc 24\",\"n\":24}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"25\"}}\n{\"title\":\"doc 25\",\"n\":25}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"26\"}}\n{\"title\":\"doc 26\",\"n\":26}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"27\"}}\n{\"title\":\"doc 27\",\"n\":27}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"28\"}}\n{\"title\":\"doc 28\",\"n\":28}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"29\"}}\n{\"title\":\"doc 29\",\"n\":29}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"30\"}}\n{\"title\":\"doc 30\",\"n\":30}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"31\"}}\n{\"title\":\"doc 31\",\"n\":31}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"32\"}}\n{\"title\":\"doc 32\",\"n\":32}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"33\"}}\n{\"title\":\"doc 33\",\"n\":33}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"34\"}}\n{\"title\":\"doc 34\",\"n\":34}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"35\"}}\n{\"title\":\"doc 35\",\"n\":35}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"36\"}}\n{\"title\":\"doc 36\",\"n\":36}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"37\"}}\n{\"title\":\"doc 37\",\"n\":37}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"38\"}}\n{\"title\":\"doc 38\",\"n\":38}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"39\"}}\n{\"title\":\"doc 39\",\"n\":39}\n"
+    },
+    {
+      "id": "ch17-28-count",
+      "method": "GET",
+      "path": "/tut-l17-timeout/_count",
+      "body": null
+    },
+    {
+      "id": "ch17-30-loop-guard",
+      "method": "POST",
+      "path": "/tut-l17-timeout/_search?request_cache=false",
+      "body": {
+        "query": {
+          "script_score": {
+            "query": {
+              "match_all": {}
+            },
+            "script": {
+              "source": "long acc = 0L; for (int i = 0; i < 5000000; i++) { acc += i; } return 1.0;"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch17-29-work-baseline",
+      "method": "POST",
+      "path": "/tut-l17-timeout/_search?request_cache=false",
+      "body": {
+        "timeout": "30s",
+        "size": 10,
+        "track_total_hits": true,
+        "query": {
+          "script_score": {
+            "query": {
+              "match_all": {}
+            },
+            "script": {
+              "source": "double acc = 0.0; double n = doc[\"n\"].value; for (int i = 0; i < params.loops; i++) { acc += Math.log(1.0 + n + i); } return acc / params.loops;",
+              "params": {
+                "loops": 20000
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch17-04-timeout-slow",
+      "method": "POST",
+      "path": "/tut-l17-timeout/_search?request_cache=false&allow_partial_search_results=true",
+      "body": {
+        "timeout": "1ms",
+        "size": 10,
+        "track_total_hits": true,
+        "query": {
+          "script_score": {
+            "query": {
+              "match_all": {}
+            },
+            "script": {
+              "source": "double acc = 0.0; double n = doc[\"n\"].value; for (int i = 0; i < params.loops; i++) { acc += Math.log(1.0 + n + i); } return acc / params.loops;",
+              "params": {
+                "loops": 20000
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch17-05-timeout-strict",
+      "method": "POST",
+      "path": "/tut-l17-timeout/_search?request_cache=false&allow_partial_search_results=false",
+      "body": {
+        "timeout": "1ms",
+        "size": 10,
+        "track_total_hits": true,
+        "query": {
+          "script_score": {
+            "query": {
+              "match_all": {}
+            },
+            "script": {
+              "source": "double acc = 0.0; double n = doc[\"n\"].value; for (int i = 0; i < params.loops; i++) { acc += Math.log(1.0 + n + i); } return acc / params.loops;",
+              "params": {
+                "loops": 20000
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch17-06-setup-pit",
+      "method": "PUT",
+      "path": "/tut-l17-pit",
+      "body": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "auto_expand_replicas": "false",
+          "refresh_interval": "-1",
+          "default_pipeline": "_none",
+          "final_pipeline": "_none",
+          "requests.cache.enable": false
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "_source": {
+            "enabled": true
+          },
+          "properties": {
+            "title": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "ts": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ch17-24-health-pit",
+      "method": "GET",
+      "path": "/_cluster/health/tut-l17-pit?wait_for_status=green&wait_for_active_shards=1&timeout=10s",
+      "body": null
+    },
+    {
+      "id": "ch17-07-bulk5",
+      "method": "POST",
+      "path": "/tut-l17-pit/_bulk?refresh=true",
+      "body": "{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"1\"}}\n{\"title\":\"quick brown fox\",\"ts\":1}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"2\"}}\n{\"title\":\"quick brown\",\"ts\":2}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"3\"}}\n{\"title\":\"lazy dog\",\"ts\":3}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"4\"}}\n{\"title\":\"quick fox\",\"ts\":4}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"5\"}}\n{\"title\":\"brown fox\",\"ts\":5}\n"
+    },
+    {
+      "id": "ch17-25-context-baseline",
+      "method": "GET",
+      "path": "/tut-l17-pit/_stats/search?filter_path=indices.*.primaries.search.open_contexts",
+      "body": null
+    },
+    {
+      "id": "ch17-08-pit-open",
+      "method": "POST",
+      "path": "/tut-l17-pit/_pit?keep_alive=5m",
+      "body": null
+    },
+    {
+      "id": "ch17-09-contexts-open",
+      "method": "GET",
+      "path": "/tut-l17-pit/_stats/search?filter_path=indices.*.primaries.search.open_contexts",
+      "body": null
+    },
+    {
+      "id": "ch17-10-pit-page1",
+      "method": "POST",
+      "path": "/_search",
+      "body": {
+        "size": 2,
+        "track_total_hits": true,
+        "sort": [
+          {
+            "ts": "asc"
+          }
+        ],
+        "query": {
+          "match": {
+            "title": "quick"
+          }
+        },
+        "pit": {
+          "id": "粘贴C5的id，之后使用最新pit_id",
+          "keep_alive": "5m"
+        }
+      }
+    },
+    {
+      "id": "ch17-11-write-new",
+      "method": "PUT",
+      "path": "/tut-l17-pit/_doc/new?refresh=true",
+      "body": {
+        "title": "quick newcomer",
+        "ts": 99
+      }
+    },
+    {
+      "id": "ch17-26-pit-page2",
+      "method": "POST",
+      "path": "/_search",
+      "body": {
+        "size": 2,
+        "track_total_hits": true,
+        "sort": [
+          {
+            "ts": "asc"
+          }
+        ],
+        "query": {
+          "match": {
+            "title": "quick"
+          }
+        },
+        "pit": {
+          "id": "粘贴C5的id，之后使用最新pit_id",
+          "keep_alive": "5m"
+        },
+        "search_after": [
+          "粘贴C7末项sort[0]",
+          "粘贴C7末项sort[1]"
+        ]
+      }
+    },
+    {
+      "id": "ch17-12-pit-again",
+      "method": "POST",
+      "path": "/_search",
+      "body": {
+        "size": 20,
+        "track_total_hits": true,
+        "sort": [
+          {
+            "ts": "asc"
+          }
+        ],
+        "query": {
+          "match": {
+            "title": "quick"
+          }
+        },
+        "pit": {
+          "id": "粘贴C5的id，之后使用最新pit_id",
+          "keep_alive": "5m"
+        }
+      }
+    },
+    {
+      "id": "ch17-31-pit-other-query",
+      "method": "POST",
+      "path": "/_search",
+      "body": {
+        "size": 20,
+        "track_total_hits": true,
+        "sort": [
+          {
+            "ts": "asc"
+          }
+        ],
+        "query": {
+          "match": {
+            "title": "lazy"
+          }
+        },
+        "pit": {
+          "id": "粘贴C5的id，之后使用最新pit_id",
+          "keep_alive": "5m"
+        }
+      }
+    },
+    {
+      "id": "ch17-13-no-pit",
+      "method": "POST",
+      "path": "/tut-l17-pit/_search",
+      "body": {
+        "size": 20,
+        "track_total_hits": true,
+        "sort": [
+          {
+            "ts": "asc"
+          }
+        ],
+        "query": {
+          "match": {
+            "title": "quick"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch17-14-pit-close",
+      "method": "DELETE",
+      "path": "/_pit",
+      "body": {
+        "id": "粘贴C11最新返回的pit_id"
+      }
+    },
+    {
+      "id": "ch17-15-contexts-closed",
+      "method": "GET",
+      "path": "/tut-l17-pit/_stats/search?filter_path=indices.*.primaries.search.open_contexts",
+      "body": null
+    },
+    {
+      "id": "ch17-27-closed-pit",
+      "method": "POST",
+      "path": "/_search",
+      "body": {
+        "size": 2,
+        "track_total_hits": true,
+        "sort": [
+          {
+            "ts": "asc"
+          }
+        ],
+        "query": {
+          "match": {
+            "title": "quick"
+          }
+        },
+        "pit": {
+          "id": "粘贴C13关闭的pit_id",
+          "keep_alive": "5m"
+        }
+      }
+    },
+    {
+      "id": "ch17-16-cleanup-timeout",
+      "method": "DELETE",
+      "path": "/tut-l17-timeout",
+      "body": null
+    },
+    {
+      "id": "ch17-17-cleanup-pit",
+      "method": "DELETE",
+      "path": "/tut-l17-pit",
+      "body": null
+    }
+  ],
+  "preCleanup": [
+    {
+      "path": "/tut-l17-timeout",
+      "status": 200,
+      "response": {
+        "acknowledged": true
+      }
+    },
+    {
+      "path": "/tut-l17-pit",
+      "status": 200,
+      "response": {
+        "acknowledged": true
+      }
+    }
+  ],
+  "runs": [
+    {
+      "run": 1,
+      "operations": [
+        {
+          "id": "ch17-00-setup",
+          "method": "PUT",
+          "path": "/tut-l17-timeout",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "-1",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "requests.cache.enable": false
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "text",
+                  "analyzer": "standard"
+                },
+                "n": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l17-timeout"
+          }
+        },
+        {
+          "id": "ch17-18-health-timeout",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l17-timeout?wait_for_status=green&wait_for_active_shards=1&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch17-19-settings",
+          "method": "GET",
+          "path": "/tut-l17-timeout/_settings?flat_settings=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tut-l17-timeout": {
+              "settings": {
+                "index.auto_expand_replicas": "false",
+                "index.creation_date": "1791765947921",
+                "index.default_pipeline": "_none",
+                "index.final_pipeline": "_none",
+                "index.number_of_replicas": "0",
+                "index.number_of_shards": "1",
+                "index.provided_name": "tut-l17-timeout",
+                "index.refresh_interval": "-1",
+                "index.requests.cache.enable": "false",
+                "index.routing.allocation.include._tier_preference": "data_content",
+                "index.uuid": "UaH-ChIlRe27qO9V8Q76FA",
+                "index.version.created": "9094000"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch17-01-bulk3",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_bulk?refresh=true",
+          "body": "{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"1\"}}\n{\"title\":\"quick brown fox\",\"n\":1}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"2\"}}\n{\"title\":\"lazy dog\",\"n\":2}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"3\"}}\n{\"title\":\"quick brown\",\"n\":3}\n",
+          "status": 200,
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-20-analyze",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_analyze",
+          "body": {
+            "field": "title",
+            "text": "quick brown"
+          },
+          "status": 200,
+          "response": {
+            "tokens": [
+              {
+                "token": "quick",
+                "start_offset": 0,
+                "end_offset": 5,
+                "type": "<ALPHANUM>",
+                "position": 0
+              },
+              {
+                "token": "brown",
+                "start_offset": 6,
+                "end_offset": 11,
+                "type": "<ALPHANUM>",
+                "position": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-21-validate",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_validate/query?rewrite=true&explain=true",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "valid": true,
+            "explanations": [
+              {
+                "index": "tut-l17-timeout",
+                "valid": true,
+                "explanation": "title:quick title:brown"
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-22-alias",
+          "method": "POST",
+          "path": "/_aliases",
+          "body": {
+            "actions": [
+              {
+                "add": {
+                  "index": "tut-l17-timeout",
+                  "alias": "tut-l17-filtered",
+                  "filter": {
+                    "term": {
+                      "n": 1
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "errors": false
+          }
+        },
+        {
+          "id": "ch17-23-alias-profile",
+          "method": "POST",
+          "path": "/tut-l17-filtered/_search?request_cache=false",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            },
+            "profile": true,
+            "explain": true,
+            "highlight": {
+              "fields": {
+                "title": {}
+              }
+            },
+            "size": 10
+          },
+          "status": 200,
+          "response": {
+            "took": 26,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "max_score": 0.8416345,
+              "hits": [
+                {
+                  "_shard": "[tut-l17-timeout][0]",
+                  "_node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "_index": "tut-l17-timeout",
+                  "_id": "1",
+                  "_score": 0.8416345,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "n": 1
+                  },
+                  "highlight": {
+                    "title": [
+                      "<em>quick</em> <em>brown</em> fox"
+                    ]
+                  },
+                  "_explanation": {
+                    "value": 0.8416345,
+                    "description": "sum of:",
+                    "details": [
+                      {
+                        "value": 0.0,
+                        "description": "match on required clause, product of:",
+                        "details": [
+                          {
+                            "value": 0.0,
+                            "description": "# clause",
+                            "details": []
+                          },
+                          {
+                            "value": 1.0,
+                            "description": "n:[1 TO 1]",
+                            "details": []
+                          }
+                        ]
+                      },
+                      {
+                        "value": 0.42081726,
+                        "description": "weight(title:quick in 0) [PerFieldSimilarity], result of:",
+                        "details": [
+                          {
+                            "value": 0.42081726,
+                            "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                            "details": [
+                              {
+                                "value": 2.2,
+                                "description": "boost",
+                                "details": []
+                              },
+                              {
+                                "value": 0.47000363,
+                                "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                                "details": [
+                                  {
+                                    "value": 2,
+                                    "description": "n, number of documents containing term",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 3,
+                                    "description": "N, total number of documents with field",
+                                    "details": []
+                                  }
+                                ]
+                              },
+                              {
+                                "value": 0.40697676,
+                                "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                                "details": [
+                                  {
+                                    "value": 1.0,
+                                    "description": "freq, occurrences of term within document",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 1.2,
+                                    "description": "k1, term saturation parameter",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 0.75,
+                                    "description": "b, length normalization parameter",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 3.0,
+                                    "description": "dl, length of field",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 2.3333333,
+                                    "description": "avgdl, average length of field",
+                                    "details": []
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "value": 0.42081726,
+                        "description": "weight(title:brown in 0) [PerFieldSimilarity], result of:",
+                        "details": [
+                          {
+                            "value": 0.42081726,
+                            "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                            "details": [
+                              {
+                                "value": 2.2,
+                                "description": "boost",
+                                "details": []
+                              },
+                              {
+                                "value": 0.47000363,
+                                "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                                "details": [
+                                  {
+                                    "value": 2,
+                                    "description": "n, number of documents containing term",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 3,
+                                    "description": "N, total number of documents with field",
+                                    "details": []
+                                  }
+                                ]
+                              },
+                              {
+                                "value": 0.40697676,
+                                "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                                "details": [
+                                  {
+                                    "value": 1.0,
+                                    "description": "freq, occurrences of term within document",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 1.2,
+                                    "description": "k1, term saturation parameter",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 0.75,
+                                    "description": "b, length normalization parameter",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 3.0,
+                                    "description": "dl, length of field",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 2.3333333,
+                                    "description": "avgdl, average length of field",
+                                    "details": []
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "profile": {
+              "shards": [
+                {
+                  "id": "[QSkpyRrVQ7SrCWvutWILMg][tut-l17-timeout][0]",
+                  "node_id": "QSkpyRrVQ7SrCWvutWILMg",
+                  "shard_id": 0,
+                  "index": "tut-l17-timeout",
+                  "cluster": "(local)",
+                  "searches": [
+                    {
+                      "query": [
+                        {
+                          "type": "BooleanQuery",
+                          "description": "(#n:[1 TO 1] title:quick title:brown)~1",
+                          "time_in_nanos": 8241112,
+                          "breakdown": {
+                            "set_min_competitive_score_count": 0,
+                            "match_count": 0,
+                            "shallow_advance_count": 0,
+                            "set_min_competitive_score": 0,
+                            "next_doc": 19823,
+                            "match": 0,
+                            "next_doc_count": 2,
+                            "score_count": 1,
+                            "compute_max_score_count": 0,
+                            "compute_max_score": 0,
+                            "advance": 0,
+                            "advance_count": 0,
+                            "score": 15446,
+                            "count_weight_count": 0,
+                            "build_scorer_count": 2,
+                            "create_weight": 1150540,
+                            "shallow_advance": 0,
+                            "count_weight": 0,
+                            "create_weight_count": 1,
+                            "build_scorer": 7055303
+                          },
+                          "children": [
+                            {
+                              "type": "IndexSortSortedNumericDocValuesRangeQuery",
+                              "description": "n:[1 TO 1]",
+                              "time_in_nanos": 1001593,
+                              "breakdown": {
+                                "set_min_competitive_score_count": 0,
+                                "match_count": 0,
+                                "shallow_advance_count": 0,
+                                "set_min_competitive_score": 0,
+                                "next_doc": 4756,
+                                "match": 0,
+                                "next_doc_count": 2,
+                                "score_count": 0,
+                                "compute_max_score_count": 0,
+                                "compute_max_score": 0,
+                                "advance": 0,
+                                "advance_count": 0,
+                                "score": 0,
+                                "count_weight_count": 0,
+                                "build_scorer_count": 3,
+                                "create_weight": 538675,
+                                "shallow_advance": 0,
+                                "count_weight": 0,
+                                "create_weight_count": 1,
+                                "build_scorer": 458162
+                              }
+                            },
+                            {
+                              "type": "TermQuery",
+                              "description": "title:quick",
+                              "time_in_nanos": 185983,
+                              "breakdown": {
+                                "set_min_competitive_score_count": 0,
+                                "match_count": 0,
+                                "shallow_advance_count": 0,
+                                "set_min_competitive_score": 0,
+                                "next_doc": 0,
+                                "match": 0,
+                                "next_doc_count": 0,
+                                "score_count": 1,
+                                "compute_max_score_count": 0,
+                                "compute_max_score": 0,
+                                "advance": 1052,
+                                "advance_count": 2,
+                                "score": 9385,
+                                "count_weight_count": 0,
+                                "build_scorer_count": 3,
+                                "create_weight": 85185,
+                                "shallow_advance": 0,
+                                "count_weight": 0,
+                                "create_weight_count": 1,
+                                "build_scorer": 90361
+                              }
+                            },
+                            {
+                              "type": "TermQuery",
+                              "description": "title:brown",
+                              "time_in_nanos": 43476,
+                              "breakdown": {
+                                "set_min_competitive_score_count": 0,
+                                "match_count": 0,
+                                "shallow_advance_count": 0,
+                                "set_min_competitive_score": 0,
+                                "next_doc": 0,
+                                "match": 0,
+                                "next_doc_count": 0,
+                                "score_count": 1,
+                                "compute_max_score_count": 0,
+                                "compute_max_score": 0,
+                                "advance": 8207,
+                                "advance_count": 2,
+                                "score": 337,
+                                "count_weight_count": 0,
+                                "build_scorer_count": 3,
+                                "create_weight": 22770,
+                                "shallow_advance": 0,
+                                "count_weight": 0,
+                                "create_weight_count": 1,
+                                "build_scorer": 12162
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "rewrite_time": 232827,
+                      "collector": [
+                        {
+                          "name": "QueryPhaseCollector",
+                          "reason": "search_query_phase",
+                          "time_in_nanos": 34932,
+                          "children": [
+                            {
+                              "name": "TopScoreDocCollector",
+                              "reason": "search_top_hits",
+                              "time_in_nanos": 31481
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "aggregations": [],
+                  "fetch": {
+                    "type": "fetch",
+                    "description": "",
+                    "time_in_nanos": 16680078,
+                    "breakdown": {
+                      "load_stored_fields": 26935,
+                      "load_source": 1684,
+                      "load_stored_fields_count": 1,
+                      "next_reader_count": 1,
+                      "load_source_count": 1,
+                      "next_reader": 41540
+                    },
+                    "debug": {
+                      "stored_fields": [
+                        "_id",
+                        "_routing",
+                        "_source"
+                      ]
+                    },
+                    "children": [
+                      {
+                        "type": "ExplainPhase",
+                        "description": "",
+                        "time_in_nanos": 813253,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 813000,
+                          "next_reader": 253,
+                          "next_reader_count": 1
+                        }
+                      },
+                      {
+                        "type": "FetchFieldsPhase",
+                        "description": "",
+                        "time_in_nanos": 31902,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 12668,
+                          "next_reader": 19234,
+                          "next_reader_count": 1
+                        }
+                      },
+                      {
+                        "type": "FetchSourcePhase",
+                        "description": "",
+                        "time_in_nanos": 4125,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 4041,
+                          "next_reader": 84,
+                          "next_reader_count": 1
+                        },
+                        "debug": {
+                          "fast_path": 1
+                        }
+                      },
+                      {
+                        "type": "HighlightPhase",
+                        "description": "",
+                        "time_in_nanos": 14940988,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 14940778,
+                          "next_reader": 210,
+                          "next_reader_count": 1
+                        }
+                      },
+                      {
+                        "type": "StoredFieldsPhase",
+                        "description": "",
+                        "time_in_nanos": 589,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 421,
+                          "next_reader": 168,
+                          "next_reader_count": 1
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-02-timeout-fast",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false&allow_partial_search_results=true",
+          "body": {
+            "timeout": "1ms",
+            "track_total_hits": true,
+            "query": {
+              "match_all": {}
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 1,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "max_score": 1.0,
+              "hits": [
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "1",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "n": 1
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "2",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "lazy dog",
+                    "n": 2
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "3",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "quick brown",
+                    "n": 3
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-03-bulk30",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_bulk?refresh=true",
+          "body": "{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"10\"}}\n{\"title\":\"doc 10\",\"n\":10}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"11\"}}\n{\"title\":\"doc 11\",\"n\":11}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"12\"}}\n{\"title\":\"doc 12\",\"n\":12}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"13\"}}\n{\"title\":\"doc 13\",\"n\":13}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"14\"}}\n{\"title\":\"doc 14\",\"n\":14}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"15\"}}\n{\"title\":\"doc 15\",\"n\":15}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"16\"}}\n{\"title\":\"doc 16\",\"n\":16}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"17\"}}\n{\"title\":\"doc 17\",\"n\":17}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"18\"}}\n{\"title\":\"doc 18\",\"n\":18}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"19\"}}\n{\"title\":\"doc 19\",\"n\":19}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"20\"}}\n{\"title\":\"doc 20\",\"n\":20}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"21\"}}\n{\"title\":\"doc 21\",\"n\":21}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"22\"}}\n{\"title\":\"doc 22\",\"n\":22}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"23\"}}\n{\"title\":\"doc 23\",\"n\":23}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"24\"}}\n{\"title\":\"doc 24\",\"n\":24}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"25\"}}\n{\"title\":\"doc 25\",\"n\":25}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"26\"}}\n{\"title\":\"doc 26\",\"n\":26}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"27\"}}\n{\"title\":\"doc 27\",\"n\":27}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"28\"}}\n{\"title\":\"doc 28\",\"n\":28}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"29\"}}\n{\"title\":\"doc 29\",\"n\":29}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"30\"}}\n{\"title\":\"doc 30\",\"n\":30}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"31\"}}\n{\"title\":\"doc 31\",\"n\":31}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"32\"}}\n{\"title\":\"doc 32\",\"n\":32}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"33\"}}\n{\"title\":\"doc 33\",\"n\":33}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"34\"}}\n{\"title\":\"doc 34\",\"n\":34}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"35\"}}\n{\"title\":\"doc 35\",\"n\":35}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"36\"}}\n{\"title\":\"doc 36\",\"n\":36}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"37\"}}\n{\"title\":\"doc 37\",\"n\":37}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"38\"}}\n{\"title\":\"doc 38\",\"n\":38}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"39\"}}\n{\"title\":\"doc 39\",\"n\":39}\n",
+          "status": 200,
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "10",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "11",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 4,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "12",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 5,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "13",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 6,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "14",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 7,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "15",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 8,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "16",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 9,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "17",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 10,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "18",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 11,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "19",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 12,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "20",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 13,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "21",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 14,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "22",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 15,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "23",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 16,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "24",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 17,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "25",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 18,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "26",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 19,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "27",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 20,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "28",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 21,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "29",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 22,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "30",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 23,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "31",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 24,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "32",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 25,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "33",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 26,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "34",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 27,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "35",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 28,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "36",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 29,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "37",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 30,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "38",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 31,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "39",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 32,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-28-count",
+          "method": "GET",
+          "path": "/tut-l17-timeout/_count",
+          "body": null,
+          "status": 200,
+          "response": {
+            "count": 33,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          }
+        },
+        {
+          "id": "ch17-30-loop-guard",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false",
+          "body": {
+            "query": {
+              "script_score": {
+                "query": {
+                  "match_all": {}
+                },
+                "script": {
+                  "source": "long acc = 0L; for (int i = 0; i < 5000000; i++) { acc += i; } return 1.0;"
+                }
+              }
+            }
+          },
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "painless_error",
+                  "reason": "The maximum number of statements that can be executed in a loop has been reached."
+                }
+              ],
+              "type": "search_phase_execution_exception",
+              "reason": "all shards failed",
+              "phase": "query",
+              "grouped": true,
+              "failed_shards": [
+                {
+                  "shard": 0,
+                  "index": "tut-l17-timeout",
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "reason": {
+                    "type": "script_exception",
+                    "reason": "runtime error",
+                    "script_stack": [
+                      "for (int ",
+                      "^---- HERE"
+                    ],
+                    "script": "long acc = 0L; for (int i = 0; i < 5000000; i++) { acc += i; } return 1.0;",
+                    "lang": "painless",
+                    "position": {
+                      "offset": 15,
+                      "start": 15,
+                      "end": 24
+                    },
+                    "caused_by": {
+                      "type": "painless_error",
+                      "reason": "The maximum number of statements that can be executed in a loop has been reached."
+                    }
+                  }
+                }
+              ],
+              "caused_by": {
+                "type": "painless_error",
+                "reason": "The maximum number of statements that can be executed in a loop has been reached."
+              }
+            },
+            "status": 400
+          }
+        },
+        {
+          "id": "ch17-29-work-baseline",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false",
+          "body": {
+            "timeout": "30s",
+            "size": 10,
+            "track_total_hits": true,
+            "query": {
+              "script_score": {
+                "query": {
+                  "match_all": {}
+                },
+                "script": {
+                  "source": "double acc = 0.0; double n = doc[\"n\"].value; for (int i = 0; i < params.loops; i++) { acc += Math.log(1.0 + n + i); } return acc / params.loops;",
+                  "params": {
+                    "loops": 20000
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 64,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 33,
+                "relation": "eq"
+              },
+              "max_score": 8.917764,
+              "hits": [
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "39",
+                  "_score": 8.917764,
+                  "_source": {
+                    "title": "doc 39",
+                    "n": 39
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "38",
+                  "_score": 8.917451,
+                  "_source": {
+                    "title": "doc 38",
+                    "n": 38
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "37",
+                  "_score": 8.917138,
+                  "_source": {
+                    "title": "doc 37",
+                    "n": 37
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "36",
+                  "_score": 8.916823,
+                  "_source": {
+                    "title": "doc 36",
+                    "n": 36
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "35",
+                  "_score": 8.916507,
+                  "_source": {
+                    "title": "doc 35",
+                    "n": 35
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "34",
+                  "_score": 8.916189,
+                  "_source": {
+                    "title": "doc 34",
+                    "n": 34
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "33",
+                  "_score": 8.915871,
+                  "_source": {
+                    "title": "doc 33",
+                    "n": 33
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "32",
+                  "_score": 8.91555,
+                  "_source": {
+                    "title": "doc 32",
+                    "n": 32
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "31",
+                  "_score": 8.915228,
+                  "_source": {
+                    "title": "doc 31",
+                    "n": 31
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "30",
+                  "_score": 8.914905,
+                  "_source": {
+                    "title": "doc 30",
+                    "n": 30
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-04-timeout-slow",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false&allow_partial_search_results=true",
+          "body": {
+            "timeout": "1ms",
+            "size": 10,
+            "track_total_hits": true,
+            "query": {
+              "script_score": {
+                "query": {
+                  "match_all": {}
+                },
+                "script": {
+                  "source": "double acc = 0.0; double n = doc[\"n\"].value; for (int i = 0; i < params.loops; i++) { acc += Math.log(1.0 + n + i); } return acc / params.loops;",
+                  "params": {
+                    "loops": 20000
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 10,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 33,
+                "relation": "eq"
+              },
+              "max_score": 8.917764,
+              "hits": [
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "39",
+                  "_score": 8.917764,
+                  "_source": {
+                    "title": "doc 39",
+                    "n": 39
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "38",
+                  "_score": 8.917451,
+                  "_source": {
+                    "title": "doc 38",
+                    "n": 38
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "37",
+                  "_score": 8.917138,
+                  "_source": {
+                    "title": "doc 37",
+                    "n": 37
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "36",
+                  "_score": 8.916823,
+                  "_source": {
+                    "title": "doc 36",
+                    "n": 36
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "35",
+                  "_score": 8.916507,
+                  "_source": {
+                    "title": "doc 35",
+                    "n": 35
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "34",
+                  "_score": 8.916189,
+                  "_source": {
+                    "title": "doc 34",
+                    "n": 34
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "33",
+                  "_score": 8.915871,
+                  "_source": {
+                    "title": "doc 33",
+                    "n": 33
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "32",
+                  "_score": 8.91555,
+                  "_source": {
+                    "title": "doc 32",
+                    "n": 32
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "31",
+                  "_score": 8.915228,
+                  "_source": {
+                    "title": "doc 31",
+                    "n": 31
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "30",
+                  "_score": 8.914905,
+                  "_source": {
+                    "title": "doc 30",
+                    "n": 30
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-05-timeout-strict",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false&allow_partial_search_results=false",
+          "body": {
+            "timeout": "1ms",
+            "size": 10,
+            "track_total_hits": true,
+            "query": {
+              "script_score": {
+                "query": {
+                  "match_all": {}
+                },
+                "script": {
+                  "source": "double acc = 0.0; double n = doc[\"n\"].value; for (int i = 0; i < params.loops; i++) { acc += Math.log(1.0 + n + i); } return acc / params.loops;",
+                  "params": {
+                    "loops": 20000
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 7,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 33,
+                "relation": "eq"
+              },
+              "max_score": 8.917764,
+              "hits": [
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "39",
+                  "_score": 8.917764,
+                  "_source": {
+                    "title": "doc 39",
+                    "n": 39
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "38",
+                  "_score": 8.917451,
+                  "_source": {
+                    "title": "doc 38",
+                    "n": 38
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "37",
+                  "_score": 8.917138,
+                  "_source": {
+                    "title": "doc 37",
+                    "n": 37
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "36",
+                  "_score": 8.916823,
+                  "_source": {
+                    "title": "doc 36",
+                    "n": 36
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "35",
+                  "_score": 8.916507,
+                  "_source": {
+                    "title": "doc 35",
+                    "n": 35
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "34",
+                  "_score": 8.916189,
+                  "_source": {
+                    "title": "doc 34",
+                    "n": 34
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "33",
+                  "_score": 8.915871,
+                  "_source": {
+                    "title": "doc 33",
+                    "n": 33
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "32",
+                  "_score": 8.91555,
+                  "_source": {
+                    "title": "doc 32",
+                    "n": 32
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "31",
+                  "_score": 8.915228,
+                  "_source": {
+                    "title": "doc 31",
+                    "n": 31
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "30",
+                  "_score": 8.914905,
+                  "_source": {
+                    "title": "doc 30",
+                    "n": 30
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-06-setup-pit",
+          "method": "PUT",
+          "path": "/tut-l17-pit",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "-1",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "requests.cache.enable": false
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "text",
+                  "analyzer": "standard"
+                },
+                "ts": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l17-pit"
+          }
+        },
+        {
+          "id": "ch17-24-health-pit",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l17-pit?wait_for_status=green&wait_for_active_shards=1&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch17-07-bulk5",
+          "method": "POST",
+          "path": "/tut-l17-pit/_bulk?refresh=true",
+          "body": "{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"1\"}}\n{\"title\":\"quick brown fox\",\"ts\":1}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"2\"}}\n{\"title\":\"quick brown\",\"ts\":2}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"3\"}}\n{\"title\":\"lazy dog\",\"ts\":3}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"4\"}}\n{\"title\":\"quick fox\",\"ts\":4}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"5\"}}\n{\"title\":\"brown fox\",\"ts\":5}\n",
+          "status": 200,
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "4",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "5",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 4,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-25-context-baseline",
+          "method": "GET",
+          "path": "/tut-l17-pit/_stats/search?filter_path=indices.*.primaries.search.open_contexts",
+          "body": null,
+          "status": 200,
+          "response": {
+            "indices": {
+              "tut-l17-pit": {
+                "primaries": {
+                  "search": {
+                    "open_contexts": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch17-08-pit-open",
+          "method": "POST",
+          "path": "/tut-l17-pit/_pit?keep_alive=5m",
+          "body": null,
+          "status": 200,
+          "response": {
+            "id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          }
+        },
+        {
+          "id": "ch17-09-contexts-open",
+          "method": "GET",
+          "path": "/tut-l17-pit/_stats/search?filter_path=indices.*.primaries.search.open_contexts",
+          "body": null,
+          "status": 200,
+          "response": {
+            "indices": {
+              "tut-l17-pit": {
+                "primaries": {
+                  "search": {
+                    "open_contexts": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch17-10-pit-page1",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 2,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+              "keep_alive": "5m"
+            }
+          },
+          "status": 200,
+          "response": {
+            "pit_id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+            "took": 2,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "1",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "ts": 1
+                  },
+                  "sort": [
+                    1,
+                    0
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "2",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown",
+                    "ts": 2
+                  },
+                  "sort": [
+                    2,
+                    1
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-11-write-new",
+          "method": "PUT",
+          "path": "/tut-l17-pit/_doc/new?refresh=true",
+          "body": {
+            "title": "quick newcomer",
+            "ts": 99
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l17-pit",
+            "_id": "new",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 5,
+            "_primary_term": 1
+          }
+        },
+        {
+          "id": "ch17-26-pit-page2",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 2,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+              "keep_alive": "5m"
+            },
+            "search_after": [
+              2,
+              1
+            ]
+          },
+          "status": 200,
+          "response": {
+            "pit_id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+            "took": 1,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "4",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick fox",
+                    "ts": 4
+                  },
+                  "sort": [
+                    4,
+                    3
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-12-pit-again",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 20,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+              "keep_alive": "5m"
+            }
+          },
+          "status": 200,
+          "response": {
+            "pit_id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+            "took": 1,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "1",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "ts": 1
+                  },
+                  "sort": [
+                    1,
+                    0
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "2",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown",
+                    "ts": 2
+                  },
+                  "sort": [
+                    2,
+                    1
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "4",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick fox",
+                    "ts": 4
+                  },
+                  "sort": [
+                    4,
+                    3
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-31-pit-other-query",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 20,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "lazy"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+              "keep_alive": "5m"
+            }
+          },
+          "status": 200,
+          "response": {
+            "pit_id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+            "took": 0,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "3",
+                  "_score": null,
+                  "_source": {
+                    "title": "lazy dog",
+                    "ts": 3
+                  },
+                  "sort": [
+                    3,
+                    2
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-13-no-pit",
+          "method": "POST",
+          "path": "/tut-l17-pit/_search",
+          "body": {
+            "size": 20,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 1,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 4,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "1",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "ts": 1
+                  },
+                  "sort": [
+                    1
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "2",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown",
+                    "ts": 2
+                  },
+                  "sort": [
+                    2
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "4",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick fox",
+                    "ts": 4
+                  },
+                  "sort": [
+                    4
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "new",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick newcomer",
+                    "ts": 99
+                  },
+                  "sort": [
+                    99
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-14-pit-close",
+          "method": "DELETE",
+          "path": "/_pit",
+          "body": {
+            "id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA="
+          },
+          "status": 200,
+          "response": {
+            "succeeded": true,
+            "num_freed": 1
+          }
+        },
+        {
+          "id": "ch17-15-contexts-closed",
+          "method": "GET",
+          "path": "/tut-l17-pit/_stats/search?filter_path=indices.*.primaries.search.open_contexts",
+          "body": null,
+          "status": 200,
+          "response": {
+            "indices": {
+              "tut-l17-pit": {
+                "primaries": {
+                  "search": {
+                    "open_contexts": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch17-27-closed-pit",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 2,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWTTNjYXNuSURSUi0yTXdSdGw0MlF2QQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADeFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZNM2Nhc25JRFJSLTJNd1J0bDQyUXZBAAA=",
+              "keep_alive": "5m"
+            }
+          },
+          "status": 404,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "search_context_missing_exception",
+                  "reason": "No search context found for id [[pJLbSdtvQ0igXk23FIK2Gw][222] searcherId [null]]"
+                }
+              ],
+              "type": "search_phase_execution_exception",
+              "reason": "all shards failed",
+              "phase": "query",
+              "grouped": true,
+              "failed_shards": [
+                {
+                  "shard": 0,
+                  "index": "tut-l17-pit",
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "reason": {
+                    "type": "search_context_missing_exception",
+                    "reason": "No search context found for id [[pJLbSdtvQ0igXk23FIK2Gw][222] searcherId [null]]"
+                  }
+                }
+              ]
+            },
+            "status": 404
+          }
+        },
+        {
+          "id": "ch17-16-cleanup-timeout",
+          "method": "DELETE",
+          "path": "/tut-l17-timeout",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch17-17-cleanup-pit",
+          "method": "DELETE",
+          "path": "/tut-l17-pit",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "operations": [
+        {
+          "id": "ch17-00-setup",
+          "method": "PUT",
+          "path": "/tut-l17-timeout",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "-1",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "requests.cache.enable": false
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "text",
+                  "analyzer": "standard"
+                },
+                "n": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l17-timeout"
+          }
+        },
+        {
+          "id": "ch17-18-health-timeout",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l17-timeout?wait_for_status=green&wait_for_active_shards=1&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch17-19-settings",
+          "method": "GET",
+          "path": "/tut-l17-timeout/_settings?flat_settings=true",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tut-l17-timeout": {
+              "settings": {
+                "index.auto_expand_replicas": "false",
+                "index.creation_date": "1791765948334",
+                "index.default_pipeline": "_none",
+                "index.final_pipeline": "_none",
+                "index.number_of_replicas": "0",
+                "index.number_of_shards": "1",
+                "index.provided_name": "tut-l17-timeout",
+                "index.refresh_interval": "-1",
+                "index.requests.cache.enable": "false",
+                "index.routing.allocation.include._tier_preference": "data_content",
+                "index.uuid": "Q5DJnRJMQMOFoQKCtorPhg",
+                "index.version.created": "9094000"
+              }
+            }
+          }
+        },
+        {
+          "id": "ch17-01-bulk3",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_bulk?refresh=true",
+          "body": "{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"1\"}}\n{\"title\":\"quick brown fox\",\"n\":1}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"2\"}}\n{\"title\":\"lazy dog\",\"n\":2}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"3\"}}\n{\"title\":\"quick brown\",\"n\":3}\n",
+          "status": 200,
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-20-analyze",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_analyze",
+          "body": {
+            "field": "title",
+            "text": "quick brown"
+          },
+          "status": 200,
+          "response": {
+            "tokens": [
+              {
+                "token": "quick",
+                "start_offset": 0,
+                "end_offset": 5,
+                "type": "<ALPHANUM>",
+                "position": 0
+              },
+              {
+                "token": "brown",
+                "start_offset": 6,
+                "end_offset": 11,
+                "type": "<ALPHANUM>",
+                "position": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-21-validate",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_validate/query?rewrite=true&explain=true",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "valid": true,
+            "explanations": [
+              {
+                "index": "tut-l17-timeout",
+                "valid": true,
+                "explanation": "title:quick title:brown"
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-22-alias",
+          "method": "POST",
+          "path": "/_aliases",
+          "body": {
+            "actions": [
+              {
+                "add": {
+                  "index": "tut-l17-timeout",
+                  "alias": "tut-l17-filtered",
+                  "filter": {
+                    "term": {
+                      "n": 1
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "errors": false
+          }
+        },
+        {
+          "id": "ch17-23-alias-profile",
+          "method": "POST",
+          "path": "/tut-l17-filtered/_search?request_cache=false",
+          "body": {
+            "query": {
+              "match": {
+                "title": "quick brown"
+              }
+            },
+            "profile": true,
+            "explain": true,
+            "highlight": {
+              "fields": {
+                "title": {}
+              }
+            },
+            "size": 10
+          },
+          "status": 200,
+          "response": {
+            "took": 2,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "max_score": 0.8416345,
+              "hits": [
+                {
+                  "_shard": "[tut-l17-timeout][0]",
+                  "_node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "_index": "tut-l17-timeout",
+                  "_id": "1",
+                  "_score": 0.8416345,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "n": 1
+                  },
+                  "highlight": {
+                    "title": [
+                      "<em>quick</em> <em>brown</em> fox"
+                    ]
+                  },
+                  "_explanation": {
+                    "value": 0.8416345,
+                    "description": "sum of:",
+                    "details": [
+                      {
+                        "value": 0.0,
+                        "description": "match on required clause, product of:",
+                        "details": [
+                          {
+                            "value": 0.0,
+                            "description": "# clause",
+                            "details": []
+                          },
+                          {
+                            "value": 1.0,
+                            "description": "n:[1 TO 1]",
+                            "details": []
+                          }
+                        ]
+                      },
+                      {
+                        "value": 0.42081726,
+                        "description": "weight(title:quick in 0) [PerFieldSimilarity], result of:",
+                        "details": [
+                          {
+                            "value": 0.42081726,
+                            "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                            "details": [
+                              {
+                                "value": 2.2,
+                                "description": "boost",
+                                "details": []
+                              },
+                              {
+                                "value": 0.47000363,
+                                "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                                "details": [
+                                  {
+                                    "value": 2,
+                                    "description": "n, number of documents containing term",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 3,
+                                    "description": "N, total number of documents with field",
+                                    "details": []
+                                  }
+                                ]
+                              },
+                              {
+                                "value": 0.40697676,
+                                "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                                "details": [
+                                  {
+                                    "value": 1.0,
+                                    "description": "freq, occurrences of term within document",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 1.2,
+                                    "description": "k1, term saturation parameter",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 0.75,
+                                    "description": "b, length normalization parameter",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 3.0,
+                                    "description": "dl, length of field",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 2.3333333,
+                                    "description": "avgdl, average length of field",
+                                    "details": []
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "value": 0.42081726,
+                        "description": "weight(title:brown in 0) [PerFieldSimilarity], result of:",
+                        "details": [
+                          {
+                            "value": 0.42081726,
+                            "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                            "details": [
+                              {
+                                "value": 2.2,
+                                "description": "boost",
+                                "details": []
+                              },
+                              {
+                                "value": 0.47000363,
+                                "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                                "details": [
+                                  {
+                                    "value": 2,
+                                    "description": "n, number of documents containing term",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 3,
+                                    "description": "N, total number of documents with field",
+                                    "details": []
+                                  }
+                                ]
+                              },
+                              {
+                                "value": 0.40697676,
+                                "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                                "details": [
+                                  {
+                                    "value": 1.0,
+                                    "description": "freq, occurrences of term within document",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 1.2,
+                                    "description": "k1, term saturation parameter",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 0.75,
+                                    "description": "b, length normalization parameter",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 3.0,
+                                    "description": "dl, length of field",
+                                    "details": []
+                                  },
+                                  {
+                                    "value": 2.3333333,
+                                    "description": "avgdl, average length of field",
+                                    "details": []
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "profile": {
+              "shards": [
+                {
+                  "id": "[QSkpyRrVQ7SrCWvutWILMg][tut-l17-timeout][0]",
+                  "node_id": "QSkpyRrVQ7SrCWvutWILMg",
+                  "shard_id": 0,
+                  "index": "tut-l17-timeout",
+                  "cluster": "(local)",
+                  "searches": [
+                    {
+                      "query": [
+                        {
+                          "type": "BooleanQuery",
+                          "description": "(#n:[1 TO 1] title:quick title:brown)~1",
+                          "time_in_nanos": 308626,
+                          "breakdown": {
+                            "set_min_competitive_score_count": 0,
+                            "match_count": 0,
+                            "shallow_advance_count": 0,
+                            "set_min_competitive_score": 0,
+                            "next_doc": 10816,
+                            "match": 0,
+                            "next_doc_count": 2,
+                            "score_count": 1,
+                            "compute_max_score_count": 0,
+                            "compute_max_score": 0,
+                            "advance": 0,
+                            "advance_count": 0,
+                            "score": 4966,
+                            "count_weight_count": 0,
+                            "build_scorer_count": 2,
+                            "create_weight": 115866,
+                            "shallow_advance": 0,
+                            "count_weight": 0,
+                            "create_weight_count": 1,
+                            "build_scorer": 176978
+                          },
+                          "children": [
+                            {
+                              "type": "IndexSortSortedNumericDocValuesRangeQuery",
+                              "description": "n:[1 TO 1]",
+                              "time_in_nanos": 78620,
+                              "breakdown": {
+                                "set_min_competitive_score_count": 0,
+                                "match_count": 0,
+                                "shallow_advance_count": 0,
+                                "set_min_competitive_score": 0,
+                                "next_doc": 1474,
+                                "match": 0,
+                                "next_doc_count": 2,
+                                "score_count": 0,
+                                "compute_max_score_count": 0,
+                                "compute_max_score": 0,
+                                "advance": 0,
+                                "advance_count": 0,
+                                "score": 0,
+                                "count_weight_count": 0,
+                                "build_scorer_count": 3,
+                                "create_weight": 2357,
+                                "shallow_advance": 0,
+                                "count_weight": 0,
+                                "create_weight_count": 1,
+                                "build_scorer": 74789
+                              }
+                            },
+                            {
+                              "type": "TermQuery",
+                              "description": "title:quick",
+                              "time_in_nanos": 117969,
+                              "breakdown": {
+                                "set_min_competitive_score_count": 0,
+                                "match_count": 0,
+                                "shallow_advance_count": 0,
+                                "set_min_competitive_score": 0,
+                                "next_doc": 0,
+                                "match": 0,
+                                "next_doc_count": 0,
+                                "score_count": 1,
+                                "compute_max_score_count": 0,
+                                "compute_max_score": 0,
+                                "advance": 1051,
+                                "advance_count": 2,
+                                "score": 2610,
+                                "count_weight_count": 0,
+                                "build_scorer_count": 3,
+                                "create_weight": 79335,
+                                "shallow_advance": 0,
+                                "count_weight": 0,
+                                "create_weight_count": 1,
+                                "build_scorer": 34973
+                              }
+                            },
+                            {
+                              "type": "TermQuery",
+                              "description": "title:brown",
+                              "time_in_nanos": 36954,
+                              "breakdown": {
+                                "set_min_competitive_score_count": 0,
+                                "match_count": 0,
+                                "shallow_advance_count": 0,
+                                "set_min_competitive_score": 0,
+                                "next_doc": 0,
+                                "match": 0,
+                                "next_doc_count": 0,
+                                "score_count": 1,
+                                "compute_max_score_count": 0,
+                                "compute_max_score": 0,
+                                "advance": 6356,
+                                "advance_count": 2,
+                                "score": 337,
+                                "count_weight_count": 0,
+                                "build_scorer_count": 3,
+                                "create_weight": 20707,
+                                "shallow_advance": 0,
+                                "count_weight": 0,
+                                "create_weight_count": 1,
+                                "build_scorer": 9554
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "rewrite_time": 93265,
+                      "collector": [
+                        {
+                          "name": "QueryPhaseCollector",
+                          "reason": "search_query_phase",
+                          "time_in_nanos": 13342,
+                          "children": [
+                            {
+                              "name": "TopScoreDocCollector",
+                              "reason": "search_top_hits",
+                              "time_in_nanos": 10101
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "aggregations": [],
+                  "fetch": {
+                    "type": "fetch",
+                    "description": "",
+                    "time_in_nanos": 916493,
+                    "breakdown": {
+                      "load_stored_fields": 17172,
+                      "load_source": 4461,
+                      "load_stored_fields_count": 1,
+                      "next_reader_count": 1,
+                      "load_source_count": 1,
+                      "next_reader": 32155
+                    },
+                    "debug": {
+                      "stored_fields": [
+                        "_id",
+                        "_routing",
+                        "_source"
+                      ]
+                    },
+                    "children": [
+                      {
+                        "type": "ExplainPhase",
+                        "description": "",
+                        "time_in_nanos": 353449,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 353281,
+                          "next_reader": 168,
+                          "next_reader_count": 1
+                        }
+                      },
+                      {
+                        "type": "FetchFieldsPhase",
+                        "description": "",
+                        "time_in_nanos": 23822,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 10017,
+                          "next_reader": 13805,
+                          "next_reader_count": 1
+                        }
+                      },
+                      {
+                        "type": "FetchSourcePhase",
+                        "description": "",
+                        "time_in_nanos": 3241,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 3156,
+                          "next_reader": 85,
+                          "next_reader_count": 1
+                        },
+                        "debug": {
+                          "fast_path": 1
+                        }
+                      },
+                      {
+                        "type": "HighlightPhase",
+                        "description": "",
+                        "time_in_nanos": 324619,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 324409,
+                          "next_reader": 210,
+                          "next_reader_count": 1
+                        }
+                      },
+                      {
+                        "type": "StoredFieldsPhase",
+                        "description": "",
+                        "time_in_nanos": 589,
+                        "breakdown": {
+                          "process_count": 1,
+                          "process": 421,
+                          "next_reader": 168,
+                          "next_reader_count": 1
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-02-timeout-fast",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false&allow_partial_search_results=true",
+          "body": {
+            "timeout": "1ms",
+            "track_total_hits": true,
+            "query": {
+              "match_all": {}
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 0,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "max_score": 1.0,
+              "hits": [
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "1",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "n": 1
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "2",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "lazy dog",
+                    "n": 2
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "3",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "quick brown",
+                    "n": 3
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-03-bulk30",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_bulk?refresh=true",
+          "body": "{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"10\"}}\n{\"title\":\"doc 10\",\"n\":10}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"11\"}}\n{\"title\":\"doc 11\",\"n\":11}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"12\"}}\n{\"title\":\"doc 12\",\"n\":12}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"13\"}}\n{\"title\":\"doc 13\",\"n\":13}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"14\"}}\n{\"title\":\"doc 14\",\"n\":14}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"15\"}}\n{\"title\":\"doc 15\",\"n\":15}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"16\"}}\n{\"title\":\"doc 16\",\"n\":16}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"17\"}}\n{\"title\":\"doc 17\",\"n\":17}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"18\"}}\n{\"title\":\"doc 18\",\"n\":18}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"19\"}}\n{\"title\":\"doc 19\",\"n\":19}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"20\"}}\n{\"title\":\"doc 20\",\"n\":20}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"21\"}}\n{\"title\":\"doc 21\",\"n\":21}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"22\"}}\n{\"title\":\"doc 22\",\"n\":22}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"23\"}}\n{\"title\":\"doc 23\",\"n\":23}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"24\"}}\n{\"title\":\"doc 24\",\"n\":24}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"25\"}}\n{\"title\":\"doc 25\",\"n\":25}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"26\"}}\n{\"title\":\"doc 26\",\"n\":26}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"27\"}}\n{\"title\":\"doc 27\",\"n\":27}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"28\"}}\n{\"title\":\"doc 28\",\"n\":28}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"29\"}}\n{\"title\":\"doc 29\",\"n\":29}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"30\"}}\n{\"title\":\"doc 30\",\"n\":30}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"31\"}}\n{\"title\":\"doc 31\",\"n\":31}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"32\"}}\n{\"title\":\"doc 32\",\"n\":32}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"33\"}}\n{\"title\":\"doc 33\",\"n\":33}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"34\"}}\n{\"title\":\"doc 34\",\"n\":34}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"35\"}}\n{\"title\":\"doc 35\",\"n\":35}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"36\"}}\n{\"title\":\"doc 36\",\"n\":36}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"37\"}}\n{\"title\":\"doc 37\",\"n\":37}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"38\"}}\n{\"title\":\"doc 38\",\"n\":38}\n{\"index\":{\"_index\":\"tut-l17-timeout\",\"_id\":\"39\"}}\n{\"title\":\"doc 39\",\"n\":39}\n",
+          "status": 200,
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "10",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "11",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 4,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "12",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 5,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "13",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 6,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "14",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 7,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "15",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 8,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "16",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 9,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "17",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 10,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "18",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 11,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "19",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 12,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "20",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 13,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "21",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 14,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "22",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 15,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "23",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 16,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "24",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 17,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "25",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 18,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "26",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 19,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "27",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 20,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "28",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 21,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "29",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 22,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "30",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 23,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "31",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 24,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "32",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 25,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "33",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 26,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "34",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 27,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "35",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 28,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "36",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 29,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "37",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 30,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "38",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 31,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-timeout",
+                  "_id": "39",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 32,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-28-count",
+          "method": "GET",
+          "path": "/tut-l17-timeout/_count",
+          "body": null,
+          "status": 200,
+          "response": {
+            "count": 33,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          }
+        },
+        {
+          "id": "ch17-30-loop-guard",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false",
+          "body": {
+            "query": {
+              "script_score": {
+                "query": {
+                  "match_all": {}
+                },
+                "script": {
+                  "source": "long acc = 0L; for (int i = 0; i < 5000000; i++) { acc += i; } return 1.0;"
+                }
+              }
+            }
+          },
+          "status": 400,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "painless_error",
+                  "reason": "The maximum number of statements that can be executed in a loop has been reached."
+                }
+              ],
+              "type": "search_phase_execution_exception",
+              "reason": "all shards failed",
+              "phase": "query",
+              "grouped": true,
+              "failed_shards": [
+                {
+                  "shard": 0,
+                  "index": "tut-l17-timeout",
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "reason": {
+                    "type": "script_exception",
+                    "reason": "runtime error",
+                    "script_stack": [
+                      "for (int ",
+                      "^---- HERE"
+                    ],
+                    "script": "long acc = 0L; for (int i = 0; i < 5000000; i++) { acc += i; } return 1.0;",
+                    "lang": "painless",
+                    "position": {
+                      "offset": 15,
+                      "start": 15,
+                      "end": 24
+                    },
+                    "caused_by": {
+                      "type": "painless_error",
+                      "reason": "The maximum number of statements that can be executed in a loop has been reached."
+                    }
+                  }
+                }
+              ],
+              "caused_by": {
+                "type": "painless_error",
+                "reason": "The maximum number of statements that can be executed in a loop has been reached."
+              }
+            },
+            "status": 400
+          }
+        },
+        {
+          "id": "ch17-29-work-baseline",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false",
+          "body": {
+            "timeout": "30s",
+            "size": 10,
+            "track_total_hits": true,
+            "query": {
+              "script_score": {
+                "query": {
+                  "match_all": {}
+                },
+                "script": {
+                  "source": "double acc = 0.0; double n = doc[\"n\"].value; for (int i = 0; i < params.loops; i++) { acc += Math.log(1.0 + n + i); } return acc / params.loops;",
+                  "params": {
+                    "loops": 20000
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 7,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 33,
+                "relation": "eq"
+              },
+              "max_score": 8.917764,
+              "hits": [
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "39",
+                  "_score": 8.917764,
+                  "_source": {
+                    "title": "doc 39",
+                    "n": 39
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "38",
+                  "_score": 8.917451,
+                  "_source": {
+                    "title": "doc 38",
+                    "n": 38
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "37",
+                  "_score": 8.917138,
+                  "_source": {
+                    "title": "doc 37",
+                    "n": 37
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "36",
+                  "_score": 8.916823,
+                  "_source": {
+                    "title": "doc 36",
+                    "n": 36
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "35",
+                  "_score": 8.916507,
+                  "_source": {
+                    "title": "doc 35",
+                    "n": 35
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "34",
+                  "_score": 8.916189,
+                  "_source": {
+                    "title": "doc 34",
+                    "n": 34
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "33",
+                  "_score": 8.915871,
+                  "_source": {
+                    "title": "doc 33",
+                    "n": 33
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "32",
+                  "_score": 8.91555,
+                  "_source": {
+                    "title": "doc 32",
+                    "n": 32
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "31",
+                  "_score": 8.915228,
+                  "_source": {
+                    "title": "doc 31",
+                    "n": 31
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "30",
+                  "_score": 8.914905,
+                  "_source": {
+                    "title": "doc 30",
+                    "n": 30
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-04-timeout-slow",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false&allow_partial_search_results=true",
+          "body": {
+            "timeout": "1ms",
+            "size": 10,
+            "track_total_hits": true,
+            "query": {
+              "script_score": {
+                "query": {
+                  "match_all": {}
+                },
+                "script": {
+                  "source": "double acc = 0.0; double n = doc[\"n\"].value; for (int i = 0; i < params.loops; i++) { acc += Math.log(1.0 + n + i); } return acc / params.loops;",
+                  "params": {
+                    "loops": 20000
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 6,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 33,
+                "relation": "eq"
+              },
+              "max_score": 8.917764,
+              "hits": [
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "39",
+                  "_score": 8.917764,
+                  "_source": {
+                    "title": "doc 39",
+                    "n": 39
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "38",
+                  "_score": 8.917451,
+                  "_source": {
+                    "title": "doc 38",
+                    "n": 38
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "37",
+                  "_score": 8.917138,
+                  "_source": {
+                    "title": "doc 37",
+                    "n": 37
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "36",
+                  "_score": 8.916823,
+                  "_source": {
+                    "title": "doc 36",
+                    "n": 36
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "35",
+                  "_score": 8.916507,
+                  "_source": {
+                    "title": "doc 35",
+                    "n": 35
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "34",
+                  "_score": 8.916189,
+                  "_source": {
+                    "title": "doc 34",
+                    "n": 34
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "33",
+                  "_score": 8.915871,
+                  "_source": {
+                    "title": "doc 33",
+                    "n": 33
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "32",
+                  "_score": 8.91555,
+                  "_source": {
+                    "title": "doc 32",
+                    "n": 32
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "31",
+                  "_score": 8.915228,
+                  "_source": {
+                    "title": "doc 31",
+                    "n": 31
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "30",
+                  "_score": 8.914905,
+                  "_source": {
+                    "title": "doc 30",
+                    "n": 30
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-05-timeout-strict",
+          "method": "POST",
+          "path": "/tut-l17-timeout/_search?request_cache=false&allow_partial_search_results=false",
+          "body": {
+            "timeout": "1ms",
+            "size": 10,
+            "track_total_hits": true,
+            "query": {
+              "script_score": {
+                "query": {
+                  "match_all": {}
+                },
+                "script": {
+                  "source": "double acc = 0.0; double n = doc[\"n\"].value; for (int i = 0; i < params.loops; i++) { acc += Math.log(1.0 + n + i); } return acc / params.loops;",
+                  "params": {
+                    "loops": 20000
+                  }
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 7,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 33,
+                "relation": "eq"
+              },
+              "max_score": 8.917764,
+              "hits": [
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "39",
+                  "_score": 8.917764,
+                  "_source": {
+                    "title": "doc 39",
+                    "n": 39
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "38",
+                  "_score": 8.917451,
+                  "_source": {
+                    "title": "doc 38",
+                    "n": 38
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "37",
+                  "_score": 8.917138,
+                  "_source": {
+                    "title": "doc 37",
+                    "n": 37
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "36",
+                  "_score": 8.916823,
+                  "_source": {
+                    "title": "doc 36",
+                    "n": 36
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "35",
+                  "_score": 8.916507,
+                  "_source": {
+                    "title": "doc 35",
+                    "n": 35
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "34",
+                  "_score": 8.916189,
+                  "_source": {
+                    "title": "doc 34",
+                    "n": 34
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "33",
+                  "_score": 8.915871,
+                  "_source": {
+                    "title": "doc 33",
+                    "n": 33
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "32",
+                  "_score": 8.91555,
+                  "_source": {
+                    "title": "doc 32",
+                    "n": 32
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "31",
+                  "_score": 8.915228,
+                  "_source": {
+                    "title": "doc 31",
+                    "n": 31
+                  }
+                },
+                {
+                  "_index": "tut-l17-timeout",
+                  "_id": "30",
+                  "_score": 8.914905,
+                  "_source": {
+                    "title": "doc 30",
+                    "n": 30
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-06-setup-pit",
+          "method": "PUT",
+          "path": "/tut-l17-pit",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "-1",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none",
+              "requests.cache.enable": false
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "text",
+                  "analyzer": "standard"
+                },
+                "ts": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l17-pit"
+          }
+        },
+        {
+          "id": "ch17-24-health-pit",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l17-pit?wait_for_status=green&wait_for_active_shards=1&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch17-07-bulk5",
+          "method": "POST",
+          "path": "/tut-l17-pit/_bulk?refresh=true",
+          "body": "{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"1\"}}\n{\"title\":\"quick brown fox\",\"ts\":1}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"2\"}}\n{\"title\":\"quick brown\",\"ts\":2}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"3\"}}\n{\"title\":\"lazy dog\",\"ts\":3}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"4\"}}\n{\"title\":\"quick fox\",\"ts\":4}\n{\"index\":{\"_index\":\"tut-l17-pit\",\"_id\":\"5\"}}\n{\"title\":\"brown fox\",\"ts\":5}\n",
+          "status": 200,
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "4",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l17-pit",
+                  "_id": "5",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 4,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "ch17-25-context-baseline",
+          "method": "GET",
+          "path": "/tut-l17-pit/_stats/search?filter_path=indices.*.primaries.search.open_contexts",
+          "body": null,
+          "status": 200,
+          "response": {
+            "indices": {
+              "tut-l17-pit": {
+                "primaries": {
+                  "search": {
+                    "open_contexts": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch17-08-pit-open",
+          "method": "POST",
+          "path": "/tut-l17-pit/_pit?keep_alive=5m",
+          "body": null,
+          "status": 200,
+          "response": {
+            "id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          }
+        },
+        {
+          "id": "ch17-09-contexts-open",
+          "method": "GET",
+          "path": "/tut-l17-pit/_stats/search?filter_path=indices.*.primaries.search.open_contexts",
+          "body": null,
+          "status": 200,
+          "response": {
+            "indices": {
+              "tut-l17-pit": {
+                "primaries": {
+                  "search": {
+                    "open_contexts": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch17-10-pit-page1",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 2,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+              "keep_alive": "5m"
+            }
+          },
+          "status": 200,
+          "response": {
+            "pit_id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+            "took": 1,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "1",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "ts": 1
+                  },
+                  "sort": [
+                    1,
+                    0
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "2",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown",
+                    "ts": 2
+                  },
+                  "sort": [
+                    2,
+                    1
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-11-write-new",
+          "method": "PUT",
+          "path": "/tut-l17-pit/_doc/new?refresh=true",
+          "body": {
+            "title": "quick newcomer",
+            "ts": 99
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l17-pit",
+            "_id": "new",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 5,
+            "_primary_term": 1
+          }
+        },
+        {
+          "id": "ch17-26-pit-page2",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 2,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+              "keep_alive": "5m"
+            },
+            "search_after": [
+              2,
+              1
+            ]
+          },
+          "status": 200,
+          "response": {
+            "pit_id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+            "took": 4,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "4",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick fox",
+                    "ts": 4
+                  },
+                  "sort": [
+                    4,
+                    3
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-12-pit-again",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 20,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+              "keep_alive": "5m"
+            }
+          },
+          "status": 200,
+          "response": {
+            "pit_id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+            "took": 1,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "1",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "ts": 1
+                  },
+                  "sort": [
+                    1,
+                    0
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "2",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown",
+                    "ts": 2
+                  },
+                  "sort": [
+                    2,
+                    1
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "4",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick fox",
+                    "ts": 4
+                  },
+                  "sort": [
+                    4,
+                    3
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-31-pit-other-query",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 20,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "lazy"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+              "keep_alive": "5m"
+            }
+          },
+          "status": 200,
+          "response": {
+            "pit_id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+            "took": 1,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "3",
+                  "_score": null,
+                  "_source": {
+                    "title": "lazy dog",
+                    "ts": 3
+                  },
+                  "sort": [
+                    3,
+                    2
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-13-no-pit",
+          "method": "POST",
+          "path": "/tut-l17-pit/_search",
+          "body": {
+            "size": 20,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "took": 0,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 4,
+                "relation": "eq"
+              },
+              "max_score": null,
+              "hits": [
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "1",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown fox",
+                    "ts": 1
+                  },
+                  "sort": [
+                    1
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "2",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick brown",
+                    "ts": 2
+                  },
+                  "sort": [
+                    2
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "4",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick fox",
+                    "ts": 4
+                  },
+                  "sort": [
+                    4
+                  ]
+                },
+                {
+                  "_index": "tut-l17-pit",
+                  "_id": "new",
+                  "_score": null,
+                  "_source": {
+                    "title": "quick newcomer",
+                    "ts": 99
+                  },
+                  "sort": [
+                    99
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ch17-14-pit-close",
+          "method": "DELETE",
+          "path": "/_pit",
+          "body": {
+            "id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA="
+          },
+          "status": 200,
+          "response": {
+            "succeeded": true,
+            "num_freed": 1
+          }
+        },
+        {
+          "id": "ch17-15-contexts-closed",
+          "method": "GET",
+          "path": "/tut-l17-pit/_stats/search?filter_path=indices.*.primaries.search.open_contexts",
+          "body": null,
+          "status": 200,
+          "response": {
+            "indices": {
+              "tut-l17-pit": {
+                "primaries": {
+                  "search": {
+                    "open_contexts": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch17-27-closed-pit",
+          "method": "POST",
+          "path": "/_search",
+          "body": {
+            "size": 2,
+            "track_total_hits": true,
+            "sort": [
+              {
+                "ts": "asc"
+              }
+            ],
+            "query": {
+              "match": {
+                "title": "quick"
+              }
+            },
+            "pit": {
+              "id": "oce6BAELdHV0LWwxNy1waXQWekU2cWZZY1NUSENTOWdMVU1sWndEQQABFlFTa3B5UnJWUTdTckNXdnV0V0lMTWcAAQAAAAAAAADoFnBKTGJTZHR2UTBpZ1hrMjNGSUsyR3cAARZ6RTZxZlljU1RIQ1M5Z0xVTWxad0RBAAA=",
+              "keep_alive": "5m"
+            }
+          },
+          "status": 404,
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "search_context_missing_exception",
+                  "reason": "No search context found for id [[pJLbSdtvQ0igXk23FIK2Gw][232] searcherId [null]]"
+                }
+              ],
+              "type": "search_phase_execution_exception",
+              "reason": "all shards failed",
+              "phase": "query",
+              "grouped": true,
+              "failed_shards": [
+                {
+                  "shard": 0,
+                  "index": "tut-l17-pit",
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "reason": {
+                    "type": "search_context_missing_exception",
+                    "reason": "No search context found for id [[pJLbSdtvQ0igXk23FIK2Gw][232] searcherId [null]]"
+                  }
+                }
+              ]
+            },
+            "status": 404
+          }
+        },
+        {
+          "id": "ch17-16-cleanup-timeout",
+          "method": "DELETE",
+          "path": "/tut-l17-timeout",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch17-17-cleanup-pit",
+          "method": "DELETE",
+          "path": "/tut-l17-pit",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        }
+      ]
+    }
+  ],
+  "status": "collected-validation-pending"
+}

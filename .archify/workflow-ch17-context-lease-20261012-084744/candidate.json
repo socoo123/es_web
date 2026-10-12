@@ -1,0 +1,234 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "PIT：本次上下文关闭，读者仍可复用",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch17-context-lease-20261012-084744/context-lease.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "本次搜索处理"
+        },
+        "database": {
+          "label": "保留的读者视图"
+        },
+        "security": {
+          "label": "可选过滤"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "open",
+      "label": "一次打开 · 本例一片 PIT"
+    },
+    {
+      "id": "first",
+      "label": "第一次搜索 · create → execute → close"
+    },
+    {
+      "id": "second",
+      "label": "下一次搜索 · 新上下文，同一读者"
+    },
+    {
+      "id": "release",
+      "label": "显式关闭 PIT · 引用计数释放"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "reader",
+      "lane": "open",
+      "col": 2,
+      "type": "database",
+      "label": "打开 ReaderContext",
+      "sublabel": "acquireSearcherSupplier · 保留视图",
+      "width": 320,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 1587,
+          "end_line": 1613,
+          "label": "PIT 创建读者"
+        }
+      ]
+    },
+    {
+      "id": "context",
+      "lane": "first",
+      "col": 2,
+      "type": "backend",
+      "label": "创建本次 SearchContext",
+      "sublabel": "从保留读者取得 searcher",
+      "width": 320,
+      "height": 68,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 1622,
+          "end_line": 1661,
+          "label": "创建与失败清理"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java",
+          "line": 189,
+          "end_line": 217,
+          "label": "取得 searcher"
+        }
+      ]
+    },
+    {
+      "id": "first",
+      "lane": "first",
+      "col": 2,
+      "type": "backend",
+      "label": "执行后关闭本次上下文",
+      "sublabel": "释放本次 searcher / 结果引用",
+      "width": 320,
+      "height": 68,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 977,
+          "end_line": 1034,
+          "label": "try-with-resources"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/internal/SearchContext.java",
+          "line": 114,
+          "end_line": 117,
+          "label": "closeFuture"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java",
+          "line": 216,
+          "end_line": 217,
+          "label": "资源释放监听"
+        }
+      ]
+    },
+    {
+      "id": "second",
+      "lane": "second",
+      "col": 2,
+      "type": "backend",
+      "label": "新建上下文继续查询",
+      "sublabel": "同一 PIT 视图 · 完整 search_after",
+      "width": 320,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 808,
+          "end_line": 825,
+          "label": "查找 reader 并执行"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 1437,
+          "end_line": 1474,
+          "label": "查找 PIT context"
+        }
+      ]
+    },
+    {
+      "id": "remove",
+      "lane": "release",
+      "col": 2,
+      "type": "database",
+      "label": "显式关闭移出 activeReaders",
+      "sublabel": "释放 PIT 引用;在用请求受保护",
+      "width": 320,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 1750,
+          "end_line": 1755,
+          "label": "移除与关闭读者"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/internal/ReaderContext.java",
+          "line": 87,
+          "end_line": 96,
+          "label": "decRef 与 doClose"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/internal/ReaderContext.java",
+          "line": 134,
+          "end_line": 141,
+          "label": "使用中的引用保护"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "reader-context",
+      "from": "reader",
+      "to": "context",
+      "variant": "emphasis"
+    },
+    {
+      "id": "context-first",
+      "from": "context",
+      "to": "first",
+      "variant": "emphasis"
+    },
+    {
+      "id": "first-second",
+      "from": "first",
+      "to": "second",
+      "variant": "emphasis",
+      "label": "后续请求",
+      "role": "async"
+    },
+    {
+      "id": "second-remove",
+      "from": "second",
+      "to": "remove",
+      "variant": "emphasis",
+      "label": "用完关闭"
+    }
+  ],
+  "mainPath": [
+    "reader",
+    "context",
+    "first",
+    "second",
+    "remove"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "箭头与抽象范围",
+      "items": [
+        "箭头是本例操作先后与资源获取，不是网络包或固定线程。只展开一片 PIT;省略协调侧、DFS、异常与多个并发请求。",
+        "跨请求保留的是 ReaderContext;SearchContext 仍是每次执行的临时状态。下一次请求应使用最新 pit_id 与末项完整 sort。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "释放条件",
+      "items": [
+        "普通搜索可为 Query→Fetch 暂存 reader，完成后释放;PIT/scroll 保留到显式关闭或后台过期清理，索引移除也会清理。",
+        "freeReaderContext 解除所有者引用;在用请求仍受 markAsUsed 引用保护，不承诺底层文件句柄立即全部释放。"
+      ]
+    }
+  ]
+}

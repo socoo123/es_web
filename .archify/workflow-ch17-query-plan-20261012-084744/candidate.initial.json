@@ -1,0 +1,221 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "三个查询层：用户查询、过滤与执行改写",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "provider": "github",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "output": ".archify/workflow-ch17-query-plan-20261012-084744/query-plan.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "本次搜索处理"
+        },
+        "database": {
+          "label": "保留的读者视图"
+        },
+        "security": {
+          "label": "可选过滤"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "parsed",
+      "label": "解析 · QueryBuilder → Lucene Query"
+    },
+    {
+      "id": "filtered",
+      "label": "前处理 · 按需补充过滤"
+    },
+    {
+      "id": "execute",
+      "label": "执行 · rewrite 与收集"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "dsl",
+      "lane": "parsed",
+      "col": 2,
+      "type": "backend",
+      "label": "用户 DSL 转 Lucene Query",
+      "sublabel": "toQuery 分析文本并构造 SHOULD",
+      "width": 320,
+      "height": 68,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 1914,
+          "end_line": 1923,
+          "label": "toQuery 写入"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/search/MatchQueryParser.java",
+          "line": 280,
+          "end_line": 306,
+          "label": "match 分析构造"
+        }
+      ]
+    },
+    {
+      "id": "original",
+      "lane": "parsed",
+      "col": 2,
+      "type": "backend",
+      "label": "originalQuery · ParsedQuery",
+      "sublabel": "parsedQuery() · 默认高亮来源",
+      "width": 320,
+      "height": 68,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java",
+          "line": 766,
+          "end_line": 776,
+          "label": "写 originalQuery 与 query"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/fetch/subphase/highlight/HighlightPhase.java",
+          "line": 40,
+          "end_line": 46,
+          "label": "高亮取 parsedQuery"
+        }
+      ]
+    },
+    {
+      "id": "filtered",
+      "lane": "filtered",
+      "col": 2,
+      "type": "security",
+      "label": "query · buildFilteredQuery",
+      "sublabel": "有 alias / nested / slice 才补 FILTER",
+      "width": 320,
+      "height": 68,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java",
+          "line": 438,
+          "end_line": 449,
+          "label": "preProcess"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java",
+          "line": 456,
+          "end_line": 492,
+          "label": "过滤条件与返回"
+        }
+      ]
+    },
+    {
+      "id": "rewrite",
+      "lane": "execute",
+      "col": 2,
+      "type": "backend",
+      "label": "rewrittenQuery() · 懒加载",
+      "sublabel": "searcher.rewrite(query())",
+      "width": 320,
+      "height": 68,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/internal/SearchContext.java",
+          "line": 295,
+          "end_line": 307,
+          "label": "懒加载执行改写"
+        }
+      ]
+    },
+    {
+      "id": "collect",
+      "lane": "execute",
+      "col": 2,
+      "type": "backend",
+      "label": "收集候选与聚合",
+      "sublabel": "Profile / Explain 反映执行查询",
+      "width": 320,
+      "height": 68,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhase.java",
+          "line": 158,
+          "end_line": 174,
+          "label": "取 rewrittenQuery"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhase.java",
+          "line": 202,
+          "end_line": 230,
+          "label": "search 与查询 profile"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/fetch/subphase/ExplainPhase.java",
+          "line": 40,
+          "end_line": 47,
+          "label": "explain 执行查询"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "dsl-original",
+      "from": "dsl",
+      "to": "original",
+      "variant": "emphasis"
+    },
+    {
+      "id": "original-filtered",
+      "from": "original",
+      "to": "filtered",
+      "variant": "emphasis"
+    },
+    {
+      "id": "filtered-rewrite",
+      "from": "filtered",
+      "to": "rewrite",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rewrite-collect",
+      "from": "rewrite",
+      "to": "collect",
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "dsl",
+    "original",
+    "filtered",
+    "rewrite",
+    "collect"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "箭头与抽象范围",
+      "items": [
+        "箭头表示查询构造/派生与交给执行层。不是三个接口响应，也不是每次必定产生三个不同对象。",
+        "限定普通文本主查询;前置 QueryBuilder rewrite、请求缓存、post_filter、rank/kNN 等放在正文说明。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "不要混淆观察对象",
+      "items": [
+        "默认高亮使用 parsedQuery，但显式 highlight_query 可以覆盖;Profile/Explain 不仅展示用户 originalQuery。",
+        "标准分析器、默认 OR 的 quick brown 在 toQuery 构造 SHOULD;不是由 Lucene rewrite 才开始分词。无额外过滤时 query 可等于原查询。"
+      ]
+    }
+  ]
+}

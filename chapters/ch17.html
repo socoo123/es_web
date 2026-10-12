@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>第 17 课:搜索服务与搜索上下文 — ES 源码精读站</title>
   <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
+  <style>#ch17 [data-exp="ch17-03-bulk30"] .exp-req { max-height: 340px; }
+    @media (max-width:600px) { #ch17 #source-map + table th:first-child, #ch17 #source-map + table td:first-child { min-width:370px; } #ch17 #source-map + table th:last-child, #ch17 #source-map + table td:last-child { min-width:260px; } }</style>
 </head>
-<body>
+<body class="chapter-visual-page">
   <header class="topbar">
     <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
     <nav class="tnav">
@@ -18,299 +21,150 @@
     <button class="theme-toggle" type="button">🌙 深色</button>
   </header>
 
-  <main class="wrap">
+  <main class="wrap chapter-visual">
     <article class="chapter" id="ch17" data-ch="ch17">
       <header class="ch-header">
         <div class="ch-kicker">LESSON 17 · 第四篇 · 搜索查询</div>
+        <div class="visual-badge">ARCHIFY · 分片执行与读者视图</div>
         <h1>搜索服务与搜索上下文</h1>
-        <div class="ch-meta-line">分片上真正执行 Query · 约 15 分钟 · 前置:第 16 课 · 18 个实验</div>
+        <div class="ch-meta-line">约 22 分钟 · 前置：第 16 课 · 3 组 / 32 张操作卡（含清理） · 2 幅交互图 / 2 条路径动画 · 1 个六步机制动画</div>
+        <p class="ch-intro">一个分片怎样把查询跑完，又怎样让下一页继续读取同一份数据？SearchService 管执行，SearchContext 装本次状态，ReaderContext 保留读者引用。理解这三者，就能分清查询改写、超时与 PIT 分页各自控制的边界。</p>
+        <nav class="diagram-jumps" aria-label="本章图解"><a href="#fig-ch17-context-lease"><span>01</span>上下文与读者</a><a href="#fig-ch17-query-plan"><span>02</span>三个查询层</a><a href="#mechanism"><span>03</span>六步执行动画</a></nav>
+        <details class="chapter-outline"><summary>本章目录</summary><nav aria-label="本章目录"><a href="#contexts">1 · 谁活一趟，谁跨请求</a><a href="#entry">2 · 入口与执行调度</a><a href="#queries">3 · 查询字段与观察对象</a><a href="#timeout">4 · 查询超时的范围</a><a href="#pit">5 · PIT 与分页游标</a><a href="#source-map">6 · 源码入口</a><a href="#experiments">7 · 实验、清理与重做</a><a href="#questions">思考题</a></nav></details>
       </header>
-
-      <section class="goal">
-        <h2>学习目标</h2>
-        <ul>
-          <li>打开 <code>SearchService.executeQueryPhase</code>,说出对外那条签名(参数、返回值),以及结果什么时候交给 listener——不是「方法 return 时 Lucene 已经跑完」。</li>
-          <li>沿 <code>SearchContext</code> 的生命周期指出 <code>originalQuery</code>、<code>query</code>、<code>rewrittenQuery()</code> 各是谁写入、给谁用;对照一次 <code>match: "quick brown"</code> 的中间态。</li>
-          <li>用很小的 <code>timeout</code> 观察 <code>timed_out: true</code>(并说清为什么数据太少时看不到),再对照 <code>getTimeoutCheck → handleTimeout</code> 这条源码路径;用 PIT 证明 Reader 快照在写入之后仍不变。</li>
-        </ul>
-      </section>
-
+      <section class="goal"><h2>学习目标</h2><ul>
+        <li>用 PIT 的上下文统计与第二页结果，解释为什么关闭本次 SearchContext 不会关闭保留的 ReaderContext。</li>
+        <li>用分词、查询校验、过滤别名的 Profile/Explain/高亮，区分用户查询、补充过滤与 Lucene rewrite。</li>
+        <li>分别识别 400 脚本保护、200 部分超时、429 严格超时；传最新 pit_id 和完整 sort，完成一次可清理重做的分页。</li>
+      </ul></section>
       <section class="lesson">
-        <h2>1. 心智模型:第 16 课的「每个 shard 回 10 条」在这里执行</h2>
-        <p>第 16 课停在协调节点:Query Then Fetch 已经把请求扇出去了。本课只看<strong>其中一个 shard</strong>:它必须在本地 Lucene 上找出自己的 Top-N,把 <code>(docId, score)</code> 送回去——完整 <code>_source</code> 还轮不到它(单分片捷径除外)。运输层动作名 <code>indices:data/read/search[phase/query]</code>,handler 直接调 <code>searchService.executeQueryPhase</code>。</p>
-        <p>先钉死两个容易混的对象——<strong>活多久</strong>是它们的本质区别:</p>
+        <h2 id="contexts">1. SearchContext 关闭了，下一页怎么继续？</h2>
+        <p>第 16 课解释协调侧如何选出全局命中，本课进入一个目标分片。<code>SearchService</code> 获取读者、准备查询、执行 Query/Fetch 并管理清理。<code>SearchContext</code> 保存本次执行的 query、from/size、排序、聚合、超时与结果；<code>ReaderContext</code> 保存取得 searcher 所需的供应者及引用。两者的区别是职责与所有权，不能只记成“一个短、一个长”。</p>
+<figure class="fig archify-figure" id="fig-ch17-context-lease">
+ <div class="archify-shell"><div class="archify-tools"><span class="archify-label">01 · PIT：一次上下文与跨请求读者</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch17-context-lease">↻ 重新播放</button><a href="../.archify/workflow-ch17-context-lease-20261012-084744/context-lease.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+ <iframe class="archify-frame" id="diagram-ch17-context-lease" title="PIT：一次上下文与跨请求读者" loading="lazy" style="--diagram-height:820px;--diagram-mobile-height:540px" src="../.archify/workflow-ch17-context-lease-20261012-084744/context-lease.html?theme=light&amp;present=1"></iframe></div>
+ <figcaption>图 1 · 箭头是本例操作先后与资源获取。限定一片 PIT，省略协调侧、DFS、异常和并发细节。每次搜索新建 SearchContext，PIT 保留 ReaderContext 对读者的引用；最终关闭先解除 PIT 引用，在用请求仍受引用计数保护。<span class="figure-tip">点击节点查看解释与固定源码；图内可暂停，外层可重播。手机先读概览，再展开缩放查看细节。</span></figcaption></figure>        <p>普通多分片查询在 Query 结束后也可能保留 ReaderContext，供稍后的 Fetch 使用；若没有需要获取的命中，可提前释放。普通 Fetch 完成后释放单会话读者。PIT/scroll 则跨请求保留。<code>SearchContext.close()</code> 通知 <code>closeFuture</code>，释放注册在它上的本次 searcher、结果和查询构造内存等资源，并不等于销毁所有底层 IndexReader。</p>
+        <p>这一区别可以直接测：本章一主零副 PIT 索引，先记录本索引 <code>open_contexts=N</code>；打开 PIT 后变为 N+1；先后搜两次仍保留这个读者；显式关闭后回 N。本轮两次都是 <strong>0→1→0</strong>。统计的是保留上下文数，不是独占物理 reader 数；多片 PIT、同索引其他请求及副本选择会改变账本。源码：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L977-L1034" target="_blank" rel="noopener">Query 的创建与关闭</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L1105-L1177" target="_blank" rel="noopener">普通 Fetch 释放</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/internal/ReaderContext.java#L87-L96" target="_blank" rel="noopener">Reader 引用清理</a>。</p>
+        <h2 id="entry">2. void + listener，意味着结果在什么时候交付？</h2>
+        <p><code>indices:data/read/search[phase/query]</code> 的 handler 接到公开入口 <code>executeQueryPhase(ShardSearchRequest, CancellableTask, ActionListener&lt;SearchPhaseResult&gt;)</code>。它返回 void，结果通过 listener 交付。正常路径先进行请求改写，再经 <code>executeQueryPhaseAsync</code> 提交执行；普通索引用 search executor，系统索引由选择器决定。某些 can-match 分支可提前回空结果，因此不能概括为“每次一定创建上下文”或“handler 一定立即返回”。</p>
+        <pre class="code-block"><code>// 9.4.0 正常执行分支的简化；省略改写、等待、追踪与失败包装
+executeQueryPhaseAsync(...):
+  ensureAfterSeqNoRefreshed(..., () -&gt; {
+    reader = createOrGetReaderContext(request);
+    mark = reader.markAsUsed(getKeepAlive(request));
+    return executeQueryPhase(request, task, reader);
+  }, listener);
 
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg">
-              <rect x="15" y="20" width="355" height="120" rx="10" class="fig-box"/>
-              <text x="192" y="46" text-anchor="middle" class="fig-name">SearchContext(短命)</text>
-              <text x="192" y="76" text-anchor="middle" class="fig-key">create → execute → close</text>
-              <text x="192" y="98" text-anchor="middle" class="fig-sub">try-with-resources 进出,一趟相位</text>
-              <text x="192" y="120" text-anchor="middle" class="fig-sub">查询、from/size、timeout、TopDocs</text>
-              <rect x="390" y="20" width="355" height="120" rx="10" class="fig-box-hot"/>
-              <text x="567" y="46" text-anchor="middle" class="fig-name">ReaderContext(可长命)</text>
-              <text x="567" y="76" text-anchor="middle" class="fig-sub">普通搜索:这一趟就放</text>
-              <text x="567" y="98" text-anchor="middle" class="fig-sub">PIT / Scroll:跨请求,keep-alive 续命</text>
-              <text x="567" y="120" text-anchor="middle" class="fig-sub">钉死同一份 IndexReader 视图</text>
-              <text x="380" y="162" text-anchor="middle" class="fig-sub">每次 executeQueryPhase 都新建并 close SearchContext;跨请求活着的是 ReaderContext,不是它</text>
-            </svg>
-          </div>
-          <figcaption>图 1 · 两个 Context 别当一个:一个活一趟,一个跨请求。旧课「Scroll 让 SearchContext 活 1 分钟」的说法与当前代码不符——跨请求保活的是 <code>ReaderContext</code>。</figcaption>
-        </figure>
-
-        <h2>2. 关键源码文件</h2>
-        <table class="ktable">
-          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
-          <tr><td><code>search/SearchService.java</code></td><td>分片入口:<code>executeQueryPhase</code> 重载、<code>createContext</code>、<code>openReaderContext</code>(PIT)、<code>createAndPutReaderContext</code>(Scroll 走 <code>LegacyReaderContext</code>)</td></tr>
-          <tr><td><code>search/DefaultSearchContext.java</code></td><td>字段 <code>originalQuery</code>(ParsedQuery)与 <code>query</code>(未 rewrite 的 Lucene Query);<code>parsedQuery()</code> / <code>preProcess()</code> / <code>buildFilteredQuery()</code></td></tr>
-          <tr><td><code>search/internal/SearchContext.java</code></td><td><code>rewrittenQuery()</code> 写入 <code>rewriteQuery</code>;<code>close()</code> 通知 <code>closeFuture</code> 释放 searcher</td></tr>
-          <tr><td><code>search/query/QueryPhase.java</code></td><td><code>execute</code> → <code>rewrittenQuery()</code> → <code>searcher.search</code>;<code>getTimeoutCheck</code></td></tr>
-          <tr><td><code>search/internal/ReaderContext.java</code></td><td>PIT 钉死的 Reader;<code>singleSession()</code> / keepAlive;与短命的 SearchContext 成对</td></tr>
+private executeQueryPhase(request, task, reader):
+  try (SearchContext context = createContext(reader, request, task, QUERY, true)) {
+    loadOrExecuteQueryPhase(request, context);
+    // 单目标分片、无 rankBuilder 的普通 QTF 可在此接着 Fetch
+    return result; // 结果引用需保留到上下文清理之后
+  } // 先关闭本次 context，执行包装再通知 listener</code></pre>
+        <p><code>createContext</code> 先检查取消，构造 DefaultSearchContext，从 reader 取得 searcher；随后 <code>parseSource</code> 写入查询、排序、聚合、timeout 等，未给 from/size 时落为 0/10，再 <code>preProcess</code> 校验窗口、补过滤并注册取消回调。解析或前处理失败会关闭本次 context 后抛出。可缓存只是资格，<strong>缓存命中</strong>才跳过 QueryPhase，未命中仍执行。普通 QTF 单目标分片且无 rankBuilder 可复用本次 context 做 Fetch；kNN/DFS 等入口条件另论，不把这一优化当成新 SearchType。</p>
+        <p>源码：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/search/SearchTransportService.java#L569-L579" target="_blank" rel="noopener">handler 注册</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L768-L844" target="_blank" rel="noopener">公开入口与异步调度</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L1362-L1371" target="_blank" rel="noopener">executor 选择</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L1622-L1661" target="_blank" rel="noopener">createContext</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L753-L765" target="_blank" rel="noopener">缓存资格与执行</a>。下面保留六步动画，用手动步进对照正常执行分支。</p>
+        <div id="mechanism" class="fp-slot" data-flow="ch17-context-lifecycle"></div>
+        <h2 id="queries">3. 三个查询层，不能靠 Profile 猜全部中间态</h2>
+        <p>请求中的 DSL 先是 QueryBuilder，再转换为 Lucene Query。DefaultSearchContext 保存 <code>originalQuery</code>（ParsedQuery），同时把 <code>query</code> 设为其中的 Lucene 查询；前处理只在有需要时加入别名、非 nested 根文档或 slice 过滤。<code>rewrittenQuery()</code> 第一次调用再执行 <code>searcher.rewrite(query())</code>，缓存这份执行改写。没有额外过滤时 query 可以就是原查询，rewrite 也可能返回同一对象。</p>
+<figure class="fig archify-figure" id="fig-ch17-query-plan">
+ <div class="archify-shell"><div class="archify-tools"><span class="archify-label">02 · 三个查询层与真正的观察对象</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch17-query-plan">↻ 重新播放</button><a href="../.archify/workflow-ch17-query-plan-20261012-084744/query-plan.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+ <iframe class="archify-frame" id="diagram-ch17-query-plan" title="三个查询层与真正的观察对象" loading="lazy" style="--diagram-height:800px;--diagram-mobile-height:540px" src="../.archify/workflow-ch17-query-plan-20261012-084744/query-plan.html?theme=light&amp;present=1"></iframe></div>
+ <figcaption>图 2 · 箭头是查询构造、派生和交给执行层。标准分析器、默认 OR 的 quick brown 在 toQuery 时构造 SHOULD；Lucene rewrite 是后一步。默认高亮取 parsedQuery，Profile/Explain 可反映补充过滤后的执行查询。<span class="figure-tip">点击节点查看解释与固定源码；图内可暂停，外层可重播。手机先读概览，再展开缩放查看细节。</span></figcaption></figure>        <table class="ktable"><tr><th>字段 / 方法</th><th>谁写入与谁读取</th></tr>
+          <tr><td><code>originalQuery / parsedQuery()</code></td><td>parseSource 的 toQuery 结果；默认高亮取这份查询。显式 highlight_query 可覆盖。</td></tr>
+          <tr><td><code>query()</code></td><td>起初等于原查询，preProcess 通过 buildFilteredQuery 按需补 MUST/FILTER。</td></tr>
+          <tr><td><code>rewrittenQuery()</code></td><td>懒加载 searcher.rewrite；QueryPhase 使用，ExplainPhase 也拿它调用 searcher.explain。</td></tr>
         </table>
-        <p>对照时打开即可、不必进表:<code>SearchTimeoutException</code>(timed_out vs 429)、<code>ContextIndexSearcher</code>(<code>TimeExceededException</code>)、<code>SearchTransportService</code>(<code>QUERY_ACTION_NAME</code>)、<code>ScrollContext</code>(<code>lastEmittedDoc</code>)、<code>LegacyReaderContext</code>。<code>FetchPhase</code> 是第 16 课第二阶段在本 shard 的落地,本课只在「单分片把 Query+Fetch 捏在同一次 SearchContext 里」时碰到它。</p>
-
-        <h2>3. SearchContext 生命周期:create → execute → close</h2>
-        <h3>对外入口:void + listener</h3>
-        <p><code>SearchTransportService</code> 把 <code>QUERY_ACTION_NAME</code> 接到这条 public 方法。读签名时抓三件事:</p>
-        <pre class="code-block"><code>// SearchService.executeQueryPhase — Transport handler 那条:签名是 void + listener
-public void executeQueryPhase(ShardSearchRequest request, CancellableTask task,
-                              ActionListener&lt;SearchPhaseResult&gt; listener) {
-    // rewriteAndFetchShardRequest → ensureAfterSeqNoRefreshed(
-    //     shard, orig, () -&gt; executeQueryPhase(orig, task), l)   ← private 重载丢进 search 池
-}</code></pre>
-        <ol>
-          <li><strong>返回类型是 <code>void</code></strong>,结果走 <code>ActionListener</code>——第 8 课不变量:handler 线程不能同步卡在 Lucene 上。</li>
-          <li>真正跑 Lucene 的是 <strong>private 重载</strong> <code>SearchPhaseResult executeQueryPhase(ShardSearchRequest, CancellableTask)</code>;普通搜索(waitForCheckpoint 未设)里 <code>ensureAfterSeqNoRefreshed</code> 立刻 <code>runAsync(search 池, …)</code>。</li>
-          <li>listener 何时收到值:search 池里那次 private 调用 <strong>return 之后</strong>。单分片且无 <code>rankBuilder</code> 时它接着 <code>executeFetchPhase</code>,listener 拿到 <code>QueryFetchSearchResult</code>;否则是 <code>QuerySearchResult</code>。</li>
-        </ol>
-        <table class="ktable">
-          <tr><th>同名重载(简化)</th><th>谁来调</th><th>给 listener 的类型</th></tr>
-          <tr><td><code>(ShardSearchRequest, CancellableTask, ActionListener)</code></td><td><code>[phase/query]</code>:QTF 的 Query 相位</td><td><code>QuerySearchResult</code> 或 <code>QueryFetchSearchResult</code></td></tr>
-          <tr><td><code>(QuerySearchRequest, SearchShardTask, …)</code></td><td>DFS 之后的 Query(<code>QUERY_ID_ACTION_NAME</code>)</td><td><code>QuerySearchResult</code></td></tr>
-          <tr><td><code>(InternalScrollSearchRequest, SearchShardTask, …)</code></td><td>Scroll 翻页</td><td><code>ScrollQuerySearchResult</code></td></tr>
+        <p>本例 title 显式使用 standard，<code>match: "quick brown"</code> 默认 OR，分析出 quick、brown 后构造 SHOULD；不是等 Lucene rewrite 才分词。前置的 QueryBuilder rewrite 与此处 Lucene rewrite 也是两层。A5 的 _analyze 只证明 token，A6 的 _validate/query 展示改写后的查询表示，二者不能直接读取三个私有字段。字段的写入顺序要靠固定源码确定。</p>
+        <p>A7 给原索引加 <code>n=1</code> 的过滤别名，A8 同时开 Profile、Explain 和高亮：仅文档 1 命中，高亮 quick/brown，而 profile 查询树和 explanation 都能看到 n 过滤。旧文“Profile/Explain 都对 originalQuery 说话”不成立。默认高亮的查询来源与执行过滤分开，仍不能推断高亮片段严格代表所有布尔条件。别名过滤也不应被当作直接按 ID 访问的安全边界。</p>
+        <p>源码：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java#L766-L776" target="_blank" rel="noopener">字段写入</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java#L438-L492" target="_blank" rel="noopener">过滤的条件分支</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/internal/SearchContext.java#L295-L308" target="_blank" rel="noopener">懒加载 rewrite</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/query/MatchQueryBuilder.java#L387-L408" target="_blank" rel="noopener">match 转 Lucene Query</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/fetch/subphase/ExplainPhase.java#L40-L47" target="_blank" rel="noopener">Explain 使用执行查询</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/fetch/subphase/highlight/HighlightPhase.java#L40-L46" target="_blank" rel="noopener">默认高亮来源</a>。</p>
+        <h2 id="timeout">4. timeout 控制查询检查点，不是整个请求的截止线</h2>
+        <p>请求体 timeout 覆盖本次 context 的默认查询超时；未配置时 <code>search.default_search_timeout=-1</code>，不装这条检查。QueryPhase 为非 scroll 查询注册回调，取相对时钟，发现 <code>time &gt; startTime + timeout</code> 才抛 TimeExceededException。检查可发生在叶子开始、分批评分等位置，小数据并不等于“一次检查也没有”。9.4.0 ThreadPool 默认相对时钟每 <strong>200ms</strong> 更新缓存；检查间隔与时钟更新共同影响观测。</p>
+        <p>本轮 33 篇 × 两万次合法计算，took 超过 1ms 仍 timed_out=false；把固定数据扩到 3003 篇后，两轮都触发了短超时。这些是本机观测，不是工作量阈值承诺。不要按 took 反推每个检查点看到的时间。请求改写、等待、Fetch、网络与客户端处理也不由这条 1ms 保证包住；合并的单片路径在 Query 后会清掉查询超时检查再做 Fetch。</p>
+        <table class="ktable"><tr><th>发生的事情</th><th>本例响应与解释</th></tr>
+          <tr><td>查询超时，显式允许部分结果</td><td>200 + timed_out=true；hits/total 可能不完整，不能当全集。</td></tr>
+          <tr><td>查询超时，显式禁止部分结果</td><td>本例一片全失败，429；顶层 search_phase_execution_exception，内层 search_timeout_exception。</td></tr>
+          <tr><td>五百万次 Painless 循环</td><td>400 + script_exception/painless_error：先撞循环语句计数保护，不是查询超时。</td></tr>
+          <tr><td>任务取消 / 等 checkpoint 超时</td><td>各有取消或等待路径，不能把所有失败改称 timed_out。</td></tr>
         </table>
-
-        <h3>create → execute → close,全写在一条 try-with-resources 里</h3>
-        <pre class="code-block"><code>// SearchService — private SearchPhaseResult executeQueryPhase(...)
-final ReaderContext readerContext = createOrGetReaderContext(request);
-try (
-    Releasable ignored = readerContext.markAsUsed(getKeepAlive(request));
-    SearchContext context = createContext(readerContext, request, task, ResultsType.QUERY, true)
-) {
-    loadOrExecuteQueryPhase(request, context);   // 能缓存就缓存,否则 QueryPhase.execute
-    if (request.numberOfShards() == 1 &amp;&amp; (request.source() == null || request.source().rankBuilder() == null)) {
-        return executeFetchPhase(readerContext, context, afterQueryTime);   // 单分片:顺手 Fetch
-    }
-    context.queryResult().incRef();
-    return context.queryResult();
-} // SearchContext.close() 在这里发生</code></pre>
-        <p><code>createContext</code> 的顺序:① <code>checkCancelled(task)</code>,能早取消就不去开 reader;② 构造 <code>DefaultSearchContext</code>:从 ReaderContext 拿 <code>Engine.Searcher</code> 包成 <code>ContextIndexSearcher</code>,默认超时来自 <code>search.default_search_timeout</code>(默认 <code>NO_TIMEOUT</code> = 「不装检查」);③ <code>parseSource</code>:from / size / query / sort / aggs / 请求级 <code>timeout</code>;④ from/size 仍是 -1 就落 <code>DEFAULT_FROM=0</code>、<code>DEFAULT_SIZE=10</code>——第 16 课「每个 shard 回 10 条」的同一个默认值;⑤ <code>preProcess()</code>:校验 <code>from+size</code> 不超 <code>index.max_result_window</code>,并<strong>改写 query 字段</strong>(下一节);⑥ 任一步抛错,先 <code>close()</code> 再往外抛,避免 searcher 泄漏。<code>SearchContext.close()</code> 只做一件事:<code>closeFuture.onResponse(null)</code>——这一趟的 searcher 视图被放掉;PIT / Scroll 的 ReaderContext 另外活在 <code>activeReaders</code> 里。</p>
-        <p>把这条生命周期连起来看:</p>
-        <div class="fp-slot" data-flow="ch17-context-lifecycle"></div>
-
-        <h2>4. 三个查询字段:originalQuery、query、rewrittenQuery</h2>
-        <p>旧课把 <code>query</code> 说成「rewrite 之后的 Lucene Query」,与当前代码不一致。现在是<strong>三层</strong>:</p>
-        <table class="ktable">
-          <tr><th>字段 / 方法</th><th>类型</th><th>谁写入</th><th>含义</th></tr>
-          <tr><td><code>originalQuery</code>(getter <code>parsedQuery()</code>)</td><td><code>ParsedQuery</code></td><td><code>parseSource</code> 里 <code>toQuery(...)</code></td><td>用户查询转成的 Lucene Query,<strong>不含</strong> alias / nested / slice filter。javadoc:塞进这里的东西会漏进 highlighting</td></tr>
-          <tr><td><code>query</code>(getter <code>query()</code>)</td><td>Lucene <code>Query</code></td><td>先等于 <code>originalQuery.query()</code>,再被 <code>preProcess()</code> 换成 <code>buildFilteredQuery(query)</code></td><td>真正要执行的查询,<strong>尚未</strong> Lucene rewrite</td></tr>
-          <tr><td><code>rewriteQuery</code>(getter <code>rewrittenQuery()</code>)</td><td>Lucene <code>Query</code></td><td>第一次调用时 <code>searcher().rewrite(query())</code>(懒加载)</td><td>QueryPhase 交给 <code>searcher.search</code> 的那一份</td></tr>
+        <p>默认允许部分结果来自 <code>search.default_allow_partial_results=true</code>，可被配置覆盖；本章两卡显式切换，避免默认值干扰。Scroll 的这个 getTimeoutCheck 不安装，PIT 搜索仍可使用。Painless 默认循环语句计数上限为一百万，不能靠不断扩大单次循环造超时。本章保留旧脚本作为预期错误，再用两万次、结果实际参与评分的有界脚本先跑 30s 基线，后跑 1ms 对照；此实验要求允许昂贵查询与 inline score script。</p>
+        <p>源码：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/query/QueryPhase.java#L285-L302" target="_blank" rel="noopener">查询计时与 scroll 条件</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/internal/ContextIndexSearcher.java#L452-L484" target="_blank" rel="noopener">叶子与分批检查</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/internal/CancellableBulkScorer.java#L44-L64" target="_blank" rel="noopener">分批检查</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/threadpool/ThreadPool.java#L245-L251" target="_blank" rel="noopener">200ms 默认缓存间隔</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/threadpool/ThreadPool.java#L788-L798" target="_blank" rel="noopener">相对时钟读取</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/query/SearchTimeoutException.java#L33-L54" target="_blank" rel="noopener">429 与部分结果出口</a>。</p>
+        <h2 id="pit">5. PIT 保留视图，search_after 保存进度</h2>
+        <p>PIT 不是搜索结果缓存：每次仍按本次查询执行，但从保留的分片读者视图读取。C 组打开 PIT 后，第一页 quick 返回 1、2；随后写 new 并显式 refresh，旧 PIT 第二页仍只有 4，重搜旧视图仍是 1、2、4；普通搜索已经是 1、2、4、new。同一 PIT 换查 lazy 又返回 3，进一步说明缓存的不是 quick 结果。多片 PIT 保留各片视图，不提供跨片同一事务时刻的承诺。</p>
+        <p>分页需要同时传递两样东西：每次响应的<strong>最新 pit_id</strong>，以及上一页末条命中的<strong>完整 sort 数组</strong>。PIT 自动追加 _shard_doc，本例虽只显式按 ts 排序，sort 仍是两个值：本轮末项为 <code>[2, 1]</code>；第二项随当前 PIT/分片文档布局决定，必须复制响应，不能写死。分页保持 query/sort，from 保持默认 0；C11 换查询是新的搜索，不接续 quick 的游标。</p>
+        <table class="ktable"><tr><th>边界</th><th>Scroll</th><th>PIT + search_after</th></tr>
+          <tr><td>跨请求保存</td><td>LegacyReaderContext 与 ScrollContext，包括 lastEmittedDoc 等分页状态。</td><td>ReaderContext 保留视图；客户端传完整 sort 表示进度。</td></tr>
+          <tr><td>下一次执行</td><td>新 SearchContext，更新分页状态；不是只做 from += size。</td><td>新 SearchContext，同视图可执行不同查询；同一条分页链保持 query/sort。</td></tr>
+          <tr><td>本节查询 timeout</td><td>不装 getTimeoutCheck。</td><td>可以装；不等于客户端全程 deadline。</td></tr>
+          <tr><td>释放</td><td>清 scroll、后台过期清理等；普通/scroll 执行失败会释放读者。</td><td>关 PIT、过期清理等；单次搜索失败一般不主动释放 PIT，但不能保证所有故障可恢复。</td></tr>
         </table>
-        <pre class="code-block"><code>// DefaultSearchContext
-public SearchContext parsedQuery(ParsedQuery query) {
-    this.originalQuery = query;   // 用户侧 ParsedQuery,留给 highlight / explain
-    this.query = query.query();   // 先等于同一份 Lucene Query
-    return this;
-}
-// preProcess() 末尾:改的是 query,不是 originalQuery
-this.query = buildFilteredQuery(query);   // 有 filter 则 BooleanQuery(MUST: 原 query, FILTER: alias/nested/slice)</code></pre>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 275" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah17b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="230" y="15" width="300" height="48" rx="9" class="fig-box"/>
-              <text x="380" y="36" text-anchor="middle" class="fig-key">match title: "quick brown"</text>
-              <text x="380" y="55" text-anchor="middle" class="fig-sub">用户 DSL</text>
-              <line x1="380" y1="63" x2="380" y2="77" class="fig-arrow" marker-end="url(#ah17b)"/>
-              <rect x="205" y="81" width="350" height="48" rx="9" class="fig-box"/>
-              <text x="380" y="102" text-anchor="middle" class="fig-name">originalQuery(ParsedQuery)</text>
-              <text x="380" y="122" text-anchor="middle" class="fig-sub">parseSource 写入,不含 alias 过滤</text>
-              <line x1="380" y1="129" x2="380" y2="143" class="fig-arrow" marker-end="url(#ah17b)"/>
-              <rect x="205" y="147" width="350" height="48" rx="9" class="fig-box"/>
-              <text x="380" y="168" text-anchor="middle" class="fig-name">query(未 rewrite)</text>
-              <text x="380" y="188" text-anchor="middle" class="fig-sub">preProcess:加上 alias/nested/slice</text>
-              <line x1="380" y1="195" x2="380" y2="209" class="fig-arrow" marker-end="url(#ah17b)"/>
-              <rect x="205" y="213" width="350" height="48" rx="9" class="fig-box-hot"/>
-              <text x="380" y="234" text-anchor="middle" class="fig-name">rewrittenQuery()</text>
-              <text x="380" y="254" text-anchor="middle" class="fig-sub">searcher.rewrite:SHOULD quick + brown</text>
-              <text x="380" y="272" text-anchor="middle" class="fig-sub">Profile / Highlight / Explain 对 originalQuery 说话;Lucene 收集用 rewrittenQuery</text>
-            </svg>
-          </div>
-          <figcaption>图 2 · 用户 DSL → originalQuery 是 <code>parseSource</code>;加别名等过滤是 <code>preProcess</code> 改 <code>query</code>;词项展开是 Lucene <code>IndexSearcher.rewrite</code>。三步不要并成一步。</figcaption>
-        </figure>
-
-        <p>「为什么必须留两份」的不变量:Profile / Highlight / Explain 要对着<strong>用户写的查询</strong>说话;Lucene 收集文档必须把别名过滤算进去。只留 rewrite 后那份,高亮会对着带 FILTER 的 BooleanQuery 说话、和用户 DSL 对不上;只留用户那份去 search,alias 索引会搜到不该看见的文档。另外别混两种 rewrite:<code>parseSource</code> 之前 <code>ShardSearchRequest</code> 已经跑过一轮 <code>Rewriteable.rewrite</code>(QueryBuilder → QueryBuilder,如某些 range 收成 match_all);本课说的是 <code>searcher.rewrite</code>(QueryBuilder 产物 → 可执行 Query)。第 18 课接着挖前者。</p>
-        <table class="ktable">
-          <tr><th>用户 DSL</th><th>大致对应的 Lucene Query(originalQuery.query() 这层)</th></tr>
-          <tr><td><code>match: {title: "hello"}</code></td><td><code>TermQuery("title", "hello")</code>(标准分析器、单 token)</td></tr>
-          <tr><td><code>match: {title: "hello world"}</code></td><td><code>BooleanQuery(SHOULD: hello, SHOULD: world)</code></td></tr>
-          <tr><td><code>match_phrase: {title: "hello world"}</code></td><td><code>PhraseQuery</code></td></tr>
-          <tr><td><code>term: {status: "active"}</code></td><td><code>TermQuery</code>(不分析)</td></tr>
-          <tr><td><code>range: {age: {gte: 18}}</code></td><td><code>PointRangeQuery</code></td></tr>
-          <tr><td><code>bool: {must: […], filter: […]} </code></td><td><code>BooleanQuery(MUST / FILTER)</code></td></tr>
+        <p>深分页采用 PIT + search_after；Scroll 仍适用于某些批处理路径，不能从 isRetryable 断言推出所有并发/重试保证。PIT 缺失时仅在供应者能取得相同 searcher ID 等条件下尝试重建，不承诺节点丢失后旧视图一定恢复。keep_alive 只需覆盖到下一次操作；在用请求有 markAsUsed 引用保护，过期由后台 reaper 检查，默认检查周期 1m。用完以最新 ID 关闭。本轮 succeeded=true、num_freed=1，随后旧 ID 搜索返回404；先释放上下文所有者引用，底层资源是否归零还取决于其他持有者。</p>
+        <p>参考 <a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/paginate-search-results" target="_blank" rel="noopener">官方分页步骤与完整 sort / 最新 PIT ID 规则</a>、<a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-open-point-in-time" target="_blank" rel="noopener">PIT 的保留与资源条件</a>；源码：<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L1460-L1488" target="_blank" rel="noopener">重建的相同 searcher 条件</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/internal/ReaderContext.java#L134-L154" target="_blank" rel="noopener">保活与过期检查</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L1887-L1900" target="_blank" rel="noopener">失败释放的范围</a>。</p>
+        <h2 id="source-map">6. 只沿本课入口读源码</h2>
+        <table class="ktable"><tr><th>文件 → 方法</th><th>需要确认的事实</th></tr>
+          <tr><td><code>SearchService → executeQueryPhaseAsync / createContext</code></td><td>reader 使用引用、本次 context 的创建、结果引用与清理先后。</td></tr>
+          <tr><td><code>DefaultSearchContext → parsedQuery / buildFilteredQuery</code></td><td>原查询与执行查询从哪里分开；无过滤分支直接返回原查询。</td></tr>
+          <tr><td><code>SearchContext → rewrittenQuery / close</code></td><td>懒加载 rewrite；closeFuture 释放注册资源。</td></tr>
+          <tr><td><code>QueryPhase → getTimeoutCheck / addCollectorsAndSearch</code></td><td>超时在哪装、哪里收集，聚合参与收集，rescore/suggest 在后。</td></tr>
+          <tr><td><code>ReaderContext → markAsUsed / close / isExpired</code></td><td>引用保护与保活不同；解除所有者引用不等于立即释放所有文件。</td></tr>
         </table>
-
-        <h2>5. 超时:检查点上标 timed_out,不是立刻杀线程</h2>
-        <p>请求体里的 <code>"timeout": "1ms"</code> 在 <code>parseSource</code> 写成 <code>context.timeout(...)</code>。超时走的是 <strong>Lucene 收集过程中的 cancellation 回调</strong>,不是墙上时钟一到就 <code>Thread.interrupt</code>:</p>
-        <pre class="code-block"><code>// QueryPhase.getTimeoutCheck(节选)
-boolean timeoutSet = searchContext.scrollContext() == null          // Scroll 不装这条超时
-    &amp;&amp; searchContext.timeout() != null
-    &amp;&amp; searchContext.timeout().equals(SearchService.NO_TIMEOUT) == false;
-if (timeoutSet) {
-    final long maxTime = startTime + searchContext.timeout().millis();
-    return () -&gt; { if (searchContext.getRelativeTimeInMillis() &gt; maxTime) {
-        searchContext.searcher().throwTimeExceededException(); } };
-}</code></pre>
-        <p>所以本地 3 篇文档的 <code>match_all</code> 经常在第一次检查之前就结束,<code>timed_out</code> 仍是 <code>false</code>——不是 bug,是检查粒度。<code>ContextIndexSearcher</code> 接到 <code>TimeExceededException</code> 后记下 <code>timeExceeded=true</code>,尽量带着已收集的部分结果返回,然后:</p>
-        <pre class="code-block"><code>// SearchTimeoutException.handleTimeout
-if (allowPartialSearchResults == false) {
-    throw new SearchTimeoutException(target, "Time exceeded");   // → HTTP 429
-}
-querySearchResult.searchTimedOut(true);   // 继续,部分结果 → 顶层 timed_out: true</code></pre>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 285" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="ah17c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/>
-                </marker>
-              </defs>
-              <rect x="230" y="15" width="300" height="50" rx="9" class="fig-box"/>
-              <text x="380" y="36" text-anchor="middle" class="fig-key">timeout = 1ms</text>
-              <text x="380" y="57" text-anchor="middle" class="fig-sub">parseSource 写入,默认 NO_TIMEOUT 不装</text>
-              <line x1="380" y1="65" x2="380" y2="78" class="fig-arrow" marker-end="url(#ah17c)"/>
-              <rect x="230" y="82" width="300" height="50" rx="9" class="fig-box"/>
-              <text x="380" y="103" text-anchor="middle" class="fig-name">getTimeoutCheck 挂到 searcher</text>
-              <text x="380" y="123" text-anchor="middle" class="fig-sub">收集文档的检查点上看相对时钟</text>
-              <line x1="380" y1="132" x2="380" y2="145" class="fig-arrow" marker-end="url(#ah17c)"/>
-              <rect x="230" y="149" width="300" height="50" rx="9" class="fig-box"/>
-              <text x="380" y="170" text-anchor="middle" class="fig-key">TimeExceededException</text>
-              <text x="380" y="190" text-anchor="middle" class="fig-sub">ContextIndexSearcher 记下超时</text>
-              <line x1="330" y1="199" x2="240" y2="216" class="fig-arrow" marker-end="url(#ah17c)"/>
-              <line x1="430" y1="199" x2="520" y2="216" class="fig-arrow" marker-end="url(#ah17c)"/>
-              <rect x="90" y="220" width="280" height="56" rx="9" class="fig-box-hot"/>
-              <text x="230" y="242" text-anchor="middle" class="fig-name">timed_out: true</text>
-              <text x="230" y="264" text-anchor="middle" class="fig-sub">部分结果合法(默认)</text>
-              <rect x="410" y="220" width="280" height="56" rx="9" class="fig-box"/>
-              <text x="550" y="242" text-anchor="middle" class="fig-name">HTTP 429</text>
-              <text x="550" y="264" text-anchor="middle" class="fig-sub">allow_partial_search_results=false</text>
-            </svg>
-          </div>
-          <figcaption>图 3 · 同一个 <code>TimeExceededException</code>,出口由「允不允许部分结果」决定。协调节点只要有一个 shard <code>searchTimedOut</code>,整次响应的 <code>timed_out</code> 就是 true。</figcaption>
-        </figure>
-
-        <p>取消(用户 abort、task 取消)走另一条:<code>lowLevelCancellation</code> 默认 true,<code>preProcess</code> 里 <code>addQueryCancellation(() -> task.ensureNotCancelled())</code>,取消抛 <code>TaskCancelledException</code>,<strong>不会</strong>伪装成 <code>timed_out: true</code>。<code>wait_for_checkpoints</code> 那种「等 refresh 等到超时」走 <code>ensureAfterSeqNoRefreshed</code>,和查询收集超时也不是一回事。</p>
-
-        <h2>6. Scroll vs Point-in-Time:一张表</h2>
-        <p>不要把 Scroll 当成「现在做分页的默认办法」。PIT 是跨请求钉死 Reader 的推荐方式;Scroll 仍存在(<code>LegacyReaderContext</code> + <code>ScrollContext.lastEmittedDoc</code>),但是旧路径。现代组合是 <strong>PIT + search_after</strong>:</p>
-        <table class="ktable">
-          <tr><th></th><th>Scroll</th><th>Point-in-Time(推荐)</th></tr>
-          <tr><td>怎么开</td><td><code>_search?scroll=1m</code> → <code>LegacyReaderContext</code>,受 <code>search.max_open_scroll_context</code>(默认 500)限制</td><td><code>POST /idx/_pit?keep_alive=1m</code> → <code>openReaderContext</code>,<code>singleSession=false</code></td></tr>
-          <tr><td>跨请求活着的是什么</td><td><code>LegacyReaderContext</code> + <code>ScrollContext</code>(<code>lastEmittedDoc</code> / <code>totalHits</code>)</td><td>同一份 <code>Engine.SearcherSupplier</code>(IndexReader 视图冻结)</td></tr>
-          <tr><td>每一次翻页</td><td>仍 <code>createContext</code> + 执行 + close;<code>processScroll</code> 只做 <code>from += size</code></td><td>仍短命 SearchContext;进度靠请求里的 <code>search_after</code></td></tr>
-          <tr><td>超时检查</td><td><code>getTimeoutCheck</code> 要求 <code>scrollContext() == null</code>:<strong>不装</strong></td><td>普通 <code>_search</code> + PIT 可以设 timeout</td></tr>
-          <tr><td>重试 / 并发</td><td>context id 不可 retry(<code>isRetryable() == false</code> 断言);同一 scroll_id 不能并发</td><td>PIT id 找不到目标节点时可按同一份 commit 重建;同一 PIT 上可并发搜</td></tr>
-          <tr><td>怎么关</td><td><code>DELETE /_search/scroll</code>;keep-alive 到期;失败即 <code>freeReaderContext</code></td><td><code>DELETE /_pit</code>;keep-alive 到期;<strong>单次搜索失败不丢 PIT</strong></td></tr>
-        </table>
-        <p><code>search_after</code> 本身不是 PIT:没有 PIT 时,两次 <code>_search</code> 各自打开当时的 EXTERNAL searcher,中间 refresh 进新文档,第二页可能看到第一页看不到的行、或漏行。PIT 把 Reader 钉住,两页之间「这一份索引视图」不变——代价是 IndexReader 占着文件句柄与内存,直到 keep-alive 到期或显式 <code>DELETE /_pit</code>,所以 keep_alive 要设短、用完要关(实验 8-15 走一遍完整闭环)。</p>
+        <details><summary>固定 9.4.0 的补充入口与本轮证据</summary><p><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L2151-L2155" target="_blank" rel="noopener">processScroll 更新 from 与 scroll</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/query/QueryPhase.java#L169-L190" target="_blank" rel="noopener">lastEmittedDoc 与 scroll 查询</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L194-L199" target="_blank" rel="noopener">reaper 周期默认1m</a>、<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L225-L239" target="_blank" rel="noopener">查询超时与部分结果默认值</a>；Painless 循环限制见 <a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/lang-painless/src/main/java/org/elasticsearch/painless/CompilerSettings.java#L62-L67" target="_blank" rel="noopener">CompilerSettings.maxLoopCounter</a>。<a href="../.archify/CH17-REVIEW.md">本轮验收记录</a>将原生门禁、HTTP 浏览器与真实 ES 分别记录；实验响应不是源码读取的替代。</p></details>
       </section>
-
-      <section class="drills">
-        <h2>动手实验</h2>
-        <p>两条线:<code>tut-l17-timeout</code> 做超时观察(先证明「快到看不见」,再用 <code>script_score</code> 忙循环把收集拉长到跨过检查点);<code>tut-l17-pit</code> 做快照证明(PIT 开着写入并 refresh,看 PIT 与普通搜索看到的世界差一篇文档)。PIT 实验需要你把返回的 id 手动粘进后面几个实验的 <code>pit.id</code>。</p>
-
-        <h3>实验 0-2:timeout=1ms,快到看不见</h3>
-        <div class="exp-slot" data-exp="ch17-00-setup"></div>
-        <div class="exp-slot" data-exp="ch17-01-bulk3"></div>
-        <div class="exp-slot" data-exp="ch17-02-timeout-fast"></div>
-
-        <h3>实验 3-5:忙循环跨过检查点</h3>
-        <div class="exp-slot" data-exp="ch17-03-bulk30"></div>
-        <div class="exp-slot" data-exp="ch17-04-timeout-slow"></div>
-        <div class="exp-slot" data-exp="ch17-05-timeout-strict"></div>
-
-        <h3>实验 6-7:建 PIT 实验索引</h3>
-        <div class="exp-slot" data-exp="ch17-06-setup-pit"></div>
-        <div class="exp-slot" data-exp="ch17-07-bulk5"></div>
-
-        <h3>实验 8-10:打开 PIT,第一页</h3>
-        <div class="exp-slot" data-exp="ch17-08-pit-open"></div>
-        <div class="exp-slot" data-exp="ch17-09-contexts-open"></div>
-        <div class="exp-slot" data-exp="ch17-10-pit-page1"></div>
-
-        <h3>实验 11-13:PIT 开着写入,两个世界差一篇</h3>
-        <div class="exp-slot" data-exp="ch17-11-write-new"></div>
-        <div class="exp-slot" data-exp="ch17-12-pit-again"></div>
-        <div class="exp-slot" data-exp="ch17-13-no-pit"></div>
-
-        <h3>实验 14-15:关掉 PIT,记账归零</h3>
-        <div class="exp-slot" data-exp="ch17-14-pit-close"></div>
-        <div class="exp-slot" data-exp="ch17-15-contexts-closed"></div>
-
-        <h3>清理</h3>
-        <div class="exp-slot" data-exp="ch17-16-cleanup-timeout"></div>
-        <div class="exp-slot" data-exp="ch17-17-cleanup-pit"></div>
-
-        <h2>思考题</h2>
-        <details>
-          <summary>1. 索引里只有 1 篇文档,timeout=1ms、match_all、允许部分结果:timed_out 是 true 还是 false?为什么实验 4 里 33 篇 + 忙循环就反过来?</summary>
-          <div class="answer">
-            <p>1 篇时更常见 <strong>false</strong>:timeout 只在收集过程的检查点上看相对时钟,不是一进 <code>executeQueryPhase</code> 就判负——1 个 doc 往往在第一次检查之前就结束。实验 4 用 <code>script_score</code> 给每个命中挂忙循环,把收集拉长,检查点才有机会抛 <code>TimeExceededException</code>。「设了 1ms 就一定超时」不成立,这是检查粒度,不是 bug。</p>
-          </div>
-        </details>
-        <details>
-          <summary>2. 为什么必须同时留 originalQuery 和 query/rewrittenQuery?只留其中一份,哪两条不变量会破?</summary>
-          <div class="answer">
-            <p>只留 rewrite 后那份:高亮对着加了 alias FILTER 的 BooleanQuery 说话,和用户 DSL 对不上(annotate 位置偏移也会差)。只留用户那份直接 search:别名/nested/slice 过滤丢失,alias 索引会搜到不该看见的文档。所以分字段:<code>originalQuery</code> 给 highlight / explain / profile,<code>query</code>(preProcess 加 FILTER、未 rewrite)是执行计划,<code>rewrittenQuery()</code> 才是 <code>searcher.search</code> 收到的那份。</p>
-          </div>
-        </details>
-        <details>
-          <summary>3. 深分页为什么推荐 PIT + search_after,而不是 Scroll 当默认、也不是无限加大 from?PIT 钉 Reader 的代价是什么?</summary>
-          <div class="answer">
-            <p><code>from+size</code> 受 <code>max_result_window</code> 限制,且每 shard 要先收集 <code>from+size</code> 再丢弃 <code>from</code>(第 16 课的窗口论点在深分页上更糟)。Scroll 用服务端 <code>lastEmittedDoc</code> + <code>from += size</code> 换「客户端省事」,但 context 不可重试、不能并发、超时检查被关、失败就 <code>freeReaderContext</code>。PIT 把视图冻在 Reader 上、进度放客户端 <code>search_after</code>,可重试可并发;代价是 IndexReader 占文件句柄/内存直到 keep-alive 或 <code>DELETE /_pit</code>——keep_alive 必须设短、用完显式关。</p>
-          </div>
-        </details>
+      <section class="drills" id="experiments"><h2>动手实验：先建前提，再解释响应</h2>
+        <p>版本 ES 9.4.0 / Lucene 10.4.0；本轮匿名单节点 <code>http://localhost:9200</code>，两个索引都显式一主零副、strict mapping、stored _source、standard 文本、整数排序字段、无默认/最终管道，周期 refresh 与 request cache 关闭。已有认证环境在控制台选择凭据；统计只查本章 PIT 索引。32 张卡是 3 组加 2 条清理，不是 32 个互不依赖的实验。</p>
+        <div class="callout warn"><span class="co-title">重做顺序：</span>这两条 DELETE 只删除 tut-l17-timeout（连同 tut-l17-filtered 别名）与 tut-l17-pit。若上轮 PIT 仍有效，先用最新ID关闭，再执行末尾清理，然后从 A1→A8、B1→B7、C1→C15 重建。重复建索引400、相同ID写入updated、重复删索引404，与干净重做不同。</div>
+        <p>PIT 卡中的文字是待填写值。先点“在控制台打开”，编辑 JSON 后发送：C7 用 C5 的 id；之后每次用最新 pit_id；C9 将 search_after 两个占位字符串替换成 C7 末项的完整数字数组。C13 关闭用 C11 最新ID，C15 使用刚关闭的ID验证错误。保留完整响应，勿用 filter_path 丢掉 pit_id/sort。超过 keep_alive 后从 C1 重建，不把含 new 的新快照冒充原快照。</p>
+        <h3>A · 查询构造与过滤的证据（8卡）</h3><div class="exp-slot" data-exp="ch17-00-setup"></div>
+<div class="exp-slot" data-exp="ch17-18-health-timeout"></div>
+<div class="exp-slot" data-exp="ch17-19-settings"></div>
+<div class="exp-slot" data-exp="ch17-01-bulk3"></div>
+<div class="exp-slot" data-exp="ch17-20-analyze"></div>
+<div class="exp-slot" data-exp="ch17-21-validate"></div>
+<div class="exp-slot" data-exp="ch17-22-alias"></div>
+<div class="exp-slot" data-exp="ch17-23-alias-profile"></div>
+        <h3>B · 合法负载与两种超时出口（7卡）</h3><p>先查3003篇和脚本合法基线。B4的400是刻意对照；B6/B7只变部分结果开关。短超时受运行环境影响，记录实际值；若没触发，不把正常200或脚本400写成超时成功。</p><div class="exp-slot" data-exp="ch17-02-timeout-fast"></div>
+<div class="exp-slot" data-exp="ch17-03-bulk30"></div>
+<div class="exp-slot" data-exp="ch17-28-count"></div>
+<div class="exp-slot" data-exp="ch17-30-loop-guard"></div>
+<div class="exp-slot" data-exp="ch17-29-work-baseline"></div>
+<div class="exp-slot" data-exp="ch17-04-timeout-slow"></div>
+<div class="exp-slot" data-exp="ch17-05-timeout-strict"></div>
+        <h3>C · PIT 保留视图、分页、关闭（15卡）</h3><div class="exp-slot" data-exp="ch17-06-setup-pit"></div>
+<div class="exp-slot" data-exp="ch17-24-health-pit"></div>
+<div class="exp-slot" data-exp="ch17-07-bulk5"></div>
+<div class="exp-slot" data-exp="ch17-25-context-baseline"></div>
+<div class="exp-slot" data-exp="ch17-08-pit-open"></div>
+<div class="exp-slot" data-exp="ch17-09-contexts-open"></div>
+<div class="exp-slot" data-exp="ch17-10-pit-page1"></div>
+<div class="exp-slot" data-exp="ch17-11-write-new"></div>
+<div class="exp-slot" data-exp="ch17-26-pit-page2"></div>
+<div class="exp-slot" data-exp="ch17-12-pit-again"></div>
+<div class="exp-slot" data-exp="ch17-31-pit-other-query"></div>
+<div class="exp-slot" data-exp="ch17-13-no-pit"></div>
+<div class="exp-slot" data-exp="ch17-14-pit-close"></div>
+<div class="exp-slot" data-exp="ch17-15-contexts-closed"></div>
+<div class="exp-slot" data-exp="ch17-27-closed-pit"></div>
+        <h3>点名清理（2卡）</h3><div class="exp-slot" data-exp="ch17-16-cleanup-timeout"></div>
+<div class="exp-slot" data-exp="ch17-17-cleanup-pit"></div>
+        <h2 id="questions">思考题</h2>
+        <details><summary>1. 多分片 Query 后 SearchContext 已关闭，Fetch 怎么读取相同文档号？</summary><div class="answer"><p>ReaderContext 可跨 Query/Fetch 暂存同一读者引用，Fetch 另建本次上下文。SearchContext 与 reader 的所有权不同；普通 reader 在完成或不需Fetch时释放，PIT跨请求保留。</p></div></details>
+        <details><summary>2. Profile/Explain 能否证明 originalQuery 不含别名过滤？</summary><div class="answer"><p>不能。它们可反映执行查询及过滤；Explain 调 rewrittenQuery。默认高亮才以 parsedQuery 为查询来源。字段写入与 buildFilteredQuery 分支需要源码证明；接口与过滤别名实验提供外部行为证据。</p></div></details>
+        <details><summary>3. took=7ms、timeout=1ms 却 timed_out=false，是否必定是漏洞？</summary><div class="answer"><p>不是。超时依赖检查点与相对时钟，默认缓存间隔200ms；took与这条查询计时的覆盖范围也不同。本轮33篇合法计算未触发，3003篇触发；不能保证每台机器同样结果，更不能无限加循环绕过脚本保护。</p></div></details>
+        <details><summary>4. 只按 ts 排序，为什么 search_after 仍要传两个值？</summary><div class="answer"><p>PIT追加_shard_doc作为稳定决胜值。复制上一页末项完整sort，使用最新pit_id，保持query/sort；本轮[2,1]只是实际例子。去掉第二值或重开PIT沿用旧游标会破坏分页前提。</p></div></details>
+        <details><summary>5. 关闭 PIT 返回 num_freed=1，能否说一个物理 reader 已立即销毁？</summary><div class="answer"><p>不能。它表示释放了上下文；其他在用请求与读者还可能持引用。markAsUsed保护执行，最终资源释放受引用归零条件约束。open_contexts回N也不是所有句柄/内存的总账。</p></div></details>
       </section>
-
-      <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 把 SearchContext 和 ReaderContext 当一个:</span>Scroll/PIT 跨请求活的是 <code>ReaderContext</code>;<code>SearchContext</code> 每一趟都 create → close。「SearchContext 活 1 分钟」是旧口径,别再这么记。</div>
-        <div class="callout warn"><span class="co-title">🕳 「设了 timeout=1ms 就一定 timed_out」:</span>超时是收集检查点上的相对时钟,数据太少时一次检查都不会跑。要稳定观察它,得先把工作量造上去(实验 4 的忙循环);别用 <code>?scroll=</code> 去凑——Scroll 根本不装这条检查。</div>
-        <div class="callout warn"><span class="co-title">🕳 timed_out: true 和 HTTP 429 是两码事:</span>同一个 <code>TimeExceededException</code>,<code>allow_partial_search_results</code> 默认 true 时带部分结果返回 200 + <code>timed_out: true</code>;false 时抛 <code>SearchTimeoutException</code> 变 429。排查「偶发 429」先查是不是禁了部分结果。</div>
-        <div class="callout warn"><span class="co-title">🕳 PIT 忘了关:</span>每个 PIT 占一份 IndexReader(句柄 + 内存),<code>open_contexts</code> 就是它的账本。keep-alive 到期会兜底,但「等过期」期间一直占着——用完 <code>DELETE /_pit</code>。</div>
+      <section class="pitfalls"><h2>陷阱</h2>
+        <div class="callout warn"><span class="co-title">把两个 Context 合并：</span>普通搜索也有临时上下文，PIT保留reader，SearchContext装本次执行；并非所有入口每次都创建它。</div>
+        <div class="callout warn"><span class="co-title">把400当超时：</span>旧五百万循环触发脚本保护；查询超时的部分结果200与严格429要核对具体reason，不只看状态。</div>
+        <div class="callout warn"><span class="co-title">漏传ID与排序值：</span>filter_path可能删掉pit_id，PIT还隐式加_shard_doc。每次拿最新ID和末项完整sort，用完显式关闭。</div>
+        <div class="callout warn"><span class="co-title">重开污染快照：</span>仅覆写最初五篇不会删new。点名清理重建才能恢复C组3→4的前提；过期PIT也不能无条件恢复旧视图。</div>
       </section>
-
-      <section class="recap">
-        <h2>速记</h2>
-        <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>入口签名</td><td>public executeQueryPhase 是 void + listener;Lucene 在 private 重载、search 池里跑完才 onResponse</td></tr>
-          <tr><td>生命周期</td><td>create(Reader→parse→preProcess)→ execute → close,套 try-with-resources;跨请求的是 ReaderContext</td></tr>
-          <tr><td>三个查询字段</td><td>originalQuery(用户 ParsedQuery)→ query(preProcess 加 FILTER,未 rewrite)→ rewrittenQuery()(searcher.rewrite)</td></tr>
-          <tr><td>超时</td><td>收集检查点看相对时钟;默认部分结果 → timed_out: true,禁了 → 429;Scroll 不装</td></tr>
-          <tr><td>单分片捷径</td><td>numberOfShards()==1 且无 rankBuilder:同一份 SearchContext 顺手 Fetch,是优化不是 SearchType</td></tr>
-          <tr><td>分页快照</td><td>PIT + search_after(可重试/并发/可设 timeout);Scroll 是 LegacyReaderContext 旧路径</td></tr>
-        </table>
-        <p><strong>心法:SearchContext 活一趟,ReaderContext 活一段;执行的那份查询,永远不是用户写的那份。</strong></p>
-      </section>
-
+      <section class="recap"><h2>速记</h2><table class="ktable"><tr><th>问题</th><th>回答</th></tr>
+        <tr><td>谁执行</td><td>SearchService正常分支经executor执行，listener交付结果；有提前返回与其他入口。</td></tr>
+        <tr><td>谁保留</td><td>SearchContext装本次状态；ReaderContext持读者引用，普通Query/Fetch可暂存，PIT/scroll跨请求。</td></tr>
+        <tr><td>谁看哪份查询</td><td>originalQuery给默认高亮；query按需补过滤；rewrittenQuery给执行与Explain，Profile观察执行树。</td></tr>
+        <tr><td>超时是什么</td><td>检查点+相对时钟，非全请求deadline；允许部分200+timed_out，禁止本例429；脚本保护400另论。</td></tr>
+        <tr><td>PIT分页怎么接</td><td>旧视图、最新pit_id、完整sort；保持query/sort，默认from=0；用完关闭，资源按引用计数释放。</td></tr>
+      </table><p><strong>记住：执行状态跟着本次请求，读者视图由引用保留；查询、计时与分页都有各自边界。</strong></p></section>
       <footer class="ch-footer">
         <button class="read-toggle" type="button">标记本课已读</button>
         <div class="pager">
@@ -327,5 +181,6 @@ querySearchResult.searchTimedOut(true);   // 继续,部分结果 → 顶层 time
   <script src="../assets/js/flow-player.js"></script>
   <script src="../assets/js/experiments.js"></script>
   <script src="../assets/js/progress.js"></script>
+  <script src="../assets/js/chapter-diagrams.js"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@
 | ch14 | 存储引擎 | ✅ | 46 | 1(写入全路径·8步) | ✅ 写入顺序与提交边界（2 图，2 路径动画） |
 | ch15 | 索引分片 | ✅ | 40 | 1(路由公式·7步) | ✅ 路由碰撞与本地生命周期（2 图，2 路径动画） |
 | ch16 | 搜索流程总览 | ✅ | 29 | 1(Query Then Fetch·旗舰) | ✅ 两阶段职责与分页窗口（2 图，2 路径动画） |
-| ch17 | 搜索服务与搜索上下文 | ✅ | 18 | 1(上下文生命周期) | 待改造 |
+| ch17 | 搜索服务与搜索上下文 | ✅ | 32 | 1(上下文生命周期) | ✅ 执行上下文与保留读者（2图，2路径动画） |
 | ch18 | 查询语法 | ✅ | 19 | 1(match→SHOULD) | 待改造 |
 | ch19 | 聚合框架 | ✅ | 17 | 1(cherry/shardSize) | 待改造 |
 | ch20 | 评分与排序 | ✅ | 12 | 1(BM25 演算·旗舰) | 待改造 |
@@ -248,7 +248,28 @@
 | ch16 | from/size与search_after“无上下文”，refresh=-1使NRT绝对确定 | 普通仍创建临时reader；PIT/scroll跨请求保留；-1只关周期刷新，C组先删并refresh建0基线，无其他刷新条件下0→1 | SearchService1105–1177；官方分页说明；两轮GET/count0→refresh/count1 |
 | ch16 | 14卡缺健康/设置/完整profile/可见性重置/单片对照 | 保留14ID和七步；增15共4组29卡，显式mapping/设置、排序翻页、NRT重置、点名清理重做；步骤2/5快照底部排印修复 | [验收](.archify/CH16-REVIEW.md)、[HTTP](.archify/review/ch16-http-review.json)、[真实API](.archify/review/ch16-es-review.json) |
 
+### 第十七章重构校对
+
+| 课 | 网页旧说法 | 修正 | 依据 |
+|---|---|---|---|
+| ch17 | 每次Query必创建context、handler立即返回；private两参数/markAsUsed在try内 | 正常异步分支private有reader参数，包装持使用引用；can-match可提前空返回，executor有普通/系统分支 | SearchService768–844/977–1034/1362–1371；本章固定源码链接 |
+| ch17 | Profile/Highlight/Explain均对originalQuery，Lucene rewrite才展开quick/brown | 默认高亮parsedQuery，Explain用rewrittenQuery，Profile执行树含过滤；toQuery已分析构造SHOULD，无filter可返回原query | DefaultSearchContext438–492/766–776；ExplainPhase44；[两轮过滤别名证据](.archify/review/ch17-es-review.json) |
+| ch17 | 小数据一次超时检查都没有、1ms只看收集粒度 | 叶子开始与分批检查；默认相对时钟缓存200ms；非全请求截止线，单片Fetch清除查询超时 | QueryPhase285–302；ContextIndexSearcher452–484；ThreadPool245–251/788–798 |
+| ch17 | 33篇加500万循环必200超时/429，不触发继续加零 | 真实400脚本保护；有界2万计算×3003篇先完整基线，再两轮200 timed_out与严格429；少量合法负载仍false | [原响应](.archify/review/ch17-original-responses.json)、[最终两轮](.archify/review/ch17-es-review.json)、CompilerSettings66 |
+| ch17 | PIT sort只[ts]、后卡沿用最初id，没有真正第二页 | PIT加_shard_doc，复制末项完整数组；最新pit_id逐次传，新增第二页/换查询/关闭ID404，本轮[2,1]仅例子 | 官方分页规则；[两轮响应](.archify/review/ch17-es-review.json) |
+| ch17 | open_contexts为全节点0→1→0，每PIT独占reader/到点立即放；PIT重建可无条件重试并发 | 本索引基线N比较；解除上下文引用不保证底层全放，后台reaper/使用引用保护；相同searcher重建有条件，不承诺所有故障恢复 | ReaderContext87–96/134–154；SearchService1460–1488/1887–1900；PIT官方API |
+| ch17 | 18卡缺mapping/健康/配置/基线/重做，关闭响应只笼统succeeded | 保留18ID增14，3组32卡；显式配置、局部健康/统计、合法脚本基线、PIT完整游标与点名清理重做；关闭true/num_freed1 | [注册表](experiments/ch17.js)、[验收](.archify/CH17-REVIEW.md) |
+
 ## 会话日志
+
+### 2026-10-12(第十七章按统一规范重构)
+
+- 固定ES9.4.0/Lucene10.4.0核对15源码文件/43精确区间；重排上下文所有权/普通Query-Fetch/PIT读者、真实入口调度、三个查询字段、检查点与200ms缓存时钟、脚本保护与超时、PIT最新ID/完整sort/条件恢复。正文/两图/六步/卡片/问答/速记一致，原18稳定ID保留。
+- 3组32卡（A8/B7/C15/清理2）、2交互图/2有限trace/1六步机制；显式mapping/设置/刷新、局部健康/上下文基线、完整顺序及点名清理重做。全站30正式页/589操作卡/22机制播放器，共享CSS/JS与其他章节未改。
+- 官方Archify3.0.1 Workflow v2，首次附固定源码/真实checkout，只改JSON。context根收据、query review-2；validate/deliver/strict check showcase9/9、0errors/warnings、provenance current；原生browser-check与finalize整体PASS。旧query候选/收据保留，许可与HTML字体许可保留。
+- HTTP两图四档桌面/双主题、章节六档宽度、880px/≤1px对齐、页面/iframe无横溢/节点完整、探索/固定来源/关闭/展开、暂停后重播/Enter、目录/已读、六步键盘与控制、32真实控制台导航method/path/body及endpoint/auth/raw、Pages前缀、reduced motion均PASS。390/320源码表/旧SVG局部滚动、3000篇bulk卡340px内滚动PASS。实际看26张截图及六步；手机图框收紧540px、表格列宽修复后复看，手机细字需探索/展开。早期导航等待/Chrome启动诊断不当通过，最终重试与回归通过。
+- **真实API两轮每轮32卡PASS**：匿名单节点9200、build匹配；alias仅1且profile/explain含n过滤；旧500万循环真实400脚本保护，新合法基线total3003/took519与517ms、短查询200+timed_out（本例total仍3003）、严格429；PIT0→1→0、第一页1/2与完整[2,1]、写new刷新后旧第二页4/旧重搜1/2/4/新搜索多new，同PIT换查lazy得3，最新ID关闭num_freed1，关闭后404。清理后重做，最终两索引/别名HEAD404。浏览器阻断ES自动执行，真实API单列；未实测scroll/取消/多节点/并发故障/自动过期。
+- 站点、JS语法、figwidth、diff、稳定ID/有序唯一槽位与.nojekyll PASS。验收[CH17-REVIEW](.archify/CH17-REVIEW.md)、[HTTP](.archify/review/ch17-http-review.json)、[真实API](.archify/review/ch17-es-review.json)、[artifacts](.archify/review/ch17-artifacts.json)。按授权提交推送origin/main；远端与Pages在交付时另行核对，原有.gitignore修改不纳入。
 
 ### 2026-10-12(控制台样式与交互修复)
 
