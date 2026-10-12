@@ -13,9 +13,9 @@
 
 ## 新增学习路线（规划中）
 
-站点将分为「框架学习篇」和「ES 源码篇」：先通过 F01–F14 学会 API、中文搜索与 Java / Spring Boot 集成，再完成一个旅游网站搜索实验，带着业务问题进入源码学习。现有源码 Chapter 01–30 的编号与链接继续保留，逐章重构进度见 STATUS。
+站点将分为「框架学习篇」和「ES 源码篇」，第一部分为核心：F01–F45 从零搭建旅游门户，规划 155 个业务案例，贯穿 Vue 前台/后台、Java API、景点/酒店/房型评分排序、中文搜索，以及 PostgreSQL WAL / MySQL binlog → 消息队列 → ES 的变更链路。现有源码 Chapter 01–30 的编号与链接继续保留，逐章重构进度见 STATUS。
 
-完整目录、旅游项目范围、中文分词对比方法和分阶段交付顺序见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)。目前新增部分仅有规划，课程页面和 Java 项目尚未实现。
+完整目录、前后端实验交付要求、数据模型与同步链路见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，逐课案例见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。目前新增部分仅有规划，课程页面、前后端工程和案例尚未实现或运行验收。
 
 ## 快速开始
 
