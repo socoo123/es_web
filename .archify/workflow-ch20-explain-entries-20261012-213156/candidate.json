@@ -1,0 +1,236 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "两种 Explain：窗口中的 hit 与指定文档",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch20-explain-entries-20261012-213156/explain-entries.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "查询与解释"
+        },
+        "database": {
+          "label": "窗口与结果"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "search",
+      "label": "搜索请求 · Query 窗口"
+    },
+    {
+      "id": "fetch",
+      "label": "搜索 Fetch · 返回解释"
+    },
+    {
+      "id": "single",
+      "label": "另一次请求 · 指定 ID"
+    },
+    {
+      "id": "answer",
+      "label": "单分片 · 返回解释"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "search",
+      "lane": "search",
+      "col": 2,
+      "type": "backend",
+      "label": "_search + explain:true",
+      "sublabel": "先执行查询，再选返回窗口",
+      "width": 360,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhase.java",
+          "line": 142,
+          "end_line": 147,
+          "label": "先执行 Query"
+        }
+      ]
+    },
+    {
+      "id": "window",
+      "lane": "search",
+      "col": 2,
+      "type": "database",
+      "label": "协调 · 仅挑选返回 hit",
+      "sublabel": "size=1 可命中2篇，只返回1篇",
+      "width": 360,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 100,
+          "end_line": 111,
+          "label": "窗口合并"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 202,
+          "end_line": 220,
+          "label": "Fetch ID"
+        }
+      ]
+    },
+    {
+      "id": "hit",
+      "lane": "fetch",
+      "col": 2,
+      "type": "backend",
+      "label": "ExplainPhase · 返回 hit 的树",
+      "sublabel": "_explanation；包含重打说明",
+      "width": 360,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/fetch/subphase/ExplainPhase.java",
+          "line": 40,
+          "end_line": 67,
+          "label": "重写查询与 rescore 解释"
+        }
+      ]
+    },
+    {
+      "id": "single",
+      "lane": "single",
+      "col": 2,
+      "type": "backend",
+      "label": "POST /索引/_explain/ID",
+      "sublabel": "独立请求，可解释窗口外文档",
+      "width": 360,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/search/RestExplainAction.java",
+          "line": 31,
+          "end_line": 39,
+          "label": "GET / POST 路由"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/search/RestExplainAction.java",
+          "line": 47,
+          "end_line": 64,
+          "label": "解析查询"
+        }
+      ]
+    },
+    {
+      "id": "shard",
+      "lane": "single",
+      "col": 2,
+      "type": "backend",
+      "label": "按 ID / routing · 选一个片",
+      "sublabel": "读取已刷新文档并预处理查询",
+      "width": 360,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/explain/TransportExplainAction.java",
+          "line": 156,
+          "end_line": 179,
+          "label": "非 realtime 获取与解释"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/explain/TransportExplainAction.java",
+          "line": 205,
+          "end_line": 211,
+          "label": "路由选择"
+        }
+      ]
+    },
+    {
+      "id": "response",
+      "lane": "answer",
+      "col": 2,
+      "type": "database",
+      "label": "explanation + matched",
+      "sublabel": "存在不匹配200 / 文档缺失404",
+      "width": 360,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/explain/TransportExplainAction.java",
+          "line": 163,
+          "end_line": 179,
+          "label": "存在性与匹配"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/explain/ExplainResponse.java",
+          "line": 104,
+          "end_line": 106,
+          "label": "HTTP 状态"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "search-window",
+      "from": "search",
+      "to": "window",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "window-hit",
+      "from": "window",
+      "to": "hit",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "single-shard",
+      "from": "single",
+      "to": "shard",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "shard-response",
+      "from": "shard",
+      "to": "response",
+      "variant": "emphasis",
+      "role": "main"
+    }
+  ],
+  "mainPath": [
+    "search",
+    "window",
+    "hit"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "同语料对照",
+      "items": [
+        "单片普通搜索与独立 Explain 可以对上同一分数。",
+        "DFS 搜索使用跨片统计；独立 Explain 不提供 DFS。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "不同读者与请求",
+      "items": [
+        "浏览器操作卡用 POST body；保留 GET API 但不发送 GET body。",
+        "两条线是两次独立请求，图中没有相互调用。"
+      ]
+    }
+  ]
+}

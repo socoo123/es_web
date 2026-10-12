@@ -1,0 +1,481 @@
+[
+  {
+    "id": "ch20-00-setup",
+    "method": "PUT",
+    "path": "/tut-l20-bm25",
+    "requestBodySent": {
+      "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0
+      },
+      "mappings": {
+        "properties": {
+          "title": {
+            "type": "text"
+          },
+          "views": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "status": 200,
+    "response": {
+      "acknowledged": true,
+      "shards_acknowledged": true,
+      "index": "tut-l20-bm25"
+    }
+  },
+  {
+    "id": "ch20-01-bulk",
+    "method": "POST",
+    "path": "/tut-l20-bm25/_bulk?refresh=true",
+    "requestBodySent": "{\"index\":{\"_id\":\"a\"}}\n{\"title\":\"elasticsearch tutorial\",\"views\":10}\n{\"index\":{\"_id\":\"b\"}}\n{\"title\":\"elasticsearch elasticsearch\",\"views\":100}\n",
+    "status": 200,
+    "response": {
+      "errors": false,
+      "took": 0,
+      "items": [
+        {
+          "index": {
+            "_index": "tut-l20-bm25",
+            "_id": "a",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "index": {
+            "_index": "tut-l20-bm25",
+            "_id": "b",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 1,
+            "_primary_term": 1,
+            "status": 201
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "ch20-02-match-one",
+    "method": "POST",
+    "path": "/tut-l20-bm25/_search?filter_path=hits.hits._id,hits.hits._score",
+    "requestBodySent": {
+      "query": {
+        "match": {
+          "title": "elasticsearch"
+        }
+      }
+    },
+    "status": 200,
+    "response": {
+      "hits": {
+        "hits": [
+          {
+            "_id": "b",
+            "_score": 0.25069216
+          },
+          {
+            "_id": "a",
+            "_score": 0.18232156
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch20-03-match-two",
+    "method": "POST",
+    "path": "/tut-l20-bm25/_search?filter_path=hits.hits._id,hits.hits._score",
+    "requestBodySent": {
+      "query": {
+        "match": {
+          "title": "elasticsearch tutorial"
+        }
+      }
+    },
+    "status": 200,
+    "response": {
+      "hits": {
+        "hits": [
+          {
+            "_id": "a",
+            "_score": 0.8754687
+          },
+          {
+            "_id": "b",
+            "_score": 0.25069216
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch20-04-explain-search",
+    "method": "POST",
+    "path": "/tut-l20-bm25/_search?filter_path=hits.hits._id,hits.hits._score,hits.hits._explanation",
+    "requestBodySent": {
+      "explain": true,
+      "query": {
+        "match": {
+          "title": "elasticsearch"
+        }
+      }
+    },
+    "status": 200,
+    "response": {
+      "hits": {
+        "hits": [
+          {
+            "_id": "b",
+            "_score": 0.25069216,
+            "_explanation": {
+              "value": 0.25069216,
+              "description": "weight(title:elasticsearch in 1) [PerFieldSimilarity], result of:",
+              "details": [
+                {
+                  "value": 0.25069216,
+                  "description": "score(freq=2.0), computed as boost * idf * tf from:",
+                  "details": [
+                    {
+                      "value": 2.2,
+                      "description": "boost",
+                      "details": []
+                    },
+                    {
+                      "value": 0.18232156,
+                      "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                      "details": [
+                        {
+                          "value": 2,
+                          "description": "n, number of documents containing term",
+                          "details": []
+                        },
+                        {
+                          "value": 2,
+                          "description": "N, total number of documents with field",
+                          "details": []
+                        }
+                      ]
+                    },
+                    {
+                      "value": 0.625,
+                      "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                      "details": [
+                        {
+                          "value": 2.0,
+                          "description": "freq, occurrences of term within document",
+                          "details": []
+                        },
+                        {
+                          "value": 1.2,
+                          "description": "k1, term saturation parameter",
+                          "details": []
+                        },
+                        {
+                          "value": 0.75,
+                          "description": "b, length normalization parameter",
+                          "details": []
+                        },
+                        {
+                          "value": 2.0,
+                          "description": "dl, length of field",
+                          "details": []
+                        },
+                        {
+                          "value": 2.0,
+                          "description": "avgdl, average length of field",
+                          "details": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "_id": "a",
+            "_score": 0.18232156,
+            "_explanation": {
+              "value": 0.18232156,
+              "description": "weight(title:elasticsearch in 0) [PerFieldSimilarity], result of:",
+              "details": [
+                {
+                  "value": 0.18232156,
+                  "description": "score(freq=1.0), computed as boost * idf * tf from:",
+                  "details": [
+                    {
+                      "value": 2.2,
+                      "description": "boost",
+                      "details": []
+                    },
+                    {
+                      "value": 0.18232156,
+                      "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                      "details": [
+                        {
+                          "value": 2,
+                          "description": "n, number of documents containing term",
+                          "details": []
+                        },
+                        {
+                          "value": 2,
+                          "description": "N, total number of documents with field",
+                          "details": []
+                        }
+                      ]
+                    },
+                    {
+                      "value": 0.45454544,
+                      "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                      "details": [
+                        {
+                          "value": 1.0,
+                          "description": "freq, occurrences of term within document",
+                          "details": []
+                        },
+                        {
+                          "value": 1.2,
+                          "description": "k1, term saturation parameter",
+                          "details": []
+                        },
+                        {
+                          "value": 0.75,
+                          "description": "b, length normalization parameter",
+                          "details": []
+                        },
+                        {
+                          "value": 2.0,
+                          "description": "dl, length of field",
+                          "details": []
+                        },
+                        {
+                          "value": 2.0,
+                          "description": "avgdl, average length of field",
+                          "details": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch20-05-explain-api",
+    "method": "GET",
+    "path": "/tut-l20-bm25/_explain/a?filter_path=matched,explanation.value,explanation.description",
+    "requestBodySent": null,
+    "status": 400,
+    "response": {
+      "error": {
+        "root_cause": [
+          {
+            "type": "action_request_validation_exception",
+            "reason": "Validation Failed: 1: query is missing;"
+          }
+        ],
+        "type": "action_request_validation_exception",
+        "reason": "Validation Failed: 1: query is missing;"
+      },
+      "status": 400
+    }
+  },
+  {
+    "id": "ch20-06-func-score",
+    "method": "POST",
+    "path": "/tut-l20-bm25/_search?filter_path=hits.hits._id,hits.hits._score",
+    "requestBodySent": {
+      "query": {
+        "function_score": {
+          "query": {
+            "match": {
+              "title": "elasticsearch"
+            }
+          },
+          "functions": [
+            {
+              "weight": 2
+            }
+          ],
+          "boost_mode": "multiply"
+        }
+      }
+    },
+    "status": 200,
+    "response": {
+      "hits": {
+        "hits": [
+          {
+            "_id": "b",
+            "_score": 0.5013843
+          },
+          {
+            "_id": "a",
+            "_score": 0.36464313
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch20-07-sort-views",
+    "method": "POST",
+    "path": "/tut-l20-bm25/_search?filter_path=hits.hits._id,hits.hits._score,hits.hits.sort",
+    "requestBodySent": {
+      "query": {
+        "match": {
+          "title": "elasticsearch tutorial"
+        }
+      },
+      "sort": [
+        {
+          "views": "desc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "hits": {
+        "hits": [
+          {
+            "_id": "b",
+            "_score": null,
+            "sort": [
+              100
+            ]
+          },
+          {
+            "_id": "a",
+            "_score": null,
+            "sort": [
+              10
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch20-08-track-scores",
+    "method": "POST",
+    "path": "/tut-l20-bm25/_search?filter_path=hits.hits._id,hits.hits._score,hits.hits.sort",
+    "requestBodySent": {
+      "track_scores": true,
+      "query": {
+        "match": {
+          "title": "elasticsearch tutorial"
+        }
+      },
+      "sort": [
+        {
+          "views": "desc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "hits": {
+        "hits": [
+          {
+            "_id": "b",
+            "_score": 0.25069216,
+            "sort": [
+              100
+            ]
+          },
+          {
+            "_id": "a",
+            "_score": 0.8754687,
+            "sort": [
+              10
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch20-09-add-doc",
+    "method": "PUT",
+    "path": "/tut-l20-bm25/_doc/c?refresh=true",
+    "requestBodySent": {
+      "title": "unrelated document",
+      "views": 1
+    },
+    "status": 201,
+    "response": {
+      "_index": "tut-l20-bm25",
+      "_id": "c",
+      "_version": 1,
+      "result": "created",
+      "forced_refresh": true,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "failed": 0
+      },
+      "_seq_no": 2,
+      "_primary_term": 1
+    }
+  },
+  {
+    "id": "ch20-10-score-changed",
+    "method": "POST",
+    "path": "/tut-l20-bm25/_search?filter_path=hits.hits._id,hits.hits._score",
+    "requestBodySent": {
+      "query": {
+        "match": {
+          "title": "elasticsearch"
+        }
+      }
+    },
+    "status": 200,
+    "response": {
+      "hits": {
+        "hits": [
+          {
+            "_id": "b",
+            "_score": 0.646255
+          },
+          {
+            "_id": "a",
+            "_score": 0.4700036
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ch20-11-cleanup",
+    "method": "DELETE",
+    "path": "/tut-l20-bm25",
+    "requestBodySent": null,
+    "status": 200,
+    "response": {
+      "acknowledged": true
+    }
+  }
+]

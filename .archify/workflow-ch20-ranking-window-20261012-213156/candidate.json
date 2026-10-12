@@ -1,0 +1,262 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "评分与排序：谁先进入返回窗口",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch20-ranking-window-20261012-213156/ranking-window.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "查询与解释"
+        },
+        "database": {
+          "label": "窗口与结果"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "query",
+      "label": "分片 Query · 查询与收集"
+    },
+    {
+      "id": "rescore",
+      "label": "分片 Query · 可选重打"
+    },
+    {
+      "id": "result",
+      "label": "协调与 Fetch · 窗口与解释"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "score",
+      "lane": "query",
+      "col": 2,
+      "type": "backend",
+      "label": "查询 · 匹配与按需评分",
+      "sublabel": "默认 BM25 / 可组合函数分",
+      "width": 360,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/similarity/SimilarityService.java",
+          "line": 41,
+          "end_line": 57,
+          "label": "默认 BM25"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/lucene/similarity/LegacyBM25Similarity.java",
+          "line": 71,
+          "end_line": 74,
+          "label": "Legacy 倍数"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/query/functionscore/FunctionScoreQueryBuilder.java",
+          "line": 321,
+          "end_line": 347,
+          "label": "构建函数组合查询"
+        }
+      ]
+    },
+    {
+      "id": "collect",
+      "lane": "query",
+      "col": 2,
+      "type": "backend",
+      "label": "收集 · 分数或排序键",
+      "sublabel": "默认 _score / 显式字段 sort",
+      "width": 360,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollectorManager.java",
+          "line": 418,
+          "end_line": 422,
+          "label": "收集器分支"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/sort/SortBuilder.java",
+          "line": 157,
+          "end_line": 198,
+          "label": "单分数降序优化"
+        }
+      ]
+    },
+    {
+      "id": "rescore",
+      "lane": "rescore",
+      "col": 2,
+      "type": "backend",
+      "label": "可选 rescore · 每片窗口",
+      "sublabel": "只在允许的分数排序下重打",
+      "width": 360,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/query/QueryPhase.java",
+          "line": 142,
+          "end_line": 147,
+          "label": "Query 内重打"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/rescore/RescorePhase.java",
+          "line": 102,
+          "end_line": 124,
+          "label": "排序允许条件"
+        }
+      ]
+    },
+    {
+      "id": "local",
+      "lane": "rescore",
+      "col": 2,
+      "type": "database",
+      "label": "局部 Top-N · 交回候选",
+      "sublabel": "重打窗口外没有二次查询贡献",
+      "width": 360,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/rescore/QueryRescorer.java",
+          "line": 61,
+          "end_line": 72,
+          "label": "窗口与回拼"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/rescore/QueryRescorer.java",
+          "line": 120,
+          "end_line": 136,
+          "label": "窗口外仍乘 query_weight"
+        }
+      ]
+    },
+    {
+      "id": "merge",
+      "lane": "result",
+      "col": 2,
+      "type": "database",
+      "label": "协调 · 合并与截全局窗口",
+      "sublabel": "按分数或字段 sort 归并",
+      "width": 360,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 145,
+          "end_line": 170,
+          "label": "合并 TopDocs"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 202,
+          "end_line": 220,
+          "label": "选取 Fetch ID"
+        }
+      ]
+    },
+    {
+      "id": "fetch",
+      "lane": "result",
+      "col": 2,
+      "type": "backend",
+      "label": "Fetch · 加载所选 hit",
+      "sublabel": "可计算 explain，不据此重排",
+      "width": 360,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/fetch/subphase/ExplainPhase.java",
+          "line": 40,
+          "end_line": 67,
+          "label": "返回 hit 解释"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/fetch/FetchPhase.java",
+          "line": 592,
+          "end_line": 627,
+          "label": "按需加载所选文档"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "score-collect",
+      "from": "score",
+      "to": "collect",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "collect-rescore",
+      "from": "collect",
+      "to": "rescore",
+      "variant": "emphasis",
+      "role": "main",
+      "label": "配置时"
+    },
+    {
+      "id": "rescore-local",
+      "from": "rescore",
+      "to": "local",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "local-merge",
+      "from": "local",
+      "to": "merge",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "merge-fetch",
+      "from": "merge",
+      "to": "fetch",
+      "variant": "emphasis",
+      "role": "main"
+    }
+  ],
+  "mainPath": [
+    "score",
+    "collect",
+    "rescore",
+    "local",
+    "merge",
+    "fetch"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "默认与显式选项",
+      "items": [
+        "纯字段 sort 可不需要查询分；其他组件可能仍需分数。",
+        "function_score 可组合查询分；本图省略具体函数树。",
+        "单_score降序可优化为默认分数收集。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "图的范围",
+      "items": [
+        "概念路径，rescore 未配置则直接使用收集结果。",
+        "省略网络、并发 slice、聚合、collapse 与 rank 扩展。"
+      ]
+    }
+  ]
+}

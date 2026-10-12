@@ -39,7 +39,7 @@
 | ch17 | 搜索服务与搜索上下文 | ✅ | 32 | 1(上下文生命周期) | ✅ 执行上下文与保留读者（2图，2路径动画） |
 | ch18 | 查询语法 | ✅ | 34 | 1(match→SHOULD) | ✅ 查询翻译与收集边界（2图，2路径动画） |
 | ch19 | 聚合框架 | ✅ | 30 | 1(cherry/shardSize) | ✅ 收集归并与候选误差（2图，2路径动画） |
-| ch20 | 评分与排序 | ✅ | 12 | 1(BM25 演算·旗舰) | 待改造 |
+| ch20 | 评分与排序 | ✅ | 30 | 1(BM25 演算·旗舰) | ✅ 评分窗口与解释入口（2图，2路径动画） |
 | ch21 | 集群状态 | ✅ | 16 | — | 待改造 |
 | ch22 | 主节点选举与共识 | ✅ | 10 | 1(选举时序·旗舰) | 待改造 |
 | ch23 | 分片分配 | ✅ | 11 | 1(均衡迁移·旗舰) | 待改造 |
@@ -302,7 +302,31 @@
 | ch19 | histogram/date_histogram key请求预列，各片同key仅加总 | 由字段值和间隔/日历/时区算key；range预给区间，空桶/bounds有条件；没有terms Top-N截断不等于无其他边界 | A5月计数2/2/3/1、range4/2/2；正文限定 |
 | ch19 | 自动ID重复bulk累加、缺健康/恢复；均价写死349.99 | 保留17ID增13，固定ID/显式配置/三组健康/refresh/点名清理重做；float尾数容差；加权avg42/10=4.2 | [注册表](experiments/ch19.js)、[两轮30卡+29观察](.archify/review/ch19-es-review.json) |
 
+### 第二十章重构校对
+
+| 课 | 网页旧说法 | 修正 | 依据 |
+|---|---|---|---|
+| ch20 | Query就定全部名次；Fetch不算分、只搬_source | 分片局部候选仍经协调全局归并；Fetch可算Explain/补rescore说明及加载其他字段，不据解释重选窗口 | QueryPhase142–147；SearchPhaseController145–170；ExplainPhase40–67；FetchPhase592–627 |
+| ch20 | GET _explain带body可在网页执行 | ESClient不发送GET body，旧卡真实400 query is missing；稳定ID改POST后200；存在不匹配200/缺失404，非realtime读者 | [原响应](.archify/review/ch20-original-responses.json)、[两轮与补充](.archify/review/ch20-es-review.json)；TransportExplainAction156–179 |
+| ch20 | 所有写入不相干文档都涨分；N等于总篇数 | N是字段docCount；本例含title长度2的c使N3/avgdl2涨分，缺title的d使索引4篇而N仍3；更新/删除旧版本可暂留统计 | A5/C1–C5实测；[Lucene核对](.archify/review/ch20-lucene-source-review.json) |
+| ch20 | Legacy常数永远不改排名；Deprecated代表新索引该换了；堆词买不到排名 | 9.4.0内置BM25仍Legacy、boost2.2；统一倍数只在同参数纯BM25不改次序；复杂混分尺度有影响，饱和仍增长且堆词可能改长度 | SimilarityService41–57/Providers256–264；Legacy71–74；Lucene固定10.4.0；两轮A6–A9 |
+| ch20 | 任意sort都TopField/DocValues，显式_score响应有sort | 单_score desc由buildSort优化为默认TopScore、本例无sort数组；普通views用字段键，track_scores不改键；特殊sort各自处理 | SortBuilder157–198；QueryPhaseCollectorManager418–435；B5–B7/B10实测 |
+| ch20 | rescore禁与所有sort同用；窗口外保持原分 | 允许无sort或_score降序，源码另有升序_shard_doc tie-break条件；views/score asc拒绝。窗口外仍乘query_weight；1/2窗口只每片 | RescorePhase102–124；QueryRescorer61–72/120–136；B8–B11及query_weight2实测 |
+| ch20 | 乘views还可保证相关性主序，views=0不失去高名次 | 乘积可翻盘，乘零归0可失去高名次；replace仍用query限制匹配集合，同函数分可并列；max_boost裁剪须考虑 | CombineFunction20–54/FunctionScoreQueryBuilder；B1–B4实测 |
+| ch20 | 单篇Explain与所有search是同一棵树，且可读未refresh写入 | 同读者/查询/统计的单片普通search可对齐；DFS与rescore等有差异；未刷文档GET可见、_explain404，刷新后200 | TransportExplainAction非realtime Get/preProcess；ExplainPhase补rescore；13补充实测 |
+| ch20 | 12卡缺健康/完整配置/重复恢复，精确重做只重写文档 | 保留12ID增18，3组30卡；strict/stored source/standard/BM25/norms/Doc Values、局部green、refresh、点名清理重建；mapping序列化省略默认true项，API词向量字段总频名sum_ttf | [注册表](experiments/ch20.js)、[验收](.archify/CH20-REVIEW.md)、[两轮30卡+13观察](.archify/review/ch20-es-review.json) |
+
 ## 会话日志
+
+### 2026-10-12（第二十章按统一规范重构）
+
+- 固定ES9.4.0/Lucene10.4.0，17源码文件/25精确区间及Lucene公式核对；修正Query局部/全局窗口、Fetch解释、字段N/旧版本、Legacy倍数、业务乘零、单_score优化、rescore排序/窗口外权重和非realtime Explain。正文/图/七步/30卡/5问答/4陷阱/速记一致；未重读tutorial、未使用子代理。
+- 保留原12稳定ID与七步旗舰，增18共3组30卡（A12/B12/C5/清理1），2交互图/2有限trace。显式配置/strict/stored source/standard/BM25/norms/Doc Values、局部green、bulk固定ID+refresh、点名清理重建。全站30正式页/635卡/22机制；共享CSS/JS和其他章节未改。
+- 官方Archify3.0.1 Workflow v2，首次带固定源码/真实checkout，只改JSON。ranking当前review-3、Explain根收据；validate/deliver/strict check均showcase9/9、0errors/warnings、provenance current，原生browser-check和finalize整体PASS；旧候选/收据/HTTP截图保留，许可完整。
+- HTTP两图四档桌面/双主题、章节六档、880px/≤1px对齐、页面/iframe/节点容纳、探索/关闭/展开、暂停后重播/Enter、主题/目录/已读、七步控制/键盘、30真实控制台导航method/path/body/endpoint/auth/raw、Pages前缀、reduced motion PASS。390/320表格/旧SVG局部横滑PASS。实际查看7拼图覆盖24最终截图及全部7步，另看独立浅色ranking/手机深色Explain；手机图为概览，细字探索/展开缩放，必要说明在正文/图注。
+- **真实API两轮每轮30卡PASS，另13补充观察PASS**：单词b/a=.250692/.182322、双词a/b=.875469/.250692、boost2.2/字段N2/avgdl2；两个Explain/size1窗口/不匹配200/缺失404；weight2/业务乘积/乘零/replace；views排序/track_scores/单_score desc无sort数组；rescore窗口1/2、a≈4.559665翻盘、score desc成功/views或score asc400、窗口外query_weight2也翻倍；c使N3涨分、缺title的d仍N3；未刷写入GET可见而Explain404，refresh后200。重复创建400/写入updated200/清理404确认，最终本课索引HEAD404。验证器初稿的API字段/优化假设按真实响应纠正，复用已采集60请求，不伪造响应。
+- 站点、JS语法、figwidth、diff、12稳定ID/30有序唯一槽位、GET/HEAD无body与.nojekyll PASS。验收[CH20-REVIEW](.archify/CH20-REVIEW.md)、[HTTP](.archify/review/ch20-http-review.json)、[真实API](.archify/review/ch20-es-review.json)、[artifacts](.archify/review/ch20-artifacts.json)。多节点DFS/PIT tie-break/其他rescorer/量化对照/性能未实测。按授权提交推送origin/main；远端/Pages交付时另核对，原有.gitignore修改不纳入。
+
 
 ### 2026-10-12(第十九章按统一规范重构)
 
