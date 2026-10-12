@@ -1,0 +1,127 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>控制台浏览器验收</title>
+<style>body{font:14px/1.6 system-ui;background:#e7eef0;color:#18343f;margin:20px}button,select{padding:8px 12px;margin:4px}iframe{display:block;border:1px solid #859aa4;margin-top:16px;height:1100px;background:white}pre{white-space:pre-wrap;max-height:330px;overflow:auto}#viewport{overflow:auto}label{margin:8px}</style>
+<h1>控制台浏览器验收</h1><p>真实 ES 检查只读取 9200；停止/竞态/复制错误使用明确的客户端桩，不冒充 ES。</p>
+<button id="run">运行全部检查</button><label>预览宽度 <select id="width"><option>320</option><option selected>390</option><option>768</option><option>1024</option><option>1440</option><option>1920</option></select></label><button id="preview">预览</button><button id="theme">切换预览主题</button><button id="response-preview">显示错误响应预览</button>
+<pre id="results">等待运行</pre><div id="viewport"></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const checks = [], errors = [];
+let frame;
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const assert = (test, detail = '断言失败') => { if (!test) throw new Error(detail); };
+function record(name, pass, detail) { checks.push({name, pass, ...(detail ? {detail} : {})}); $('#results').textContent = checks.map(c => (c.pass ? 'PASS ' : 'FAIL ') + c.name + (c.detail ? ' · ' + c.detail : '')).join('\n'); }
+async function test(name, fn) { try { await fn(); record(name,true); } catch(e) { record(name,false,e.message); } }
+async function ready(predicate) { for(let i=0;i<150;i++){if(predicate())return;await delay(20);}throw new Error('等待结果超时'); }
+async function load(width=1024, url='/console.html?__qa=1') {
+  if(frame) { errors.push(...(frame.contentWindow.__qaErrors || [])); frame.remove(); }
+  frame = document.createElement('iframe'); frame.title = '控制台验收预览'; frame.style.width = width + 'px'; frame.src = url;
+  const loaded = new Promise(resolve=>frame.onload=resolve); $('#viewport').append(frame); await loaded;
+  await ready(()=>frame.contentWindow.ESClient && frame.contentDocument.querySelector('.preset-item'));
+  await delay(50);
+  return frame.contentWindow;
+}
+function api(w) {
+  const d = w.document, get = s => d.querySelector(s);
+  const event = (sel,type) => get(sel).dispatchEvent(new w.Event(type,{bubbles:true,cancelable:true}));
+  const set = (sel,value,type='input') => {get(sel).value=value;event(sel,type);};
+  const fill = (method,path,body='')=>{set('#req-method',method,'change');set('#req-path',path);set('#req-body',body);};
+  const send = ()=>get('#request-form').requestSubmit();
+  const settled = ()=>ready(()=>get('#response-panel').getAttribute('aria-busy')==='false');
+  return {d,get,event,set,fill,send,settled};
+}
+function result(text='{"ok":true}',data={ok:true},status=200){return {text,data,status,ok:status<400,ms:7,contentType:'application/json',headers:{'content-type':'application/json','x-check':'visible'}};}
+async function run() {
+  $('#run').disabled=true;$('#results').hidden=false;checks.length=0;errors.length=0;
+  const keys=['es-web:endpoint','es-web:theme','es-web:history','es-web:auth'];
+  const saved=Object.fromEntries(keys.map(k=>[k,localStorage.getItem(k)]));
+  try {
+    localStorage.setItem('es-web:endpoint','http://127.0.0.1:9200');
+    localStorage.setItem('es-web:history','{"bad":"shape"}');localStorage.setItem('es-web:theme','light');
+    let w=await load(), a=api(w);
+    await test('损坏的历史对象不影响初始化',()=>assert(a.get('#history-count').textContent==='0'&&a.get('.preset-item')));
+    await test('示例点击只填入，请求体随方法切换保留',async()=>{
+      let calls=0;const raw=w.ESClient.raw;w.ESClient.raw=async()=>{calls++;return result();};
+      const b=Array.from(a.d.querySelectorAll('.preset-item')).find(b=>b.title.startsWith('PUT /study'));
+      b.click();assert(a.get('#req-method').value==='PUT');const draft=a.get('#req-body').value;assert(draft.includes('number_of_shards'));
+      a.set('#req-method','GET','change');assert(a.get('#req-body').disabled&&a.get('#req-body').value===draft);
+      a.set('#req-method','POST','change');assert(!a.get('#req-body').disabled&&a.get('#req-body').value===draft);assert(calls===0);w.ESClient.raw=raw;
+    });
+    await test('真实浏览器 fetch ES：健康 JSON、原文、响应头、复制',async()=>{
+      a.fill('GET','/_cluster/health');a.send();await a.settled();assert(a.get('#resp-head').textContent.includes('HTTP 200'));assert(a.get('#resp-viewer').textContent.includes('cluster_name'));
+      a.get('#response-headers').click();assert(a.get('#resp-viewer').textContent.includes('content-type'));
+      a.get('#response-raw').click();let copied;Object.defineProperty(w.navigator,'clipboard',{configurable:true,value:{writeText:async text=>{copied=text;}}});a.get('#copy-response').click();await delay(20);assert(copied===a.get('#resp-viewer pre').textContent);
+      Object.defineProperty(w.navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw new Error('denied');}}});a.get('#copy-response').click();await delay(20);assert(w.getSelection().toString().includes('cluster_name'));
+    });
+    await test('真实浏览器 fetch ES：CAT 文本和 HEAD 空响应',async()=>{
+      a.fill('GET','/_cat/nodes?v');a.send();await a.settled();assert(a.get('#resp-viewer').textContent.includes('name'));
+      a.fill('HEAD','/tut-console-qa-nonexistent');a.send();await a.settled();assert(a.get('#resp-head').textContent.includes('404'));assert(a.get('#resp-viewer').textContent.includes('响应体为空'));
+    });
+    await test('JSON 校验只拦本地发送，仍然发送原文可获得真实 400',async()=>{
+      a.fill('POST','/_search','{broken');a.send();assert(!a.get('#send-raw').hidden);assert(a.get('#request-notice').textContent.includes('JSON'));
+      a.get('#send-raw').click();await a.settled();assert(a.get('#resp-head').textContent.includes('400'));assert(a.get('.response-error'));
+    });
+    await test('JSON 格式化、NDJSON 缺换行原样保留和提示',()=>{
+      a.fill('POST','/_analyze','{"text":"a|b"}');a.get('#format-btn').click();assert(a.get('#req-body').value.includes('\n'));
+      const nd='{"delete":{"_index":"unused","_id":"1"}}';a.fill('POST','/_bulk',nd);a.get('#format-btn').click();assert(!a.get('#req-body').value.endsWith('\n'));a.send();assert(a.get('#request-notice').textContent.includes('末尾换行'));
+    });
+    await test('Bulk HTTP 200 / errors:true 标示部分失败',async()=>{
+      const raw=w.ESClient.raw;w.ESClient.raw=async()=>result('{"errors":true}',{errors:true,items:[{index:{status:400,error:{reason:'bad'}}}]});
+      a.fill('POST','/_bulk','{}\n{}\n');a.send();await a.settled();assert(a.get('#resp-head').textContent.includes('部分失败'));assert(a.get('.response-error').textContent.includes('1 项'));w.ESClient.raw=raw;
+    });
+    await test('防重复发送、停止后旧响应不能覆盖新响应',async()=>{
+      const raw=w.ESClient.raw;let oldResolve,calls=0;w.ESClient.raw=()=>{calls++;return new Promise(resolve=>oldResolve=resolve);};
+      a.fill('GET','/_cluster/health');a.send();a.send();a.d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true}));assert(calls===1&&a.get('#send-btn').disabled);
+      a.get('#cancel-btn').click();assert(!a.get('#send-btn').disabled&&a.get('#resp-head').textContent.includes('停止'));
+      w.ESClient.raw=async()=>result('{"new":true}',{new:true});a.send();await a.settled();oldResolve(result('{"old":true}',{old:true}));await delay(20);assert(a.get('#resp-viewer').textContent.includes('new')&&!a.get('#resp-viewer').textContent.includes('old'));w.ESClient.raw=raw;
+    });
+    await test('失败/超时提示、恢复发送、快捷键与制表缩进',async()=>{
+      const raw=w.ESClient.raw;w.ESClient.raw=async()=>{throw Object.assign(new Error('timeout fixture'),{code:'timeout'});};a.send();await a.settled();assert(a.get('#resp-head').textContent.includes('请求超时')&&!a.get('#send-btn').disabled);
+      w.ESClient.raw=async()=>result();a.d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',metaKey:true,bubbles:true}));await a.settled();assert(a.get('#resp-head').textContent.includes('200'));
+      a.fill('POST','/_analyze','{}');a.get('#req-body').setSelectionRange(1,1);a.get('#req-body').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));assert(a.get('#req-body').value==='{  }');w.ESClient.raw=raw;
+    });
+    await test('请求历史键盘可用、端点回填、清空、凭据不写入历史',async()=>{
+      a.set('#auth-input','fixture-user:fixture-secret');const raw=w.ESClient.raw;w.ESClient.raw=async()=>result();a.fill('GET','/');a.send();await a.settled();assert(!localStorage.getItem('es-web:history').includes('fixture-secret'));assert(localStorage.getItem('es-web:auth')===null);
+      a.get('#history-tab').click();assert(!a.get('#history-panel').hidden);assert(a.get('.hist-item').tagName==='BUTTON');a.get('.hist-item').click();assert(a.get('#req-path').value==='/');
+      a.get('#history-clear').click();assert(a.get('#history-count').textContent==='0');a.get('#preset-tab').dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));assert(a.get('#history-tab').getAttribute('aria-selected')==='true');w.ESClient.raw=raw;a.set('#auth-input','');
+    });
+    await test('地址不合法和完整 URL 误填路径提供可操作提示',()=>{
+      a.set('#endpoint-input','ftp://invalid');a.send();assert(a.get('#request-notice').textContent.includes('HTTP'));a.set('#endpoint-input','http://127.0.0.1:9200');a.fill('GET','http://bad/path');a.send();assert(a.get('#request-notice').textContent.includes('路径'));
+    });
+    const body=JSON.stringify({analyzer:'keyword',text:'中文 | %20 \n 行'});
+    await test('Pages 前缀课程深链独立解码，并真实发送含 | 的完整 body',async()=>{
+      w=await load(1024,'/es_web/console.html?__qa=1&ep=http%3A%2F%2F127.0.0.1%3A9200&am=anon#run=POST|%2F_analyze|'+encodeURIComponent(body));a=api(w);await a.settled();assert(a.get('#req-body').value===body);assert(a.get('#resp-viewer').textContent.includes('中文 | %20'));assert(a.get('#resp-head').textContent.includes('200'));
+      assert(w.ESClient.consoleLink('GET','/','').includes('/es_web/console.html#run='));
+    });
+    await test('损坏深链提示可见，不崩溃',async()=>{
+      w=await load(390,'/console.html?__qa=1#run=POST|%2F_analyze|%ZZ');a=api(w);assert(a.get('#request-notice').textContent.includes('无法读取课程链接'));
+    });
+    await test('深链认证别名只在内存，端点不污染持久化地址',async()=>{
+      const ep=localStorage.getItem('es-web:endpoint');w=await load(390,'/console.html?__qa=1&ep=http%3A%2F%2F127.0.0.1%3A9201&am=wrong#run=GET|%2F|');a=api(w);await a.settled();assert(a.get('#endpoint-input').value.endsWith('9201'));assert(a.get('#auth-input').value===w.ESClient.credForMode('wrong'));assert(localStorage.getItem('es-web:endpoint')===ep&&localStorage.getItem('es-web:auth')===null);a.get('#auth-clear').click();assert(a.get('#auth-input').value==='');
+    });
+    for(const theme of ['light','dark'])for(const width of [320,390,768,1024,1440,1920]){
+      await test('布局 '+width+'px / '+theme+'：页面无横溢，字段与响应容纳',async()=>{
+        localStorage.setItem('es-web:theme',theme);w=await load(width);a=api(w);const raw=w.ESClient.raw;w.ESClient.raw=async()=>result('long-line '.repeat(300),null);a.fill('POST','/_analyze','{"text":"layout"}');a.send();await a.settled();
+        const root=a.d.documentElement;assert(root.scrollWidth<=root.clientWidth+1,'页面溢出 '+root.scrollWidth+'/'+root.clientWidth);
+        for(const selector of ['#endpoint-input','#auth-input','.request-panel','.response-panel','#req-path','#req-body']){
+          const rect=a.get(selector).getBoundingClientRect();assert(rect.left>=-1&&rect.right<=width+1,selector+' 越界 '+rect.right);assert(rect.width>0);
+        }
+        assert(a.get('#req-path').getBoundingClientRect().width>=140,'路径输入框过窄');
+        assert(a.get('.term').scrollWidth>a.get('.term').clientWidth,'长响应应在代码块内部滚动');assert(a.d.documentElement.dataset.theme===theme);w.ESClient.raw=raw;
+      });
+      checks.at(-1).viewport={width,theme,pageWidth:frame.contentDocument.documentElement.scrollWidth};
+    }
+    if(frame)errors.push(...(frame.contentWindow.__qaErrors||[]));
+    record('浏览器未捕获脚本错误或未处理 Promise',errors.length===0,errors.join('; '));
+    const report={time:new Date().toISOString(),browser:navigator.userAgent,checks,errors,fixtures:'Bulk partial failure, timeout, cancellation race and clipboard denial are client stubs; ES reads and deep-link analyze use live 9200. 9201 is unavailable.'};
+    await fetch('/__qa/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(report)});
+    $('#results').textContent+='\n'+checks.filter(c=>c.pass).length+'/'+checks.length+' PASS · report saved';
+  } catch(e){record('检查程序',false,e.stack);}
+  finally {for(const key of keys){if(saved[key]===null)localStorage.removeItem(key);else localStorage.setItem(key,saved[key]);}$('#run').disabled=false;}
+}
+$('#run').onclick=run;
+$('#preview').onclick=()=>{$('#results').hidden=true;return load(Number($('#width').value));};
+$('#theme').onclick=()=>frame?.contentDocument.querySelector('.theme-toggle').click();
+$('#response-preview').onclick=async()=>{if(!frame)await load(Number($('#width').value));const a=api(frame.contentWindow);a.fill('POST','/_search','{broken');a.get('#send-raw').click();await a.settled();a.get('.request-panel').scrollIntoView();};
+const params=new URLSearchParams(location.search);const previewWidth=Number(params.get('width'))||390;$('#width').value=String(previewWidth);if(params.has('preview'))$('#results').hidden=true;load(previewWidth).then(()=>{if(params.has('autorun'))run();});
+</script></html>

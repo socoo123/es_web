@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>控制台 — ES 源码精读站</title>
   <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/console.css">
 </head>
-<body>
+<body class="console-page">
   <header class="topbar">
     <a class="brand" href="index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
     <nav class="tnav">
@@ -19,44 +20,56 @@
     <button class="theme-toggle" type="button">🌙 深色</button>
   </header>
 
-  <main class="wrap">
-    <header class="hero" style="padding-bottom: 0;">
-      <h1 style="font-size: 28px;">真实 ES 控制台</h1>
-      <p class="sub">请求发往本机 Elasticsearch 9.4.0(<code>bash docker/start.sh</code>,端口只绑 127.0.0.1)。第 29 课深链会带上目标端口和凭据别名,口令不进网址,也不写入浏览器存储;离开本页即丢。点「清除」可立刻去掉输入框里的凭据。</p>
+  <main class="wrap console-workspace">
+    <header class="console-intro">
+      <div><span class="console-kicker">ELASTICSEARCH · WORKBENCH</span><h1>真实 ES 控制台</h1>
+      <p>选一个示例，编辑请求，查看 Elasticsearch 的真实响应。</p></div>
+      <span class="console-version">ES 9.4.0</span>
     </header>
 
+    <form id="connection-form" class="connection-panel" aria-label="连接设置" autocomplete="off">
+      <label class="connection-field endpoint-field" for="endpoint-input"><span>服务地址</span><input id="endpoint-input" type="text" spellcheck="false" autocomplete="off" placeholder="http://localhost:9200"></label>
+      <label class="connection-field auth-field" for="auth-input"><span>Basic 认证 <small>仅本页有效</small></span><input id="auth-input" type="password" placeholder="user:password（匿名访问时留空）" spellcheck="false" autocomplete="off"></label>
+      <div class="connection-actions"><button id="auth-clear" class="btn" type="button">清除凭据</button><button id="test-connection" class="btn" type="button">检测连接</button></div>
+      <details class="connection-help"><summary>连接帮助</summary><p>本机匿名节点：<code>bash docker/start.sh</code>；第 29 课安全节点：<code>bash docker/start-secure.sh</code>（9201）。跨域访问需要 ES 开启 CORS；HTTPS 页面访问 HTTP 本机节点时还受浏览器安全策略影响。认证输入框只保存在本页内存。</p></details>
+    </form>
+
     <div class="console-layout">
+      <div class="console-main">
+        <section class="request-panel" aria-labelledby="request-title">
+          <div class="panel-heading"><h2 id="request-title">请求</h2><span id="request-source">自由编辑</span></div>
+          <form id="request-form" class="req-builder">
+            <select id="req-method" aria-label="HTTP 方法"><option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option><option>HEAD</option><option>PATCH</option><option>OPTIONS</option></select>
+            <input id="req-path" type="text" value="/_cluster/health" spellcheck="false" autocomplete="off" aria-label="请求路径" placeholder="/_cluster/health">
+            <button id="send-btn" class="btn primary" type="submit">发送请求 <span aria-hidden="true">↗</span></button>
+            <button id="cancel-btn" class="btn" type="button" hidden>停止请求</button>
+          </form>
+          <div class="editor-toolbar"><label for="body-format">请求体 <select id="body-format"><option value="auto">自动识别</option><option value="json">JSON</option><option value="ndjson">NDJSON</option></select></label><div class="editor-actions"><button id="format-btn" class="text-button" type="button">格式化</button><button id="body-clear" class="text-button" type="button">清空</button></div></div>
+          <div id="req-body-wrap" class="req-body-wrap"><textarea id="req-body" aria-label="请求体" aria-describedby="body-hint" spellcheck="false" placeholder='输入 JSON 或 NDJSON 请求体…'></textarea></div>
+          <div class="request-footer"><span id="body-hint">GET / HEAD 不发送请求体；搜索 JSON 可使用 POST。</span><label for="request-timeout">超时 <select id="request-timeout"><option value="15000">15 秒</option><option value="30000">30 秒</option><option value="60000">60 秒</option></select></label></div>
+          <div id="request-notice" class="request-notice" role="status" hidden></div>
+          <button id="send-raw" type="button" class="btn" hidden>仍然发送原文</button>
+          <p class="keyboard-hint"><kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>Enter</kbd> 发送 · <kbd>Esc</kbd> 停止</p>
+        </section>
+
+        <section id="response-panel" class="response-panel" aria-labelledby="response-title" aria-busy="false">
+          <div class="panel-heading"><h2 id="response-title">响应</h2><div id="resp-head" class="resp-head" role="status" aria-live="polite"><span>等待发送</span></div></div>
+          <div class="response-toolbar"><div class="response-tabs" role="tablist" aria-label="响应视图"><button id="response-formatted" type="button" role="tab" aria-selected="true" aria-controls="resp-viewer" data-view="formatted">格式化</button><button id="response-raw" type="button" role="tab" aria-selected="false" aria-controls="resp-viewer" tabindex="-1" data-view="raw">原文</button><button id="response-headers" type="button" role="tab" aria-selected="false" aria-controls="resp-viewer" tabindex="-1" data-view="headers">响应头</button></div><button id="copy-response" class="text-button" type="button" disabled>复制响应</button></div>
+          <div id="resp-viewer" class="resp-viewer" role="tabpanel" aria-labelledby="response-formatted" tabindex="0"><div class="response-empty"><span class="empty-symbol" aria-hidden="true">{ }</span><strong>响应会显示在这里</strong><p>选择一个示例，或直接输入 API 路径。</p></div></div>
+        </section>
+        <div id="console-feedback" class="console-feedback" role="status" aria-live="polite"></div>
+      </div>
       <aside class="console-side">
-        <div class="endpoint-row">
-          <input id="endpoint-input" type="text" spellcheck="false" aria-label="ES 地址">
-          <input id="auth-input" type="password" placeholder="user:pass(仅本页)" spellcheck="false" autocomplete="off" aria-label="Basic 凭据">
-          <button id="auth-clear" class="btn" type="button">清除</button>
+        <div class="side-tabs" role="tablist" aria-label="请求来源">
+          <button id="preset-tab" type="button" role="tab" aria-selected="true" aria-controls="preset-panel" data-side="preset">示例请求</button>
+          <button id="history-tab" type="button" role="tab" aria-selected="false" aria-controls="history-panel" tabindex="-1" data-side="history">历史 <span id="history-count">0</span></button>
         </div>
-        <div id="preset-box"></div>
-        <div class="preset-group">
-          <h3>历史</h3>
+        <div id="preset-panel" role="tabpanel" aria-labelledby="preset-tab"><p class="side-hint">点击填入，再按「发送请求」执行。</p><div id="preset-box"></div></div>
+        <div id="history-panel" role="tabpanel" aria-labelledby="history-tab" hidden>
+          <div class="history-toolbar"><span>最近 60 条 · 本机保存</span><button id="history-clear" type="button" class="text-button">清空历史</button></div>
           <div id="hist-list" class="hist-list"></div>
         </div>
       </aside>
-
-      <section class="console-main">
-        <div class="req-builder">
-          <select id="req-method" aria-label="HTTP 方法">
-            <option>GET</option>
-            <option>POST</option>
-            <option>PUT</option>
-            <option>DELETE</option>
-            <option>HEAD</option>
-          </select>
-          <input id="req-path" type="text" value="/_cluster/health" spellcheck="false" aria-label="路径">
-          <button id="send-btn" class="btn primary" type="button">发送 ⏎</button>
-        </div>
-        <div id="req-body-wrap" class="req-body-wrap" style="display:none;">
-          <textarea id="req-body" spellcheck="false" placeholder='请求体(JSON),⌘/Ctrl+Enter 发送'></textarea>
-        </div>
-        <div id="resp-head" class="resp-head"></div>
-        <div id="resp-viewer" class="resp-viewer"></div>
-      </section>
     </div>
   </main>
 

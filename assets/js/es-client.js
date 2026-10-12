@@ -6,7 +6,7 @@
  *   ESClient.setEndpoint(url)        → 设置并刷新徽章
  *   ESClient.auth() / setAuth(cred)  → 可选 'user:pass'(只活在当前页内存,不写 localStorage)
  *   ESClient.raw(method, path, body) → Promise<{ok,status,ms,data,text,contentType}>
- *                                      opts = { timeoutMs, endpoint, auth } 可覆盖单次请求的目标与凭据
+ *                                      opts = { timeoutMs, endpoint, auth, signal, contentType, headers }
  *   ESClient.ping()                  → Promise<{ok,version,cluster,error}>
  *   ESClient.prettyJSON(value)       → 带语法高亮的 HTML 字符串
  *   ESClient.consoleLink(m,p,b,opts) → 控制台深链;opts.endpoint / authMode / allowInvalid
@@ -28,6 +28,8 @@
     alice: 'tut-l29-alice:alice-password'
   };
   var sessionAuth = '';
+  var connectionProvider = null;
+  var badgeRevision = 0;
   try { localStorage.removeItem(LS_AUTH); } catch (e) { /* 旧版曾持久化凭据,启动即清 */ }
 
   function endpoint() {
@@ -36,16 +38,26 @@
       return v || DEFAULT_ENDPOINT;
     } catch (e) { return DEFAULT_ENDPOINT; }
   }
+  function normalizeEndpoint(url) {
+    var value = String(url || '').trim();
+    if (!value) throw new Error('请输入 ES 服务地址，例如 http://localhost:9200。');
+    if (!/^[a-z][a-z\d+.-]*:\/\//i.test(value)) value = 'http://' + value;
+    var parsed;
+    try { parsed = new URL(value); } catch (e) { throw new Error('服务地址无效，请检查主机名和端口。'); }
+    if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname || parsed.username || parsed.password || parsed.search || parsed.hash) {
+      throw new Error('服务地址须为 HTTP / HTTPS 地址；凭据请填在 Basic 认证栏，地址中不要带查询参数或 #。');
+    }
+    return parsed.href.replace(/\/+$/, '');
+  }
   function setEndpoint(url) {
-    var u = String(url || '').trim().replace(/\/+$/, '');
-    if (!/^https?:\/\//.test(u)) u = 'http://' + u;
+    var u = normalizeEndpoint(url);
     try { localStorage.setItem(LS_ENDPOINT, u); } catch (e) { /* 忽略 */ }
     refreshBadges();
     return u;
   }
   function auth() { return sessionAuth; }
   function setAuth(cred) {
-    sessionAuth = String(cred || '').trim();
+    sessionAuth = String(cred || '');
     try { localStorage.removeItem(LS_AUTH); } catch (e) { /* 忽略 */ }
     return sessionAuth;
   }
@@ -62,30 +74,37 @@
   }
 
   /* 把 fetch 异常翻译成人能看懂的指引 */
-  function friendlyError(err) {
+  function friendlyError(err, target, timedOut) {
+    target = target || endpoint();
     var msg = String((err && err.message) || err || '');
-    if (/abort/i.test(msg)) {
-      return '请求超时:ES 可能还在启动(首次拉镜像+启动要 1-2 分钟),稍等再试。';
+    if (timedOut) return '请求超时：' + target + ' 未在设定时间内完成响应。可增大超时时间或检查 ES 状态。';
+    if ((err && err.name === 'AbortError') || /abort/i.test(msg)) {
+      return '请求已停止。';
     }
     if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) {
-      return '连不上 ' + endpoint() + '\n\n排查顺序:\n' +
+      return '连不上 ' + target + '\n\n排查顺序:\n' +
         '  1. 终端运行  bash docker/start.sh  启动 ES 9.4.0\n' +
-        '  2. 浏览器直接打开 ' + endpoint() + ' 确认有响应\n' +
-        '  3. 若 ES 已在跑但仍连不上,说明该实例未开 CORS(本站依赖 docker-compose.yml 里的 http.cors.* 配置)';
+        '  2. 浏览器直接打开 ' + target + '，检查地址、端口和服务状态\n' +
+        '  3. 服务可用时，检查 CORS、HTTPS 混合内容或本地网络访问权限；具体原因可在浏览器开发者工具中查看';
     }
     return msg || '未知错误';
   }
 
   async function raw(method, path, body, opts) {
     opts = opts || {};
+    method = String(method || 'GET').toUpperCase();
     if (!path) path = '/';
     if (path.charAt(0) !== '/') path = '/' + path;
-    var url = (opts.endpoint || endpoint()) + path;
+    var target = normalizeEndpoint(opts.endpoint || endpoint());
+    var url = target + path;
     var cred = 'auth' in opts ? opts.auth : auth();   // 实验可用 auth:null 强制匿名
-    var ctrl = new AbortController();
-    var timer = setTimeout(function () { ctrl.abort(); }, opts.timeoutMs || 15000);
-    var init = { method: method, signal: ctrl.signal, headers: {} };
-    if (cred) init.headers['Authorization'] = 'Basic ' + btoa(cred);
+    var init = { method: method, headers: {} };
+    if (cred) {
+      var bytes = new TextEncoder().encode(cred);
+      var binary = '';
+      bytes.forEach(function (byte) { binary += String.fromCharCode(byte); });
+      init.headers['Authorization'] = 'Basic ' + btoa(binary);
+    }
     if (opts.headers) {
       for (var h in opts.headers) init.headers[h] = opts.headers[h];   // 实验自定义头(如 ApiKey)可覆盖上面的 Authorization
     }
@@ -93,29 +112,41 @@
       if (typeof body === 'string') {
         var parsed = true;
         try { JSON.parse(body); } catch (e) { parsed = false; }
-        if (parsed) {
-          // 整体是 JSON
-          init.body = body;
-          init.headers['Content-Type'] = 'application/json';
-        } else {
-          // 不是整体 JSON 就按 NDJSON(_bulk)口径发送。故意写坏的 body(坏 source 行、
-          // 缺末尾换行)也走这里,让 ES 自己报解析错误——那是实验要观察的教学点,
-          // 所以这里不做任何修复(不补换行)。
-          init.body = body;
-          init.headers['Content-Type'] = 'application/x-ndjson';
-        }
+        init.body = body;
+        var streaming = /\/(?:_bulk|_msearch)(?:\/|\?|$)/.test(path);
+        var lines = body.split('\n').filter(function (line) { return line.trim(); });
+        var ndjson = !parsed && lines.length > 1 && lines.every(function (line) {
+          try { JSON.parse(line); return true; } catch (e) { return false; }
+        });
+        init.headers['Content-Type'] = streaming || ndjson ? 'application/x-ndjson' : 'application/json';
       } else {
         init.body = JSON.stringify(body);
         init.headers['Content-Type'] = 'application/json';
       }
     }
+    if (init.body != null) {
+      var headerType = Object.keys(opts.headers || {}).find(function (key) { return key.toLowerCase() === 'content-type'; });
+      if (headerType) init.headers['Content-Type'] = opts.headers[headerType];
+      if (headerType && headerType !== 'Content-Type') delete init.headers[headerType];
+      if (opts.contentType) init.headers['Content-Type'] = opts.contentType;
+    }
+    var ctrl = new AbortController();
+    var timedOut = false;
+    var abort = function () { ctrl.abort(); };
+    if (opts.signal) {
+      if (opts.signal.aborted) abort();
+      else opts.signal.addEventListener('abort', abort, { once: true });
+    }
+    init.signal = ctrl.signal;
+    var timer = setTimeout(function () { timedOut = true; ctrl.abort(); }, opts.timeoutMs || 15000);
     var t0 = Date.now();
     try {
       var res = await fetch(url, init);
-      var ms = Date.now() - t0;
       var ct = res.headers.get('content-type') || '';
       var text = await res.text();
-      var out = { ok: res.ok, status: res.status, ms: ms, contentType: ct, data: null, text: null };
+      var headers = {};
+      res.headers.forEach(function (value, name) { headers[name] = value; });
+      var out = { ok: res.ok, status: res.status, ms: Date.now() - t0, contentType: ct, data: null, text: text, headers: headers };
       if (/json/i.test(ct)) {
         try { out.data = JSON.parse(text); } catch (e) { out.text = text; }
       } else {
@@ -123,15 +154,18 @@
       }
       return out;
     } catch (err) {
-      throw new Error(friendlyError(err));
+      var failure = new Error(friendlyError(err, target, timedOut));
+      failure.code = timedOut ? 'timeout' : (ctrl.signal.aborted ? 'aborted' : 'network');
+      throw failure;
     } finally {
       clearTimeout(timer);
+      if (opts.signal) opts.signal.removeEventListener('abort', abort);
     }
   }
 
-  async function ping() {
+  async function ping(opts) {
     try {
-      var r = await raw('GET', '/', null, { timeoutMs: 5000 });
+      var r = await raw('GET', '/', null, Object.assign({ timeoutMs: 5000 }, opts || {}));
       if (r.ok && r.data && r.data.version) {
         return { ok: true, version: r.data.version.number, cluster: r.data.cluster_name };
       }
@@ -151,16 +185,24 @@
     });
   }
   async function refreshBadges() {
+    var revision = ++badgeRevision;
     paintBadges('checking', '连接中…', '点击重新检测');
-    var r = await ping();
-    if (r.ok) paintBadges('ok', r.version + ' · ' + r.cluster, endpoint() + ' — 点击重新检测');
-    else paintBadges('down', '未连接 · 点击重试', '先运行 bash docker/start.sh');
+    var opts, target, r;
+    try {
+      opts = connectionProvider ? connectionProvider() : {};
+      target = normalizeEndpoint(opts.endpoint || endpoint());
+      r = await ping(opts);
+    } catch (err) { r = { ok: false, error: err.message }; }
+    if (revision !== badgeRevision) return r;
+    if (r.ok) paintBadges('ok', r.version + ' · ' + r.cluster, target + ' — 点击重新检测');
+    else paintBadges('down', (r.error && /^HTTP /.test(r.error) ? r.error + ' · 点击重试' : '未连接 · 点击重试'), r.error || '检查 ES 服务地址');
+    return r;
   }
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.conn-badge').forEach(function (b) {
-      b.addEventListener('click', refreshBadges);
+      b.addEventListener('click', function () { refreshBadges(); });
     });
-    if (document.querySelector('.conn-badge')) refreshBadges();
+    if (document.querySelector('.conn-badge')) Promise.resolve().then(refreshBadges);
   });
 
   /* ===== JSON 语法高亮 ===== */
@@ -170,20 +212,15 @@
   function prettyJSON(value) {
     if (value == null) return '';
     var json = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-    return json.replace(
-      /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false)\b|\bnull\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-      function (m, str, colon, bool, num) {
-        if (str) {
-          return colon
-            ? '<span class="tk-key">' + esc(str) + '</span>' + colon
-            : '<span class="tk-str">' + esc(str) + '</span>';
-        }
-        if (bool) return '<span class="tk-bool">' + bool + '</span>';
-        if (m === 'null') return '<span class="tk-null">null</span>';
-        if (num) return '<span class="tk-num">' + num + '</span>';
-        return esc(m);
-      }
-    );
+    var pattern = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false)\b|\bnull\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+    var html = '', end = 0, match;
+    while ((match = pattern.exec(json))) {
+      html += esc(json.slice(end, match.index));
+      var kind = match[1] ? (match[2] ? 'key' : 'str') : match[3] ? 'bool' : match[4] ? 'num' : 'null';
+      html += '<span class="tk-' + kind + '">' + esc(match[1] || match[0]) + '</span>' + (match[2] || '');
+      end = pattern.lastIndex;
+    }
+    return html + esc(json.slice(end));
   }
 
   function consoleLink(method, path, body, opts) {
@@ -200,6 +237,8 @@
   window.ESClient = {
     endpoint: endpoint,
     setEndpoint: setEndpoint,
+    normalizeEndpoint: normalizeEndpoint,
+    setConnectionProvider: function (provider) { connectionProvider = provider; },
     auth: auth,
     setAuth: setAuth,
     authModeFor: authModeFor,
