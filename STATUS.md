@@ -44,7 +44,7 @@
 | ch22 | 主节点选举与共识 | ✅ | 18 | 1(选举时序·旗舰) | ✅ 选举资格与提交边界（2图，2路径；API/原生浏览器限制见日志） |
 | ch23 | 分片分配 | ✅ | 33 | 1(均衡迁移·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch24 | 分片恢复与快照 | ✅ | 57 | 1(peer recovery·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
-| ch25 | 熔断器与背压 | ✅ | 14 | 1(熔断水位·旗舰) | 待改造 |
+| ch25 | 熔断器与背压 | ✅ | 29 | 1(熔断水位·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch26 | 脚本引擎 | ✅ | 20 | 1(编译旅程) | 待改造 |
 | ch27 | 管道查询语言 | ✅ | 14 | 1(管道执行) | 待改造 |
 | ch28 | 索引生命周期管理 | ✅ | 20 | 1(一分钟 rollover) | 待改造 |
@@ -374,7 +374,38 @@
 | fs 注册必定失败，列表必为空；失败一定未登记 | 默认 Compose path.repo 为空时创建校验失败；已配置环境可成功，后续验证失败可能已登记。点名检查本章仓库，不要求所有仓库为空 | FsRepository；RepositoriesService 264–337 / 477–498 |
 | 清理卡称删两个索引，实际只删 rec；重复创建继续操作 | 57 张卡显式前提、等待、单写入、快照条件扩展、逐项点名清理及 404 核对；保留全部旧 20 IDs。注销仓库不删除仓库文件 | experiments/ch24.js；本轮源码与注册表检查；真实重做未实测 |
 
+## 第二十五章重构校对（ES 9.4.0）
+
+本章已按七段式与统一阅读列重构；22文件/58处固定源码行段、站点与独立 HTTP/视觉审阅通过，真实 API 与原生 file 浏览器限制单列。完整依据与哈希见 [.archify/CH25-REVIEW.md](.archify/CH25-REVIEW.md) 和 [.archify/review/ch25-artifacts.json](.archify/review/ch25-artifacts.json)。
+
+| 旧说法 / 旧实验 | 当前结论与适用条件 | 固定 ES 9.4.0 依据 |
+| --- | --- | --- |
+| 聚合内存曲线为“6KB预留 + 5KB重量 + 数组” | 预留包装器覆盖缓冲内消费；超过预留只补差，满后直通。不能重复相加 | [PreallocatedCircuitBreakerService](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/breaker/PreallocatedCircuitBreakerService.java#L108-L171) |
+| Parent 首次真实堆加预留超过95%就立即拒绝 | 首次超限后调用策略，策略结果仍超限才计数并抛；G1可复测，不保证回收成功，实际限额可配置 | [checkParentLimit](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java#L414-L434)、[策略选择](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java#L510-L534) |
+| -1 只记账永不跳 | 只跳过子限额，仍检查 Parent；0立即拒绝子检查入口 | [Child 分支与 Parent 调用](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java#L105-L132) |
+| 默认 Parent 应明显大于三本子账之和；只有四本账 | 子统计是 raw used，Parent随模式采样真实堆或全部注册子账加权和；不规定与三子裸 used 的大小关系，其他 breaker 可存在 | [stats/memoryUsed](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java#L328-L385) |
+| Parent 本次 request 调用就几乎总是 TRANSIENT；fielddata PERMANENT只能清缓存才退 | Parent durability按全部子账 transient/permanent 占比；类别是提示，不是严格释放时限或唯一清理方式 | [类别配置](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java#L178-L210)、[Parent类别](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java#L428-L434) |
+| 调用方从不先分配，熔断保证节点活、堆不变和下一次成功 | BigArrays包含分配前与已创建后核算；记账释放不同于GC。熔断降低风险，不能覆盖全部分配或保证后续成功 | [BigArrays](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/util/BigArrays.java#L511-L589) |
+| size/shard_size只管返回；min_doc_count收窄就节省收集内存；cardinality等价替换terms | 窗口可影响候选内存，不能限制全部收集；min_doc_count无普遍收集内存上限，cardinality只适用于近似计数业务语义 | [收集与候选](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/GlobalOrdinalsStringTermsAggregator.java#L558-L579)、[桶状态](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/GlobalOrdinalsStringTermsAggregator.java#L621-L655) |
+| Bulk超过水位，>1MB或>4MB就拆 | 增量 maybeSplit 比较当前 combined+replica 与当前块字节两项 >=，高水位先判断；不等于任意HTTP包体积规则 | [双条件](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/index/IndexingPressure.java#L212-L237)、[增量调用](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/bulk/IncrementalBulkService.java#L144-L174) |
+| transient单节点重启即丢；null必回60%且保底恢复 | 不依赖重启清理；null只删除指定覆盖，生效值可能来自persistent/节点配置/默认。只在无原覆盖前提执行，核对来源和实际基线限额 | [删除覆盖](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L860-L890)、[集群层合并](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/Metadata.java#L1680-L1688)、[节点回落](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/settings/AbstractScopedSettings.java#L159-L183) |
+| 匿名ID反复bulk仍20文档；tripped>=1证明本次拒绝 | 固定ID1–20，首次created/重复updated；显式refresh/count/Green；计数以本次前后增量判断，不限定一次REST只加1 | [子计数与检查](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java#L73-L132)；本章操作卡，API未实测 |
+| 同一size=0 terms必重新走同一执行过程 | 三次对照请求显式request_cache=false，排除缓存路径干扰；该参数不改索引缓存配置 | [请求参数](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/action/search/RestSearchAction.java#L258-L260)、[缓存准入](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/IndicesService.java#L1675-L1686)、[缓存或执行](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L750-L765) |
+| 1GB示例混用二进制单位，Parent拒绝动画reason写request；健康色仍Green | 明示H=1000MiB用于算术，实际看字节API；Parent例名称[parent]，子拒绝例[request]；健康色与内存准入分开 | [Parent文案](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java#L447-L461)；正文与7步示意同步 |
+
 ## 会话日志
+
+### 2026-10-13（ch25 熔断器与背压重构）
+
+- 同步origin/main无新增/分歧，按AGENTS/CHAPTER_STANDARD仅处理ch25；官方Archify3.0.1生成2幅workflow v2（拒绝/回滚、聚合预留覆盖），zh-CN/showcase/trace，真实固定ES仓库证据；保留并校正7步旗舰机制。
+- 原14操作ID全部保留，重排为29卡：前提5、A6、B10、C4、清理4；固定ID与refresh/count/Green、request_cache=false、两层设置及运行时限额原基线恢复、计数增量和点名清理。既有覆盖时跳过B变更，未覆盖未知值。
+- 22文件/58行段源码核对；修正预留重复相加、Parent超限复核、-1边界、统计/durability、BigArrays分配时序、terms优化语义、增量Bulk的>=条件与恢复口径。完整记录见[CH25-REVIEW](.archify/CH25-REVIEW.md)。
+- 真实官方ES容器启动退出1：缺少/proc/self/coredump_filter，9200不通；API/清理/重做全部未实测，无合成响应。仅记录本次启动错误[运行证据](.archify/review/ch25-es-runtime.json)。
+- 两图validate/deliver/strict check均showcase9/9、0错误0警告；原生browser-check仍被file导航策略阻止，finalize整体fail，与独立HTTP pass分别记录。聚合图按44px共享通道诊断作1次JSON修复，保存初稿和诊断。
+- 独立图1440/1600/1920/2048双主题、章节1920/1440/1024/768/390/320双主题通过；880px列与边界≤1px、iframe/整页无横向溢出。高度1080/640与980/620；桌面最小SVG字约7.041px、节点字约8.047px。
+- 实际查看7张联系表（24张最终阅读/图解截图+7完整机制快照）；手机图为可展开/探索的路径总览，源码表与原SVG局部滚动，正文与解说保留。主题、暂停后外层重播、节点Enter/Escape、reduced motion、29控制台链接、Pages前缀和导航/进度通过，无JS错误。原生限制未改记为通过。
+- node tools/check.mjs：30正式页/730操作卡/22机制；node --check、figwidth、源码/HTTP/局部滚动/七步快照与实际视觉审阅、diff检查通过。最终[哈希绑定](.archify/review/ch25-artifacts.json)单列API与原生浏览器限制。完成后按持续授权提交并推送origin/main。
+
 
 ### 2026-10-13（ch24 恢复与快照重构）
 

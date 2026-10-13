@@ -1,0 +1,277 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "聚合预留：6KB 与 5KB 怎样记入同一本账",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch25-aggregation-buffer-20261013-145213/aggregation-buffer.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "记账与执行"
+        },
+        "security": {
+          "label": "检查与拒绝"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "reserve",
+      "label": "聚合上下文 · 建立预留"
+    },
+    {
+      "id": "consume",
+      "label": "预留包装器 · 消耗与补差"
+    },
+    {
+      "id": "release",
+      "label": "资源释放 · 与 GC 分开"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "reserve",
+      "lane": "reserve",
+      "col": 1,
+      "yOffset": -42,
+      "type": "backend",
+      "label": "底层先预留 6KB",
+      "sublabel": "默认单个聚合 builder",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/AggregationBuilder.java",
+          "line": 201,
+          "end_line": 210,
+          "label": "默认预留量"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/PreallocatedCircuitBreakerService.java",
+          "line": 30,
+          "end_line": 39,
+          "label": "先检查底层 request"
+        }
+      ]
+    },
+    {
+      "id": "construct",
+      "lane": "reserve",
+      "col": 1,
+      "yOffset": 42,
+      "type": "backend",
+      "label": "Aggregator 记入 5KB",
+      "sublabel": "此时进入预留包装器",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/AggregatorBase.java",
+          "line": 41,
+          "end_line": 41,
+          "label": "默认重量"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/AggregatorBase.java",
+          "line": 109,
+          "end_line": 113,
+          "label": "构造记账"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/support/AggregationContext.java",
+          "line": 380,
+          "end_line": 397,
+          "label": "绑定包装器"
+        }
+      ]
+    },
+    {
+      "id": "buffer",
+      "lane": "consume",
+      "col": 1,
+      "yOffset": -42,
+      "type": "backend",
+      "label": "预留内消耗",
+      "sublabel": "缓冲未满时不重复加底层",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/PreallocatedCircuitBreakerService.java",
+          "line": 108,
+          "end_line": 126,
+          "label": "覆盖缓冲内分配"
+        }
+      ]
+    },
+    {
+      "id": "overflow",
+      "lane": "consume",
+      "col": 3,
+      "yOffset": -42,
+      "type": "backend",
+      "label": "超过预留补差",
+      "sublabel": "只将超出部分交到底层",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/PreallocatedCircuitBreakerService.java",
+          "line": 117,
+          "end_line": 123,
+          "label": "补差后转入直通模式"
+        }
+      ]
+    },
+    {
+      "id": "direct",
+      "lane": "consume",
+      "col": 3,
+      "yOffset": 42,
+      "type": "backend",
+      "label": "缓冲满后直通",
+      "sublabel": "后续增量和释放交到底层",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/PreallocatedCircuitBreakerService.java",
+          "line": 112,
+          "end_line": 115,
+          "label": "满缓冲或零字节检查"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/PreallocatedCircuitBreakerService.java",
+          "line": 130,
+          "end_line": 147,
+          "label": "释放与直通"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "lane": "release",
+      "col": 3,
+      "yOffset": -42,
+      "type": "backend",
+      "label": "关闭聚合与上下文",
+      "sublabel": "释放各自负责的记账",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/AggregatorBase.java",
+          "line": 306,
+          "end_line": 313,
+          "label": "聚合器关闭释放"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/aggregations/support/AggregationContext.java",
+          "line": 618,
+          "end_line": 622,
+          "label": "包装器最后关闭"
+        }
+      ]
+    },
+    {
+      "id": "unused",
+      "lane": "release",
+      "col": 1,
+      "yOffset": -42,
+      "type": "backend",
+      "label": "未用满预留的收尾",
+      "sublabel": "包装器返还原预留",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/PreallocatedCircuitBreakerService.java",
+          "line": 155,
+          "end_line": 171,
+          "label": "仅缓冲未满时退预留"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "reserve-construct",
+      "from": "reserve",
+      "to": "construct",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "construct-buffer",
+      "from": "construct",
+      "to": "buffer",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "buffer-overflow",
+      "from": "buffer",
+      "to": "overflow",
+      "role": "main",
+      "variant": "default",
+      "label": "超过"
+    },
+    {
+      "id": "overflow-direct",
+      "from": "overflow",
+      "to": "direct",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "direct-close",
+      "from": "direct",
+      "to": "close",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "buffer-unused",
+      "from": "buffer",
+      "to": "unused",
+      "role": "branch",
+      "variant": "dashed",
+      "label": "未用满关闭"
+    }
+  ],
+  "mainPath": [
+    "reserve",
+    "construct",
+    "buffer",
+    "overflow",
+    "direct",
+    "close"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "算一遍，避免重复相加",
+      "items": [
+        "6KB 预留内消耗 5KB：底层仍是 6KB。",
+        "累计消耗到 8KB：仅再记 2KB；不是 6 + 5 + 8。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "图的范围",
+      "items": [
+        "包装器机制示意；未包含其他数组、全局序数与合并内存。",
+        "关闭释放账额；实际堆回收仍由 JVM GC 决定。"
+      ]
+    }
+  ]
+}

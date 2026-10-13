@@ -1,0 +1,320 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "子账与 Parent：拒绝在哪一步发生",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch25-breaker-paths-20261013-145213/breaker-paths.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "记账与执行"
+        },
+        "security": {
+          "label": "检查与拒绝"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "child",
+      "label": "子熔断器 · 正数增量与正限额"
+    },
+    {
+      "id": "parent",
+      "label": "Parent · 真实堆或估算模式"
+    },
+    {
+      "id": "rejected",
+      "label": "Parent 拒绝 · 撤销本笔记账"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "child-check",
+      "lane": "child",
+      "col": 1,
+      "yOffset": -42,
+      "type": "security",
+      "label": "检查子限额",
+      "sublabel": "(used + bytes) × overhead",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java",
+          "line": 152,
+          "end_line": 188,
+          "label": "比较在 CAS 之前"
+        }
+      ]
+    },
+    {
+      "id": "child-reject",
+      "lane": "child",
+      "col": 3,
+      "yOffset": -42,
+      "type": "security",
+      "label": "子账拒绝",
+      "sublabel": "未 CAS · tripped 增加",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java",
+          "line": 73,
+          "end_line": 96,
+          "label": "子账异常与计数"
+        }
+      ]
+    },
+    {
+      "id": "cas",
+      "lane": "child",
+      "col": 1,
+      "yOffset": 42,
+      "type": "backend",
+      "label": "CAS 记入子账",
+      "sublabel": "冲突时重新读取并检查",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java",
+          "line": 152,
+          "end_line": 189,
+          "label": "检查与 CAS 循环"
+        }
+      ]
+    },
+    {
+      "id": "parent-check",
+      "lane": "parent",
+      "col": 1,
+      "yOffset": -42,
+      "type": "security",
+      "label": "测量 Parent 用量",
+      "sublabel": "默认：真实堆 + 本笔预留",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java",
+          "line": 368,
+          "end_line": 385,
+          "label": "两种计算分支"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java",
+          "line": 124,
+          "end_line": 132,
+          "label": "记账后询问 Parent"
+        }
+      ]
+    },
+    {
+      "id": "recheck",
+      "lane": "parent",
+      "col": 1,
+      "yOffset": 42,
+      "type": "security",
+      "label": "超限策略复核",
+      "sublabel": "首次超限才调用策略",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java",
+          "line": 414,
+          "end_line": 434,
+          "label": "两次比较"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java",
+          "line": 510,
+          "end_line": 534,
+          "label": "G1 与恒等策略"
+        }
+      ]
+    },
+    {
+      "id": "allowed",
+      "lane": "parent",
+      "col": 3,
+      "yOffset": -42,
+      "type": "backend",
+      "label": "检查放行",
+      "sublabel": "调用返回 · 正常路径继续",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java",
+          "line": 414,
+          "end_line": 435,
+          "label": "未最终超限则返回"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java",
+          "line": 124,
+          "end_line": 134,
+          "label": "通过后保留记账"
+        }
+      ]
+    },
+    {
+      "id": "rollback",
+      "lane": "rejected",
+      "col": 1,
+      "yOffset": -42,
+      "type": "backend",
+      "label": "回滚原始 bytes",
+      "sublabel": "addWithoutBreaking(-bytes)",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java",
+          "line": 124,
+          "end_line": 132,
+          "label": "Parent 异常回滚"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java",
+          "line": 194,
+          "end_line": 207,
+          "label": "直接调整记账"
+        }
+      ]
+    },
+    {
+      "id": "parent-reject",
+      "lane": "rejected",
+      "col": 1,
+      "yOffset": 42,
+      "type": "security",
+      "label": "向上传递 Parent 异常",
+      "sublabel": "[parent] · tripped 已增加",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java",
+          "line": 417,
+          "end_line": 434,
+          "label": "Parent 计数与异常"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java",
+          "line": 447,
+          "end_line": 461,
+          "label": "异常名称与预留量"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/breaker/ChildMemoryCircuitBreaker.java",
+          "line": 127,
+          "end_line": 132,
+          "label": "回滚后再抛"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "child-check-child-reject",
+      "from": "child-check",
+      "to": "child-reject",
+      "role": "error",
+      "variant": "security",
+      "label": "超限"
+    },
+    {
+      "id": "child-check-cas",
+      "from": "child-check",
+      "to": "cas",
+      "role": "main",
+      "variant": "default",
+      "label": "通过"
+    },
+    {
+      "id": "cas-parent-check",
+      "from": "cas",
+      "to": "parent-check",
+      "role": "main",
+      "variant": "default"
+    },
+    {
+      "id": "parent-check-allowed",
+      "from": "parent-check",
+      "to": "allowed",
+      "role": "branch",
+      "variant": "dashed",
+      "label": "未超限"
+    },
+    {
+      "id": "parent-check-recheck",
+      "from": "parent-check",
+      "to": "recheck",
+      "role": "main",
+      "variant": "default",
+      "label": "超限"
+    },
+    {
+      "id": "recheck-allowed",
+      "from": "recheck",
+      "to": "allowed",
+      "role": "branch",
+      "variant": "dashed",
+      "label": "降至限内"
+    },
+    {
+      "id": "recheck-rollback",
+      "from": "recheck",
+      "to": "rollback",
+      "role": "main",
+      "variant": "default",
+      "label": "仍超限"
+    },
+    {
+      "id": "rollback-parent-reject",
+      "from": "rollback",
+      "to": "parent-reject",
+      "role": "main",
+      "variant": "default"
+    }
+  ],
+  "mainPath": [
+    "child-check",
+    "cas",
+    "parent-check",
+    "recheck",
+    "rollback",
+    "parent-reject"
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "同样 429，拒绝位置不同",
+      "items": [
+        "子账失败不加入本笔；Parent 失败先回滚再抛。",
+        "REST 异常可能嵌在搜索错误的 root_cause。"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "图的范围",
+      "items": [
+        "固定 ES 9.4.0；正数增量、子限额 > 0 的主路径。",
+        "省略 0 / -1 特例；G1 复核不承诺一定回收或放行。"
+      ]
+    }
+  ]
+}
