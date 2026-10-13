@@ -1,0 +1,286 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Painless：允许列表检查怎样先于字节码生成",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-ch26-compile-gates-20261013-170836/compile-gates.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "编译与执行"
+        },
+        "security": {
+          "label": "允许列表检查"
+        },
+        "database": {
+          "label": "节点内编译缓存"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "lookup",
+      "label": "上下文已选定 · Lookup 来自允许列表"
+    },
+    {
+      "id": "compile",
+      "label": "缓存未命中 · 进入编译器"
+    },
+    {
+      "id": "finish",
+      "label": "正常产物或编译失败"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "context",
+      "lane": "lookup",
+      "col": 1,
+      "yOffset": -42,
+      "label": "选定 context",
+      "sublabel": "引擎取该 context 的 Compiler",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/PainlessScriptEngine.java",
+          "line": 69,
+          "end_line": 83
+        },
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/PainlessScriptEngine.java",
+          "line": 100,
+          "end_line": 112
+        }
+      ]
+    },
+    {
+      "id": "parse",
+      "lane": "lookup",
+      "col": 1,
+      "yOffset": 42,
+      "label": "解析为用户树",
+      "sublabel": "Walker 与 ANTLR 处理语法",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/Compiler.java",
+          "line": 189,
+          "end_line": 195
+        }
+      ]
+    },
+    {
+      "id": "semantic",
+      "lane": "compile",
+      "col": 1,
+      "yOffset": -42,
+      "label": "语义分析与类型检查",
+      "sublabel": "静态类型、构造器与方法查 Lookup",
+      "type": "security",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/Compiler.java",
+          "line": 194,
+          "end_line": 197
+        },
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/phase/DefaultSemanticAnalysisPhase.java",
+          "line": 1807,
+          "end_line": 1825
+        }
+      ]
+    },
+    {
+      "id": "deny",
+      "lane": "compile",
+      "col": 3,
+      "yOffset": -42,
+      "label": "File 类型不存在",
+      "sublabel": "Not a type；不进入 IR 与 ASM",
+      "type": "security",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/phase/DefaultSemanticAnalysisPhase.java",
+          "line": 1807,
+          "end_line": 1825
+        }
+      ]
+    },
+    {
+      "id": "ir",
+      "lane": "compile",
+      "col": 1,
+      "yOffset": 42,
+      "label": "用户树降为 IR",
+      "sublabel": "优化后由 ASM 写出 byte[]",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/Compiler.java",
+          "line": 196,
+          "end_line": 204
+        }
+      ]
+    },
+    {
+      "id": "load",
+      "lane": "finish",
+      "col": 1,
+      "yOffset": -42,
+      "label": "Loader 定义生成类",
+      "sublabel": "继承 ClassLoader；再生成 factory",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/Compiler.java",
+          "line": 51,
+          "end_line": 95
+        },
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/PainlessScriptEngine.java",
+          "line": 100,
+          "end_line": 112
+        }
+      ]
+    },
+    {
+      "id": "factory",
+      "lane": "finish",
+      "col": 1,
+      "yOffset": 42,
+      "label": "返回已编译 factory",
+      "sublabel": "ScriptCache 存 factory；调用方建实例",
+      "type": "database",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/script/ScriptCache.java",
+          "line": 89,
+          "end_line": 117
+        }
+      ]
+    },
+    {
+      "id": "error",
+      "lane": "finish",
+      "col": 3,
+      "yOffset": -42,
+      "label": "包装 compile error",
+      "sublabel": "异常链保留类型与位置信息",
+      "type": "security",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/PainlessScriptEngine.java",
+          "line": 368,
+          "end_line": 378
+        },
+        {
+          "path": "modules/lang-painless/src/main/java/org/elasticsearch/painless/PainlessScriptEngine.java",
+          "line": 458,
+          "end_line": 467
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "context-parse",
+      "from": "context",
+      "to": "parse",
+      "variant": "default"
+    },
+    {
+      "id": "parse-semantic",
+      "from": "parse",
+      "to": "semantic",
+      "variant": "default"
+    },
+    {
+      "id": "semantic-deny",
+      "from": "semantic",
+      "to": "deny",
+      "variant": "default",
+      "role": "error",
+      "label": "类型缺失"
+    },
+    {
+      "id": "semantic-ir",
+      "from": "semantic",
+      "to": "ir",
+      "variant": "default",
+      "label": "检查通过"
+    },
+    {
+      "id": "ir-load",
+      "from": "ir",
+      "to": "load",
+      "variant": "default"
+    },
+    {
+      "id": "load-factory",
+      "from": "load",
+      "to": "factory",
+      "variant": "default"
+    },
+    {
+      "id": "deny-error",
+      "from": "deny",
+      "to": "error",
+      "variant": "default",
+      "role": "error"
+    }
+  ],
+  "mainPath": [
+    "context",
+    "parse",
+    "semantic",
+    "ir",
+    "load",
+    "factory"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "图的适用范围",
+      "items": [
+        "展示一次缓存未命中的编译调用；缓存命中跳过此链。",
+        "省略各优化 pass 与 factory 字节码细节。",
+        "def 方法可延迟至执行期查允许列表；并非所有检查都在编译期结束。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Loader 的准确边界",
+      "items": [
+        "ES 9.4.0 中继承 ClassLoader，存在父加载器委派。",
+        "findClass 支持 additionalClasses 与 Lookup；不能据此断言 JVM 无法加载任何未列类型。",
+        "拒绝 File 的证据是 visitNewObj 对 Lookup 的检查。"
+      ]
+    }
+  ]
+}

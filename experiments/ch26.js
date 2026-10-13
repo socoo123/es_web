@@ -1,375 +1,805 @@
-/* experiments/ch26.js — 第 26 课:脚本引擎实验 + 一段脚本的编译旅程动画 */
+/* ch26 · ES 9.4.0 / Lucene 10.4.0；操作卡顺序与章节一致。 */
 (function () {
   'use strict';
-
-  /* ===== 动画:一段脚本从字符串到 execute() ===== */
-  function rect(x, y, w, h, cls, anim) {
-    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="9" class="' + cls + (anim ? ' ' + anim : '') + '"/>';
+  var operations = [
+  {
+    "version": 1,
+    "id": "ch26-pre-version",
+    "title": "前置 1 · 核对节点与 Lucene 版本",
+    "method": "GET",
+    "path": "/",
+    "body": null,
+    "predict": "是否为本课的 9.4.0 节点？",
+    "expect": "version.number 应为 9.4.0，lucene_version 为 10.4.0。使用本地隔离学习节点；本轮云端 API 未实测。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-pre-cluster-settings",
+    "title": "前置 2 · 保存 expensive 设置的两层来源",
+    "method": "GET",
+    "path": "/_cluster/settings?flat_settings=true&include_defaults=true",
+    "body": null,
+    "predict": "transient 与 persistent 有原值吗？",
+    "expect": "保存完整响应。E 组仅在该键两层均不存在、节点有效基线为 true 时执行；有原值则跳过 E 与相应设置清理，不能覆盖后用 null 假装恢复。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-pre-node-settings",
+    "title": "前置 3 · 核对单节点、角色与脚本限制",
+    "method": "GET",
+    "path": "/_nodes/settings?flat_settings=true&include_defaults=true",
+    "body": null,
+    "predict": "当前节点是否允许 inline 脚本、score/field/update/ingest/painless_test？",
+    "expect": "确认仅一学习节点且有 ingest 角色，脚本类型/context 未被禁用。保存节点 search.allow_expensive_queries 的配置/默认；E 组要求基线 true。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-pre-index",
+    "title": "前置 4 · 本章索引须不存在",
+    "method": "HEAD",
+    "path": "/tut-l26-score",
+    "body": null,
+    "predict": "资源应当存在还是不存在？",
+    "expect": "起步应 HTTP 404。若已存在，先核对它确属本章上轮资源再按清理顺序重做；不在未知数据上直接覆盖。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-pre-pipeline",
+    "title": "前置 5 · 正常管道须不存在",
+    "method": "GET",
+    "path": "/_ingest/pipeline/tut-l26-script",
+    "body": null,
+    "predict": "是否有上轮管道？",
+    "expect": "起步 404。若存在先核对归属，再执行本章点名清理；PUT 同名管道会更新，不能把未知管道当空白。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-pre-bad-pipeline",
+    "title": "前置 6 · 失败演示的名字也须不存在",
+    "method": "GET",
+    "path": "/_ingest/pipeline/tut-l26-file",
+    "body": null,
+    "predict": "失败 PUT 是否可能留下旧管道？",
+    "expect": "起步 404；若已存在，先处理旧资源再做 C 组。后续编译失败不会证明同名旧资源不存在。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-01-setup",
+    "title": "A1 · 建一主零副本、显式 mapping 的索引",
+    "method": "PUT",
+    "path": "/tut-l26-score",
+    "body": {
+      "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0,
+        "auto_expand_replicas": "false"
+      },
+      "mappings": {
+        "dynamic": "strict",
+        "properties": {
+          "title": {
+            "type": "keyword"
+          },
+          "popularity": {
+            "type": "long"
+          },
+          "price": {
+            "type": "double"
+          },
+          "views": {
+            "type": "long"
+          }
+        }
+      }
+    },
+    "predict": "数字脚本读什么数据？",
+    "expect": "acknowledged=true；数值字段有 doc values，views 先声明以适配 strict。text 默认既无 doc values 又禁 fielddata，不能直接把它当数值 .value；keyword 才适合未分析字符串。重复建索引会 400。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-a-health",
+    "title": "A2 · 等待本章索引可用",
+    "method": "GET",
+    "path": "/_cluster/health/tut-l26-score?wait_for_status=green&timeout=30s",
+    "body": null,
+    "predict": "整个集群 yellow 会影响本章结论吗？",
+    "expect": "只确认本索引 timed_out=false、status=green、主分片已分配；其他索引状态不构成本章测量。超时先解决分配，再写入。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-a-config",
+    "title": "A3 · 回看创建版本、settings 与 mapping",
+    "method": "GET",
+    "path": "/tut-l26-score",
+    "body": null,
+    "predict": "是否真是一主零副本与数值字段？",
+    "expect": "核对 index.version.created、1/0/auto_expand=false、dynamic=strict、title keyword 与三个数值字段。模板可能叠加别的配置；核对后才继续。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-02-bulk",
+    "title": "A4 · 固定 ID 写两篇文档并刷新",
+    "method": "POST",
+    "path": "/tut-l26-score/_bulk?refresh=true",
+    "body": "{\"index\":{\"_id\":\"cheap\"}}\n{\"title\":\"obscure\",\"popularity\":10,\"price\":100.0}\n{\"index\":{\"_id\":\"popular\"}}\n{\"title\":\"hit\",\"popularity\":100,\"price\":80.0}\n",
+    "predict": "首次与重复写入是否增加文档数？",
+    "expect": "errors=false；首次 created，重复 updated，固定 ID 仍只有两篇。此卡会以原文档替换旧 _source（去掉旧 views），refresh=true 消除搜索可见性竞态；不靠自动刷新时钟。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-a-count",
+    "title": "A5 · 确认两篇已可搜索",
+    "method": "GET",
+    "path": "/tut-l26-score/_count",
+    "body": null,
+    "predict": "写第二遍 count 会是 4 吗？",
+    "expect": "count=2。若不同，停止后续分数对照；索引或数据不满足起步条件。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-03-score-pop",
+    "title": "A6 · _score × popularity / 100",
+    "method": "POST",
+    "path": "/tut-l26-score/_search?request_cache=false",
+    "body": {
+      "size": 2,
+      "query": {
+        "script_score": {
+          "query": {
+            "match_all": {}
+          },
+          "script": {
+            "source": "_score * doc['popularity'].value / 100"
+          }
+        }
+      }
+    },
+    "predict": "match_all 的分数怎样参与？",
+    "expect": "query 显式 match_all，默认 boost=1：popular 1.0 在前，cheap 约 0.1。脚本返回评分；这里显式读取 _score 才组合内层分数。REST _score 为 float，注意小数表示。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-04-score-price",
+    "title": "A7 · 仅按 price × 0.9 评分",
+    "method": "POST",
+    "path": "/tut-l26-score/_search?request_cache=false",
+    "body": {
+      "size": 2,
+      "query": {
+        "script_score": {
+          "query": {
+            "match_all": {}
+          },
+          "script": {
+            "source": "doc['price'].value * 0.9"
+          }
+        }
+      }
+    },
+    "predict": "price 与 popularity 谁决定结果？",
+    "expect": "cheap 90、popular 72；这句未读 _score 或 popularity。默认外层 boost=1 时分数就是脚本返回值；function_score 的组合由 boost_mode 等决定，不总是乘法。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-05-script-fields",
+    "title": "A8 · field context 返回折扣价",
+    "method": "POST",
+    "path": "/tut-l26-score/_search?request_cache=false",
+    "body": {
+      "size": 2,
+      "query": {
+        "match_all": {}
+      },
+      "sort": [
+        {
+          "title": "asc"
+        }
+      ],
+      "track_scores": true,
+      "script_fields": {
+        "discounted_price": {
+          "script": {
+            "source": "doc['price'].value * params.discount",
+            "params": {
+              "discount": 0.8
+            }
+          }
+        }
+      }
+    },
+    "predict": "返回字段会改原文档或分数吗？",
+    "expect": "按 title 升序：popular fields.discounted_price=[64.0]、cheap=[80.0]；track_scores=true 保留 match_all 的 1.0。这是响应计算字段，不把 discounted_price 写进 _source。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-a-field-param",
+    "title": "A9 · 同一 field 源码，discount 改 0.9",
+    "method": "POST",
+    "path": "/tut-l26-score/_search?request_cache=false",
+    "body": {
+      "size": 2,
+      "query": {
+        "match_all": {}
+      },
+      "sort": [
+        {
+          "title": "asc"
+        }
+      ],
+      "track_scores": true,
+      "script_fields": {
+        "discounted_price": {
+          "script": {
+            "source": "doc['price'].value * params.discount",
+            "params": {
+              "discount": 0.9
+            }
+          }
+        }
+      }
+    },
+    "predict": "换 params 是否形成新编译键？",
+    "expect": "popular [72.0]、cheap [90.0]；分数仍 1.0。source/context/options 不变，params 不进编译键；是否命中还取决于同节点缓存是否保留。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-06-update",
+    "title": "A10 · update context 赋值 views=1",
+    "method": "POST",
+    "path": "/tut-l26-score/_update/cheap?refresh=true",
+    "body": {
+      "script": {
+        "source": "ctx._source.views = params.count",
+        "params": {
+          "count": 1
+        }
+      }
+    },
+    "predict": "和 script_fields 的修改对象相同吗？",
+    "expect": "成功后 views=1，更新经过文档重索引。不要写死 _version=2：重复 bulk/update 都可能改变版本；这里只比较 _source。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-07-get-cheap",
+    "title": "A11 · 回看持久文档源",
+    "method": "GET",
+    "path": "/tut-l26-score/_doc/cheap?filter_path=_source",
+    "body": null,
+    "predict": "折扣价也写入了吗？",
+    "expect": "_source 含 views=1、popularity=10、price=100、title=obscure；没有 discounted_price。ingest 的字段写 ctx 顶层，update 是 ctx._source，不能混用。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-08-pipeline-put",
+    "title": "B1 · inline ingest 脚本在建管道时验证",
+    "method": "PUT",
+    "path": "/_ingest/pipeline/tut-l26-script",
+    "body": {
+      "processors": [
+        {
+          "script": {
+            "source": "ctx.fullname = ctx.first_name + ' ' + ctx.last_name"
+          }
+        }
+      ]
+    },
+    "predict": "等第一条文档才编译吗？",
+    "expect": "预期 acknowledged=true。创建 ScriptProcessor 会调用 compile（缓存可命中）；inline processor 保留预编译 factory，stored processor 不长期持有它。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-09-simulate",
+    "title": "B2 · 模拟拼接 fullname",
+    "method": "POST",
+    "path": "/_ingest/pipeline/tut-l26-script/_simulate",
+    "body": {
+      "docs": [
+        {
+          "_index": "tut-l26-score",
+          "_id": "simulate-only",
+          "_source": {
+            "first_name": "Grace",
+            "last_name": "Hopper"
+          }
+        }
+      ]
+    },
+    "predict": "simulate 会把这篇写进索引吗？",
+    "expect": "docs[0].doc._source.fullname=\"Grace Hopper\"，结果路径包含 doc。模拟运行 processor，不做真实索引写入，也不以索引 mapping 验证这些测试字段；count 仍为 2。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-10-file-execute",
+    "title": "C1 · new File：直接观察完整错误链",
+    "method": "POST",
+    "path": "/_scripts/painless/_execute",
+    "body": {
+      "script": {
+        "source": "return new java.io.File(\"/tmp/painless-should-not-exist\");"
+      }
+    },
+    "predict": "构造 File 就等于创建磁盘文件吗？",
+    "expect": "源码预期 400、compile error、Not a type [java.io.File].，带 script_stack。失败在 visitNewObj，未到 IR/ASM。Java 的 File 构造本身也不创建文件；本轮未做 API 或磁盘实测。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-11-file-search",
+    "title": "C2 · 同一句放入 script_score",
+    "method": "POST",
+    "path": "/tut-l26-score/_search?request_cache=false",
+    "body": {
+      "size": 2,
+      "query": {
+        "script_score": {
+          "query": {
+            "match_all": {}
+          },
+          "script": {
+            "source": "return new java.io.File(\"/tmp/x\");"
+          }
+        }
+      }
+    },
+    "predict": "错误的外层包装与 _execute 相同吗？",
+    "expect": "预期搜索失败（通常 400），沿 root_cause/failed_shards/caused_by 找 compile error 与 Not a type。外层错误取决于搜索阶段和包装；不要只凭最外层 reason 判定拒绝位置。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-12-file-pipeline",
+    "title": "C3 · 坏 inline 脚本在 PUT 管道时被拒",
+    "method": "PUT",
+    "path": "/_ingest/pipeline/tut-l26-file",
+    "body": {
+      "processors": [
+        {
+          "script": {
+            "source": "ctx.f = new java.io.File(\"/tmp/x\")"
+          }
+        }
+      ]
+    },
+    "predict": "管道能够先建好再等待写入失败吗？",
+    "expect": "源码预期 PUT 400、配置错误链包含 compile error 与 Not a type。创建 processor 时已验证编译；仅在前置确认不存在时，后续 404 才能说明没创建新管道。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-c-bad-absent",
+    "title": "C4 · 验证失败管道仍不存在",
+    "method": "GET",
+    "path": "/_ingest/pipeline/tut-l26-file",
+    "body": null,
+    "predict": "失败 PUT 会留下资源吗？",
+    "expect": "前置 404 且 C3 确实编译失败时，这里应 404。若出现 200，核对已有资源或实际环境的允许列表扩展，停止按预期继续清理。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-13-decl",
+    "title": "C5 · 声明 File 类型",
+    "method": "POST",
+    "path": "/_scripts/painless/_execute",
+    "body": {
+      "script": {
+        "source": "java.io.File f = null; return 1;"
+      }
+    },
+    "predict": "报错是否仍叫 Not a type？",
+    "expect": "预期 compile error，原因 invalid declaration: cannot resolve type [java.io.File]。声明与 new 的语义入口不同；位置只辅助定位，不硬编码 offset=13。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-14-getclass",
+    "title": "C6 · 静态 String 调 getClass",
+    "method": "POST",
+    "path": "/_scripts/painless/_execute",
+    "body": {
+      "script": {
+        "source": "String s = \"x\"; return s.getClass();"
+      }
+    },
+    "predict": "拒绝发生在什么时候？",
+    "expect": "预期 compile error：member method [java.lang.String, getClass/0] not found。默认允许列表没有该成员；静态类型在语义分析时查表。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-c-def-getclass",
+    "title": "C7 · def 调 getClass 的运行期对照",
+    "method": "POST",
+    "path": "/_scripts/painless/_execute",
+    "body": {
+      "script": {
+        "source": "def x = 1; return x.getClass();"
+      }
+    },
+    "predict": "def 能跳过允许列表吗？",
+    "expect": "预期 runtime error：dynamic method [java.lang.Integer, getClass/0] not found。编译可产出动态调用，执行时仍查 runtime Lookup；不能说执行期没有任何查表。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-15-context-classes",
+    "title": "C8 · 查看实际 score context 的允许列表",
+    "method": "GET",
+    "path": "/_scripts/painless/_context?context=score",
+    "body": null,
+    "predict": "classes 数量固定为 404 吗？",
+    "expect": "默认发行版应有 java.lang.String，没有 java.io.File/java.lang.Runtime/java.lang.Class；classes 数量由版本与扩展决定，不写死。该 API 是内部调试入口，输出不是长期稳定契约。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-d-stats-before",
+    "title": "D1 · 保存本节点脚本编译统计",
+    "method": "GET",
+    "path": "/_nodes/_local/stats/script?filter_path=nodes.*.name,nodes.*.script",
+    "body": null,
+    "predict": "累计编译数应从 0 开始吗？",
+    "expect": "保存节点 ID 与 script.compilations/cache_evictions/compilation_limit_triggered。此前实验已编译过脚本；这些累计值不随删索引清零。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-d-param-2",
+    "title": "D2 · 固定 source，只换 multiplier=2",
+    "method": "POST",
+    "path": "/_scripts/painless/_execute",
+    "body": {
+      "script": {
+        "source": "return params.multiplier * 26;",
+        "params": {
+          "multiplier": 2
+        }
+      }
+    },
+    "predict": "结果与编译次数都应怎样变化？",
+    "expect": "默认 painless_test context 的 result 被序列化为字符串 \"52\"。首次该键可编译也可已缓存；第二次仅改 params，在缓存仍保留时复用 factory。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-d-stats-2",
+    "title": "D3 · 对比参数请求后的累计值",
+    "method": "GET",
+    "path": "/_nodes/_local/stats/script?filter_path=nodes.*.name,nodes.*.script",
+    "body": null,
+    "predict": "前后增加能否全部归因于本卡？",
+    "expect": "比较同一节点相邻快照；无并发、无淘汰/过期/配置切换且请求成功时，第二次仅换 params 不新增编译。第一次可能早已命中；其他脚本、节点重启会污染对照，不能强求历史计数。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-d-param-3",
+    "title": "D4 · 固定 source，只换 multiplier=3",
+    "method": "POST",
+    "path": "/_scripts/painless/_execute",
+    "body": {
+      "script": {
+        "source": "return params.multiplier * 26;",
+        "params": {
+          "multiplier": 3
+        }
+      }
+    },
+    "predict": "结果与编译次数都应怎样变化？",
+    "expect": "默认 painless_test context 的 result 被序列化为字符串 \"78\"。首次该键可编译也可已缓存；第二次仅改 params，在缓存仍保留时复用 factory。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-d-stats-3",
+    "title": "D5 · 对比参数请求后的累计值",
+    "method": "GET",
+    "path": "/_nodes/_local/stats/script?filter_path=nodes.*.name,nodes.*.script",
+    "body": null,
+    "predict": "前后增加能否全部归因于本卡？",
+    "expect": "比较同一节点相邻快照；无并发、无淘汰/过期/配置切换且请求成功时，第二次仅换 params 不新增编译。第一次可能早已命中；其他脚本、节点重启会污染对照，不能强求历史计数。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-16-expensive-off",
+    "title": "E1 · 条件满足时设置 expensive=false",
+    "method": "PUT",
+    "path": "/_cluster/settings",
+    "body": {
+      "transient": {
+        "search.allow_expensive_queries": false
+      }
+    },
+    "predict": "允许列表通过就一定可用 script_score 吗？",
+    "expect": "仅在前置两层均无覆盖、节点基线 true 的隔离节点执行。此设置影响全节点查询；成功后 E2 确认，再 E3 测试，立即 E4 恢复；不满足前提则整组跳过。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-e-confirm-off",
+    "title": "E2 · 确认 transient false 已出现",
+    "method": "GET",
+    "path": "/_cluster/settings?flat_settings=true&include_defaults=true",
+    "body": null,
+    "predict": "设置层真的生效了吗？",
+    "expect": "确认该键 transient=false；记录原 persistent 仍无覆盖。读取结果不符时停止 E3，并处理刚执行的设置恢复。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-17-expensive-reject",
+    "title": "E3 · 无害评分脚本也会拒绝",
+    "method": "POST",
+    "path": "/tut-l26-score/_search?request_cache=false",
+    "body": {
+      "size": 2,
+      "query": {
+        "script_score": {
+          "query": {
+            "match_all": {}
+          },
+          "script": {
+            "source": "return 1.0;"
+          }
+        }
+      }
+    },
+    "predict": "此处会调用编译器吗？",
+    "expect": "预期错误链含 [script score] queries cannot be executed when search.allow_expensive_queries is set to false。doToQuery 先检查设置，再 compile；不是对脚本危险性的分析。保留完整错误，不隐藏关键层。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-18-restore",
+    "title": "E4 · 立即移除本次 transient 覆盖",
+    "method": "PUT",
+    "path": "/_cluster/settings",
+    "body": {
+      "transient": {
+        "search.allow_expensive_queries": null
+      }
+    },
+    "predict": "null 具体删掉哪一层？",
+    "expect": "仅 E1 执行后运行；null 移除这个 transient 键，不把 persistent 或节点配置重写为 true。因为起步两层均无覆盖且节点基线 true，本组才可以称恢复基线。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-e-confirm-restored",
+    "title": "E5 · 核对恢复后的来源",
+    "method": "GET",
+    "path": "/_cluster/settings?flat_settings=true&include_defaults=true",
+    "body": null,
+    "predict": "只见 acknowledged 足够吗？",
+    "expect": "确认 transient 键已消失、persistent 仍无该键，对照前置保存的节点/default true。若原本有其他来源则本组应跳过，而不是删除未知设置。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-e-score-restored",
+    "title": "E6 · 同一脚本重新建查询",
+    "method": "POST",
+    "path": "/tut-l26-score/_search?request_cache=false",
+    "body": {
+      "size": 2,
+      "query": {
+        "script_score": {
+          "query": {
+            "match_all": {}
+          },
+          "script": {
+            "source": "return 1.0;"
+          }
+        }
+      }
+    },
+    "predict": "恢复后是不是分数又乘了 popularity？",
+    "expect": "两篇均 _score=1.0、hits.total.value=2（默认 boost=1）。同分顺序不承诺；用 _id 对照。若仍拒绝，回到有效设置与脚本限制检查。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-clean-setting",
+    "title": "清理 1 · 若 E1 已执行，再确认移除本次覆盖",
+    "method": "PUT",
+    "path": "/_cluster/settings",
+    "body": {
+      "transient": {
+        "search.allow_expensive_queries": null
+      }
+    },
+    "predict": "如果 E 组跳过也应执行吗？",
+    "expect": "仅 E1 曾执行时运行；删除同一临时键可重复，不动其他设置。E 组跳过则此卡也跳过，避免移除原有 transient 值。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-clean-settings-check",
+    "title": "清理 2 · 对照起步设置来源",
+    "method": "GET",
+    "path": "/_cluster/settings?flat_settings=true&include_defaults=true",
+    "body": null,
+    "predict": "还原哪个基线？",
+    "expect": "比较前置完整响应与节点基线；不能只看 defaults=true。设置条件不满足的读者应看到原覆盖值保持原样。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-19-cleanup",
+    "title": "清理 3 · 点名删除本章索引",
+    "method": "DELETE",
+    "path": "/tut-l26-score",
+    "body": null,
+    "predict": "删除索引会清空脚本缓存统计吗？",
+    "expect": "首次 acknowledged=true，重复通常 404。只删除 tut-l26-score 两篇学习文档；编译缓存与节点累计统计不因此清零。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-clean-index-absent",
+    "title": "清理 4 · 验证索引消失",
+    "method": "HEAD",
+    "path": "/tut-l26-score",
+    "body": null,
+    "predict": "资源应当存在还是不存在？",
+    "expect": "HTTP 404。重做从前置开始，然后 A1 建索引；不要靠旧 _source 或历史版本值当证据。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-20-cleanup-pipeline",
+    "title": "清理 5 · 点名删除正常管道",
+    "method": "DELETE",
+    "path": "/_ingest/pipeline/tut-l26-script",
+    "body": null,
+    "predict": "模拟结果有需要删除的文档吗？",
+    "expect": "首次 acknowledged=true，重复通常 404。simulate 没有写入文档；只删本章正常管道，不对管道做通配符清理。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-clean-pipeline-absent",
+    "title": "清理 6 · 验证正常管道消失",
+    "method": "GET",
+    "path": "/_ingest/pipeline/tut-l26-script",
+    "body": null,
+    "predict": "管道是否真的清理？",
+    "expect": "预期 404。重做 B1 会创建新的 processor；不能拿旧管道配置推断当前编译行为。"
+  },
+  {
+    "version": 1,
+    "id": "ch26-clean-bad-absent",
+    "title": "清理 7 · 再确认失败演示名字不存在",
+    "method": "GET",
+    "path": "/_ingest/pipeline/tut-l26-file",
+    "body": null,
+    "predict": "需要删坏管道吗？",
+    "expect": "前置 404、C3 编译失败且中间无人创建时仍 404；本实验没有创建这个管道。如果出现 200，先核对归属与实际失败结果，再处理，勿盲删。"
   }
-  function txt(x, y, s, cls, warn, anim) {
-    var st = warn ? ' style="fill: rgb(var(--warn))"' : '';
-    return '<text x="' + x + '" y="' + y + '" text-anchor="middle" class="' + cls + (anim ? ' ' + anim : '') + '"' + st + '>' + s + '</text>';
-  }
-  function arrow(id, x1, y1, x2, y2) {
-    return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" class="fig-arrow" marker-end="url(#' + id + ')"/>';
-  }
-  function defs(id) {
-    return '<defs><marker id="' + id + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-      + '<path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>';
-  }
-  function bottom(title, sub) {
-    var s = rect(15, 240, 730, 48, 'fig-box-hot', 'fp-pop');
-    s += txt(380, 261, title, 'fig-name');
-    s += txt(380, 281, sub, 'fig-sub');
-    return s;
-  }
-
-  /* 步骤 1:请求到达,还只是字符串 */
-  function step1() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('k1');
-    s += rect(15, 15, 730, 60, 'fig-box');
-    s += txt(380, 38, 'POST /tut-l26-score/_search(script_score)', 'fig-name');
-    s += txt(380, 60, 'query: match_all + script.source: doc[\'price\'].value * 0.9', 'fig-sub');
-    s += rect(15, 90, 730, 60, 'fig-box');
-    s += txt(380, 113, '此刻 source 只是一段 JSON 字符串', 'fig-key');
-    s += txt(380, 135, '没有解析、没有查表、没有字节码——什么都不曾发生', 'fig-sub');
-    s += rect(15, 165, 730, 54, 'fig-box');
-    s += txt(380, 186, 'ScriptScoreQueryBuilder.doToQuery', 'fig-key');
-    s += txt(380, 208, 'context.compile(script, ScoreScript.CONTEXT) —— 编译从这里开始', 'fig-sub');
-    s += bottom('入口:评分脚本在内层 query 变成 Lucene Query 之前编译', 'query 为 null 连构造都过不了:REST 缺 query 实测 400 Required [query]');
-    return s + '</svg>';
-  }
-
-  /* 步骤 2:ANTLR 解析成用户树 */
-  function step2() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('k2');
-    s += rect(15, 15, 730, 56, 'fig-box');
-    s += txt(380, 38, 'Walker.buildPainlessTree → ANTLR PainlessParser', 'fig-name');
-    s += txt(380, 60, '源码字符串 → 用户树 SClass(每个节点带 Location,供报错画 ^---- HERE)', 'fig-sub');
-    s += rect(15, 88, 355, 76, 'fig-box');
-    s += txt(192, 112, '这一步只认语法', 'fig-name');
-    s += txt(192, 136, '括号配对、类型名长得像不像类', 'fig-sub');
-    s += txt(192, 156, 'java.io.File 在这里还是普通字符', 'fig-sub');
-    s += rect(390, 88, 355, 76, 'fig-box');
-    s += txt(567, 112, '还不认识任何类型', 'fig-name');
-    s += txt(567, 136, 'value 是不是字段?乘法有没有定义?', 'fig-sub');
-    s += txt(567, 156, '全部留给下一跳:语义分析', 'fig-sub');
-    s += rect(15, 180, 730, 44, 'fig-box');
-    s += txt(380, 200, '「不是 eval」证据一:先有树,再谈名字', 'fig-sub');
-    s += txt(380, 217, 'eval 会在运行时才拿字符串去找类;这里树先建好,等表来审', 'fig-sub');
-    s += bottom('解析:语法层完成,类型问题原封未动', 'AST 只是中间态——离字节码还有两道检查');
-    return s + '</svg>';
-  }
-
-  /* 步骤 3:语义分析对照 Lookup */
-  function step3() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('k3');
-    s += rect(15, 15, 730, 56, 'fig-box-hot');
-    s += txt(380, 38, 'PainlessSemanticAnalysisPhase:逐个名字对照 PainlessLookup', 'fig-name');
-    s += txt(380, 60, '这张表由 PainlessPlugin.baseWhiteList() 的 txt + context 叠加 txt 装出,构造时冻住', 'fig-sub');
-    s += rect(15, 88, 355, 92, 'fig-box');
-    s += txt(192, 110, '基础白名单(共享)', 'fig-name');
-    s += txt(192, 132, 'java.lang / java.util / java.time*', 'fig-sub');
-    s += txt(192, 152, 'java.math / java.text / java.util.regex', 'fig-sub');
-    s += txt(192, 172, 'java.nio(Buffer 家族,无 Path)', 'fig-sub');
-    s += rect(390, 88, 355, 92, 'fig-box');
-    s += txt(567, 110, 'score context 叠加', 'fig-name');
-    s += txt(567, 132, 'org.elasticsearch.script.score.txt', 'fig-sub');
-    s += txt(567, 152, '加 saturation / decayGeoGauss 绑定', 'fig-sub');
-    s += txt(567, 172, '只加不减:File 不会回来', 'fig-sub');
-    s += rect(15, 196, 730, 30, 'fig-box');
-    s += txt(380, 215, 'doc[...] 取值、value、乘法:都在表上 → 通过', 'fig-key');
-    s += bottom('语义分析:脚本能叫出名字的类,必须先写在 txt 里', 'canonicalTypeNameToType 查不到返回 null——没有 Class.forName 的后路');
-    return s + '</svg>';
-  }
-
-  /* 步骤 4:IR + ASM 写出 byte[] */
-  function step4() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('k4');
-    s += rect(15, 15, 730, 56, 'fig-box');
-    s += txt(380, 38, '用户树 → IR(ClassNode):PainlessUserTreeToIRTreePhase', 'fig-name');
-    s += txt(380, 60, '顺手做常量折叠、字符串拼接优化——编译器该有的都有', 'fig-sub');
-    s += rect(15, 88, 355, 76, 'fig-box');
-    s += txt(192, 112, 'DefaultIRTreeToASMBytesPhase', 'fig-name');
-    s += txt(192, 136, 'IR → byte[](真的 JVM 字节码)', 'fig-sub');
-    s += txt(192, 156, '类名固定 PainlessScript$Script', 'fig-sub');
-    s += rect(390, 88, 355, 76, 'fig-box-hot', 'fp-pop');
-    s += txt(567, 112, '产物是一个 class', 'fig-name');
-    s += txt(567, 136, '不是解释器里的语法树', 'fig-sub');
-    s += txt(567, 156, 'execute() 是真方法,JIT 可优化', 'fig-sub');
-    s += rect(15, 180, 730, 44, 'fig-box');
-    s += txt(380, 200, '对照 eval:eval 每次执行都重新理解字符串', 'fig-sub');
-    s += txt(380, 217, '这里理解一次,之后只剩方法调用', 'fig-sub');
-    s += bottom('字节码生成:通过检查的树,落成可加载的 class', '常量池里只可能出现在 txt 表上的类型——这就是安全宇宙');
-    return s + '</svg>';
-  }
-
-  /* 步骤 5:加载与缓存 */
-  function step5() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('k5');
-    s += rect(15, 15, 355, 96, 'fig-box');
-    s += txt(192, 39, 'Loader.defineScript', 'fig-name');
-    s += txt(192, 63, '继承 SecureClassLoader', 'fig-sub');
-    s += txt(192, 83, 'CodeSource 指向 UNTRUSTED_CODEBASE', 'fig-sub');
-    s += txt(192, 103, 'findClass 只认 Lookup 里那几个类', 'fig-sub');
-    s += rect(390, 15, 355, 96, 'fig-box-hot', 'fp-pop');
-    s += txt(567, 39, 'ScriptCache.computeIfAbsent', 'fig-name');
-    s += txt(567, 63, 'key = context + 源码 + params', 'fig-sub');
-    s += txt(567, 83, '千篇文档只编译这一次', 'fig-sub');
-    s += txt(567, 103, '「不是逐文档 eval」证据二', 'fig-sub');
-    s += rect(15, 128, 730, 92, 'fig-box');
-    s += txt(380, 152, 'factory.newFactory(params, lookup)', 'fig-key');
-    s += txt(380, 176, '每个 shard 拿 factory 造 LeafFactory,逐段读 doc values', 'fig-sub');
-    s += txt(380, 196, 'ScoreScript.get_score() 就是脚本里的 _score 变量', 'fig-sub');
-    s += txt(380, 216, '编译一次,实例随请求生灭', 'fig-sub');
-    s += bottom('加载 + 缓存:同一句脚本在整个集群生命周期里通常只编一次', 'context 不同则另算:score 与 ingest 各有各的缓存条目');
-    return s + '</svg>';
-  }
-
-  /* 步骤 6:每篇文档调 execute() */
-  function step6() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('k6');
-    s += rect(15, 15, 730, 50, 'fig-box');
-    s += txt(380, 36, '内层 match_all 的 _score = 1.0', 'fig-name');
-    s += txt(380, 56, '对每篇命中文档调 execute():_score * doc[\'popularity\'].value / 100', 'fig-sub');
-    s += rect(15, 80, 355, 76, 'fig-box');
-    s += txt(192, 103, 'cheap: popularity=10', 'fig-name');
-    s += txt(192, 127, '1.0 * 10 / 100 = 0.1', 'fig-key');
-    s += txt(192, 147, '读的是 doc values,不是 _source', 'fig-sub');
-    s += rect(390, 80, 355, 76, 'fig-box');
-    s += txt(567, 103, 'popular: popularity=100', 'fig-name');
-    s += txt(567, 127, '1.0 * 100 / 100 = 1.0', 'fig-key');
-    s += txt(567, 147, '排在前,和 BM25 无关', 'fig-sub');
-    s += rect(15, 172, 730, 54, 'fig-box');
-    s += txt(380, 193, '换成 doc[\'price\'].value * 0.9:cheap 90 / popular 72', 'fig-key');
-    s += txt(380, 215, 'script_score 完全替换内层分数——和 function_score 的乘一层不同(第 20 课)', 'fig-sub');
-    s += bottom('执行期:只剩方法调用,没有解析、没有查表', 'CPU 花在算术与 doc values 读取上——expensive 开关管的就是这笔');
-    return s + '</svg>';
-  }
-
-  /* 步骤 7:对照支线——File 在第 3 步就死了 */
-  function step7() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('k7');
-    s += rect(15, 15, 730, 50, 'fig-box');
-    s += txt(380, 36, '对照:source = new java.io.File("/tmp/x")', 'fig-name');
-    s += txt(380, 56, '同样走到语义分析(visitNewObj),接下来发生什么?', 'fig-sub');
-    s += rect(15, 80, 355, 60, 'fig-box');
-    s += txt(192, 103, 'canonicalTypeNameToType 查表', 'fig-name');
-    s += txt(192, 127, 'java.io 不在任何 txt 里 → null', 'fig-sub');
-    s += rect(390, 80, 355, 60, 'fig-box-hot', 'fp-pop');
-    s += txt(567, 103, 'Not a type [java.io.File].', 'fig-name', true);
-    s += txt(567, 127, 'IllegalArgumentException,位置信息画 ^---- HERE', 'fig-sub');
-    s += rect(15, 156, 730, 70, 'fig-box');
-    s += txt(380, 179, 'IR / ASM / defineClass 一行都没跑', 'fig-key');
-    s += txt(380, 201, '包装成 ScriptException("compile error") → HTTP 400', 'fig-sub');
-    s += txt(380, 221, '"/tmp/x" 从未被当成文件系统参数——磁盘无事发生', 'fig-sub');
-    s += bottom('拒绝发生在编译期:产物是异常,不是一个会打开文件的 class', '声明写法走 visitDeclaration:cannot resolve type——同一张表,同一死法');
-    return s + '</svg>';
-  }
-
-  window.ESFLOWS = window.ESFLOWS || {};
-  window.ESFLOWS['ch26-script-compile'] = {
-    version: 1,
-    id: 'ch26-script-compile',
-    title: '一段脚本从字符串到 execute()',
-    speed: 2400,
-    steps: [
-      { svg: step1(), note: 'script_score 请求到达:source 此刻只是一段 JSON 字符串。ScriptScoreQueryBuilder.doToQuery 调 context.compile(script, ScoreScript.CONTEXT),编译从这里开始;query 缺失连构造都过不了。' },
-      { svg: step2(), note: 'ANTLR 把源码解析成用户树 SClass——纯语法层,java.io.File 在这里只是普通字符,类型问题原封未动。「不是 eval」证据一:先有树,再谈名字。' },
-      { svg: step3(), note: '语义分析逐个名字对照 PainlessLookup:基础白名单 txt(java.lang/util/time/nio 的 Buffer 家族)+ context 叠加 txt(只加不减)。查不到返回 null,没有 Class.forName 后路。' },
-      { svg: step4(), note: '通过检查的树降成 IR,常量折叠后由 ASM 写出真的 byte[]——类名 PainlessScript$Script。产物是一个 class,不是解释器里的语法树;常量池里只可能出现表上的类型。' },
-      { svg: step5(), note: 'Loader(SecureClassLoader,UNTRUSTED_CODEBASE)defineClass;ScriptCache 按 context+源码缓存——千篇文档只编译一次,这是「不是逐文档 eval」的第二条证据。' },
-      { svg: step6(), note: '执行期只剩方法调用:match_all 内层 1.0,cheap 算出 0.1、popular 1.0;换 price*0.9 则是 90/72——script_score 完全替换内层分数,与 function_score 的乘一层不同。' },
-      { svg: step7(), note: '对照支线:new java.io.File 在语义分析就死——canonicalTypeNameToType 返回 null,Not a type,HTTP 400;IR/ASM/defineClass 一行没跑,磁盘从未被碰。拒绝发生在编译期。' }
-    ]
-  };
-
-  /* ===== 实验 ===== */
+];
   window.ESEXPERIMENTS = window.ESEXPERIMENTS || {};
-
-  window.ESEXPERIMENTS['ch26-01-setup'] = {
-    version: 1, id: 'ch26-01-setup',
-    title: '实验 1 · 建 tut-l26-score(price/popularity打底)',
-    method: 'PUT', path: '/tut-l26-score',
-    body: { mappings: { properties: { title: { type: 'keyword' }, popularity: { type: 'long' }, price: { type: 'double' } } } },
-    predict: '脚本读 doc[\'popularity\'] 需要什么字段类型?text 行吗?',
-    expect: 'acknowledged: true。数值型(doc values)即可;text 默认不分 doc values,脚本读 .value 会取分析后的词而非数值——这也是脚本读的是 doc values 不是 _source 的伏笔。'
-  };
-
-  window.ESEXPERIMENTS['ch26-02-bulk'] = {
-    version: 1, id: 'ch26-02-bulk',
-    title: '实验 2 · 两篇文档:cheap(10/100)与 popular(100/80)',
-    method: 'POST', path: '/tut-l26-score/_bulk?refresh=true',
-    body: '{"index":{"_id":"cheap"}}\n{"title":"obscure","popularity":10,"price":100.0}\n{"index":{"_id":"popular"}}\n{"title":"hit","popularity":100,"price":80.0}\n',
-    predict: 'match_all 的 _score 会是多少?',
-    expect: 'errors: false。match_all 每篇都是常数 1.0(不是 BM25)——下一个实验的脚本分数就建立在它之上;若你猜了 BM25,是把第 20 课的相关性评分和过滤型查询混了。'
-  };
-
-  window.ESEXPERIMENTS['ch26-03-score-pop'] = {
-    version: 1, id: 'ch26-03-score-pop',
-    title: '实验 3 · 最小 script_score:分数乘 popularity',
-    method: 'POST',
-    path: '/tut-l26-score/_search?filter_path=hits.hits._id,hits.hits._score',
-    body: { query: { script_score: { query: { match_all: {} }, script: { source: "_score * doc['popularity'].value / 100" } } } },
-    predict: '先猜:cheap(10)和 popular(100)的 _score 各是多少?谁在前?',
-    expect: 'popular 1.0 在前,cheap 0.1。源码此刻已编成 ScoreScript.CONTEXT 的 class(ScriptScoreQueryBuilder.doToQuery 里 context.compile),对每篇命中文档调 execute()——不是每篇重新 parse 字符串。猜错多半是把 _score 当成了 BM25。'
-  };
-
-  window.ESEXPERIMENTS['ch26-04-score-price'] = {
-    version: 1, id: 'ch26-04-score-price',
-    title: '实验 4 · 换一句:doc[\'price\'].value * 0.9',
-    method: 'POST',
-    path: '/tut-l26-score/_search?filter_path=hits.hits._id,hits.hits._score',
-    body: { query: { script_score: { query: { match_all: {} }, script: { source: "doc['price'].value * 0.9" } } } },
-    predict: '这次的 _score 跟 popularity 还有关系吗?和第 20 课 function_score 的乘一层一样吗?',
-    expect: 'cheap 90、popular 72——popularity 完全出局。script_score 是整体替换内层分数;function_score(第 20 课)是在原分上再乘一层。新源码是新缓存条目:与实验 3 各编各的 class。'
-  };
-
-  window.ESEXPERIMENTS['ch26-05-script-fields'] = {
-    version: 1, id: 'ch26-05-script-fields',
-    title: '实验 5 · script_fields:不改分,只多一个返回字段',
-    method: 'POST',
-    path: '/tut-l26-score/_search?filter_path=hits.hits._id,hits.hits._score,hits.hits.fields',
-    body: { script_fields: { discounted_price: { script: { source: "doc['price'].value * params.discount", params: { discount: 0.8 } } } } },
-    predict: '_score 会变吗?折扣价出现在哪一节?',
-    expect: '_score 仍是 1.0(不改分);hits.fields.discounted_price = [80.0] / [64.0]。script_fields 编进第四个 context "field"(FieldScript.CONTEXT)——算返回值,不碰磁盘上的 _source。'
-  };
-
-  window.ESEXPERIMENTS['ch26-06-update'] = {
-    version: 1, id: 'ch26-06-update',
-    title: '实验 6 · update 脚本:ctx._source.views = 1',
-    method: 'POST', path: '/tut-l26-score/_update/cheap?refresh=true',
-    body: { script: { source: 'ctx._source.views = params.count', params: { count: 1 } } },
-    predict: 'views 字段原来不存在,直接赋值会报错吗?',
-    expect: 'result: updated、_version: 2。ctx._source 是 Map,新键直接放入——和 += 不同(对 null 做 += 才会 NPE,那和白名单无关,是数据问题)。这句编进 UpdateScript.CONTEXT("update")。'
-  };
-
-  window.ESEXPERIMENTS['ch26-07-get-cheap'] = {
-    version: 1, id: 'ch26-07-get-cheap',
-    title: '实验 7 · GET 回看:views 进了 _source',
-    method: 'GET', path: '/tut-l26-score/_doc/cheap?filter_path=_source',
-    body: null,
-    predict: '_source 里会多出什么?popularity 还在吗?',
-    expect: '_source 多了 views: 1,popularity: 10 原样。update 脚本改的是文档 _source 本体(重索引);对比实验 5 的 script_fields 只在响应里现算——一个落盘一个不落,context 决定脚本能摸到什么。'
-  };
-
-  window.ESEXPERIMENTS['ch26-08-pipeline-put'] = {
-    version: 1, id: 'ch26-08-pipeline-put',
-    title: '实验 8 · PUT 摄取管道:fullname 拼接脚本',
-    method: 'PUT', path: '/_ingest/pipeline/tut-l26-script',
-    body: { processors: [{ script: { source: "ctx.fullname = ctx.first_name + ' ' + ctx.last_name" } }] },
-    predict: 'PUT 这一刻脚本编译了吗,还是等第一条文档?',
-    expect: 'acknowledged: true。ScriptProcessor 在 PUT pipeline 时就 compile 成 IngestScript.CONTEXT 的 factory(第 12 课的链提前到建管道)——所以下一个破坏实验里,坏脚本活不到第一条文档。'
-  };
-
-  window.ESEXPERIMENTS['ch26-09-simulate'] = {
-    version: 1, id: 'ch26-09-simulate',
-    title: '实验 9 · _simulate:ingest 上下文的 ctx',
-    method: 'POST', path: '/_ingest/pipeline/tut-l26-script/_simulate',
-    body: { docs: [{ _source: { first_name: 'Grace', last_name: 'Hopper' } }] },
-    predict: 'fullname 出现在哪里?这条命令选 shard 吗?',
-    expect: 'docs[0]._source 多了 fullname: "Grace Hopper"。_simulate 跑的是同一条 Pipeline.execute,不选 shard(第 12 课);ctx 是 ingest context 独有的绑定——score context 里没有它。'
-  };
-
-  window.ESEXPERIMENTS['ch26-10-file-execute'] = {
-    version: 1, id: 'ch26-10-file-execute',
-    title: '实验 10 · 破坏:new java.io.File(_execute 直测)',
-    method: 'POST',
-    path: '/_scripts/painless/_execute?filter_path=error.type,error.reason,error.caused_by.reason,error.script_stack,error.status',
-    body: { script: { source: 'return new java.io.File("/tmp/painless-should-not-exist");' } },
-    predict: '会在磁盘建文件吗?HTTP 200 还是 400?error.reason 与 caused_by.reason 各是什么?',
-    expect: 'HTTP 400:reason=compile error,caused_by.reason=Not a type [java.io.File].,script_stack 画着 ^---- HERE。类型不在 txt 宇宙里,visitNewObj 直接抛——IR/ASM 一行没跑,路径字符串从未被当成文件系统参数(实测 /tmp 无此文件)。猜 SecurityException/文件被建,是把 Painless 当 eval。'
-  };
-
-  window.ESEXPERIMENTS['ch26-11-file-search'] = {
-    version: 1, id: 'ch26-11-file-search',
-    title: '实验 11 · 破坏:同一句塞进 script_score',
-    method: 'POST',
-    path: '/tut-l26-score/_search?filter_path=error.type,error.reason,error.root_cause.caused_by.reason,error.failed_shards.reason.caused_by.reason',
-    body: { query: { script_score: { query: { match_all: {} }, script: { source: 'return new java.io.File("/tmp/x");' } } } },
-    predict: '还是 400 吗?caused_by 还能找到那句话吗?',
-    expect: '400,但外层包成 search_phase_execution_exception(all shards failed)。往 root_cause / failed_shards 里挖,caused_by.reason 仍是同一个 Not a type [java.io.File].——编译错误发生在 shard 侧建查询时,包装层换皮不换骨。'
-  };
-
-  window.ESEXPERIMENTS['ch26-12-file-pipeline'] = {
-    version: 1, id: 'ch26-12-file-pipeline',
-    title: '实验 12 · 破坏:File 写进 pipeline,PUT 当场失败',
-    method: 'PUT', path: '/_ingest/pipeline/tut-l26-file',
-    body: { processors: [{ script: { source: 'ctx.f = new java.io.File("/tmp/x")' } }] },
-    predict: '这条 PUT 能成功吗?若能,坏脚本什么时候爆?',
-    expect: 'HTTP 400,PUT 直接失败——ingest 的 script processor 在建管道时就 compile(实验 8 说过),第一条文档还没到来。对照:若编译被推迟到写入期,每条文档都会撞一次同一个错误,还可能写脏数据。'
-  };
-
-  window.ESEXPERIMENTS['ch26-13-decl'] = {
-    version: 1, id: 'ch26-13-decl',
-    title: '实验 13 · 声明写法:cannot resolve type',
-    method: 'POST',
-    path: '/_scripts/painless/_execute?filter_path=error.reason,error.caused_by.reason,error.position.offset',
-    body: { script: { source: 'java.io.File f = null; return 1;' } },
-    predict: '还是 Not a type 吗?报错位置指向哪个字符?',
-    expect: 'caused_by.reason=invalid declaration: cannot resolve type [java.io.File]——声明走 visitDeclaration,new 走 visitNewObj,同一张 Lookup 两条入口。offset=13 指着类型名:Location 只管画箭头,不改文案。'
-  };
-
-  window.ESEXPERIMENTS['ch26-14-getclass'] = {
-    version: 1, id: 'ch26-14-getclass',
-    title: '实验 14 · 反射入口:String s.getClass()',
-    method: 'POST',
-    path: '/_scripts/painless/_execute?filter_path=error.reason,error.caused_by.reason',
-    body: { script: { source: 'String s = "x"; return s.getClass();' } },
-    predict: 'getClass 在白名单里吗?错误发生在编译期还是运行期?',
-    expect: 'compile error + member method [java.lang.String, getClass/0] not found——静态类型让编译器当场查表。把 source 改成 def x = 1; return x.getClass(); 再跑:变 runtime error + dynamic method [java.lang.Integer, getClass/0] not found——def 推迟到运行期查,但同一张表,反射入口不存在。'
-  };
-
-  window.ESEXPERIMENTS['ch26-15-context-classes'] = {
-    version: 1, id: 'ch26-15-context-classes',
-    title: '实验 15 · score context 的类型宇宙(404 个类)',
-    method: 'GET', path: '/_scripts/painless/_context?context=score&filter_path=classes.name',
-    body: null,
-    predict: 'classes 里能找到 java.io.File / java.lang.Runtime / java.lang.String 中的哪几个?',
-    expect: '用 Ctrl+F 搜:java.lang.String 在;java.io.File、java.lang.Runtime 都不在。PainlessContextAction 把当前 context 的 PainlessLookup 序列化成 classes——就是语义分析查的那张表的运行时投影。score 叠加的 txt 只加评分函数,不会放开 JDK。'
-  };
-
-  window.ESEXPERIMENTS['ch26-16-expensive-off'] = {
-    version: 1, id: 'ch26-16-expensive-off',
-    title: '实验 16 · 破坏:allow_expensive_queries=false',
-    method: 'PUT', path: '/_cluster/settings',
-    body: { transient: { 'search.allow_expensive_queries': false } },
-    predict: '脚本只是 return 1.0(已白名单化、编译过),还会被拒吗?',
-    expect: 'acknowledged: true。会——doToQuery 第一件事就是查 allowExpensiveQueries,在 compile 之前。这是第二层开关:白名单管「能不能编译」(安全宇宙),expensive 管「集群愿不愿意按文档跑脚本」(容量)。课末必须 null 恢复。'
-  };
-
-  window.ESEXPERIMENTS['ch26-17-expensive-reject'] = {
-    version: 1, id: 'ch26-17-expensive-reject',
-    title: '实验 17 · 无害脚本也被拒:query_shard_exception',
-    method: 'POST',
-    path: '/tut-l26-score/_search?filter_path=error.root_cause.reason,error.caused_by.reason',
-    body: { query: { script_score: { query: { match_all: {} }, script: { source: 'return 1.0;' } } } },
-    predict: '拒绝发生在建查询阶段还是执行阶段?文案会提哪个设置?',
-    expect: 'root_cause 是 query_shard_exception:failed to create query + [script score] queries cannot be executed when \'search.allow_expensive_queries\' is set to false.——脚本再干净也拦,因为成本在按文档 execute,不在编译(思考题 3)。'
-  };
-
-  window.ESEXPERIMENTS['ch26-18-restore'] = {
-    version: 1, id: 'ch26-18-restore',
-    title: '清理 · null 恢复 expensive 开关(必做)',
-    method: 'PUT', path: '/_cluster/settings',
-    body: { transient: { 'search.allow_expensive_queries': null } },
-    predict: 'null 是设成字符串 "null" 吗?',
-    expect: 'acknowledged: true。null = 删掉覆盖回到默认 true(第 5 课语义)。留着 false,本机所有 script_score / scripting 查询会一直被拒——破坏实验收尾不是可选项。'
-  };
-
-  window.ESEXPERIMENTS['ch26-19-cleanup'] = {
-    version: 1, id: 'ch26-19-cleanup',
-    title: '清理 · 删 tut-l26-score',
-    method: 'DELETE', path: '/tut-l26-score',
-    predict: '一句话总结本课?',
-    expect: 'acknowledged: true。Painless 是「源码 → 白名单检查 → 字节码 → SecureClassLoader 加载缓存」:类型宇宙里没有的名字在编译期就死(Not a type / cannot resolve type / member|dynamic method not found 三连),产物是 class 不是解释执行;千篇文档共用一个 execute()。'
-  };
-
-  window.ESEXPERIMENTS['ch26-20-cleanup-pipeline'] = {
-    version: 1, id: 'ch26-20-cleanup-pipeline',
-    title: '清理 · 删管道 tut-l26-script',
-    method: 'DELETE', path: '/_ingest/pipeline/tut-l26-script',
-    predict: 'tut-l26-file 需要删吗?',
-    expect: 'acknowledged: true。不需要——实验 12 那条 PUT 从未成功,管道不存在。顺手验证:GET /_ingest/pipeline/tut-l26-file 会 404(资源不存在),和未知路由的 400 是两回事(第 7 课口径)。'
-  };
+  operations.forEach(function (e) { window.ESEXPERIMENTS[e.id] = e; });
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function text(x, y, s, cls) { return '<text x="'+x+'" y="'+y+'" text-anchor="middle" class="'+cls+'">'+esc(s)+'</text>'; }
+  function snapshot(n, title, sub, panels) {
+    var s='<svg viewBox="0 0 760 350" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="'+esc(title)+'">';
+    s+='<title>'+esc(title)+'</title><rect x="15" y="15" width="730" height="65" rx="9" class="fig-box-hot"/>';
+    s+=text(380,42,title,'fig-name')+text(380,65,sub,'fig-sub');
+    panels.forEach(function (p,i) { var y=95+i*80;s+='<rect x="15" y="'+y+'" width="730" height="65" rx="9" class="fig-box"/>';s+=text(380,y+25,p[0],'fig-key')+text(380,y+49,p[1],'fig-sub'); });
+    return s+'</svg>';
+  }
+  var content = [
+  [
+    "选择上下文与检查入口",
+    "script_score 在 doToQuery 先检查 expensive 开关",
+    [
+      [
+        "评分请求",
+        "默认 boost=1；内层 query 显式给出"
+      ],
+      [
+        "编译服务",
+        "先用 project / language / source / context / options 查缓存"
+      ],
+      [
+        "本例范围",
+        "以下编译步骤仅在缓存未命中时发生"
+      ]
+    ],
+    "score context 由调用方选定。开关为 false 时在 compile 之前拒绝；通过入口也可能直接复用缓存。"
+  ],
+  [
+    "解析与上下文 Lookup",
+    "引擎按 context 取 Compiler 与 Lookup",
+    [
+      [
+        "表的来源",
+        "基础允许列表 + 该 context 的资源与扩展"
+      ],
+      [
+        "解析",
+        "Walker / ANTLR 把语法变成用户树 SClass"
+      ],
+      [
+        "语义分析",
+        "类型、构造器、静态方法在此检查"
+      ]
+    ],
+    "一套编译器实现按不同 context 配置接口与允许列表。插件扩展可增加允许项，不把默认列表泛化成所有部署。"
+  ],
+  [
+    "File 在语义检查被拒",
+    "new java.io.File 的默认类型查找返回 null",
+    [
+      [
+        "查找",
+        "visitNewObj → canonicalTypeNameToType"
+      ],
+      [
+        "结果",
+        "Not a type [java.io.File]."
+      ],
+      [
+        "退出",
+        "compile error；本次没有进入 IR 或 ASM"
+      ]
+    ],
+    "这证明拒绝点，不是一次磁盘操作测试。Java File 构造本身也不会创建文件；声明类型走另一个错误入口。"
+  ],
+  [
+    "正常源码继续生成字节码",
+    "通过语义检查 → IR → 优化 → ASM",
+    [
+      [
+        "中间表示",
+        "用户树转为 ClassNode"
+      ],
+      [
+        "生成",
+        "ASM 输出 JVM byte[]"
+      ],
+      [
+        "定义",
+        "Loader extends ClassLoader；定义脚本并生成 factory"
+      ]
+    ],
+    "9.4.0 Loader 继承 ClassLoader，有父加载器委派。不能把 findClass 描述成对整个 JVM 可加载类的封闭限制。"
+  ],
+  [
+    "缓存 factory，params 在执行时传入",
+    "同节点且键相同、缓存未失效时可复用",
+    [
+      [
+        "缓存键",
+        "project · lang · source · context · options"
+      ],
+      [
+        "执行参数",
+        "params 不属于上述编译键"
+      ],
+      [
+        "生命周期",
+        "淘汰、过期、重启与配置替换可能触发重编译"
+      ]
+    ],
+    "编译缓存不是结果缓存。score 的 factory 接收 params 与 lookup，再创建叶级实例；stored 脚本会重新解析最新源码。"
+  ],
+  [
+    "评分返回值与上下文分工",
+    "match_all 默认 _score=1.0；脚本明确读它才组合",
+    [
+      [
+        "popularity 脚本",
+        "popular 1.0；cheap 约 0.1"
+      ],
+      [
+        "price × 0.9",
+        "cheap 90；popular 72（默认外层 boost=1）"
+      ],
+      [
+        "其他上下文",
+        "field 计算返回值；update 改 _source；ingest 改 ctx"
+      ]
+    ],
+    "function_score 的组合由 boost_mode 等决定。评分热路径仍有计算与数据读取；不需要分数时存在跳过评分执行的分支。"
+  ],
+  [
+    "def 的允许列表检查可以发生在执行期",
+    "动态 getClass 对照静态 String.getClass",
+    [
+      [
+        "静态 String",
+        "编译期 member method ... not found"
+      ],
+      [
+        "def x = 1",
+        "运行期 dynamic method ... not found"
+      ],
+      [
+        "共同约束",
+        "默认列表没有该方法；def 没有绕过允许列表"
+      ]
+    ],
+    "执行期并非完全没有查表。静态缺失方法与动态缺失方法使用不同拒绝入口；只缓存 factory 不会消掉动态执行成本。"
+  ]
+];
+  window.ESFLOWS = window.ESFLOWS || {};
+  window.ESFLOWS['ch26-script-compile'] = {version:1,id:'ch26-script-compile',title:'脚本的编译、缓存与执行边界',speed:2400,steps:content.map(function (p,i) {return {svg:snapshot(i+1,p[0],p[1],p[2]),note:p[3]};})};
 })();

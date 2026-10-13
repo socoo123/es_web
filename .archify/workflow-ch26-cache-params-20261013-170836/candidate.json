@@ -1,0 +1,269 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "脚本缓存：同一源码换 params 为何复用编译产物",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-ch26-cache-params-20261013-170836/cache-params.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "编译与执行"
+        },
+        "security": {
+          "label": "允许列表检查"
+        },
+        "database": {
+          "label": "节点内编译缓存"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "resolve",
+      "label": "每次请求 · 解析脚本身份"
+    },
+    {
+      "id": "cache",
+      "label": "节点内缓存 · 命中或未命中"
+    },
+    {
+      "id": "run",
+      "label": "调用方 · 传入执行数据"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "resolve",
+      "lane": "resolve",
+      "col": 1,
+      "yOffset": -42,
+      "label": "得到语言、源码与 options",
+      "sublabel": "stored ID 先读取当前集群状态源码",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/script/ScriptService.java",
+          "line": 595,
+          "end_line": 616
+        }
+      ]
+    },
+    {
+      "id": "key",
+      "lane": "resolve",
+      "col": 1,
+      "yOffset": 42,
+      "label": "构造编译缓存键",
+      "sublabel": "project · lang · source · context · options",
+      "type": "database",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/script/ScriptCache.java",
+          "line": 79,
+          "end_line": 93
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/script/ScriptCache.java",
+          "line": 207,
+          "end_line": 237
+        }
+      ]
+    },
+    {
+      "id": "hit",
+      "lane": "cache",
+      "col": 1,
+      "yOffset": -42,
+      "label": "取出已缓存 factory",
+      "sublabel": "执行 params 不在缓存键中",
+      "type": "database",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/script/ScriptCache.java",
+          "line": 89,
+          "end_line": 117
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/script/ScriptCache.java",
+          "line": 207,
+          "end_line": 237
+        }
+      ]
+    },
+    {
+      "id": "miss",
+      "lane": "cache",
+      "col": 3,
+      "yOffset": -42,
+      "label": "编译并存入 factory",
+      "sublabel": "受适用的编译速率限制约束",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/script/ScriptCache.java",
+          "line": 93,
+          "end_line": 117
+        }
+      ]
+    },
+    {
+      "id": "instance",
+      "lane": "run",
+      "col": 1,
+      "yOffset": -42,
+      "label": "传 params 创建实例",
+      "sublabel": "score：newFactory → 叶级 newInstance",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/query/functionscore/ScriptScoreQueryBuilder.java",
+          "line": 161,
+          "end_line": 176
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/lucene/search/function/ScriptScoreQuery.java",
+          "line": 320,
+          "end_line": 340
+        }
+      ]
+    },
+    {
+      "id": "execute",
+      "lane": "run",
+      "col": 1,
+      "yOffset": 42,
+      "label": "对需要评分的文档执行",
+      "sublabel": "params 改计算值；仍有执行成本",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/common/lucene/search/function/ScriptScoreQuery.java",
+          "line": 320,
+          "end_line": 340
+        }
+      ]
+    },
+    {
+      "id": "eviction",
+      "lane": "cache",
+      "col": 3,
+      "yOffset": 42,
+      "label": "以后可能再次未命中",
+      "sublabel": "容量、过期、重启或配置替换均有影响",
+      "type": "database",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/script/ScriptCache.java",
+          "line": 60,
+          "end_line": 70
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/script/ScriptService.java",
+          "line": 829,
+          "end_line": 857
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "resolve-key",
+      "from": "resolve",
+      "to": "key",
+      "variant": "default"
+    },
+    {
+      "id": "key-hit",
+      "from": "key",
+      "to": "hit",
+      "variant": "default",
+      "label": "命中"
+    },
+    {
+      "id": "key-miss",
+      "from": "key",
+      "to": "miss",
+      "variant": "default",
+      "role": "branch",
+      "label": "未命中"
+    },
+    {
+      "id": "miss-instance",
+      "from": "miss",
+      "to": "instance",
+      "variant": "default",
+      "label": "编译成功"
+    },
+    {
+      "id": "hit-instance",
+      "from": "hit",
+      "to": "instance",
+      "variant": "default"
+    },
+    {
+      "id": "instance-execute",
+      "from": "instance",
+      "to": "execute",
+      "variant": "default"
+    },
+    {
+      "id": "miss-eviction",
+      "from": "miss",
+      "to": "eviction",
+      "variant": "default",
+      "role": "branch",
+      "label": "缓存受容量等约束"
+    }
+  ],
+  "mainPath": [
+    "resolve",
+    "key",
+    "hit",
+    "instance",
+    "execute"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "换参数的具体例子",
+      "items": [
+        "source 固定为 doc['price'].value * params.discount。",
+        "discount 从 0.8 换到 0.9 不改变编译键。",
+        "改 source、context 或 options 会形成不同键；节点缓存各自独立。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "factory 缓存的边界",
+      "items": [
+        "缓存不是搜索结果缓存，也不保存每篇文档的执行返回值。",
+        "stored ingest processor 不长期持有预编译 factory；每次解析最新源码，ScriptCache 仍可命中。",
+        "统计累计值应比较同节点前后增量；删索引不会把编译数清零。"
+      ]
+    }
+  ]
+}

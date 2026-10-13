@@ -45,7 +45,7 @@
 | ch23 | 分片分配 | ✅ | 33 | 1(均衡迁移·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch24 | 分片恢复与快照 | ✅ | 57 | 1(peer recovery·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch25 | 熔断器与背压 | ✅ | 29 | 1(熔断水位·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
-| ch26 | 脚本引擎 | ✅ | 20 | 1(编译旅程) | 待改造 |
+| ch26 | 脚本引擎 | ✅ | 45 | 1(编译旅程) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch27 | 管道查询语言 | ✅ | 14 | 1(管道执行) | 待改造 |
 | ch28 | 索引生命周期管理 | ✅ | 20 | 1(一分钟 rollover) | 待改造 |
 | ch29 | 安全机制 | ✅ | 19 | 1(认证链) | 待改造 |
@@ -393,7 +393,41 @@
 | 同一size=0 terms必重新走同一执行过程 | 三次对照请求显式request_cache=false，排除缓存路径干扰；该参数不改索引缓存配置 | [请求参数](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/action/search/RestSearchAction.java#L258-L260)、[缓存准入](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/IndicesService.java#L1675-L1686)、[缓存或执行](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/search/SearchService.java#L750-L765) |
 | 1GB示例混用二进制单位，Parent拒绝动画reason写request；健康色仍Green | 明示H=1000MiB用于算术，实际看字节API；Parent例名称[parent]，子拒绝例[request]；健康色与内存准入分开 | [Parent文案](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/indices/breaker/HierarchyCircuitBreakerService.java#L447-L461)；正文与7步示意同步 |
 
+## 第二十六章重构校对（ES 9.4.0）
+
+本章固定源码 29 文件 / 55 行段、20 稳定 ID / 45 顺序操作卡；两个官方 workflow v2 图与七步机制同步校正。源码、站点、独立 HTTP 与实际视觉审阅完成；真实 API、首次/清理重做未运行，原生 file 浏览器失败单列。详情见 [.archify/CH26-REVIEW.md](.archify/CH26-REVIEW.md) 与 [最终哈希](.archify/review/ch26-artifacts.json)。保留旧会话历史，不用它替代本轮实测。
+
+| 旧说法 / 旧实验 | 当前结论与条件 | 固定源码与记录 |
+| --- | --- | --- |
+| Loader 继承 SecureClassLoader，CodeSource 指向 UNTRUSTED_CODEBASE | 9.4.0 继承 ClassLoader，用普通 defineClass；以固定版本实现为准 | [Loader](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/lang-painless/src/main/java/org/elasticsearch/painless/Compiler.java#L51-L95) |
+| findClass 只认 Lookup，因此 JVM 无法加载其他类 | findClass 支持 additionalClasses 与 Lookup，仍存在父加载器委派；File 拒绝的直接证据是语义检查 | [类型检查](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/lang-painless/src/main/java/org/elasticsearch/painless/phase/DefaultSemanticAnalysisPhase.java#L1807-L1825) |
+| 缓存 key=context+源码+params（动画），或仅 context+源码（正文） | 键含 projectId、lang、解析后的 source、context、编译 options；执行 params 不在键中 | [CacheKey](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/script/ScriptCache.java#L207-L237) |
+| 同一句脚本整个集群生命周期通常只编一次 | 当前节点缓存可复用；容量、过期、重启、配置替换或不同键均可能导致重编译 | [缓存生命周期](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/script/ScriptCache.java#L60-L70)、[配置替换](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/script/ScriptService.java#L829-L857) |
+| 执行期没有查表；eval 必每次重新理解字符串 | Painless 缓存编译产物，def 的成员解析仍可在执行期查 runtime Lookup；不泛化所有 eval 实现 | [Def.lookupMethod](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/lang-painless/src/main/java/org/elasticsearch/painless/Def.java#L179-L206) |
+| Lookup 实现完全没有 Class.forName | 普通未知类型无任意加载兜底；已允许元素类型的数组分支存在 Class.forName | [类型/数组分支](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/lang-painless/src/main/java/org/elasticsearch/painless/lookup/PainlessLookupUtility.java#L89-L153) |
+| 字节码常量池只能含 txt 白名单类型 | 编译生成还涉及 factory、运行支持与动态调用基础设施；不作这种绝对保证 | [生成与 factory](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/lang-painless/src/main/java/org/elasticsearch/painless/PainlessScriptEngine.java#L100-L112) |
+| new File 会建磁盘文件；用路径不存在证明安全 | File 构造本身也不创建文件；本课定位默认语义拒绝，不虚构本轮磁盘或 API 实测 | [visitNewObj](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/lang-painless/src/main/java/org/elasticsearch/painless/phase/DefaultSemanticAnalysisPhase.java#L1790-L1825) |
+| script_score 永远完全替换；function_score 总乘一层 | 本课默认 boost=1 用脚本分数；实现再乘外层 boost；function_score 组合由 boost_mode 等决定 | [返回分数与 boost](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/lucene/search/function/ScriptScoreQuery.java#L320-L340) |
+| 每篇命中文档都必执行 script_score | 实际评分需求与收集影响执行；不需分数且无 minScore 时存在委托内层查询分支 | [createWeight](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/common/lucene/search/function/ScriptScoreQuery.java#L91-L105) |
+| text 默认 .value 会读取分析后的词来算数字 | 默认 text 无 doc values 且禁 fielddata，不能直接当数值读取；实验显式 keyword/long/double 与 strict mapping | [本章注册表](experiments/ch26.js)；数值读取条件显式列出 |
+| simulate 的 fullname 在 docs[0]._source | 普通 simulate 结果为 docs[0].doc._source，模拟不写入索引 | [doc 包装](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/ingest/WriteableIngestDocument.java#L119-L132) |
+| stored ingest 不缓存 factory，等同完全不缓存编译 | processor 不长期持有预编译 factory；执行重新解析当前 stored source，ScriptCache 仍可命中 | [processor 创建](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/ingest-common/src/main/java/org/elasticsearch/ingest/common/ScriptProcessor.java#L124-L139)、[stored 解析](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/script/ScriptService.java#L607-L616) |
+| test execute 返回 Object；score context 固定 404 个类 | 默认 test 返回值被序列化为字符串；context API 为内部调试接口，类数由版本和扩展决定 | [test 返回字符串](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/lang-painless/src/main/java/org/elasticsearch/painless/action/PainlessExecuteAction.java#L649-L655)、[内部 API](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/modules/lang-painless/src/main/java/org/elasticsearch/painless/action/PainlessContextAction.java#L48-L55) |
+| update 固定 _version=2；失败 PUT 证明同名管道永远不存在 | 版本取决于历史；失败不删除同名旧资源。新增空白前提、固定 ID、计数、等待和清理后 404 对照 | [45 卡顺序](.archify/review/ch26-operations-order.json)；真实重做未实测 |
+| null 直接恢复默认 true；可以清掉未知原覆盖 | null 删除指定 transient 键；E 及相应设置清理只在起步两层无该键且节点基线 true 时执行 | [设置层合并](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/Metadata.java#L1680-L1688) |
+
 ## 会话日志
+
+### 2026-10-13（ch26 脚本引擎重构）
+
+- 已读 AGENTS/STATUS/PLAN/CHAPTER_STANDARD/CLAUDE，仅重构 ch26 与首页对应卡片；开工 fetch 与远程一致，保留此前更新及日志。
+- 固定 ES9.4.0 提交 `2e8528e92361c3399724226deaf2b46f933e925b` / Lucene10.4.0，29 文件 / 55 区间字节与行号核对。重写上下文、允许列表、ClassLoader、缓存键/失效、def 动态分发、评分 boost、stored ingest、响应路径与 null 恢复条件；勘误见上表。
+- 保留全部20实验ID与 `ch26-script-compile` 七步；5组实验共45卡（前置6/A11/B2/C8/D5/E6/清理7），显式1P0R/strict mapping、固定ID/refresh/count、参数编译统计对照、设置来源确认、点名清理与重做。
+- 两幅 workflow v2 使用官方 Archify3.0.1 JSON/finalize、zh-CN/showcase/trace、真实源码身份与 --repo-root；两幅 validate/deliver/strict check 9/9、零错误/警告，首次布局均通过、无JSON修复。原生 browser-check 都因 ERR_BLOCKED_BY_ADMINISTRATOR 失败，finalize整体 fail；独立 HTTP 不替代原生检查。许可保留。
+- 独立 HTTP：两图4桌面尺寸×双主题、章节6宽度×双主题；880px列/边界≤1px/整页与iframe不溢出。桌面最小 SVG 字约6.888px、节点字约7.872px；两图嵌入1080px、≤800px640px，手机总览配节点探索/正文/展开。探索/键盘/主题/暂停后外层重播/展开/reduced-motion/七步/目录/已读/45控制台请求/认证端点raw标记/Pages前缀均通过，无JS/资产错误。390/320表与旧机制仅局部横滚。
+- 实际查看7张联系表：24张章节/图截图与7张完整机制快照，双主题与手机已审阅，无观察到文字越框或节点遮挡；手机完整细节通过展开/探索读取。截图、当前源码与生成产物 SHA 绑定于 review/ch26-artifacts.json。
+- **真实 ES API 未实测**：本轮官方容器09:05:23.13002633Z启动、09:05:26.510366235Z退出1，Could not set coredump filter / NoSuchFileException /proc/self/coredump_filter，9200探测退出7。45卡首次/重做、统计、错误链与设置恢复均未运行，没有合成响应，网页明确标注；见 ch26-es-runtime.json。
+- `node tools/check.mjs`：30正式页 / **755操作卡 / 22机制动画**；JS语法、figwidth、固定源码/注册表、HTTP、局部滚动、七步与git diff检查通过。按持久授权提交并推送origin/main；提交及Pages结果在交付时核对。
 
 ### 2026-10-13（ch25 熔断器与背压重构）
 
