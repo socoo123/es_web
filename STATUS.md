@@ -43,7 +43,7 @@
 | ch21 | 集群状态 | ✅ | 29 | — | ✅ 快照职责与发布应用（2图，1路径动画） |
 | ch22 | 主节点选举与共识 | ✅ | 18 | 1(选举时序·旗舰) | ✅ 选举资格与提交边界（2图，2路径；API/原生浏览器限制见日志） |
 | ch23 | 分片分配 | ✅ | 33 | 1(均衡迁移·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
-| ch24 | 分片恢复与快照 | ✅ | 20 | 1(peer recovery·旗舰) | 待改造 |
+| ch24 | 分片恢复与快照 | ✅ | 57 | 1(peer recovery·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch25 | 熔断器与背压 | ✅ | 14 | 1(熔断水位·旗舰) | 待改造 |
 | ch26 | 脚本引擎 | ✅ | 20 | 1(编译旅程) | 待改造 |
 | ch27 | 管道查询语言 | ✅ | 14 | 1(管道执行) | 待改造 |
@@ -357,7 +357,36 @@
 | ch23 | explain总选第一个未分配、包含所有YES、排名证明可落位 | 优先可访问未分配primary再replica；ALWAYS不进数组，在途可NOT_TAKEN；当前Balanced解释不等于目标历史，缺磁盘信息可fail-open | TransportClusterAllocationExplainAction123–168；AllocationDeciders209–237；DiskThresholdDecider547–558 |
 | ch23 | 11卡无版本/就绪/过滤恢复与清理确认，三静图与七步有绝对结论 | 保留11ID增22共33卡，2官方交互图/2trace/七步；显式配置、等待、过滤解除、普通写块恢复、点名两索引HEAD404重做 | [验收](.archify/CH23-REVIEW.md)、[HTTP](.archify/review/ch23-http-review.json)；真实API未实测，原因见运行证据 |
 
+## 第二十四章重构校对（ES 9.4.0）
+
+本章源码固定到 `2e8528e92361c3399724226deaf2b46f933e925b`，Lucene 10.4.0；26 个文件 / 64 个相关范围的固定字节与行号核对通过。API 首次运行、清理重做、peer 与快照实测均未运行；证据及限制见 [.archify/CH24-REVIEW.md](.archify/CH24-REVIEW.md)。下表是已有网页与动画的修正，保留旧会话的历史记录。
+
+| 旧说法 | 本轮正确结论与条件 | 依据 |
+| --- | --- | --- |
+| phase2 就是源端未 flush 的 translog，uncommitted_operations 就是发送数量 | 文件恢复的所选 safe commit 可能旧于 latest commit；操作恢复起点来自目标，区间与本地统计不同。普通 InternalEngine 从 Lucene 读取操作历史，统计不能对等 | RecoverySourceHandler.recoverToTarget；CombinedDeletionPolicy；InternalEngine.newChangesSnapshot |
+| refresh 后文档只能靠 phase2；先 flush 则一定改为 phase1 | refresh 不能证明覆盖于本次基线；flush 不能独自决定分支与安全提交。有完整历史时可跳过传文件 | RecoverySourceHandler 206–287；CombinedDeletionPolicy 272–304 |
+| 所有 peer 都先传文件，skip 意味着从不 replay 本地 translog | 目标先尝试临时 Engine 本地恢复到 GCP 并关闭；正式 prepare 开启网络 Engine 时 skip 本地 replay。操作分支可不传文件 | IndexShard.recoverLocallyUpToGlobalCheckpoint；PeerRecoveryTargetService；RecoveryTarget.prepareForTranslogOperations |
+| 只按 size + checksum 全同就复用 | isSame 还比较 hash 与适用 writer UUID；peer 的段分组 diff 可能影响重传集合。按计划也可从快照辅助获取文件 | StoreFileMetadata.isSame；Store.MetadataSnapshot.recoveryDiff；RecoverySourceHandler.phase1 |
+| phase2 不限速、必然尽快追平 | 操作链不调用 FILE_CHUNK 的同一 RateLimiter；仍受分批、请求并发、CPU/磁盘/网络约束。复制先接入再采样 endingSeqNo | RemoteRecoveryTargetHandler；RecoverySourceHandler 303–348 / 1136–1167 |
+| finalize 后直接 STARTED 并必然集群 Green | 恢复 DONE、IndexShard POST_RECOVERY、Master 路由更新和应用 active 后 STARTED 分开；其他分片仍影响颜色 | RecoveryTarget.markAsDone；IndexShard 578–585 / 1987–2019 |
+| _recovery 两块计数就是网络两阶段，保存恢复全历史 | 各来源都有恢复账；本地准备可参与操作计数、total 可未知或变化，文件 size 有快照来源字节。当前分片保存的记录不能代替完整历史或未开始副本 | RecoveryState.toXContent / Translog / Index；RestRecoveryAction |
+| 新文件数量等于上传次数，快照按 checksum 全局共享 | 按物理名查找并比较完整元数据，完整清单含旧/新引用；小内容可内联，段合并改变增量量。每份成功快照独立恢复，删除按存活引用清理 | BlobStoreRepository.doSnapshotShard / unusedBlobs；BlobStoreIndexShardSnapshots.findPhysicalIndexFile |
+| fs 注册必定失败，列表必为空；失败一定未登记 | 默认 Compose path.repo 为空时创建校验失败；已配置环境可成功，后续验证失败可能已登记。点名检查本章仓库，不要求所有仓库为空 | FsRepository；RepositoriesService 264–337 / 477–498 |
+| 清理卡称删两个索引，实际只删 rec；重复创建继续操作 | 57 张卡显式前提、等待、单写入、快照条件扩展、逐项点名清理及 404 核对；保留全部旧 20 IDs。注销仓库不删除仓库文件 | experiments/ch24.js；本轮源码与注册表检查；真实重做未实测 |
+
 ## 会话日志
+
+### 2026-10-13（ch24 恢复与快照重构）
+
+- 已读取 AGENTS、STATUS、PLAN、CHAPTER_STANDARD、CLAUDE，fetch 后 HEAD 与 origin/main 一致；只重构指定 ch24，主页只更新对应卡片。保留 880px、双主题、目录、已读进度和上下课导航，复用共用图解 CSS/JS。
+- 当前 3 组 / 57 张操作卡（3 前提、A17、B13、条件 C14、10 清理），全部旧 20 IDs 保留；两幅官方 Archify workflow v2 中文 showcase/trace 图，保留 ch24-peer-recovery 七步机制动画并校正基线、操作来源、临时 Engine、复制与路由启动边界。
+- 固定 ES v9.4.0 / Lucene 10.4.0 源码核对：26 文件 / 64 范围通过；站点结构、node --check、SVG 估宽通过，当前全站 30 正式页 / 715 操作 / 22 机制。
+- 两图 validate、deliver、strict check 为 showcase 9/9、零错误/警告；原生 browser-check 仍因 file 导航 ERR_BLOCKED_BY_ADMINISTRATOR 失败，finalize 整体失败。图源修复与收据分开保留；独立 HTTP 不替代原生门禁。
+- 独立 HTTP 两图 1440/1600/1920/2048 双主题、章节 1920/1440/1024/768/390/320 双主题及 57 控制台深链通过；节点包含、iframe/整页无横溢、同列左右差≤1px、主题/探索/关闭/键盘/暂停后外层重播/展开/reduced motion/导航/Pages 前缀通过。390/320 双主题的表格与旧 SVG 仅自身滚动。初次恢复图文字小于桌面标准，已按实测压缩 JSON 纵向排布重新 finalize 并复验。
+- 已实际查看 7 张最终联系表（24 张双主题章节/图解截图 + 7 个机制步骤）及初次文字失败截图；视觉记录绑定当前源码与截图 SHA。手机图解为完整概览，细字用探索/展开；原表格与 SVG 局部滚动、播放器控制与解说可用。
+- 实际重试官方 Compose ES 9.4.0：容器退出 1，setCoredumpFilter 因 /proc/self/coredump_filter 不存在失败，9200 无服务。全部真实 API、首次及清理后重做、multi-node peer、快照注册/增量/恢复未实测；没有合成响应或改运行策略。默认无 path.repo 与成功仓库扩展的预期明确分开。
+- 本轮完成后按既有授权提交并推送 origin/main；交付提交和 ch24 阅读链接。详细源码/图源 SHA、收据、HTTP、截图和运行限制见 [.archify/CH24-REVIEW.md](.archify/CH24-REVIEW.md)。
+
 
 ### 2026-10-13（第二十三章按统一规范重构）
 

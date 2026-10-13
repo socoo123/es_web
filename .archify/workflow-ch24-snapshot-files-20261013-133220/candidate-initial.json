@@ -1,0 +1,266 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "快照：文件可共享，清单必须完整",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch24-snapshot-files-20261013-133220/snapshot-files.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "快照与恢复"
+        },
+        "database": {
+          "label": "文件与引用"
+        },
+        "security": {
+          "label": "文件匹配"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "commit",
+      "label": "数据节点 · 为本次分片快照准备文件清单"
+    },
+    {
+      "id": "repository",
+      "label": "仓库 · 查找可复用文件与登记完整引用"
+    },
+    {
+      "id": "restore",
+      "label": "恢复与删除 · 按清单读，按存活引用清理"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "commit",
+      "lane": "commit",
+      "col": 1,
+      "label": "取得本次分片的 commit",
+      "sublabel": "普通索引：Lucene 文件与元数据",
+      "type": "database",
+      "width": 282,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/repositories/LocalPrimarySnapshotShardContextFactory.java",
+          "line": 55,
+          "end_line": 75,
+          "label": "取得快照上下文"
+        }
+      ]
+    },
+    {
+      "id": "match",
+      "lane": "commit",
+      "col": 1,
+      "label": "按物理名查找并比较",
+      "sublabel": "isSame 检查 hash 与 writer UUID 等",
+      "type": "security",
+      "width": 282,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/snapshots/blobstore/BlobStoreIndexShardSnapshots.java",
+          "line": 143,
+          "end_line": 166,
+          "label": "查找旧文件"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/store/StoreFileMetadata.java",
+          "line": 133,
+          "end_line": 156,
+          "label": "文件匹配条件"
+        }
+      ]
+    },
+    {
+      "id": "reuse",
+      "lane": "repository",
+      "col": 1,
+      "label": "复用已有文件引用",
+      "sublabel": "无需为匹配的文件再写数据 blob",
+      "type": "database",
+      "width": 282,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/repositories/blobstore/BlobStoreRepository.java",
+          "line": 3580,
+          "end_line": 3584,
+          "label": "复用文件引用"
+        }
+      ]
+    },
+    {
+      "id": "new",
+      "lane": "repository",
+      "col": 3,
+      "label": "登记新增文件",
+      "sublabel": "需要写内容才上传；小文件可内联",
+      "type": "database",
+      "width": 282,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/repositories/blobstore/BlobStoreRepository.java",
+          "line": 3555,
+          "end_line": 3579,
+          "label": "新文件与内联内容"
+        }
+      ]
+    },
+    {
+      "id": "manifest",
+      "lane": "repository",
+      "col": 3,
+      "label": "保存完整快照清单",
+      "sublabel": "包含复用文件与新增文件的引用",
+      "type": "database",
+      "width": 282,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/repositories/blobstore/BlobStoreRepository.java",
+          "line": 3555,
+          "end_line": 3591,
+          "label": "完整 indexCommitPointFiles"
+        }
+      ]
+    },
+    {
+      "id": "restore",
+      "lane": "restore",
+      "col": 3,
+      "label": "按所选快照恢复",
+      "sublabel": "文件到 Store 后开启 Engine",
+      "type": "backend",
+      "width": 282,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/StoreRecovery.java",
+          "line": 580,
+          "end_line": 603,
+          "label": "普通主分片恢复"
+        }
+      ]
+    },
+    {
+      "id": "delete",
+      "lane": "restore",
+      "col": 1,
+      "label": "删除另一份快照",
+      "sublabel": "按存活引用清理，不按上传者删",
+      "type": "backend",
+      "width": 282,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/repositories/blobstore/BlobStoreRepository.java",
+          "line": 1486,
+          "end_line": 1505,
+          "label": "无引用 blob 才清理"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "commit-match",
+      "from": "commit",
+      "to": "match",
+      "label": "",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "match-reuse",
+      "from": "match",
+      "to": "reuse",
+      "label": "匹配",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    {
+      "id": "match-new",
+      "from": "match",
+      "to": "new",
+      "label": "不匹配",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "reuse-manifest",
+      "from": "reuse",
+      "to": "manifest",
+      "label": "旧引用",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    {
+      "id": "new-manifest",
+      "from": "new",
+      "to": "manifest",
+      "label": "",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "manifest-restore",
+      "from": "manifest",
+      "to": "restore",
+      "label": "",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "manifest-delete",
+      "from": "manifest",
+      "to": "delete",
+      "label": "删除场景",
+      "role": "branch",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "逻辑完整与物理增量",
+      "items": [
+        "每份成功快照都带恢复所需的完整引用，不要求先恢复上一份快照。",
+        "按文件复用；段合并会改变复用量，不能承诺每次固定上传几个文件。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "范围与仓库条件",
+      "items": [
+        "本图是普通索引的 blob 仓库路径，省略分块、并发与仓库级元数据发布。",
+        "fs 仓库必须满足各节点 path.repo、共享目录与权限；注册成功不等于已有快照。"
+      ]
+    }
+  ],
+  "mainPath": [
+    "commit",
+    "match",
+    "new",
+    "manifest",
+    "restore"
+  ]
+}

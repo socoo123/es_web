@@ -1,0 +1,24 @@
+{
+  "status": "not-run",
+  "checkedAt": "2026-10-13T13:30:42.646669+08:00",
+  "startupCommand": "docker compose -f docker/docker-compose.yml up -d",
+  "image": "docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+  "imageId": "sha256:d62985ed87a545e43cceab9f4d8d1d2f2952eacb647755bea7d7ef6890e1a5be",
+  "containerStatus": "exited",
+  "containerExitCode": 1,
+  "startedAt": "2026-10-13T05:27:25.778366959Z",
+  "finishedAt": "2026-10-13T05:27:31.830556308Z",
+  "startupErrors": [
+    {
+      "@timestamp": "2026-10-13T05:27:31.492Z",
+      "message": "fatal exception while booting Elasticsearch",
+      "error.type": "java.lang.RuntimeException",
+      "error.message": "Could not set coredump filter",
+      "error.stack_trace": "java.lang.RuntimeException: Could not set coredump filter\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.setCoredumpFilter(Elasticsearch.java:627)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.initializeNatives(Elasticsearch.java:500)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.initPhase2(Elasticsearch.java:188)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.main(Elasticsearch.java:100)\nCaused by: java.nio.file.NoSuchFileException: /proc/self/coredump_filter\n\tat java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:92)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:108)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:113)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newFileChannel(UnixFileSystemProvider.java:214)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newByteChannel(UnixFileSystemProvider.java:245)\n\tat java.base/java.nio.file.spi.FileSystemProvider.newOutputStream(FileSystemProvider.java:426)\n\tat java.base/java.nio.file.Files.newOutputStream(Files.java:215)\n\tat java.base/java.nio.file.Files.write(Files.java:3178)\n\tat java.base/java.nio.file.Files.writeString(Files.java:3372)\n\tat java.base/java.nio.file.Files.writeString(Files.java:3319)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.setCoredumpFilter(Elasticsearch.java:625)\n\t... 3 more\n"
+    }
+  ],
+  "httpProbeExitCode": 7,
+  "httpProbeError": "curl: (7) Failed to connect to localhost port 9200 after 0 ms: Could not connect to server",
+  "responsesSynthesized": false,
+  "apiCases": "all ch24 operations; first run, cleanup/repeat, peer recovery and snapshots untested"
+}

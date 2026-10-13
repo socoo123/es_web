@@ -1,0 +1,325 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Peer 恢复：先判断能否只补历史",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch24-peer-paths-20261013-133220/peer-paths.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "恢复处理"
+        },
+        "database": {
+          "label": "文件与清单"
+        },
+        "security": {
+          "label": "分支条件"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "target",
+      "label": "目标端 · 本地准备与恢复请求"
+    },
+    {
+      "id": "source",
+      "label": "源端 · 选择基线与文件计划"
+    },
+    {
+      "id": "finish",
+      "label": "目标与源端 · 打开 Engine 并追平"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "local",
+      "lane": "target",
+      "col": 1,
+      "label": "尝试本地安全恢复",
+      "sublabel": "临时 Engine 可重放到本地 GCP",
+      "type": "backend",
+      "width": 282,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 2042,
+          "end_line": 2068,
+          "label": "本地准备入口"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 2108,
+          "end_line": 2138,
+          "label": "临时 Engine 及关闭"
+        }
+      ]
+    },
+    {
+      "id": "request",
+      "lane": "target",
+      "col": 1,
+      "label": "发送恢复请求",
+      "sublabel": "携带 startingSeqNo 与文件元数据",
+      "type": "backend",
+      "width": 282,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/recovery/PeerRecoveryTargetService.java",
+          "line": 381,
+          "end_line": 408,
+          "label": "准备之后发请求"
+        }
+      ]
+    },
+    {
+      "id": "choose",
+      "lane": "source",
+      "col": 1,
+      "label": "检查能否按操作恢复",
+      "sublabel": "同历史、完整历史、lease 条件",
+      "type": "security",
+      "width": 282,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/recovery/RecoverySourceHandler.java",
+          "line": 206,
+          "end_line": 247,
+          "label": "操作恢复的条件"
+        }
+      ]
+    },
+    {
+      "id": "files",
+      "lane": "source",
+      "col": 3,
+      "label": "文件恢复 · phase1",
+      "sublabel": "safe commit 基线；复用或获取文件",
+      "type": "database",
+      "width": 282,
+      "height": 56,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/recovery/RecoverySourceHandler.java",
+          "line": 248,
+          "end_line": 287,
+          "label": "safe commit 与起点"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/recovery/RecoverySourceHandler.java",
+          "line": 538,
+          "end_line": 570,
+          "label": "文件计划与快照辅助"
+        }
+      ]
+    },
+    {
+      "id": "skip",
+      "lane": "source",
+      "col": 1,
+      "label": "操作恢复 · 跳过传文件",
+      "sublabel": "采用目标给出的 startingSeqNo",
+      "type": "backend",
+      "width": 282,
+      "height": 56,
+      "yOffset": 42,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/recovery/RecoverySourceHandler.java",
+          "line": 240,
+          "end_line": 247,
+          "label": "空文件结果"
+        }
+      ]
+    },
+    {
+      "id": "prepare",
+      "lane": "finish",
+      "col": 3,
+      "label": "PREPARE_TRANSLOG",
+      "sublabel": "此入口开 Engine，跳过本地重放",
+      "type": "backend",
+      "width": 282,
+      "height": 56,
+      "yOffset": -84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/recovery/RecoveryTarget.java",
+          "line": 371,
+          "end_line": 377,
+          "label": "打开网络恢复 Engine"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 2321,
+          "end_line": 2330,
+          "label": "skip 的准确含义"
+        }
+      ]
+    },
+    {
+      "id": "history",
+      "lane": "finish",
+      "col": 3,
+      "label": "phase2 · 操作历史",
+      "sublabel": "先接入复制，再取结束序号与历史",
+      "type": "backend",
+      "width": 282,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/recovery/RecoverySourceHandler.java",
+          "line": 303,
+          "end_line": 348,
+          "label": "复制与历史快照"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java",
+          "line": 3626,
+          "end_line": 3668,
+          "label": "从 Lucene 取操作"
+        }
+      ]
+    },
+    {
+      "id": "done",
+      "lane": "finish",
+      "col": 3,
+      "label": "完成恢复并报告",
+      "sublabel": "checkpoint 收尾；Master 再改路由",
+      "type": "backend",
+      "width": 282,
+      "height": 56,
+      "yOffset": 84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/recovery/RecoveryTarget.java",
+          "line": 381,
+          "end_line": 402,
+          "label": "恢复收尾"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/recovery/RecoveryTarget.java",
+          "line": 325,
+          "end_line": 338,
+          "label": "报告恢复完成"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/index/shard/IndexShard.java",
+          "line": 578,
+          "end_line": 585,
+          "label": "路由变 active 才 STARTED"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "local-request",
+      "from": "local",
+      "to": "request",
+      "label": "",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "request-choose",
+      "from": "request",
+      "to": "choose",
+      "label": "",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "choose-files",
+      "from": "choose",
+      "to": "files",
+      "label": "不满足",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "choose-skip",
+      "from": "choose",
+      "to": "skip",
+      "label": "满足",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    {
+      "id": "files-prepare",
+      "from": "files",
+      "to": "prepare",
+      "label": "",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "skip-prepare",
+      "from": "skip",
+      "to": "prepare",
+      "label": "不传文件",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    {
+      "id": "prepare-history",
+      "from": "prepare",
+      "to": "history",
+      "label": "",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "history-done",
+      "from": "history",
+      "to": "done",
+      "label": "",
+      "role": "main",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "箭头与范围",
+      "items": [
+        "箭头是恢复步骤及分支，phase1 可复用目标文件或按计划从源与仓库获取。",
+        "省略重试、故障及主搬迁的上下文交接；目标先做本地准备不是已完成网络恢复。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "统计口径",
+      "items": [
+        "translog 命名沿用协议与计数；源端操作历史在当前普通引擎中从 Lucene 读取。",
+        "safe commit 可以旧于最新 commit；uncommitted_operations 不能预测 phase2 数量。"
+      ]
+    }
+  ],
+  "mainPath": [
+    "local",
+    "request",
+    "choose",
+    "files",
+    "prepare",
+    "history",
+    "done"
+  ]
+}
