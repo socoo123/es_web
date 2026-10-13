@@ -1,0 +1,280 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "选举资格：试探多数，再收真实 Join",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch22-election-gates-20261013-110201/election-gates.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "协调动作"
+        },
+        "database": {
+          "label": "持久状态"
+        },
+        "security": {
+          "label": "本轮门槛"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "prepare",
+      "label": "候选节点 · 准备与试探"
+    },
+    {
+      "id": "term",
+      "label": "正式选举 · 更新任期与收票"
+    },
+    {
+      "id": "result",
+      "label": "选举结果 · 还需要发布首份状态"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "candidate",
+      "lane": "prepare",
+      "col": 1,
+      "type": "backend",
+      "label": "CANDIDATE · 准备竞选",
+      "sublabel": "资格、发现名单与节点健康检查",
+      "width": 280,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java",
+          "line": 1917,
+          "end_line": 1944,
+          "label": "调度前置检查"
+        }
+      ]
+    },
+    {
+      "id": "prevote",
+      "lane": "prepare",
+      "col": 1,
+      "type": "backend",
+      "label": "pre-vote · 有效响应够多数？",
+      "sublabel": "拒绝更鲜状态；两份配置均需多数",
+      "width": 280,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/StatefulPreVoteCollector.java",
+          "line": 175,
+          "end_line": 227,
+          "label": "假 Join 与双多数"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/StatefulPreVoteCollector.java",
+          "line": 89,
+          "end_line": 118,
+          "label": "健康与已有 leader 检查"
+        }
+      ]
+    },
+    {
+      "id": "prewait",
+      "lane": "prepare",
+      "col": 2,
+      "type": "security",
+      "label": "本轮未进入真选举",
+      "sublabel": "拒绝、缺票；等待后续调度再试",
+      "width": 248,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/StatefulPreVoteCollector.java",
+          "line": 183,
+          "end_line": 218,
+          "label": "拒绝更鲜与不足多数"
+        }
+      ]
+    },
+    {
+      "id": "startjoin",
+      "lane": "term",
+      "col": 1,
+      "type": "backend",
+      "label": "StartJoin · 请求更高 term",
+      "sublabel": "提议 max(currentTerm,maxTermSeen)+1",
+      "width": 280,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java",
+          "line": 583,
+          "end_line": 606,
+          "label": "计算任期并广播"
+        }
+      ]
+    },
+    {
+      "id": "join",
+      "lane": "term",
+      "col": 1,
+      "type": "database",
+      "label": "持久化任期 · 收有效 Join",
+      "sublabel": "同 term；候选状态不能落后于投票者",
+      "width": 280,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java",
+          "line": 169,
+          "end_line": 210,
+          "label": "持久化更高任期"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java",
+          "line": 220,
+          "end_line": 300,
+          "label": "校验 Join 与双多数"
+        }
+      ]
+    },
+    {
+      "id": "joinwait",
+      "lane": "term",
+      "col": 2,
+      "type": "security",
+      "label": "尚未赢得本轮选举",
+      "sublabel": "缺有效票；term 增长不证明当选",
+      "width": 248,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java",
+          "line": 195,
+          "end_line": 209,
+          "label": "先更新任期再收票"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java",
+          "line": 282,
+          "end_line": 299,
+          "label": "计算 electionWon"
+        }
+      ]
+    },
+    {
+      "id": "leader",
+      "lane": "result",
+      "col": 1,
+      "type": "backend",
+      "label": "Join 双多数 · becomeLeader",
+      "sublabel": "随后发布本 term 的首份状态",
+      "width": 280,
+      "height": 66,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/ElectionStrategy.java",
+          "line": 52,
+          "end_line": 71,
+          "label": "两份配置及附加策略"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java",
+          "line": 902,
+          "end_line": 923,
+          "label": "当选回调"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java",
+          "line": 1021,
+          "end_line": 1036,
+          "label": "CANDIDATE 转 LEADER"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "candidate-prevote",
+      "from": "candidate",
+      "to": "prevote",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "prevote-startjoin",
+      "from": "prevote",
+      "to": "startjoin",
+      "variant": "emphasis",
+      "role": "main",
+      "label": "有效多数"
+    },
+    {
+      "id": "prevote-prewait",
+      "from": "prevote",
+      "to": "prewait",
+      "variant": "security",
+      "role": "branch",
+      "label": "不足 / 拒绝"
+    },
+    {
+      "id": "startjoin-join",
+      "from": "startjoin",
+      "to": "join",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "join-leader",
+      "from": "join",
+      "to": "leader",
+      "variant": "emphasis",
+      "role": "main",
+      "label": "赢得选举"
+    },
+    {
+      "id": "join-joinwait",
+      "from": "join",
+      "to": "joinwait",
+      "variant": "security",
+      "role": "branch",
+      "label": "尚未赢得"
+    }
+  ],
+  "mainPath": [
+    "candidate",
+    "prevote",
+    "startjoin",
+    "join",
+    "leader"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "本图的抽象范围",
+      "items": [
+        "箭头是概念控制步骤，不是完整网络时序；省略启动引导与传输重试。",
+        "以默认策略、普通可当选节点为主线；插件可另加选举约束。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "任期与角色不是同一件事",
+      "items": [
+        "pre-vote 响应本身不是正式票；更高任期信息仍会被观察。",
+        "本轮更新 term 后仍可能失败，下一轮也可能选中同一节点。"
+      ]
+    }
+  ]
+}

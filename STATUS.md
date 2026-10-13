@@ -41,7 +41,7 @@
 | ch19 | 聚合框架 | ✅ | 30 | 1(cherry/shardSize) | ✅ 收集归并与候选误差（2图，2路径动画） |
 | ch20 | 评分与排序 | ✅ | 30 | 1(BM25 演算·旗舰) | ✅ 评分窗口与解释入口（2图，2路径动画） |
 | ch21 | 集群状态 | ✅ | 29 | — | ✅ 快照职责与发布应用（2图，1路径动画） |
-| ch22 | 主节点选举与共识 | ✅ | 10 | 1(选举时序·旗舰) | 待改造 |
+| ch22 | 主节点选举与共识 | ✅ | 18 | 1(选举时序·旗舰) | ✅ 选举资格与提交边界（2图，2路径；API/原生浏览器限制见日志） |
 | ch23 | 分片分配 | ✅ | 11 | 1(均衡迁移·旗舰) | 待改造 |
 | ch24 | 分片恢复与快照 | ✅ | 20 | 1(peer recovery·旗舰) | 待改造 |
 | ch25 | 熔断器与背压 | ✅ | 14 | 1(熔断水位·旗舰) | 待改造 |
@@ -329,7 +329,33 @@
 | ch21 | Metadata每次更新都写盘（未说明条件），其他三块均从Metadata+复制恢复 | 按角色/持久化上下文和全量/增量路径理解；全重启需重新发现、恢复与分配，旧引用不代表各组件全局原子 | GatewayMetaState617–641；ClusterState78–106；图注与正文限定 |
 | ch21 | 16卡无健康等待/完整恢复，删ver索引顺手还原集群设置 | 原16ID保留增13成3组29卡；改本索引refresh 1s→5s、no-op、恢复读回、门槛等待、两索引点名清理后重做；集群配置前后相同 | [注册表](experiments/ch21.js)、[两轮29卡+18观察](.archify/review/ch21-es-review.json)、[验收](.archify/CH21-REVIEW.md) |
 
+### 第二十二章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch22 | term只在成功换主时+1，API term可当选举次数；高term自动获胜 | StartJoin先持久化currentTerm后收Join，可失败/跳号/原节点再当选；API term属快照，仍验任期/状态新鲜度/双多数 | CoordinationState169–210/220–300；Coordinator583–606；[固定源码审计](.archify/review/ch22-source-review.json) |
+| ch22 | 默认读Master，local=true换成本地；各API ID必同时一样 | 9.4状态动作直接读本地已应用状态，local弃用无效果；CAT master同动作，独立快照可不同，CAT nodes加full_id=true | TransportLocalClusterStateAction38–92；RestUtils351–365；RestMasterAction48–59；RestNodesAction349–373 |
+| ch22 | 有m就都在配置且可当选，3台节点必2票 | 资格与实际名单分开，名单内不同ID计票；重配置可选子集/保留离线成员；voting_only另有策略/状态转移特例 | Reconfigurator107–144；VoteCollection603–621；VotingOnlyNodePlugin114–159/172–219 |
+| ch22 | pre-vote只问能否连到多数，已有leader一概拒，term绝不受影响 | 健康/已知leader自身例外/更鲜响应过滤；假Join试探双多数，仍观察maxTermSeen，高信息可触发后续推进 | StatefulPreVoteCollector89–118/175–227；Coordinator560–585 |
+| ch22 | 全局任意时刻最多一台自认Master；隔离还能收到另外两台拒票、几秒必恢复 | 旧本地Mode可滞后；固定名单少数侧不能正常提交新状态，完全隔离联系不到多数；检测/竞争/请求重试有条件 | Coordinator979–1036/1077–1111；Publication142–166；[七步概念动画](experiments/ch22.js) |
+| ch22 | 收到Publish才FOLLOWER；所有Mode箭头一条链；发布完成等于全体应用 | 满足条件的follower check也可跟随；leader先候选再跟随；默认双多数accept形成提交，通知/mark/apply分开，leader apply延后 | Coordinator411–438/441–459/1077–1111/2097–2135；CoordinationState452–459/471–518 |
+| ch22 | commit通知收到才有提交，四门是全部保证；失败即一定没发生 | 默认beforeCommit立即成功，插件可延后/失败；FailedToCommit允许不确定性且动作可重试，读回确认不宣称回滚；集群状态不等于文档复制 | ElectionStrategy116–118；Coordinator2227–2255；FailedToCommitClusterStateException18–36 |
+| ch22 | 建索引version恰好+1、term=1，全群health应green；single-node无条件验自己的多数 | 变化状态版本推进，创建/分配/其他活动可多次；同mapping可无变化；局部就绪等待；single-node已有非空配置才验quorum | MasterService652–674；MetadataMappingService190–198/235–242；Coordinator1185–1202/2050–2062 |
+| ch22 | 10卡缺版本/空前提/配置读回/重做；静态三图与七步多个绝对论断 | 保留10ID增8共18，2官方交互图/2路径/七步；显式配置、局部等待、点名清理HEAD404；纠正链式发布和角色矛盾 | [验收](.archify/CH22-REVIEW.md)、[HTTP](.archify/review/ch22-http-review.json)；真实API未跑，原因见运行证据 |
+
 ## 会话日志
+
+### 2026-10-13（第二十二章按统一规范重构）
+
+- 固定ES9.4.0/Lucene10.4.0，21目标源码文件/65精确区间核对PASS；围绕选举资格与提交边界修正名单/角色、term先推进后收票、快照term、本地状态API及local弃用、pre-vote新鲜度/高任期信息、双多数/插件约束、accept/commit/apply、分区本地认知与请求不确定性、version差值/no-op。正文/两图/七步/18卡/5问答/5陷阱/速记一致；未重读tutorial、未用子代理。
+- 保留原10稳定实验ID与七步旗舰，增8共3组18卡（A5/B3/C8/清理2），2交互图/2有限trace；显式1主0副/auto-expand=false/strict、HEAD空前提、局部green/初始化/迁移等待、配置读回、mapping首次/重复语义、点名清理和HEAD404重做。全站30正式页/656卡/22机制；首页只更新ch22计数，共享CSS/JS及其他章节未改。
+- 官方Archify3.0.1 Workflow v2，首次固定源码/真实checkout，JSON生成，许可保留。两图validate/deliver/strict check均showcase9/9、0errors/warnings、provenance current；**原生browser-check失败，finalize整体非成功**：file导航ERR_BLOCKED_BY_ADMINISTRATOR。发布图review-2补beforeCommit默认/插件边界，旧图源与收据保留；独立HTTP不替代原生门禁。
+- **真实API及两轮重做未实测**：云Docker与官方镜像可用，实际Compose启动后ES9.4.0因缺/proc/self/coredump_filter、setCoredumpFilter抛RuntimeException/NoSuchFileException退出1。已存真实启动错误，没有模拟响应、修改ES或绕过策略；多节点选举/分区/配置变更与时序仅据源码。
+- HTTP两图四档桌面/双主题、章节六档、≤880px/≤1px对齐、页面/iframe/节点容纳、探索关闭/展开、暂停后重播/Enter、目录/已读、七步控制键盘、18条真实控制台导航method/path/body、endpoint/auth/raw、Pages前缀、reduced motion均PASS；390/320表格/旧SVG局部滚动PASS。实际看7最终拼图覆盖24截图及全部7步，收紧图框至桌面760/900、≤800px460/500；手机图为概览，细字探索/展开，必要说明在正文/图注。原生与API受限项单列。
+- 站点、JS语法、figwidth、diff、10原ID/18有序唯一槽、GET/HEAD无body与.nojekyll PASS；当前源码/HTTP/滚动/机制记录绑定当前文件。[CH22-REVIEW](.archify/CH22-REVIEW.md)、[HTTP](.archify/review/ch22-http-review.json)、[运行限制](.archify/review/ch22-es-runtime.json)、[产物](.archify/review/ch22-artifacts.json)。按授权提交推送origin/main；远端与Pages状态交付另核对。
+
+
+
 
 ### 2026-10-13（第二十一章按统一规范重构）
 

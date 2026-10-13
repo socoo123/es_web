@@ -1,0 +1,312 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "发布边界：多数 accept 后提交，各节点再 apply",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch22-publication-boundaries-20261013-110201/publication-boundaries.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "协调动作"
+        },
+        "database": {
+          "label": "持久状态"
+        },
+        "security": {
+          "label": "本轮门槛"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "send",
+      "label": "Leader · 校验资格并启动发布"
+    },
+    {
+      "id": "accept",
+      "label": "第一阶段 · 接受快照与回票"
+    },
+    {
+      "id": "commit",
+      "label": "第二阶段 · 通知提交与本地应用"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "value",
+      "lane": "send",
+      "col": 1,
+      "type": "backend",
+      "label": "LEADER · 校验 term 与版本",
+      "sublabel": "赢得选举；上次状态已 accept",
+      "width": 280,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java",
+          "line": 1665,
+          "end_line": 1685,
+          "label": "publish 身份与任期"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java",
+          "line": 310,
+          "end_line": 367,
+          "label": "输入与版本检查"
+        }
+      ]
+    },
+    {
+      "id": "broadcast",
+      "lane": "send",
+      "col": 1,
+      "type": "backend",
+      "label": "PublishRequest · 发给状态节点",
+      "sublabel": "包括非投票者与本节点",
+      "width": 280,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Publication.java",
+          "line": 45,
+          "end_line": 62,
+          "label": "构造目标与启动发送"
+        }
+      ]
+    },
+    {
+      "id": "reject",
+      "lane": "send",
+      "col": 2,
+      "type": "security",
+      "label": "资格 / term 已不匹配",
+      "sublabel": "不能按当前 leader 正常发布",
+      "width": 248,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java",
+          "line": 1673,
+          "end_line": 1685,
+          "label": "NotMasterException"
+        }
+      ]
+    },
+    {
+      "id": "accepted",
+      "lane": "accept",
+      "col": 1,
+      "type": "database",
+      "label": "接收方 · last-accepted",
+      "sublabel": "校验 term / version，保存后回响应",
+      "width": 280,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java",
+          "line": 377,
+          "end_line": 408,
+          "label": "保存后返回 PublishResponse"
+        }
+      ]
+    },
+    {
+      "id": "quorum",
+      "lane": "accept",
+      "col": 1,
+      "type": "backend",
+      "label": "Leader · 有效响应够双多数？",
+      "sublabel": "committed 与本次 published 名单",
+      "width": 280,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java",
+          "line": 420,
+          "end_line": 459,
+          "label": "响应校验与有效票"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/ElectionStrategy.java",
+          "line": 74,
+          "end_line": 79,
+          "label": "发布双多数"
+        }
+      ]
+    },
+    {
+      "id": "pending",
+      "lane": "accept",
+      "col": 2,
+      "type": "security",
+      "label": "未够多数 · 继续等待 / 失败",
+      "sublabel": "可能成功节点也不足时判失败",
+      "width": 248,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Publication.java",
+          "line": 142,
+          "end_line": 166,
+          "label": "无法达到提交多数"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java",
+          "line": 2050,
+          "end_line": 2062,
+          "label": "发布超时：single-node 除外"
+        }
+      ]
+    },
+    {
+      "id": "notify",
+      "lane": "commit",
+      "col": 1,
+      "type": "backend",
+      "label": "多数 accept · 状态已提交",
+      "sublabel": "生成 ApplyCommit，通知已接受目标",
+      "width": 280,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java",
+          "line": 452,
+          "end_line": 459,
+          "label": "多数接受即形成提交"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Publication.java",
+          "line": 263,
+          "end_line": 301,
+          "label": "发送及延迟响应处理"
+        }
+      ]
+    },
+    {
+      "id": "apply",
+      "lane": "commit",
+      "col": 1,
+      "type": "database",
+      "label": "节点 · 标记 committed 再 apply",
+      "sublabel": "匹配 term/version；应用确认另计",
+      "width": 280,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java",
+          "line": 471,
+          "end_line": 518,
+          "label": "匹配快照并标记提交"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java",
+          "line": 441,
+          "end_line": 459,
+          "label": "跟随者 apply / leader 延后"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/Publication.java",
+          "line": 305,
+          "end_line": 309,
+          "label": "应用确认"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "value-broadcast",
+      "from": "value",
+      "to": "broadcast",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "value-reject",
+      "from": "value",
+      "to": "reject",
+      "variant": "security",
+      "role": "branch",
+      "label": "不匹配"
+    },
+    {
+      "id": "broadcast-accepted",
+      "from": "broadcast",
+      "to": "accepted",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "accepted-quorum",
+      "from": "accepted",
+      "to": "quorum",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "quorum-notify",
+      "from": "quorum",
+      "to": "notify",
+      "variant": "emphasis",
+      "role": "main",
+      "label": "有效多数"
+    },
+    {
+      "id": "quorum-pending",
+      "from": "quorum",
+      "to": "pending",
+      "variant": "security",
+      "role": "branch",
+      "label": "未满足"
+    },
+    {
+      "id": "notify-apply",
+      "from": "notify",
+      "to": "apply",
+      "variant": "emphasis",
+      "role": "main"
+    }
+  ],
+  "mainPath": [
+    "value",
+    "broadcast",
+    "accepted",
+    "quorum",
+    "notify",
+    "apply"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "提交不等于全体应用",
+      "items": [
+        "本图概括控制与状态推进；省略 diff 传输、并发目标与回调线程。",
+        "达到有效发布多数是提交点，不必等待所有节点完成 apply。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "本地与请求层的边界",
+      "items": [
+        "data-only 可收状态但不贡献配置内选票；leader 自身的 apply 在发布结束阶段。",
+        "FailedToCommit 错误可能留下提交不确定性；不能把重试当成自动回滚。"
+      ]
+    }
+  ]
+}

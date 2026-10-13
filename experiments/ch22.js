@@ -1,265 +1,48 @@
-/* experiments/ch22.js — 第 22 课:主节点选举与共识实验 + 选举时序旗舰动画 */
+/* ch22 · ES 9.4.0：选举与发布；动画固定三节点名单，实验仅操作 tut-l22-vote。 */
 (function () {
   'use strict';
-
-  /* ===== 动画:旧 Master 被隔离,一场选举的完整时序 ===== */
-  function rect(x, y, w, h, cls, anim) {
-    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="9" class="' + cls + (anim ? ' ' + anim : '') + '"/>';
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function text(x,y,s,c) { return '<text x="'+x+'" y="'+y+'" text-anchor="middle" class="'+c+'">'+esc(s)+'</text>'; }
+  function box(x,y,w,h,hot) { return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9" class="'+(hot?'fig-box-hot':'fig-box')+'"/>'; }
+  function snapshot(n,nodes,lines,title,note,exchange) {
+    var id='ch22-step-'+n;
+    var s='<svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="'+esc(title)+'">';
+    s+='<defs><marker id="'+id+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>';
+    nodes.forEach(function(a,i) { var x=15+i*255; s+=box(x,15,220,88,a[2]); s+=text(x+110,39,'n'+(i+1),'fig-name'); s+=text(x+110,63,a[0],'fig-key'); s+=text(x+110,88,a[1],'fig-sub'); });
+    if(n>1&&n<7) { s+='<line x1="250" y1="12" x2="250" y2="130" class="fig-arrow" style="stroke-dasharray:6 5"/>'; s+=text(125,122,'隔离侧 · 1 票','fig-sub')+text(508,122,'互通侧 · 2 票','fig-sub'); }
+    s+=box(15,143,730,132,false); lines.forEach(function(line,i) { s+=text(380,166+i*25,line,i===0?'fig-key':'fig-sub'); });
+    if(exchange) { s+='<line x1="390" y1="289" x2="630" y2="289" class="fig-arrow" marker-end="url(#'+id+')"/><line x1="630" y1="303" x2="390" y2="303" class="fig-arrow" marker-end="url(#'+id+')"/>'; s+=text(155,294,exchange,'fig-sub'); }
+    s+=box(15,317,730,38,true)+text(380,332,title,'fig-name')+text(380,349,note,'fig-sub'); return s+'</svg>';
   }
-  function txt(x, y, s, cls, warn, anim) {
-    var st = warn ? ' style="fill: rgb(var(--warn))"' : '';
-    return '<text x="' + x + '" y="' + y + '" text-anchor="middle" class="' + cls + (anim ? ' ' + anim : '') + '"' + st + '>' + s + '</text>';
-  }
-  function arrow(id, x1, y1, x2, y2) {
-    return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" class="fig-arrow" marker-end="url(#' + id + ')"/>';
-  }
-  function defs(id) {
-    return '<defs><marker id="' + id + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-      + '<path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>';
-  }
-  /* 三个节点盒子:x=15(n1) 269(n2) 523(n3),y=15,h=84 */
-  function nodeBox(x, name, role, sub, hot, warn) {
-    var s = rect(x, 15, 222, 84, hot ? 'fig-box-hot' : 'fig-box');
-    s += txt(x + 111, 40, name, 'fig-name', false);
-    s += txt(x + 111, 64, role, 'fig-key', warn);
-    s += txt(x + 111, 86, sub, 'fig-sub');
-    return s;
-  }
-  function bottom(title, sub) {
-    var s = rect(15, 242, 730, 46, 'fig-box-hot', 'fp-pop');
-    s += txt(380, 263, title, 'fig-name');
-    s += txt(380, 282, sub, 'fig-sub');
-    return s;
-  }
-  var N1 = 126, N2 = 380, N3 = 634; /* 节点盒子中心 x */
-
-  /* 步骤 1:健康集群 */
-  function step1() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('a1');
-    s += nodeBox(15, 'n1', 'LEADER · term=5', '正常 publish', true, false);
-    s += nodeBox(269, 'n2', 'FOLLOWER', '接受 PublishRequest', false, false);
-    s += nodeBox(523, 'n3', 'FOLLOWER', '接受 PublishRequest', false, false);
-    s += arrow('a1', 237, 57, 263, 57);
-    s += arrow('a1', 491, 57, 517, 57);
-    s += txt(380, 122, 'LeaderChecker / FollowersChecker 心跳正常', 'fig-sub');
-    s += rect(15, 140, 730, 74, 'fig-box');
-    s += txt(380, 165, 'voting configuration = {n1, n2, n3},quorum = 2', 'fig-key');
-    s += txt(380, 192, '2 * 2 > 3 成立,2 票即多数;3 节点集群同一时刻只有 n1 一个 LEADER', 'fig-sub');
-    s += bottom('健康集群:n1 当 LEADER,term=5', 'version 每次成功 publish 加一,term 只在换届加一');
-    return s + '</svg>';
-  }
-
-  /* 步骤 2:网线拔掉 */
-  function step2() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('a2');
-    s += nodeBox(15, 'n1', '仍自称 LEADER', '听得见自己', true, true);
-    s += nodeBox(269, 'n2', 'FOLLOWER', '与 n3 互通', false, false);
-    s += nodeBox(523, 'n3', 'FOLLOWER', '与 n2 互通', false, false);
-    s += '<line x1="252" y1="15" x2="252" y2="260" class="fig-arrow" style="stroke-dasharray: 6 5"/>';
-    s += txt(126, 122, '分区 A:1/3', 'fig-sub');
-    s += txt(567, 122, '分区 B:2/3', 'fig-sub');
-    s += arrow('a2', 491, 57, 517, 57);
-    s += rect(15, 140, 730, 74, 'fig-box');
-    s += txt(380, 165, '两侧互不通信:没有「谁把票传给谁」', 'fig-key');
-    s += txt(380, 192, '同一时刻最多一个分区拥有 quorum=2——这里只能是分区 B', 'fig-sub');
-    s += bottom('网线拔掉:分区 A(n1)与分区 B(n2,n3)', '两侧各走各的心跳检测,谁先反应过来?下一帧');
-    return s + '</svg>';
-  }
-
-  /* 步骤 3:两侧各自发现失联 */
-  function step3() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('a3');
-    s += nodeBox(15, 'n1', '仍自称 LEADER', '等不到 follower ACK', true, true);
-    s += nodeBox(269, 'n2', 'CANDIDATE', 'becomeCandidate', false, false);
-    s += nodeBox(523, 'n3', 'CANDIDATE', 'becomeCandidate', false, false);
-    s += txt(126, 122, 'FollowersChecker 把 n2/n3 标 faulty', 'fig-sub', true);
-    s += txt(567, 122, 'LeaderChecker 失败 → becomeCandidate', 'fig-sub');
-    s += rect(15, 140, 730, 74, 'fig-box');
-    s += txt(380, 165, 'onLeaderFailure → becomeCandidate("onLeaderFailure")', 'fig-key');
-    s += txt(380, 192, 'n2/n3 站下来变成 CANDIDATE——但先别急着抬 term,还要 pre-vote', 'fig-sub');
-    s += bottom('两侧都发现了失联,状态机各退回 CANDIDATE', '注意:谁都没有马上广播「我要选举」');
-    return s + '</svg>';
-  }
-
-  /* 步骤 4:pre-vote 假投票 */
-  function step4() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('a4');
-    s += nodeBox(15, 'n1', 'CANDIDATE', 'pre-vote 没人理', true, true);
-    s += nodeBox(269, 'n2', 'CANDIDATE', '发起 pre-vote', false, false);
-    s += nodeBox(523, 'n3', 'CANDIDATE', '无 leader,给票', false, false);
-    s += txt(507, 120, 'PreVoteRequest / Response(term 仍=5)', 'fig-key');
-    s += arrow('a4', N2, 132, 622, 132);
-    s += arrow('a4', 642, 160, 400, 160);
-    s += txt(126, 140, 'n1 也在试探,但 n2/n3 听不见它', 'fig-sub', true);
-    s += txt(126, 166, '若对方已有 leader:直接拒绝', 'fig-sub');
-    s += rect(15, 182, 730, 44, 'fig-box');
-    s += txt(380, 203, 'StatefulPreVoteCollector:假 Join 凑 VoteCollection', 'fig-key');
-    s += txt(380, 221, '2/2 假投票达多数 → 才 startElection;凑不齐就停手,term 一个不加', 'fig-sub');
-    s += bottom('pre-vote:不动 term,先证明「联系得到多数」', '拒绝的理由写得很直:already a leader');
-    return s + '</svg>';
-  }
-
-  /* 步骤 5:正式选举,term+1 */
-  function step5() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('a5');
-    s += nodeBox(15, 'n1', 'CANDIDATE', 'term 还停在 5', true, true);
-    s += nodeBox(269, 'n2', 'CANDIDATE', 'term 5→6 开选', false, false);
-    s += nodeBox(523, 'n3', 'CANDIDATE', 'handleStartJoin', false, false);
-    s += txt(507, 120, 'StartJoinRequest(term=6) / 回一张 Join', 'fig-key');
-    s += arrow('a5', N2, 132, 622, 132);
-    s += arrow('a5', 642, 160, 400, 160);
-    s += rect(15, 182, 730, 44, 'fig-box');
-    s += txt(380, 203, 'joinVotes=2 → electionWon 翻 true → becomeLeader', 'fig-key');
-    s += txt(380, 221, '断言:必须已经是 CANDIDATE;n1 那侧 term 没人抬,停在原地', 'fig-sub');
-    s += bottom('n2 赢得 term=6 的选举,成为新 LEADER', 'handleStartJoin 拒绝 term 不严格变大的请求');
-    return s + '</svg>';
-  }
-
-  /* 步骤 6:publish / commit 两阶段 */
-  function step6() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('a6');
-    s += nodeBox(15, 'n1', 'LEADER(旧)', 'publish 凑不齐', true, true);
-    s += nodeBox(269, 'n2', 'LEADER · term=6', '两阶段发布', true, false);
-    s += nodeBox(523, 'n3', 'FOLLOWER', 'accept → committed', false, false);
-    s += txt(507, 120, 'PublishRequest(v=N+1) → accept,回 Response', 'fig-key');
-    s += arrow('a6', N2, 132, 622, 132);
-    s += arrow('a6', 642, 160, 400, 160);
-    s += txt(507, 184, '2 份 Response → ApplyCommitRequest → markCommitted', 'fig-key');
-    s += arrow('a6', 358, 174, 624, 174);
-    s += rect(15, 196, 222, 40, 'fig-box');
-    s += txt(126, 214, 'n1 侧:1*2>3 不成立', 'fig-sub', true);
-    s += txt(126, 230, 'FailedToCommit → 站下来', 'fig-sub', true);
-    s += bottom('分区 B 正常更新集群状态;分区 A 一道门都过不去', 'accept ≠ committed:多数 accept 之后才广播第二枪');
-    return s + '</svg>';
-  }
-
-  /* 步骤 7:愈合 */
-  function step7() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('a7');
-    s += nodeBox(15, 'n1', 'FOLLOWER', '接受 term=6 状态', false, false);
-    s += nodeBox(269, 'n2', 'LEADER · term=6', '正常 publish', true, false);
-    s += nodeBox(523, 'n3', 'FOLLOWER', '正常接受发布', false, false);
-    s += arrow('a7', 237, 57, 263, 57);
-    s += arrow('a7', 491, 57, 517, 57);
-    s += txt(380, 122, '网络恢复:n1 看到更高的 term=6', 'fig-key');
-    s += txt(126, 150, '变 FOLLOWER', 'fig-sub');
-    s += txt(126, 172, '丢弃自造状态', 'fig-sub');
-    s += txt(567, 150, '接受多数派已 committed 的状态', 'fig-sub');
-    s += rect(15, 188, 730, 40, 'fig-box');
-    s += txt(380, 207, 'n1 若曾抬 term:健康侧会看到 maxTermSeen>currentTerm 自行重选', 'fig-sub');
-    s += txt(380, 224, 'pre-vote 拒绝「已有 leader」的试探,正是让这种打断不发生', 'fig-sub');
-    s += bottom('愈合:term 高者胜,集群回归一个真理', '从头到尾任何时刻最多一个 Master——hasQuorum 那行算术保证的');
-    return s + '</svg>';
-  }
-
-  window.ESFLOWS = window.ESFLOWS || {};
-  window.ESFLOWS['ch22-election'] = {
-    version: 1,
-    id: 'ch22-election',
-    title: '旧 Master 被隔离:一场选举的完整时序',
-    speed: 2800,
-    steps: [
-      { svg: step1(), note: '起点:3 个 master-eligible 节点,n1 是 term=5 的 LEADER,n2/n3 跟随。voting configuration={n1,n2,n3},quorum=2:2*2>3。version 每次 publish 加一,term 只在换届加一。' },
-      { svg: step2(), note: '把 n1 的网线拔掉:分区 A 只有 n1(1/3),分区 B 是 n2+n3(2/3)。两侧互不通信——多数派任何时刻只能属于一个分区,这是脑裂防护的地基。' },
-      { svg: step3(), note: '两侧各走各的检测:n1 的 FollowersChecker 把 n2/n3 标成 faulty;n2/n3 的 LeaderChecker 等不到心跳,onLeaderFailure → becomeCandidate。注意:没人立刻开选。' },
-      { svg: step4(), note: 'n2 先跑 pre-vote:PreVoteRequest 不抬 term(term 仍=5)。n3 没有 leader,给票;若 n3 已认某个 leader 会直接拒绝(already a leader)。2/2 假投票凑齐多数,才允许 startElection——n1 在自己那边怎么试探都凑不齐,term 一个不加。' },
-      { svg: step5(), note: '正式选举:getTermForNewElection 把 term 抬到 6,广播 StartJoinRequest。n3 handleStartJoin 拒绝 term 不严格变大的请求、持久化 term=6、回一张 Join。2 张 Join → electionWon 翻 true → becomeLeader(断言:必须已经是 CANDIDATE)。' },
-      { svg: step6(), note: '分区 B 恢复写能力:n2 发 PublishRequest(v=N+1),n3 写入 last-accepted(accept≠committed)并回 Response;凑齐 2 份才发 ApplyCommitRequest,n3 markCommitted。同一时刻 n1 那侧 1*2>3 不成立,FailedToCommitClusterStateException,站下来。' },
-      { svg: step7(), note: '网络恢复:n1 看到更高的 term=6,变 FOLLOWER,接受多数派已 committed 的状态。回头看:pre-vote 的拒绝保护了多数派不被少数派试探打扰;从头到尾任何时刻最多一个 Master。' }
-    ]
-  };
-
-  /* ===== 实验 ===== */
-  window.ESEXPERIMENTS = window.ESEXPERIMENTS || {};
-
-  window.ESEXPERIMENTS['ch22-00-cat-master'] = {
-    version: 1, id: 'ch22-00-cat-master',
-    title: '实验 0 · _cat/master:当前 Master 一行流',
-    method: 'GET', path: '/_cat/master?v',
-    body: null,
-    predict: '会返回几行?列名是什么?',
-    expect: '一行:id / host / ip / node。RestMasterAction 的实现是发一个 ClusterStateRequest、取 nodes.getMasterNodeId() 填表——没有另一套「选举 API」。单节点集群上这一行就是你正在打的那台。'
-  };
-
-  window.ESEXPERIMENTS['ch22-01-master-node'] = {
-    version: 1, id: 'ch22-01-master-node',
-    title: '实验 1 · master_node:同一个 id,同一份真理',
-    method: 'GET', path: '/_cluster/state?filter_path=master_node',
-    body: null,
-    predict: '这个 master_node 和实验 0 的 id 什么关系?',
-    expect: '完全相等——_cat/master 和 _cluster/state 读的是同一个 DiscoveryNodes.getMasterNodeId()(第 21 课 Nodes 块)。注意这是 9.4.0 的路径,早已没有 Zen1 时代的 _zen 接口。'
-  };
-
-  window.ESEXPERIMENTS['ch22-02-nodes-roles'] = {
-    version: 1, id: 'ch22-02-nodes-roles',
-    title: '实验 2 · 谁有资格当选:node.role 里的 m',
-    method: 'GET', path: '/_cat/nodes?v&h=name,id,node.role,master',
-    body: null,
-    predict: 'master 列的 * 落在哪一行?node.role 里的字母都是什么意思?',
-    expect: 'master 列为 * 的就是当前 Master(与实验 0/1 同一个 id);node.role 含 m 表示 master-eligible——只有这类节点进投票配置、有选举票(实验 3 可证)。单节点是 * 又含 m:自己选自己。'
-  };
-
-  window.ESEXPERIMENTS['ch22-03-voting-config'] = {
-    version: 1, id: 'ch22-03-voting-config',
-    title: '实验 3 · 读投票配置,算出 quorum',
-    method: 'GET', path: '/_cluster/state?filter_path=metadata.cluster_coordination',
-    body: null,
-    predict: 'last_committed_config 里有几个 node id?算式 votedNodesCount * 2 > nodeIds.size() 里,N=几、几票算多数?',
-    expect: 'term=1(从没换过届),last_committed_config 与 last_accepted_config 各含 1 个 id(同一个)。1 * 2 > 1 为真:quorum=1,自己投自己就算数。若是 3 节点集群,这里会是 3 个 id → quorum=2。稳定运行时两份 config 相同——它们只在换配置的中途才可能不同。'
-  };
-
-  window.ESEXPERIMENTS['ch22-04-discovery-type'] = {
-    version: 1, id: 'ch22-04-discovery-type',
-    title: '实验 4 · discovery.type=single-node 的承诺',
-    method: 'GET', path: '/_nodes/settings?filter_path=nodes.*.settings.discovery.type',
-    body: null,
-    predict: '本机 docker 的 discovery.type 是什么?Coordinator.doStart 对它有什么额外要求?',
-    expect: 'single-node(docker-compose.yml 里写死的)。doStart 要求:开了它,本地节点必须对 committed configuration 自己就构成 quorum——否则拒绝启动。反例:3 节点名单 + single-node,hasQuorum({自己})=false,启动即 IllegalStateException:一个声称单机的进程带着 3 节点配置,既发现不了同伴、又永远选不出主。'
-  };
-
-  window.ESEXPERIMENTS['ch22-05-before'] = {
-    version: 1, id: 'ch22-05-before',
-    title: '实验 5 · 记下 version 与 term(下面要用)',
-    method: 'GET',
-    path: '/_cluster/state/version,metadata?filter_path=version,state_uuid,metadata.cluster_coordination.term',
-    body: null,
-    predict: 'version 和 term 哪个数字大?下一次状态更新,两个各会怎么动?',
-    expect: 'version 通常远大于 term:version 每次 publish 加一,term 只在换届加一。把这两个数抄下来——实验 7 对照用。预测:PUT 索引后 version+1、term 不动(还是同一任 LEADER)。'
-  };
-
-  window.ESEXPERIMENTS['ch22-06-put-index'] = {
-    version: 1, id: 'ch22-06-put-index',
-    title: '实验 6 · 一次货真价实的状态更新',
-    method: 'PUT', path: '/tut-l22-vote',
-    body: { settings: { number_of_shards: 1, number_of_replicas: 0 } },
-    predict: 'quorum=1 的单节点,publish/commit 这两道门开不开?',
-    expect: 'acknowledged: true。单节点的 1 票满足 1*2>1,publish 多数就是自己——门是开的。这证明「更新 ClusterState 走 publish/commit」在单节点同样成立,只是多数恰好是一票。'
-  };
-
-  window.ESEXPERIMENTS['ch22-07-after'] = {
-    version: 1, id: 'ch22-07-after',
-    title: '实验 7 · version +1,term 不动',
-    method: 'GET',
-    path: '/_cluster/state/version,metadata?filter_path=version,state_uuid,metadata.cluster_coordination.term',
-    body: null,
-    predict: '对照实验 5 抄下的数字:version、term、state_uuid 各怎么动?',
-    expect: 'version +1,state_uuid 换新串,term 不变——同一任 LEADER 在 publish,没有换届。term 变大的唯一途径是重新选举(handleStartJoin);对照动画第 5 帧:n2/n3 那侧 term 5→6 是因为换了 Master,不是例行公事。'
-  };
-
-  window.ESEXPERIMENTS['ch22-08-health'] = {
-    version: 1, id: 'ch22-08-health',
-    title: '实验 8 · quorum=1 的集群自洽吗',
-    method: 'GET', path: '/_cluster/health?filter_path=status,number_of_nodes,timed_out',
-    body: null,
-    predict: '单节点、刚建的索引 0 副本,状态是 green 还是 yellow?',
-    expect: 'green,number_of_nodes=1。主分片有处放、副本数为 0 无处安放也无所谓。若你留着前面课程带副本的索引,这里会是 yellow——不是选举出了问题,是副本分片没地方放:第 23 课分片分配的入场券。'
-  };
-
-  window.ESEXPERIMENTS['ch22-09-cleanup'] = {
-    version: 1, id: 'ch22-09-cleanup',
-    title: '清理 · 删 tut-l22-vote',
-    method: 'DELETE', path: '/tut-l22-vote',
-    predict: '一句话总结本课?',
-    expect: 'acknowledged: true——而且这又是一次 publish(quorum=1,version 再 +1)。四道门同一条多数派不变量:pre-vote 试探、选举拿资格、publish 收 ACK、commit 落地;3 节点 quorum=2,任何时刻最多一个分区能写集群真理。'
-  };
+  window.ESFLOWS=window.ESFLOWS||{};
+  window.ESFLOWS['ch22-election']={version:1,id:'ch22-election',title:'三节点固定名单：分区与重新加入的七步概念时序',speed:2800,steps:[
+    {svg:snapshot(1,[['LEADER · term=5','分别向两个 follower 发布',true],['FOLLOWER','跟随 n1'],['FOLLOWER','跟随 n1']],['两份 voting configuration 均为 {n1,n2,n3}','只数名单内不同节点的票：N=3，quorum=2','n1 分别向 n2、n3 发布，不是 n2 转发给 n3','以下默认策略、固定名单、普通节点；省略并发与重试'],'健康起点：本 term 由 n1 领导','状态 version 与选举 currentTerm 是两个维度'),note:'设两份投票名单均为 n1/n2/n3，三者是普通可当选节点；已应用状态 term=5。本动画按默认策略、固定名单，省略并发与重试。n1 分别向两个 follower 发布；version 的状态推进不能当作成功换届次数。'},
+    {svg:snapshot(2,[['仍自认 LEADER','暂未检测出失联',true],['FOLLOWER','与 n3 保持互通'],['FOLLOWER','与 n2 保持互通']],['分区：n1 | n2+n3；投票名单暂不改变','旧节点的本地角色可能滞后，并非断线瞬间一致','1×2>3 为假；2×2>3 为真','多数交集约束有效选举与提交，不是每台机器的自称'],'网络断开：本地认知暂时不同','不保证所有节点立刻报告同一个 master'),note:'网络分为 n1 和 n2+n3 两侧。断线不会瞬间改掉 n1 的本地 LEADER，也不会瞬间让另外两个当选。按固定名单，隔离侧不足多数；API 的等待、重试和失联检测各有时序，不承诺几秒完成。'},
+    {svg:snapshot(3,[['旧 LEADER / 候选','失败后可能退下'],['CANDIDATE','LeaderChecker 判失联'],['CANDIDATE','LeaderChecker 判失联']],['两侧故障检测是独立过程，没有统一的瞬间','n2/n3：onLeaderFailure → becomeCandidate','n1：无足够发布票；失败时可能退回 CANDIDATE','检测失联、发布失败、响应超时不是一个原子步骤'],'检测失联：进入候选与恢复流程','能通信、状态新鲜与节点健康仍是选举前提'),note:'多数侧通过 LeaderChecker 的失败回调回到 CANDIDATE；旧 leader 可能在发布无法完成时退下。不同节点检测速度可以不同。本帧展示可发生的恢复路径，没有把所有故障回调当成同时发生。'},
+    {svg:snapshot(4,[['CANDIDATE','联系不到名单内多数'],['CANDIDATE','发 pre-vote 请求'],['CANDIDATE','健康且无已知 leader']],['pre-vote：把有效响应当作假 Join 验双多数','更鲜状态响应不计；已有其他 leader / 不健康会拒绝','假票不是正式选票，也不直接持久化新 term','仍观察 maxTermSeen，不承诺任意试探毫无任期副作用'],'多数侧通过试探，才进入真选举','隔离侧本轮不足多数，等待后续调度','n2 ↔ n3 · 试探'),note:'假 Join 检查两份名单及附加策略；更鲜状态响应被排除。接收方健康、无 leader 才通常回复，已知 leader 自己发来请求有例外。pre-vote 不是正式投票；处理请求/响应仍更新 maxTermSeen，高任期信息可能触发后续推进。'},
+    {svg:snapshot(5,[['CANDIDATE · term=5','本例未见更高任期'],['候选 → LEADER','本例提议 term=6',true],['CANDIDATE','持久化 term=6，回 Join']],['假设 maxTermSeen=5，新提议 term=max(5,5)+1=6','收到严格更高 term：先持久化，清空本轮选票','同 term 的有效 Join、状态不落后、两份名单均够票','本例 n2 赢得选举；真实竞争可失败、重试或由 n3 赢'],'n2 当选：任期增长本身还不是获胜证据','同一节点可在更高 term 再当选，不是每轮都换人','StartJoin / Join'),note:'假设本例没有更高 maxTermSeen，提议从 5 到 6；实际可以跳到更大的 term。n2/n3 先处理 StartJoin 再回正式 Join，满足状态新鲜度与双多数才 electionWon=true。某轮增长 term 仍可能失败；同一个节点也能再次当选。'},
+    {svg:snapshot(6,[['不足多数','不能正常提交新状态'],['LEADER · term=6','新状态发给 n2/n3',true],['FOLLOWER','accept → commit → apply']],['n2/n3 对匹配快照 accept 后回有效 PublishResponse','双多数 accept 已达到提交点，再发 ApplyCommit 通知','各节点 mark committed 与 apply 的完成时间可以不同','n1 侧不足发布多数；请求错误不证明一定回滚'],'多数侧提交；全体 apply 不是提交前提','新 master 资格与新状态提交是两个检查点','publish / 回票'),note:'本例 n2 与 n3 足够发布双多数，形成提交决定再通知 apply。不是等全体节点应用完成才 committed；非投票者也可以收状态。隔离侧不能按固定名单正常提交新状态；请求重试与 FailedToCommit 的不确定性另看正文。'},
+    {svg:snapshot(7,[['FOLLOWER','接收匹配的新状态'],['LEADER · term=6','本例仍由 n2 领导',true],['FOLLOWER','跟随 n2']],['网络恢复后，旧节点重新发现并加入当前集群','接受更高 term 后先退回候选，再跟随有效 leader','term 高不足以自称获胜；发布仍验资格、任期和快照','本例最终跟随 n2；若又出现高任期信息，仍可能重选'],'重新加入：恢复共同已应用状态','不把 pre-vote 当作所有故障下的零中断保证'),note:'本例 n1 看见有效的 term=6 发布，更新任期、经 CANDIDATE 再成为 FOLLOWER 并应用状态。不是“任何 term 高的节点自动胜出”。若恢复时出现更高任期或其他故障，仍可能继续选举。安全约束不等于故障恢复时间保证。'}
+  ]};
+  window.ESEXPERIMENTS=window.ESEXPERIMENTS||{};
+  function add(id,title,method,path,body,predict,expect) { window.ESEXPERIMENTS[id]={version:1,id:id,title:title,method:method,path:path,body:body,predict:predict,expect:expect}; }
+  var statePath='/_cluster/state/version,master_node,metadata?filter_path=version,state_uuid,master_node,metadata.cluster_coordination';
+  add('ch22-10-version','A1 · 确认 ES、Lucene 与固定源码版本','GET','/?filter_path=cluster_name,cluster_uuid,version.number,version.build_hash,version.lucene_version',null,'节点版本和源码提交是否与本课相同？','对应发行版为 ES 9.4.0、Lucene 10.4.0，build_hash=2e8528e92361c3399724226deaf2b46f933e925b。集群名与 UUID 随环境变化；版本不一致时不能当成本课版本证据。');
+  add('ch22-00-cat-master','A2 · CAT 读当前 master 的完整 ID','GET','/_cat/master?v',null,'健康集群有几行？无已知 master 和请求失败有何区别？','正常表头 id/host/ip/node，当前 master 一行。接入节点没有已知 master 时，CAT 源码用“-”占位；此读取动作不为寻找 master 而转发等待。连接、任务或请求处理失败时应另看 HTTP 错误。这是状态视图，不是选举全程日志。');
+  add('ch22-01-master-node','A3 · 对照 ClusterState 的 master_node','GET','/_cluster/state/master_node?filter_path=master_node',null,'在稳定运行时，它与 CAT 完整 ID 一致吗？','稳定时 master_node 应与 A2 完整 id 相同。两次独立请求不共享同一瞬间快照，换主期间可能不同；缺失 ID 时先检查状态与错误，不推断整个集群没有任何自认 leader。');
+  add('ch22-02-nodes-roles','A4 · 完整节点 ID、角色与当前 master','GET','/_cat/nodes?v&full_id=true&h=name,id,node.role,master',null,'带 m 的节点都等于投票名单吗？带 v 又意味着什么？','full_id=true 便于与完整 ID 对照；默认 CAT nodes 的 id 可截短。* 为当前视图 master，m 为 master-eligible，v 为 voting_only。角色是资格，实际算票须读两份名单；带 m 不保证当前被选入名单。');
+  add('ch22-11-local-state','A5 · 对照已弃用且无效果的 local 参数','GET',statePath+'&local=true',null,'9.4.0 默认就读本地状态；local=true 还改变什么吗？','9.4.0 默认就读接入节点本地已应用视图；local 参数弃用且没有效果，可产生弃用 Warning，网页未必显示该响应头。它不触发选举、不改配置、不切到 master。多节点视图可滞后；快照 term 不是节点 currentTerm 全历史。');
+  add('ch22-03-voting-config','B1 · 分别计算两份名单的多数','GET','/_cluster/state/metadata?filter_path=metadata.cluster_coordination',null,'committed 与 accepted 的 N 各是多少？最少有效票是多少？','非空名单最少票为 floor(N/2)+1，只计名单内不同 ID。课程新单节点通常各一个 ID、quorum=1，term 不写死为1。三节点不保证名单恰好3人；换配置中两名单可不同，选举分别验双多数及附加策略。');
+  add('ch22-04-discovery-type','B2 · 显式 single-node 与缺省配置','GET','/_nodes/settings?filter_path=nodes.*.name,nodes.*.settings.discovery.type',null,'课程 Docker 返回什么？字段缺失证明没有发现机制吗？','课程 Docker 显式 single-node；其他环境可缺省，不能据此猜配置。doStart 在已有非空 committed 名单时要求自己独自够多数；空配置走引导流程。多节点改 single-node 不能绕过原投票名单。');
+  add('ch22-12-coordination-settings','B3 · 只读默认值与显式覆盖','GET','/_cluster/settings?include_defaults=true&filter_path=defaults.cluster.no_master_block,defaults.cluster.publish.timeout,defaults.cluster.auto_shrink_voting_configuration,persistent.cluster.no_master_block,transient.cluster.no_master_block,persistent.cluster.auto_shrink_voting_configuration,transient.cluster.auto_shrink_voting_configuration',null,'默认 block/发布超时是什么？有显式覆盖吗？','源码默认 no_master_block=write、publish.timeout=30s、auto_shrink=true。同时看 defaults 与 persistent/transient，节点文件也会影响实际值。single-node 不调度该发布 timeout，不代表请求层无其他超时。本卡只读。');
+  add('ch22-13-before-exists','C1 · 前提：专属索引不存在','HEAD','/tut-l22-vote',null,'第一次或清理后应该返回什么状态码？','404 且无响应体是预期空前提；200 表示已存在。完整重做时先末尾点名清理，再从 C1 开始；清理删除 tut-l22-vote 全部数据，不影响其他名字的索引。');
+  add('ch22-05-before','C2 · 记下变更前快照','GET',statePath,null,'抄下 version、state_uuid、master_node、快照 term 与两份名单。','数值随运行变化，不要求 version 大于 term 或 term=1。后续在相同 master/term 下比较 version；此接口不直接暴露每个节点在途的 accept/commit/apply 时刻。');
+  add('ch22-06-put-index','C3 · 建立 1 主 0 副的实验资源','PUT','/tut-l22-vote',{settings:{number_of_shards:1,number_of_replicas:0,auto_expand_replicas:false},mappings:{dynamic:'strict',properties:{marker:{type:'keyword'}}}},'空前提下能创建吗？一次请求只推进一份状态吗？','正常返回 acknowledged 与 shards_acknowledged；它们是请求层等待结果，不是抓包证明。后卡等就绪。重复创建通常400 resource_already_exists_exception，不覆盖旧索引，清理再做。创建与分配可能推进多份状态，不承诺 version 仅+1。');
+  add('ch22-08-health','C4 · 仅等待本课索引就绪','GET','/_cluster/health/tut-l22-vote?wait_for_status=green&wait_for_no_initializing_shards=true&wait_for_no_relocating_shards=true&timeout=30s&filter_path=status,timed_out,number_of_nodes,active_primary_shards,active_shards,unassigned_shards',null,'有可分配数据节点且无阻碍时，1主0副是什么颜色？','预期 timed_out=false、green、active_primary_shards=1、active_shards=1；其他索引不影响本索引颜色。number_of_nodes 是全群数量，不写死1。禁用分配等条件可导致超时；green 不证明所有选举故障均已恢复。');
+  add('ch22-07-after','C5 · 版本增长，不要求恰好 +1','GET',statePath,null,'首次成功创建并就绪后，相比 C2 哪些字段变了？','master/快照 term 稳定时，首次创建后 version 应增长、state_uuid 变化，但可能加多次；其他活动也推进版本。term 稳定仅说明两份状态同任期，不能推出没有失败选举。换主或请求失败后重新建立对照。');
+  add('ch22-14-index-settings','C6 · 核对资源实际配置','GET','/tut-l22-vote/_settings?filter_path=*.settings.index.number_of_shards,*.settings.index.number_of_replicas,*.settings.index.auto_expand_replicas',null,'主副本与 auto_expand_replicas 是否与 C3 一致？','正常为主分片“1”、副本“0”、auto_expand_replicas“false”（settings 常用字符串序列化）。这确认资源前提；投票名单与主分片数没有一票对应一片的关系。');
+  add('ch22-15-put-mapping','C7 · 新增一个明确的 mapping 字段','PUT','/tut-l22-vote/_mapping',{properties:{note:{type:'keyword'}}},'首次新增会推进状态吗？重提同定义一定再加1吗？','正常 acknowledged=true；首次新增 note 需要元数据变更，重提同定义可以无变化。不能从每个 HTTP 成功推出 version+1。mapping 更新不是文档写入或重新选举。');
+  add('ch22-16-metadata-after','C8 · 读回新字段与当前状态','GET','/_cluster/state/version,master_node,metadata/tut-l22-vote?filter_path=version,state_uuid,master_node,metadata.cluster_coordination,metadata.indices.*.mappings',null,'note 是否在映射中？版本差值能唯一归因于 C7 吗？','应可见 marker/note 两个 keyword；对照 C5 的 master/快照 term。首次变更会推进版本，其他并发状态更新也贡献差值；重提同 mapping 差值可为0。本轮未实测，先核对自己环境的真实响应。');
+  add('ch22-09-cleanup','清理 1 · 点名删除本课索引','DELETE','/tut-l22-vote',null,'删除范围是什么？重复删除呢？','删除 tut-l22-vote 全部映射与文档；正常 acknowledged=true，重复删除通常404 index_not_found_exception。删除也更新状态，不保证恰好+1。重做继续确认404，再从 C1 建立新基线。');
+  add('ch22-17-after-missing','清理 2 · 确认空前提并重做','HEAD','/tut-l22-vote',null,'是否回到 C1 的前提？','404、无响应体。再执行 C1–C8 并清理；ID、term、version、UUID无需与前轮相同，资源配置和首次变更语义才是重复目标。两轮都不改变发现或投票配置。');
 })();

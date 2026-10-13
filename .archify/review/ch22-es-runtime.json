@@ -1,0 +1,29 @@
+{
+  "status": "not-run",
+  "version": "9.4.0",
+  "image": "docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+  "buildHash": "2e8528e92361c3399724226deaf2b46f933e925b",
+  "container": "es-study",
+  "reason": "Official image exits during native startup: /proc/self/coredump_filter is absent in the managed runtime. Elasticsearch.setCoredumpFilter throws RuntimeException (NoSuchFileException).",
+  "startupErrors": [
+    {
+      "@timestamp": "2026-10-13T02:57:19.824Z",
+      "log.level": "ERROR",
+      "message": "fatal exception while booting Elasticsearch",
+      "ecs.version": "1.2.0",
+      "service.name": "ES_ECS",
+      "event.dataset": "elasticsearch.server",
+      "process.thread.name": "main",
+      "log.logger": "org.elasticsearch.bootstrap.Elasticsearch",
+      "elasticsearch.node.name": "cda7a1d24d27",
+      "elasticsearch.cluster.name": "docker-cluster",
+      "error.type": "java.lang.RuntimeException",
+      "error.message": "Could not set coredump filter",
+      "error.stack_trace": "java.lang.RuntimeException: Could not set coredump filter\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.setCoredumpFilter(Elasticsearch.java:627)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.initializeNatives(Elasticsearch.java:500)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.initPhase2(Elasticsearch.java:188)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.main(Elasticsearch.java:100)\nCaused by: java.nio.file.NoSuchFileException: /proc/self/coredump_filter\n\tat java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:92)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:108)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:113)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newFileChannel(UnixFileSystemProvider.java:214)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newByteChannel(UnixFileSystemProvider.java:245)\n\tat java.base/java.nio.file.spi.FileSystemProvider.newOutputStream(FileSystemProvider.java:426)\n\tat java.base/java.nio.file.Files.newOutputStream(Files.java:215)\n\tat java.base/java.nio.file.Files.write(Files.java:3178)\n\tat java.base/java.nio.file.Files.writeString(Files.java:3372)\n\tat java.base/java.nio.file.Files.writeString(Files.java:3319)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.setCoredumpFilter(Elasticsearch.java:625)\n\t... 3 more\n"
+    }
+  ],
+  "registeredExperiments": "not executed",
+  "repeatability": "not tested",
+  "partitionAndElections": "source verified only",
+  "responsesSynthesized": false
+}

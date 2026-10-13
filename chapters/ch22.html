@@ -1,326 +1,88 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>第 22 课:主节点选举与共识 — ES 源码精读站</title>
-  <link rel="stylesheet" href="../assets/css/style.css">
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
-    <nav class="tnav">
-      <a href="../index.html">课程</a>
-      <a href="../architecture.html">架构</a><a href="../console.html">控制台</a>
-      <a href="../cheatsheet.html">速查表</a>
-    </nav>
-    <span class="spacer"></span>
-    <button class="theme-toggle" type="button">🌙 深色</button>
-  </header>
-
-  <main class="wrap">
-    <article class="chapter" id="ch22" data-ch="ch22">
-      <header class="ch-header">
-        <div class="ch-kicker">LESSON 22 · 第五篇 · 分布式机制</div>
-        <h1>主节点选举与共识</h1>
-        <div class="ch-meta-line">pre-vote → 选举 → publish → commit,同一条多数派不变量 · 约 17 分钟 · 前置:第 21 课 · 10 个实验 + 选举时序旗舰动画</div>
-      </header>
-
-      <section class="goal">
-        <h2>学习目标</h2>
-        <ul>
-          <li>用 <code>GET /_cat/master</code> 与 <code>GET /_cluster/state?filter_path=master_node</code> 指出当前 Master(两条 API 读同一份 <code>DiscoveryNodes.getMasterNodeId()</code>);打开 <code>Coordinator.Mode</code>,写出它仅有的三个枚举值,并说出本节点竞选前、当选后、跟随时各是哪一个。</li>
-          <li>对 3 个 master-eligible 节点,用 <code>VotingConfiguration.hasQuorum</code> 的那行算式推出 <strong>quorum=2</strong>;并解释被隔离的旧 Master 为什么在哪一道门都过不去——它不能再把新 ClusterState 变成「集群真理」。</li>
-          <li>按源码顺序说出三道门槛:pre-vote 拿<strong>假投票</strong>凑多数才 <code>startElection</code>;<code>Join</code> 凑<strong>真投票</strong>多数才 <code>becomeLeader</code>;<code>PublishResponse</code> 凑多数才发出 <code>ApplyCommitRequest</code>。</li>
-        </ul>
-      </header>
-
-      <section class="lesson">
-        <h2>1. 心智模型:一份新状态要过四道门</h2>
-        <p>第 21 课把 ClusterState 钉成不可变快照,Master 单线程算出 version N+1。但那份新快照<strong>不会</strong>因为 Master 本地算完就算数——真正让它成为「集群真理」的,是 <code>Coordinator</code>(实现 <code>ClusterStatePublisher</code>)上的四道门:<strong>pre-vote 先用假投票试探「联系得到的节点够不够一次选举多数」,够了才正式选举;选举抬 term、收真正的 Join;赢了只是拿到了 publish 资格;新状态还要凑齐 publish 多数,再广播 commit 才落地</strong>。选上 Master 和改集群状态,走的是同一条多数派不变量。</p>
-        <p>这条算法不是「大概照着 Raft 写的」。<code>CoordinationState</code> 的类注释第一句就把自己钉在一份形式化模型上:directly implementing the formal model(elastic/elasticsearch-formal-models 的 ZenWithTerms)。和教科书 Raft 能对上号的只有几个词:term、多数派投票、两阶段提交。本课只走 9.4.0 源码里真实存在的名字:<code>Mode.CANDIDATE / LEADER / FOLLOWER</code>、<code>PreVoteRequest</code>、<code>StartJoinRequest</code> / <code>Join</code>、<code>PublishRequest</code> / <code>PublishResponse</code>、<code>ApplyCommitRequest</code>。</p>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg">
-              <defs><marker id="ch22f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
-              <rect x="15" y="20" width="165" height="110" rx="10" class="fig-box"/>
-              <text x="97" y="46" text-anchor="middle" class="fig-name">① pre-vote</text>
-              <text x="97" y="74" text-anchor="middle" class="fig-sub">假投票试探多数</text>
-              <text x="97" y="98" text-anchor="middle" class="fig-sub">不抬 term</text>
-              <text x="97" y="120" text-anchor="middle" class="fig-sub">凑不齐就停手</text>
-              <rect x="202" y="20" width="165" height="110" rx="10" class="fig-box"/>
-              <text x="284" y="46" text-anchor="middle" class="fig-name">② 选举</text>
-              <text x="284" y="74" text-anchor="middle" class="fig-sub">term+1 收真 Join</text>
-              <text x="284" y="98" text-anchor="middle" class="fig-sub">多数才 becomeLeader</text>
-              <text x="284" y="120" text-anchor="middle" class="fig-sub">拿到 publish 资格</text>
-              <rect x="389" y="20" width="165" height="110" rx="10" class="fig-box"/>
-              <text x="471" y="46" text-anchor="middle" class="fig-name">③ publish</text>
-              <text x="471" y="74" text-anchor="middle" class="fig-sub">发新 ClusterState</text>
-              <text x="471" y="98" text-anchor="middle" class="fig-sub">对端只 accept</text>
-              <text x="471" y="120" text-anchor="middle" class="fig-sub">等多数 PublishResponse</text>
-              <rect x="576" y="20" width="169" height="110" rx="10" class="fig-box-hot"/>
-              <text x="660" y="46" text-anchor="middle" class="fig-name">④ commit</text>
-              <text x="660" y="74" text-anchor="middle" class="fig-sub">发 ApplyCommitRequest</text>
-              <text x="660" y="98" text-anchor="middle" class="fig-sub">各节点 markCommitted</text>
-              <text x="660" y="120" text-anchor="middle" class="fig-sub">此时才成「真理」</text>
-              <line x1="180" y1="75" x2="196" y2="75" class="fig-arrow" marker-end="url(#ch22f1-arrow)"/>
-              <line x1="367" y1="75" x2="383" y2="75" class="fig-arrow" marker-end="url(#ch22f1-arrow)"/>
-              <line x1="554" y1="75" x2="570" y2="75" class="fig-arrow" marker-end="url(#ch22f1-arrow)"/>
-              <rect x="15" y="150" width="730" height="42" rx="9" class="fig-box-hot"/>
-              <text x="380" y="168" text-anchor="middle" class="fig-sub">3 个 master-eligible 节点 quorum=2:任何时刻最多一个分区拥有多数 → 最多一个 Master</text>
-              <text x="380" y="186" text-anchor="middle" class="fig-sub">脑裂防护不是口头约定,是 hasQuorum 那行算术在选举和 publish 各执行一次</text>
-            </svg>
-          </div>
-          <figcaption>图 1 · 四道门同一条竖链:pre-vote 试探、选举拿资格、publish 收 ACK、commit 落地。</figcaption>
-        </figure>
-
-        <p>本机 docker 是单节点(discovery.type=single-node):voting configuration 里只有自己,quorum=1,自己投自己就算数。正文例子按 3 节点、quorum=2 讲;实验会先看清单节点上的 Master 与投票配置,隔离实验在单节点上做不出分区——那条失败路径用源码的四道门对照,不要硬演。</p>
-
-        <h2>2. 关键源码文件</h2>
-        <table class="ktable">
-          <tr><th>文件</th><th>这一课用它证明什么</th></tr>
-          <tr><td><code>cluster/coordination/Coordinator.java</code></td><td>协调入口:<code>Mode</code> 只有三个值;pre-vote 成功才 <code>startElection</code>;<code>Join</code> 达多数才 <code>becomeLeader</code>;不是 LEADER 就 publish 直接 <code>NotMasterException</code></td></tr>
-          <tr><td><code>cluster/coordination/CoordinationState.java</code></td><td>形式化模型的 Java 落地:<code>handleStartJoin</code> 抬 term、<code>handleJoin</code> 翻 <code>electionWon</code>、<code>handlePublishResponse</code> 达多数才造 <code>ApplyCommitRequest</code>、<code>handleCommit</code> 标 committed</td></tr>
-          <tr><td><code>cluster/coordination/StatefulPreVoteCollector.java</code></td><td>真正干活的 pre-vote:用假 <code>Join</code> 凑 <code>VoteCollection</code>,达选举多数才 <code>startElection</code>;对端「已有 leader」直接拒绝</td></tr>
-          <tr><td><code>cluster/coordination/CoordinationMetadata.java</code></td><td><code>VotingConfiguration.hasQuorum</code>:<code>votedNodesCount * 2 &gt; nodeIds.size()</code>,3 个节点 → 2 票</td></tr>
-          <tr><td><code>cluster/coordination/Publication.java</code></td><td>两阶段发布:每个目标先 <code>sendPublishRequest</code>,多数 ACK 后才 <code>sendApplyCommit</code>;凑不齐多数 → <code>FailedToCommitClusterStateException</code></td></tr>
-        </table>
-        <p>对照时打开即可、不必进表:<code>PreVoteCollector</code>(抽象基类)、<code>JoinHelper</code>(<code>internal:cluster/coordination/start_join</code> 与 <code>.../join</code>)、<code>ElectionStrategy</code>(选举和 publish 都要对 lastCommitted 与 lastAccepted <strong>两份</strong>配置同时达多数)、<code>LeaderChecker</code> / <code>FollowersChecker</code>(心跳失败 → becomeCandidate)、<code>NoMasterBlockService</code>(没 Master 时挂 no-master block)。</p>
-
-        <h2>3. <code>Coordinator.Mode</code>:只有三个值</h2>
-        <p>打开 <code>Coordinator.java</code> 的枚举,不要凭记忆写成 Raft 教科书的一长串状态:</p>
-        <pre class="code-block"><code>// cluster/coordination/Coordinator.java
-public enum Mode {
-    CANDIDATE,
-    LEADER,
-    FOLLOWER
-}</code></pre>
-        <p>三个值对应三件互斥的事。竞选这条链是单向的:先 CANDIDATE,赢了 Join 多数才 LEADER;别的节点走的是另一条链——收到别人的 PublishRequest 才 FOLLOWER。<code>becomeLeader</code> 的断言把顺序钉死:</p>
-        <pre class="code-block"><code>// Coordinator.becomeLeader(节选)
-assert mode == Mode.CANDIDATE : "expected candidate but was " + mode;
-assert getLocalNode().isMasterNode() : ... + " became a leader but is not master-eligible";
-mode = Mode.LEADER;</code></pre>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg">
-              <defs><marker id="ch22f2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>
-              <text x="192" y="18" text-anchor="middle" class="fig-name">本节点竞选(一条竖链)</text>
-              <rect x="15" y="30" width="355" height="52" rx="9" class="fig-box"/>
-              <text x="192" y="52" text-anchor="middle" class="fig-sub">启动 / 心跳失败 → CANDIDATE:可以跑 pre-vote</text>
-              <text x="192" y="72" text-anchor="middle" class="fig-sub">startInitialJoin 一上来先进这里,不自封 Master</text>
-              <rect x="15" y="96" width="355" height="52" rx="9" class="fig-box"/>
-              <text x="192" y="118" text-anchor="middle" class="fig-sub">Join 达到选举多数(electionWon 翻 true)</text>
-              <text x="192" y="138" text-anchor="middle" class="fig-sub">断言:必须已经是 CANDIDATE</text>
-              <rect x="15" y="162" width="355" height="52" rx="9" class="fig-box-hot"/>
-              <text x="192" y="184" text-anchor="middle" class="fig-sub">LEADER:本 term 唯一能 publish 的身份</text>
-              <text x="192" y="204" text-anchor="middle" class="fig-sub">mode != LEADER 时 publish 抛 NotMasterException</text>
-              <line x1="192" y1="82" x2="192" y2="92" class="fig-arrow" marker-end="url(#ch22f2-arrow)"/>
-              <line x1="192" y1="148" x2="192" y2="158" class="fig-arrow" marker-end="url(#ch22f2-arrow)"/>
-              <text x="567" y="18" text-anchor="middle" class="fig-name">跟随别人(另一条链)</text>
-              <rect x="390" y="30" width="355" height="52" rx="9" class="fig-box"/>
-              <text x="567" y="52" text-anchor="middle" class="fig-sub">收到别人的 PublishRequest / follower check</text>
-              <text x="567" y="72" text-anchor="middle" class="fig-sub">handlePublishRequest 里 becomeFollower</text>
-              <rect x="390" y="96" width="355" height="52" rx="9" class="fig-box"/>
-              <text x="567" y="118" text-anchor="middle" class="fig-sub">FOLLOWER:跟着那个 Master 走</text>
-              <text x="567" y="138" text-anchor="middle" class="fig-sub">LEADER 失联 → onLeaderFailure → becomeCandidate</text>
-              <rect x="390" y="162" width="355" height="52" rx="9" class="fig-box"/>
-              <text x="567" y="184" text-anchor="middle" class="fig-sub">禁止 LEADER 直接切 FOLLOWER</text>
-              <text x="567" y="204" text-anchor="middle" class="fig-sub">必须先站下来(becomeCandidate)再跟别人</text>
-              <text x="380" y="232" text-anchor="middle" class="fig-sub">两条链不画成交叉网:没先成为 CANDIDATE 就不会 pre-vote,没赢得 Join 多数就当不了 LEADER</text>
-            </svg>
-          </div>
-          <figcaption>图 2 · Mode 的两条链:竞选链 CANDIDATE→LEADER,跟随链 Follower 化;LEADER 掉线先站回 CANDIDATE。</figcaption>
-        </figure>
-
-        <h2>4. pre-vote:还没抬 term,先问「我联系得到多数吗」</h2>
-        <p>正式选举会把 currentTerm 加 1(<code>getTermForNewElection = max(currentTerm, maxTermSeen) + 1</code>),而 <strong>term 只增不减</strong>。麻烦在分区里的孤立节点:它要是每次心跳超时都直接开选,term 会被抬得比健康一侧还高;分区愈合时,健康集群会被这份更高的 term 逼着重新选举——明明什么都没坏,却要中断一次。ES 的解法是 pre-vote:用<strong>假投票</strong>先试探「现在联系得到的节点,够不够一次选举多数」,够了才 <code>startElection</code>,才真正抬 term。</p>
-        <p>调度也前置了守门:节点发现逻辑更新 peer 列表时,若自己还是 CANDIDATE,先用已发现的 peer 加自己凑一份 <code>VoteCollection</code> 跑 <code>isElectionQuorum</code>——连理论上都不够多数,election scheduler 根本不启动。scheduler 到期再查一遍:还是 CANDIDATE、<code>ElectionStrategy</code> 认为本地节点可能赢、健康检查不是 UNHEALTHY,才 <code>preVoteCollector.start</code>。</p>
-        <p>真正干活的是 <code>StatefulPreVoteCollector</code>(动作 <code>internal:cluster/request_pre_vote</code>)。收到 <code>PreVoteResponse</code> 之后它<strong>不抬 term</strong>,而是把每份响应伪装成一个 <code>Join</code> 丢进 <code>VoteCollection</code>,再用和正式选举<strong>同一套</strong> <code>electionStrategy.isElectionQuorum</code> 判断;达多数才 <code>startElection.run()</code>。对端的回答规则里藏着本课最重要的一句:</p>
-        <pre class="code-block"><code>// StatefulPreVoteCollector.handlePreVoteRequest(节选)
-if (leader == null) { return response; }        // 没 leader:给票
-if (leader.equals(request.getSourceNode())) {
-    return response;   // 罕见:leader 自己站下了,给它一张帮它连任
-}
-throw new CoordinationStateRejectedException(
-    "rejecting " + request + " as there is already a leader");</code></pre>
-        <p><strong>已经有 leader,且请求不是那个 leader 发来的,直接拒绝。</strong>被隔开的那个节点联系到的另外两个,要么还认旧 Master、要么已经选出新 Master——都会拒绝。于是孤立节点凑不齐假投票多数,不会 startElection、不会抬 term。「Pre-vote 的好处」就钉在这一行异常上:它保护的是<strong>仍有 Master 的多数派</strong>,让健康一侧不必为少数派的试探进入选举。</p>
-
-        <h2>5. 正式选举:抬 term、收 Join,quorum=2 从哪一行来</h2>
-        <p>pre-vote 过了才真选。<code>startElection</code> 再次确认自己还是 CANDIDATE、自己可能赢,算出新 term,向发现到的节点广播 <code>StartJoinRequest</code>(动作 <code>internal:cluster/coordination/start_join</code>)。对端 <code>CoordinationState.handleStartJoin</code> <strong>拒绝 term 没有严格变大的请求</strong>,然后持久化新 term、清空本 term 的选票、<code>electionWon = false</code>,回一张 <code>Join</code>(投票人=自己,候选人=发起者):</p>
-        <pre class="code-block"><code>// CoordinationState.handleStartJoin(节选)
-if (startJoinRequest.getTerm() &lt;= getCurrentTerm()) {
-    throw new CoordinationStateRejectedException("incoming term ... not greater than ...");
-}
-persistedState.setCurrentTerm(startJoinRequest.getTerm());
-electionWon = false;
-joinVotes = new VoteCollection();
-return new Join(localNode, startJoinRequest.getMasterCandidateNode(), ...);</code></pre>
-        <p>候选人把 Join 收进 <code>joinVotes</code>,用<strong>同一套多数派公式</strong>重算 <code>electionWon</code>;注意它会拒绝「比自己还新」的投票者——对方 last-accepted 的 term/version 更新,说明它见过自己没见过的状态,不能让过时节点靠拉票当选。<code>electionWon</code> 从 false 翻 true 的那一刻,<code>processJoinRequest</code> 才调 <code>becomeLeader()</code>。之后再来的 Join 不决定胜负,只服务以后的投票配置变更。</p>
-        <p>「3 节点要 2 票」不靠背,打开 <code>VotingConfiguration.hasQuorum</code>:</p>
-        <pre class="code-block"><code>// cluster/coordination/CoordinationMetadata.java
-public boolean hasQuorum(Collection&lt;String&gt; votes) {
-    int votedNodesCount = 0;
-    for (String nodeId : nodeIds) {
-        if (votes.contains(nodeId)) { votedNodesCount++; }
-    }
-    return votedNodesCount * 2 &gt; nodeIds.size();
-}</code></pre>
-        <table class="ktable">
-          <tr><th>投了票的节点(3 个 master-eligible)</th><th>算式</th><th>结果</th></tr>
-          <tr><td>n1</td><td><code>1 * 2 &gt; 3</code> → 2 &gt; 3</td><td>不够:孤立的 Master 选不出,也 commit 不了</td></tr>
-          <tr><td>n1 + n2</td><td><code>2 * 2 &gt; 3</code> → 4 &gt; 3</td><td><strong>达多数:quorum=2</strong></td></tr>
-          <tr><td>n1 + n2 + n3</td><td><code>3 * 2 &gt; 3</code> → 6 &gt; 3</td><td>达多数(全体一致只是多数的特例)</td></tr>
-        </table>
-        <p><code>VoteCollection.addVote</code> 只统计 <code>isMasterNode()</code> 的节点——data-only 节点不进投票配置,没有票。给人看的版本是 <code>ClusterFormationFailureHelper</code> 那句 <code>requiredNodes = nodeIds.size() / 2 + 1</code>(3/2+1=2);单节点 start-local:<code>1 * 2 &gt; 1</code> 为真,<strong>quorum=1</strong>,自己投自己就算数。选举多数还要比「当前一份配置」更严:<code>ElectionStrategy.isElectionQuorum</code> 要求 <strong>lastCommittedConfiguration 和 lastAcceptedConfiguration 同时</strong>达多数(联合共识——换投票配置的中途,新旧两份名单都要同意,才不会出现一半集群认旧名单、一半认新名单):</p>
-        <pre class="code-block"><code>// ElectionStrategy.isElectionQuorum(节选)
-return joinVotes.isQuorum(lastCommittedConfiguration)
-    &amp;&amp; joinVotes.isQuorum(lastAcceptedConfiguration)
-    &amp;&amp; satisfiesAdditionalQuorumConstraints(...);  // 默认策略恒 true</code></pre>
-
-        <figure class="fig">
-          <div class="fig-canvas">
-            <svg viewBox="0 0 760 215" xmlns="http://www.w3.org/2000/svg">
-              <text x="192" y="18" text-anchor="middle" class="fig-name">多数派 2/3(不画跨列箭头:两侧不通信)</text>
-              <rect x="15" y="30" width="355" height="150" rx="10" class="fig-box-hot"/>
-              <text x="192" y="56" text-anchor="middle" class="fig-sub">2 张 Join:2 * 2 &gt; 3 成立</text>
-              <text x="192" y="84" text-anchor="middle" class="fig-sub">能选出 Master(electionWon 翻 true)</text>
-              <text x="192" y="112" text-anchor="middle" class="fig-sub">能 commit 新状态(publish 多数可凑)</text>
-              <text x="192" y="140" text-anchor="middle" class="fig-sub">LeaderChecker 失联 → 重新 pre-vote/选举</text>
-              <text x="192" y="166" text-anchor="middle" class="fig-sub">分区愈合后旧 Master 认更高的 term</text>
-              <text x="567" y="18" text-anchor="middle" class="fig-name">少数派 1/3</text>
-              <rect x="390" y="30" width="355" height="150" rx="10" class="fig-box"/>
-              <text x="567" y="56" text-anchor="middle" class="fig-sub">1 张 Join:1 * 2 &gt; 3 不成立</text>
-              <text x="567" y="84" text-anchor="middle" class="fig-sub">选不出 Master(pre-vote 就被拒)</text>
-              <text x="567" y="112" text-anchor="middle" class="fig-sub">publish 凑不齐 ACK → FailedToCommit</text>
-              <text x="567" y="140" text-anchor="middle" class="fig-sub">站下来后挂 no-master block(写 503)</text>
-              <text x="567" y="166" text-anchor="middle" class="fig-sub">不能改 ClusterState,直到回到多数侧</text>
-              <rect x="15" y="188" width="730" height="20" rx="9" class="fig-box"/>
-              <text x="380" y="202" text-anchor="middle" class="fig-sub">同一时刻最多一个分区拥有 quorum=2 → 最多一个 Master:这就是脑裂防护的全部</text>
-            </svg>
-          </div>
-          <figcaption>图 3 · 多数派与少数派的处境:同一条 hasQuorum 算术,决定谁能写集群真理。</figcaption>
-        </figure>
-
-        <h2>6. publish → commit:accept 不等于 committed</h2>
-        <p>当上 LEADER 只是「这个 term 的选举赢了」。第 21 课 MasterService 算出的下一份状态要经 <code>Coordinator.publish</code> 发布,第一行守卫就验身份:</p>
-        <pre class="code-block"><code>// Coordinator.publish(节选)
-if (mode != Mode.LEADER || getCurrentTerm() != newState.term()) {
-    throw new NotMasterException("node is no longer master for term " + ...);
-}</code></pre>
-        <p><code>handleClientValue</code> 再挡一层(electionWon 为 false、或上一份还没被自己 accept,都拒绝),然后构造 <code>PublishRequest</code>,发给 <strong>ClusterState 里的每一个节点</strong>(不只投票配置成员)。两阶段的状态机在 <code>Publication</code> 里:每个目标先 <code>sendPublishRequest</code>(状态 SENT_PUBLISH_REQUEST);对端 <code>handlePublishRequest</code> 把新状态写入持久化的 last-accepted——<strong>此时还没 committed</strong>;Master 每收一份 <code>PublishResponse</code> 就记进 <code>publishVotes</code>,凑齐 publish 多数(同样要对 lastCommitted 和刚发布那份配置同时成立)才构造 <code>ApplyCommitRequest</code>:</p>
-        <pre class="code-block"><code>// CoordinationState.handlePublishResponse(节选)
-publishVotes.addVote(sourceNode);
-if (isPublishQuorum(publishVotes)) {
-    return Optional.of(new ApplyCommitRequest(localNode, term, version));
-}
-return Optional.empty();</code></pre>
-        <p>拿到这份 ApplyCommitRequest 之后,才向仍卡在「等多数」的目标 <code>sendApplyCommit</code>(动作 <code>internal:cluster/coordination/commit_state</code>);对端 <code>handleCommit</code> → <code>markLastAcceptedStateAsCommitted()</code>——这一步之后才是「集群已经承诺这份状态」。若部分节点始终没回,剩余可能成功的节点凑不齐 quorum,<code>Publication.onPossibleCommitFailure</code> 直接判负:</p>
-        <pre class="code-block"><code>// Publication.onPossibleCommitFailure(节选)
-if (isPublishQuorum(possiblySuccessfulNodes) == false) {
-    Exception e = new FailedToCommitClusterStateException("non-failed nodes do not form a quorum");
-    ...
-}</code></pre>
-        <p>这个异常的语义写得很窄:抛它表示「已经 publish 出去,是否 committed <strong>不确定</strong>」——下一任 Master 可能已经接受了这份状态;确定失败还没发出去用别的异常;已经不是 Master 用 <code>NotMasterException</code>。发布失败时 <code>CoordinatorPublication</code> 会调 <code>becomeCandidate</code>,本节点站下来。<strong>为什么必须两阶段?</strong>若一枪广播「这就是新状态」就算数:部分节点 apply、部分停在 N,下次选举时双方 last-accepted 不一致,按 fresher 规则拒票,集群可能选不出人。先让多数 accept 同一份 (term, version) 再广播 commit,少数派即便 accept 了、没 commit,也能在下次选举里被多数派的 fresher 状态带回来。默认 <code>cluster.publish.timeout=30s</code>;单节点 discovery 不挂这个超时——自己就是全部投票者。</p>
-
-        <h2>7. 旧 Master 被隔离:四道门,哪道都过不去</h2>
-        <p>把 3 节点集群的旧 Master n1 单独隔开(它听得见自己,听不见另外两个)。预测:它不能再成功更新 ClusterState。源码里有四道独立的门:</p>
-        <table class="ktable">
-          <tr><th>门</th><th>机制</th><th>结果</th></tr>
-          <tr><td>① pre-vote 被拒</td><td>另外 2 个节点「已经有 leader」,抛 <code>CoordinationStateRejectedException</code></td><td>凑不齐假投票多数,不会抬 term</td></tr>
-          <tr><td>② publish 凑不齐</td><td><code>onPossibleCommitFailure</code>:非故障节点 <code>1 * 2 &gt; 3</code> 不成立</td><td><code>FailedToCommitClusterStateException</code>,站下来</td></tr>
-          <tr><td>③ 站下来后直拒</td><td><code>publish</code> 要求 <code>mode == LEADER</code> 且 term 一致</td><td><code>NotMasterException</code></td></tr>
-          <tr><td>④ applier 挂 block</td><td><code>becomeCandidate</code> 发现 applier 还写着 Master id → 加 no-master block(默认 <code>cluster.no_master_block=write</code>)</td><td>写入类请求 503 "no master"</td></tr>
-        </table>
-        <p>另一侧,多数派的 2 个节点:LeaderChecker 发现旧 Master 心跳失败 → becomeCandidate → pre-vote 彼此同意 → 选出新 Master → 正常 publish/commit。分区愈合后旧 Master 看到更高的 term,变成 FOLLOWER,接受多数派已经 committed 的状态。整场戏连起来走一遍:</p>
-        <div class="fp-slot" data-flow="ch22-election"></div>
-
-        <p><strong>本机单节点做不出这个实验</strong>:投票配置长度 1,<code>1 * 2 &gt; 1</code> 恒真,自己就是多数。<code>Coordinator.doStart</code> 甚至要求:开了 <code>discovery.type=single-node</code> 就必须本地节点已在 committed configuration 里拥有 quorum,否则拒绝启动——一个「我发誓是单机」的进程带着 3 节点配置跑起来,既发现不了同伴、又选不了主,不如启动即失败。实验 5-7 验证的是另一面:quorum=1 时,PUT 索引这种真状态更新会成功、term 不变。</p>
-      </section>
-
-      <section class="drills">
-        <h2>动手实验</h2>
-        <p>单节点上看清「谁是 Master、票在谁手里」:先三件套指认 Master,再读投票配置算 quorum,然后跑一次真正的状态更新,看 <code>version</code> 涨而 <code>term</code> 不动——同一任 LEADER 的正常 publish。</p>
-
-        <h3>实验 0-2:指认当前 Master</h3>
-        <div class="exp-slot" data-exp="ch22-00-cat-master"></div>
-        <div class="exp-slot" data-exp="ch22-01-master-node"></div>
-        <div class="exp-slot" data-exp="ch22-02-nodes-roles"></div>
-
-        <h3>实验 3-4:投票配置与 quorum</h3>
-        <div class="exp-slot" data-exp="ch22-03-voting-config"></div>
-        <div class="exp-slot" data-exp="ch22-04-discovery-type"></div>
-
-        <h3>实验 5-8:同一任 LEADER 的 publish</h3>
-        <div class="exp-slot" data-exp="ch22-05-before"></div>
-        <div class="exp-slot" data-exp="ch22-06-put-index"></div>
-        <div class="exp-slot" data-exp="ch22-07-after"></div>
-        <div class="exp-slot" data-exp="ch22-08-health"></div>
-
-        <h3>清理</h3>
-        <div class="exp-slot" data-exp="ch22-09-cleanup"></div>
-
-        <h2>思考题</h2>
-        <details>
-          <summary>1. 3 个 master-eligible 节点,当前 Master 是 n1。拔掉 n1 的网线(n2、n3 仍互通):n1 上立刻 PUT 一个新索引会怎样?n2 上同一条 PUT 呢?几秒后 n2 的 _cat/master 应看到谁?</summary>
-          <div class="answer">
-            <p>n1 上<strong>失败</strong>——3 节点 quorum=2,它单独凑不成 publish 多数;具体走哪条失败路径取决于时机:还在自认 LEADER 时 FailedToCommitClusterStateException,站下来之后 NotMasterException 或 503 no master。n2 上:新 Master 选出前可能短暂 503,选出后<strong>成功</strong>(n2+n3 两票)。几秒后 n2 的 _cat/master 显示 n2 或 n3,不再是 n1;分区愈合后 n1 变 FOLLOWER,接受多数派已 committed 的状态。</p>
-          </div>
-        </details>
-        <details>
-          <summary>2. 为什么必须有 pre-vote?若每次心跳超时都直接 startElection 抬 term,分区愈合时哪条不变量破了?handlePreVoteRequest 在「已经有 leader」时抛的那句异常,保护的是哪一侧?</summary>
-          <div class="answer">
-            <p>term 只增不减。没有 pre-vote,孤立节点每次超时都把 term +1,愈合时它的 term 高于健康一侧;健康 LEADER 在 updateMaxTermSeen 里发现更高的 term 会自己站下来重选——一次「什么都没坏」的分区,变成一次全集群重新选举。pre-vote 让孤立节点在抬 term <strong>之前</strong>就因凑不齐假投票多数而停手。"already a leader" 那句拒绝保护的是仍有 Master 的多数派:它们不必为少数派的试探进入选举。另一个细节:若请求恰好来自旧 leader 自己(它站下了但本节点还是 FOLLOWER),仍给一票帮它快速连任,而不是逼集群换人。</p>
-          </div>
-        </details>
-        <details>
-          <summary>3. ElectionStrategy 要求 lastCommitted 和 lastAccepted 两份配置同时达多数:改成只看 lastCommitted,便宜了什么、冒了什么险?反过来,3 节点集群把 discovery.type 设成 single-node,doStart 为什么直接拒绝启动?</summary>
-          <div class="answer">
-            <p>只看一份,换投票配置的中途会便宜(选举更容易凑票),但已经 accept 新名单、还没 commit 的节点,可能和停在旧名单的节点各选出一位自认达多数的 Master——脑裂窗口。两份同时要求多数,付的是「reconfiguration 期间选举更难」,换的是「新旧名单的交集必须同意」,这是联合共识。single-node 拒绝启动是同一枚硬币的另一面:doStart 要求本地节点对 committed configuration 自己就构成 quorum,3 节点名单上 hasQuorum({自己}) 为假,启动即 IllegalStateException——避免一个声称单机的进程带着 3 节点配置既不发现同伴、又永远选不出主地僵着。</p>
-          </div>
-        </details>
-      </section>
-
-      <section class="pitfalls">
-        <h2>陷阱</h2>
-        <div class="callout warn"><span class="co-title">🕳 把 Mode 写成 Raft 教科书的一串状态:</span>9.4.0 的 Coordinator.Mode 只有 CANDIDATE / LEADER / FOLLOWER 三个;没有 PRE_CANDIDATE,没有 LEARNER。形式化模型是 ZenWithTerms,不是 Raft 课文。</div>
-        <div class="callout warn"><span class="co-title">🕳 以为 LEADER 掉线可以直接切 FOLLOWER 跟新主:</span>禁止 LEADER→FOLLOWER 直切。必须先 becomeCandidate 站下来,再从 CANDIDATE 走选举或跟随链——断言 mode == Mode.CANDIDATE 钉死了顺序。</div>
-        <div class="callout warn"><span class="co-title">🕳 把 accept 当 committed:</span>对端写入 last-accepted 只是第一阶段;凑齐 publish 多数、广播 ApplyCommitRequest、对端 markCommitted 之后才算承诺。FailedToCommitClusterStateException 的语义是「committed 与否不确定」,不是「确定没成」。</div>
-        <div class="callout warn"><span class="co-title">🕳 在单节点上硬演「隔离 Master」:</span>投票配置长度 1,quorum=1,永远凑得出多数——做不出 3 节点分区。失败路径对照源码四道门;真要演,起 3 个 master-eligible 节点的集群再拔网线。</div>
-        <div class="callout warn"><span class="co-title">🕳 data-only 节点也想要选票:</span>VoteCollection.addVote 只统计 isMasterNode() 的节点。投票配置里全是 master-eligible 的 id;data-only 节点收 PublishRequest、apply 状态,但没有选举票。</div>
-      </section>
-
-      <section class="recap">
-        <h2>速记</h2>
-        <table class="ktable">
-          <tr><th>一句话</th><th>内容</th></tr>
-          <tr><td>本课位置</td><td>第 21 课的「Master 算出 N+1」之后:pre-vote → 选举 → publish → commit 四道门,全走完才算集群真理</td></tr>
-          <tr><td>Mode</td><td>只有 CANDIDATE / LEADER / FOLLOWER;先 CANDIDATE 才能选,Join 多数才 LEADER,收到别人的 PublishRequest 才 FOLLOWER</td></tr>
-          <tr><td>quorum</td><td>hasQuorum:votedNodesCount * 2 &gt; nodeIds.size();3 节点=2 票,单节点=1 票;选举与 publish 各执行一次</td></tr>
-          <tr><td>pre-vote</td><td>假 Join 试探多数,不抬 term;对端已有 leader 直接拒绝——保护多数派不被少数派的试探打扰</td></tr>
-          <tr><td>两阶段</td><td>publish 多数 accept(term,version)→ 才发 ApplyCommitRequest;accept ≠ committed</td></tr>
-          <tr><td>隔离的旧 Master</td><td>四道门:pre-vote 被拒 / publish 凑不齐 / NotMasterException / no-master block(写 503)</td></tr>
-          <tr><td>两份配置</td><td>ElectionStrategy 要求 lastCommitted 与 lastAccepted 同时达多数(联合共识,防换名单脑裂)</td></tr>
-        </table>
-        <p><strong>心法:选上 Master 和改集群状态是同一件事的两个回合——都要 quorum;pre-vote 先问「联系得到多数吗」,term 只在真选举里加一。</strong></p>
-      </section>
-
-      <footer class="ch-footer">
-        <button class="read-toggle" type="button">标记本课已读</button>
-        <div class="pager">
-          <a href="ch21.html">← 第 21 课:集群状态</a>
-          <a href="ch23.html">第 23 课:分片分配 →</a>
-        </div>
-      </footer>
-    </article>
-  </main>
-
-  <script src="../experiments/ch22.js"></script>
-  <script src="../assets/js/nav.js"></script>
-  <script src="../assets/js/es-client.js"></script>
-  <script src="../assets/js/flow-player.js"></script>
-  <script src="../assets/js/experiments.js"></script>
-  <script src="../assets/js/progress.js"></script>
-</body>
-</html>
+<html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>第 22 课：主节点选举与共识 — ES 源码精读站</title>
+<link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"></head>
+<body class="chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 源码精读</a><nav class="tnav"><a href="../index.html">课程</a><a href="../architecture.html">架构</a><a href="../console.html">控制台</a><a href="../cheatsheet.html">速查表</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="ch22" data-ch="ch22">
+<header class="ch-header"><div class="ch-kicker">LESSON 22 · 第五篇 · 分布式机制</div><span class="visual-badge">ES 9.4.0 · Lucene 10.4.0</span><h1>主节点选举与共识</h1>
+<div class="ch-meta-line">约 25 分钟 · 前置：第 21 课 · 3 组 / 18 张操作卡（含清理） · 2 幅交互图 / 2 条路径动画 · 1 个七步机制动画</div>
+<p class="ch-intro">旧 master 被隔离后，谁还能决定新的集群状态？答案不是“谁的 term 大”，而是两个检查点：候选节点先取得有效选举多数，leader 发布的状态再取得有效接受多数。提交决定形成后，各节点的应用仍可先后完成。</p>
+<nav class="diagram-jumps" aria-label="本课图解跳转"><a href="#fig-ch22-election-gates"><span>01</span>选举门槛</a><a href="#fig-ch22-publication-boundaries"><span>02</span>发布边界</a><a href="#election-animation">七步分区</a><a href="#labs">实验与重做</a></nav>
+<details class="chapter-outline"><summary>本课目录</summary><nav aria-label="本课目录"><a href="#model">22.1 两个检查点</a><a href="#source-map">22.2 源码入口</a><a href="#quorum">22.3 角色与投票名单</a><a href="#prevote">22.4 试探与正式选举</a><a href="#terms">22.5 任期与本地模式</a><a href="#publication">22.6 接受、提交与应用</a><a href="#partition">22.7 分区的边界</a><a href="#labs">实验操作</a><a href="#memory">速记</a></nav></details></header>
+<section class="goal"><h2>学习目标</h2><ul>
+<li>用 A、B 组读完整 master ID、节点角色、本地视图和两份投票名单，按名单成员计算多数，区分资格、选票与当前角色。</li>
+<li>沿选举图与七步动画解释状态新鲜度、pre-vote、正式 Join 和双多数；指出 term 增长为什么不等于成功换主。</li>
+<li>用 C 组创建和修改专属索引，对照快照 version/term，区分 accept、commit、apply 与请求确认，并完成清理后重做。</li></ul></section>
+<section class="lesson"><h2 id="model">22.1 先问“谁能领导”，再问“哪份状态能提交”</h2>
+<p>第 21 课的 <code>MasterService</code> 负责计算新的不可变状态；本课解释它凭什么成为共同承诺。以下主线按默认协调策略，插件可以增加选举或提交条件。一台机器把自己的 <code>Mode</code> 写成 <code>LEADER</code>，不代表它在网络故障后仍能推进状态。有效选举检查候选状态、任期和选票；默认策略下，有效发布检查同一份 <code>(term, version)</code> 的接受响应及投票配置。赢选举获得发布资格，不能代替下一次状态的多数接受。</p>
+<p>先看候选节点这条路径。图中的“有效多数”不是“连接到两个地址”：响应还要通过健康、状态新鲜度、任期和策略条件；算票使用配置里的节点 ID。主线展示普通可当选节点的概念控制步骤，启动引导、传输重试和插件特例放在正文说明。</p>
+<figure class="fig archify-figure" id="fig-ch22-election-gates"><div class="archify-shell">
+<div class="archify-tools"><span class="archify-label">01 · 本节图解</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch22-election-gates">↻ 重新播放</button><a href="../.archify/workflow-ch22-election-gates-20261013-110201/election-gates.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+<iframe class="archify-frame" id="diagram-ch22-election-gates" title="图 22-1 · 箭头表示概念控制推进，不是完整网络时序。pre-vote 只用有效响应试探；正式 Join 还需匹配任期、候选状态不落后、两份配置多数及附加策略。不足时本轮等待或结束，后续可重试；成为 LEADER 后仍须发布状态。" loading="lazy" style="--diagram-height:760px;--diagram-mobile-height:460px" src="../.archify/workflow-ch22-election-gates-20261013-110201/election-gates.html?theme=light&amp;present=1"></iframe></div>
+<figcaption>图 22-1 · 箭头表示概念控制推进，不是完整网络时序。pre-vote 只用有效响应试探；正式 Join 还需匹配任期、候选状态不落后、两份配置多数及附加策略。不足时本轮等待或结束，后续可重试；成为 LEADER 后仍须发布状态。<span class="figure-tip">点击节点探索关系与固定源码；图内可暂停，外层可重播或展开。手机先读概览，细节可探索或展开缩放。</span></figcaption></figure>
+<p>稳定运行期间，不是每个状态更新都重新选举。已有 leader 可以在同一 term 中发布多份状态。相反，正式选举先推进节点的 <code>currentTerm</code>，随后才可能拿到足够 Join；失败的一轮也会留下更高任期。同一节点在更高任期再次当选也很正常。因此“term 只在成功换主时加一”把协议轮次和成功结果混在了一起。</p>
+<h2 id="source-map">22.2 五个入口，跟到条件和实际状态写入</h2><table class="ktable"><tr><th>固定源码入口</th><th>本课核对的边界</th></tr>
+<tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java#L583-L606" target="_blank" rel="noopener">Coordinator → startElection</a></td><td>计算提议任期、广播 StartJoin；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java#L902-L923" target="_blank" rel="noopener">processJoinRequest</a> 在 electionWon 翻转后进入 leader。</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/StatefulPreVoteCollector.java#L175-L227" target="_blank" rel="noopener">StatefulPreVoteCollector → handlePreVoteResponse</a></td><td>排除更鲜状态，造假 Join 验选举多数；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/StatefulPreVoteCollector.java#L89-L118" target="_blank" rel="noopener">handlePreVoteRequest</a> 检查健康和已知 leader。</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java#L169-L210" target="_blank" rel="noopener">CoordinationState → handleStartJoin</a></td><td>先持久化严格更高的 currentTerm；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java#L220-L300" target="_blank" rel="noopener">handleJoin</a> 校验票；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationState.java#L377-L408" target="_blank" rel="noopener">handlePublishRequest</a> 保存接受状态。</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/ElectionStrategy.java#L52-L79" target="_blank" rel="noopener">ElectionStrategy → 两种双多数</a></td><td>选举看 lastCommitted/lastAccepted 并可附加约束；发布看 lastCommitted/latestPublished。<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationMetadata.java#L326-L333" target="_blank" rel="noopener">hasQuorum</a> 只数配置成员。</td></tr><tr><td><a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Publication.java#L263-L301" target="_blank" rel="noopener">Publication → 接受响应与提交通知</a></td><td>多数 accept 形成提交决定，再通知目标；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java#L441-L459" target="_blank" rel="noopener">handleApplyCommit</a> 区分标记与本地应用。</td></tr>
+</table><details><summary>继续追踪：模式、故障、配置与 API 视图</summary><div class="answer"><p>
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java#L1841-L1845" target="_blank" rel="noopener">Mode 三值</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java#L979-L1036" target="_blank" rel="noopener">候选与 leader 转换</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java#L1077-L1111" target="_blank" rel="noopener">跟随与禁止 leader 直切</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java#L411-L438" target="_blank" rel="noopener">follower check 也可建立跟随</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java#L560-L585" target="_blank" rel="noopener">观察高任期并推进</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Coordinator.java#L1185-L1202" target="_blank" rel="noopener">single-node 的非空名单条件</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/Reconfigurator.java#L107-L144" target="_blank" rel="noopener">重选投票成员与奇数目标</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/NoMasterBlockService.java#L21-L57" target="_blank" rel="noopener">默认 write block</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/FailedToCommitClusterStateException.java#L18-L36" target="_blank" rel="noopener">提交不确定性与可重试</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/service/MasterService.java#L652-L674" target="_blank" rel="noopener">变化状态的版本推进</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/action/cat/RestNodesAction.java#L349-L373" target="_blank" rel="noopener">full_id 防止短 ID 混淆</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/action/cat/RestMasterAction.java#L74-L93" target="_blank" rel="noopener">CAT master 读状态与占位</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationMetadata.java#L105-L118" target="_blank" rel="noopener">API 序列化的是状态 term</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/support/local/TransportLocalClusterStateAction.java#L38-L92" target="_blank" rel="noopener">直接读取本地已应用状态</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/RestUtils.java#L351-L365" target="_blank" rel="noopener">local 参数弃用且无效果</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/rest/action/admin/cluster/RestClusterStateAction.java#L64-L106" target="_blank" rel="noopener">状态 API 的路由与指标</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/coordination/ElectionStrategy.java#L116-L118" target="_blank" rel="noopener">默认 beforeCommit 立即成功</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/MetadataMappingService.java#L190-L198" target="_blank" rel="noopener">相同 mapping 合并结果跳过变更</a>；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/MetadataMappingService.java#L235-L242" target="_blank" rel="noopener">mapping 未变时返回原状态</a>
+。</p><p>本课链接固定到 ES 9.4.0 提交 <code>2e8528e92361c3399724226deaf2b46f933e925b</code>。不是从 Raft 名词推演 ES；源码中使用哪些模式、名单和回调，就核对哪些条件。图为有源码依据的概括，箭头没有承诺完整网络调度。</p></div></details>
+<h2 id="quorum">22.3 资格、名单、当前 master：三个不同的问题</h2>
+<p><code>node.role</code> 中的 <code>m</code> 表示 master-eligible；<code>master</code> 列的星号表示这份状态中的当选节点；<code>last_committed_config</code> / <code>last_accepted_config</code> 才给出计算多数的名单。配置可以保留暂时离线的 ID，也可以从合格节点中选择一个子集。重配置器按存活情况、退役排除、现有名单和自动收缩设置选人，并倾向奇数规模；不能用当前节点总数或 m 的个数直接算 quorum。</p>
+<p>每个非空配置独立计算 <code>floor(N/2)+1</code>。<code>VoteCollection.addVote</code> 先排除非 master-eligible，再按 ID 去重；<code>hasQuorum</code> 只统计配置成员。data-only 节点能收到状态并应用，但不会增加配置内有效票。它有十个数据分片，也不等于十票。</p>
+<pre class="code-block"><code>// CoordinationMetadata.VotingConfiguration.hasQuorum
+有效票数 × 2 > 配置成员数
+// 不同配置分别算；不是把两个名单合成一个 N。
+选举 = majority(lastCommitted) && majority(lastAccepted)
+       && additionalQuorumConstraints
+发布 = majority(lastCommitted) && majority(latestPublished)</code></pre>
+<table class="ktable"><tr><th>固定配置例子</th><th>票 / 算式</th><th>结论</th></tr><tr><td>{n1,n2,n3}</td><td>{n1}：1×2&gt;3 为假</td><td>本配置不足多数</td></tr><tr><td>{n1,n2,n3}</td><td>{n2,n3}：2×2&gt;3 为真</td><td>本配置达到2票多数</td></tr><tr><td>C={a,b,c}；A={b,c,d}</td><td>{a,b}：C 有2票，A 仅1票</td><td>不能只看 C 就宣布选举成功</td></tr><tr><td>同上两份配置</td><td>{b,c}：两份各2票</td><td>双多数条件满足，仍需其他协议检查</td></tr></table>
+<p>“两份都够多数”不是要求两个名单完全一致，也不是只统计两个名单的交集。对于相同配置，任意两个多数集合必相交；结合任期、投票规则、状态新鲜度和配置变更限制，才能维持协议安全。把全部保证压成“同一时刻全网只能有一个自称 master”的一句话，会漏掉本地认知滞后和跨 term 的故障过程。</p>
+<details><summary>voting_only 为什么也有 m？</summary><div class="answer"><p>它参与投票，但不承担稳定 master 的职责。9.4.0 的插件策略还有启动或转移更鲜状态时的内部选举特例，不能只看一行 m 就判断最终领导资格。
+<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/voting-only-node/src/main/java/org/elasticsearch/cluster/coordination/votingonly/VotingOnlyNodePlugin.java#L114-L159" target="_blank" rel="noopener">VotingOnlyNodeElectionStrategy</a> 增加约束；<a href="https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/voting-only-node/src/main/java/org/elasticsearch/cluster/coordination/votingonly/VotingOnlyNodePlugin.java#L172-L219" target="_blank" rel="noopener">传输拦截器</a>让此类节点不把状态转移的成功响应当成正常发布成功。本课图和分区动画限定普通可当选节点，不演这条特例。</p></div></details>
+<h2 id="prevote">22.4 pre-vote 不是正式票，正式票也不是见票就收</h2>
+<p>候选节点的调度先检查能否参选、发现到的节点和自身健康，再发起 pre-vote。接收方不健康会拒绝；已知其他 leader 时会拒绝；无已知 leader 时通常回复；如果请求来自自己仍认定的旧 leader，则有允许回复的例外。候选方还会忽略比自己 last-accepted 更鲜的响应。将有效响应造为假 Join 后，使用选举双多数与策略检查；足够才发起正式选举。</p>
+<p>pre-vote 的用途是降低隔离或落后节点轻易打断健康 leader 的机会，但“试探绝不碰任何任期信息”仍过强。接收和处理响应都调用 <code>updateMaxTermSeen</code>；若当前 leader 观察到更高 term，会安排推进任期与后续选举。准确说法是：假票不会直接变成正式票或自动写入一个新 currentTerm，不是所有高任期信息的副作用都被禁止。</p>
+<p>正式 <code>StartJoinRequest</code> 提议 <code>max(currentTerm,maxTermSeen)+1</code>，可能跳号。接收方只接受严格更高的任期，先保存 currentTerm、清空本轮选票、置 <code>electionWon=false</code>，再返回带自己 last-accepted term/version 的 Join。候选方检查 Join 的 term 是否匹配，拒绝来自“比候选已接受状态更新”的投票者；相同接受 term 才继续比较接受 version。够双多数且满足策略，才完成当选。状态新鲜度不是“当前任期最大的机器无条件胜出”。</p>
+<h2 id="terms">22.5 三个 Mode 与两个 term 视角</h2>
+<table class="ktable"><tr><th>本地 Mode</th><th>做什么</th><th>怎样变化</th></tr><tr><td>CANDIDATE</td><td>发现、试探或竞选；尚未获得有效领导权</td><td>Join 满足条件转 LEADER；有效发布或满足条件的 follower check 可转 FOLLOWER</td></tr><tr><td>LEADER</td><td>在匹配 currentTerm 的身份下发布</td><td>高任期、发布失败等可回 CANDIDATE；不直接切 FOLLOWER</td></tr><tr><td>FOLLOWER</td><td>跟随已知 leader 接收状态</td><td>leader 失联可回 CANDIDATE；仍受任期检查</td></tr></table>
+<p><code>currentTerm</code> 是节点协议状态，可先于本轮成功发布增长；<code>metadata.cluster_coordination.term</code> 属于 API 返回的集群状态快照。API 并不是把节点持久化 currentTerm 和所有失败轮次直接列出来。9.4.0 的 <code>_cluster/state</code> 通过 <code>TransportLocalClusterStateAction</code> 直接读取接入节点的本地状态，默认也不转发到 master；<code>?local=true</code> / <code>false</code> 已弃用且没有效果。不同接入节点的已应用视图在传播时可以不同，不能把增加 local 参数解释成换读取位置或触发选举。</p>
+<p>同一稳定 term 中，master 为有变化的新状态推进 <code>version</code>，新快照有新的 <code>state_uuid</code>。一条创建索引请求还可能包含元数据创建、分片初始化和启动等多次更新；其他索引或节点活动也可能推进版本。无变化操作则可能不推进。实验可以比较“首次变更后版本增长、快照 term 保持”，不能预先把差值写死为1，更不能由两次状态 term 相同推断中间没有失败选举。</p>
+<h2 id="publication">22.6 accept、commit、apply：三个不同边界</h2>
+<p>发布入口首先检查本节点仍是 LEADER 且 currentTerm 匹配新状态；<code>handleClientValue</code> 再检查 electionWon、版本推进、上次状态接受情况和配置变更条件。发布目标是新状态中的节点，包含本节点与非投票节点。实际传输可用 diff 或完整状态；本图不展开字节编码。</p>
+<figure class="fig archify-figure" id="fig-ch22-publication-boundaries"><div class="archify-shell">
+<div class="archify-tools"><span class="archify-label">02 · 本节图解</span><div class="archify-actions"><button type="button" data-replay-diagram="diagram-ch22-publication-boundaries">↻ 重新播放</button><a href="../.archify/workflow-ch22-publication-boundaries-20261013-110201/publication-boundaries.html" target="_blank" rel="noopener">展开图解 ↗</a></div></div>
+<iframe class="archify-frame" id="diagram-ch22-publication-boundaries" title="图 22-2 · 主线按默认 beforeCommit 成功；箭头表示控制和状态推进，省略 diff、并发目标与回调线程。接收方先 accept；Leader 收到匹配 term/version 的配置内双多数响应即形成提交，再通知各节点标记与 apply。提交不等待全体 apply；Leader 的本地 apply 在发布结束阶段。失败路径不等于请求自动回滚。" loading="lazy" style="--diagram-height:900px;--diagram-mobile-height:500px" src="../.archify/workflow-ch22-publication-boundaries-20261013-110201/publication-boundaries.html?theme=light&amp;present=1"></iframe></div>
+<figcaption>图 22-2 · 主线按默认 beforeCommit 成功；箭头表示控制和状态推进，省略 diff、并发目标与回调线程。接收方先 accept；Leader 收到匹配 term/version 的配置内双多数响应即形成提交，再通知各节点标记与 apply。提交不等待全体 apply；Leader 的本地 apply 在发布结束阶段。失败路径不等于请求自动回滚。<span class="figure-tip">点击节点探索关系与固定源码；图内可暂停，外层可重播或展开。手机先读概览，细节可探索或展开缩放。</span></figcaption></figure>
+<table class="ktable"><tr><th>边界</th><th>已经做到</th><th>还不能推出</th></tr><tr><td>accept</td><td>校验并保存 last-accepted；回复匹配 term/version</td><td>单节点 accept 不证明已达提交多数；保存接口也不等于每种角色都做相同落盘</td></tr><tr><td>commit</td><td>Leader 得到发布双多数接受，生成提交决定并通知</td><td>所有目标都已收到通知、所有本地组件都已切换</td></tr><tr><td>apply</td><td>目标节点对匹配快照标记 committed，交本地 applier 并确认</td><td>全群任意节点视图完全同步，或文档副本写入已经成功</td></tr></table>
+<p>关键提交点是<strong>默认策略下的有效双多数 accept</strong>，不是全体收到 <code>ApplyCommitRequest</code> 或全体应用完成。默认 <code>ElectionStrategy.beforeCommit</code> 立即成功；插件可让这个钩子延后或失败，不能泛化为所有策略只需票数。晚到的接受响应也能被通知提交。跟随节点在 commit 通知处理中进入本地应用；leader 自己的实际 apply 在发布结束阶段。投票响应、应用确认和创建索引响应中的 <code>acknowledged</code> / <code>shards_acknowledged</code> 属于不同层，不能混成一个 ACK。</p>
+<p>如果尚未提交且未来可能成功的节点也不够多数，发布判断无法成功；超时也可取消。默认 <code>cluster.publish.timeout</code> 为30s，<code>single-node</code> 的实现不调度这项发布超时；这不消除其他 API 等待和请求超时。<code>FailedToCommitClusterStateException</code> 的契约允许提交不确定性，master 动作还可能重试。客户端见到错误后，应读回资源再决定重做，不能认定状态已自动回滚。</p>
+<h2 id="partition">22.7 分区：少数侧不能正常提交，不承诺即时退下</h2>
+<p>现在固定两份名单都是 {n1,n2,n3}，并把旧 leader n1 与另外两台完全隔开。n1 尚未检测到故障时仍可自认 LEADER，但它只有自己的有效票，不能正常完成需要2票的发布。n2/n3 检测失联后，若彼此可通信、状态和健康允许，就能经历试探、正式选举和新 leader 的发布；具体哪台当选、是否要重试、耗时多久，不能仅由三个节点数推出。</p>
+<table class="ktable"><tr><th>观察阶段</th><th>协议或请求层边界</th></tr><tr><td>旧节点仍自认 leader</td><td>发布不足有效多数，可能等待、失败或受后续故障检测影响</td></tr><tr><td>旧节点已经退为候选</td><td>不能再以匹配 leader 身份正常发布；本地状态可加 no-master block</td></tr><tr><td>候选试探</td><td>完全隔离时首先是联系不到多数；不是“网络断开还能收到另外两台拒票”</td></tr><tr><td>多数侧恢复</td><td>新 leader 需通过任期、状态新鲜度和双多数，首份状态也需正常提交</td></tr></table>
+<p>默认 <code>cluster.no_master_block=write</code> 覆盖 WRITE 与 METADATA_WRITE，块的状态为503；可配置为 all 或 metadata_write。实际请求可能先等待 master、重试或在另一层超时，不能把每次故障响应写死为立刻503。这个块不是文档复制一致性的全部协议；本课讨论的是<strong>集群状态</strong>的选举与发布边界。</p>
+<h3 id="election-animation">七步机制动画：从分区到重新加入</h3><p>这是上述固定名单下的一条<strong>概念路径</strong>，不是本轮抓取的多节点运行日志。步骤5假设 maxTermSeen=5，所以提议6；真实竞争、任期跳号和配置更新可产生其他路径。箭头表示 n2/n3 的请求与回票，断开边界不画虚构通信。</p><div class="fp-slot" data-flow="ch22-election"></div>
+<p>课程 Docker 的单节点通常 quorum=1，不能用它证明三节点分区过程。已有非空 committed 配置时，single-node 启动检查本节点能否独自构成多数；初次空配置另走引导。网络恢复后旧节点重新加入并接受有效 leader 的状态；看见更高 term 只是任期条件的一部分，不是任何高 term 的机器都能自封获胜。</p></section>
+<section class="drills"><h2 id="labs">动手实验：3 组 / 18 张操作卡</h2>
+<p>A组定位观察视图，B组读取配置，C组进行一次可恢复的元数据变更。先连接对应 ES 9.4.0 节点；默认课程 Docker 为免认证单节点，多节点或其他配置须按实际名单和数据节点判断。预测、请求与对照是三件事，卡片预期不是本轮真实响应。</p>
+<div class="callout warn"><span class="co-title">本轮验证范围</span>固定版本源码与浏览器交互已核对。本轮云运行环境缺少 <code>/proc/self/coredump_filter</code>，官方 ES 9.4.0 镜像在启动阶段退出，因此真实 API 与两轮重做未实测；没有用动画或静态检查替代它们。请在可运行的同版本节点上核对响应。</div>
+<h3>A · 版本、master 与本地视图（5卡）</h3><div class="exp-slot" data-exp="ch22-10-version"></div><div class="exp-slot" data-exp="ch22-00-cat-master"></div><div class="exp-slot" data-exp="ch22-01-master-node"></div><div class="exp-slot" data-exp="ch22-02-nodes-roles"></div><div class="exp-slot" data-exp="ch22-11-local-state"></div>
+<h3>B · 名单、发现与默认值（3卡）</h3><div class="exp-slot" data-exp="ch22-03-voting-config"></div><div class="exp-slot" data-exp="ch22-04-discovery-type"></div><div class="exp-slot" data-exp="ch22-12-coordination-settings"></div>
+<h3>C · 首次创建、就绪与再次变更（8卡）</h3><p>专属索引 <code>tut-l22-vote</code>，显式1主0副、auto-expand关闭、strict映射。C1 的 HEAD 404 是空前提；若已有课程数据且需要完整重做，先执行末尾点名清理。创建后用本索引健康等待就绪，再比较快照。首次新增 note 会修改映射，重提同定义可能无变化；不要把每次成功请求都当作一次新状态。</p>
+<div class="exp-slot" data-exp="ch22-13-before-exists"></div><div class="exp-slot" data-exp="ch22-05-before"></div><div class="exp-slot" data-exp="ch22-06-put-index"></div><div class="exp-slot" data-exp="ch22-08-health"></div><div class="exp-slot" data-exp="ch22-07-after"></div><div class="exp-slot" data-exp="ch22-14-index-settings"></div><div class="exp-slot" data-exp="ch22-15-put-mapping"></div><div class="exp-slot" data-exp="ch22-16-metadata-after"></div>
+<h3>点名清理与第二轮（2卡）</h3><p>清理删除 <code>tut-l22-vote</code> 的全部文档与映射。重复创建通常400，重复删除通常404；错误后先读回确认资源，不能认定服务自动回滚。确认 HEAD 404 后重做 C1–C8，再清理。两轮关注配置与变更语义，不能要求 ID、term、version、UUID完全相同；不修改集群投票或发现设置。</p>
+<div class="exp-slot" data-exp="ch22-09-cleanup"></div><div class="exp-slot" data-exp="ch22-17-after-missing"></div>
+<h2>思考题</h2>
+<details><summary>1. 三台都带 m，是否一定 quorum=2？四台都带 m，是否必须3票？</summary><div class="answer"><p>先读实际两份投票名单。非空名单 N 决定 floor(N/2)+1，并分别达到双多数；master-eligible 角色数量不等于名单数量。配置可能保留离线成员、排除退役成员或倾向奇数规模。仅当某份名单确实有3人，才在那份配置里需要2票。</p></div></details>
+<details><summary>2. term 从5变成6，能否证明新 master 成功当选并提交了一份状态？</summary><div class="answer"><p>节点 currentTerm 先在 StartJoin 中增长，随后才收 Join，可能本轮失败或同节点再次当选。API 返回的 coordination.term 又是快照任期，不能混为 currentTerm 全历史。成功当选与状态发布提交仍有各自的检查，不可仅看数字推断。</p></div></details>
+<details><summary>3. 名单 C={a,b,c}、A={b,c,d}，收到 a/b 的有效票够吗？</summary><div class="answer"><p>C 有2票够多数，A 只有 b 一票，不够。必须分别判断，不能以两份名单并集作一个 N，也不能只检查旧名单。若 b/c 都投有效票，两份均够2票；仍需匹配任期、候选状态与附加策略。</p></div></details>
+<details><summary>4. 两个投票者已经 accept，第三个还没 apply，状态是否一定尚未 committed？</summary><div class="answer"><p>按本课默认策略，若两个有效接受响应在需要2票的两份发布配置中均够多数，Leader 已形成提交决定，不必等第三台应用。它会发送提交通知；各节点匹配 term/version 后标记并进入本地 apply。单节点 accept、协议提交与全体本地应用不同步。</p></div></details>
+<details><summary>5. 隔离旧 master 后立即 PUT 失败，就能判定索引未创建且三秒后必恢复吗？</summary><div class="answer"><p>不能。旧节点可能暂时自认 leader，但固定三人名单下它不能正常完成新状态提交；请求还可能等待、重试或留下提交不确定性，应读回资源确认。多数侧选举取决于检测、通信、健康、新鲜度与重试，不给固定恢复秒数。集群状态协议也不能替代文档复制协议的解释。</p></div></details></section>
+<section class="pitfalls"><h2>陷阱</h2><div class="callout warn"><span class="co-title">把当前角色当作全网瞬时共识</span>局部节点可暂时自认旧 LEADER；安全结论应落在有效选举、任期、新鲜度与有效提交多数上。</div>
+<div class="callout warn"><span class="co-title">把 term 当作成功换主计数器</span>正式轮次可以失败、跳号或由原节点再次获胜；快照 term 与节点 currentTerm 也不是同一个观测接口。</div>
+<div class="callout warn"><span class="co-title">把提交点推迟到全体收到 commit</span>有效双多数 accept 已形成协议提交决定；通知、标记、apply 与请求 ACK 是后续不同层。</div>
+<div class="callout warn"><span class="co-title">把前后差值写死为 +1</span>建索引与分配、其他活动可推进多份状态；同定义重提可能无变化。先检查观察前提，不把 HTTP 成功与状态更新一一对应。</div>
+<div class="callout warn"><span class="co-title">用单节点证明三节点故障</span>single-node 的名单和发布等待有专门条件；本章分区动画是源码支持的概念路径，真实多节点故障需另行实测。</div></section>
+<section class="recap"><h2 id="memory">速记</h2><table class="ktable"><tr><th>问题</th><th>准确说法</th></tr><tr><td>票数怎么算</td><td>非空配置 floor(N/2)+1，只计名单内不同 ID；角色数不等于名单数</td></tr><tr><td>为什么两份名单</td><td>选举 committed/accepted 双多数及策略；发布 committed/latestPublished 双多数</td></tr><tr><td>pre-vote 做什么</td><td>用有效假 Join 试探，过滤健康、已知 leader 与更鲜状态；仍观察高任期信息</td></tr><tr><td>正式当选</td><td>先严格提高 currentTerm，再收匹配且不过新的 Join，满足条件才 electionWon</td></tr><tr><td>三种 Mode</td><td>CANDIDATE / LEADER / FOLLOWER；leader 先退为候选再跟随；不从 API 星号推断所有内部过程</td></tr><tr><td>提交在哪里</td><td>默认策略的有效双多数 accept；后续通知、mark committed、apply 与请求确认分别完成</td></tr><tr><td>实验观察</td><td>完整 ID、实际名单、本地视图、稳定任期下版本增长；不写死 term=1 / version+1</td></tr><tr><td>分区与错误</td><td>固定名单少数侧不能正常提交新状态；不承诺即时退下、固定秒数或请求自动回滚</td></tr></table>
+<p><strong>心法：先确认观察的是哪份状态，再检查谁有有效多数；选举资格、状态提交和节点应用分别判断。</strong></p></section>
+<footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a href="ch21.html">← 第 21 课：集群状态</a><a href="ch23.html">第 23 课：分片分配 →</a></div></footer></article></main>
+<script src="../experiments/ch22.js"></script><script src="../assets/js/nav.js"></script><script src="../assets/js/es-client.js"></script><script src="../assets/js/flow-player.js"></script><script src="../assets/js/experiments.js"></script><script src="../assets/js/progress.js"></script><script src="../assets/js/chapter-diagrams.js"></script>
+</body></html>
