@@ -1,0 +1,240 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "改策略后，当前相缓存是否刷新",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-ch28-phase-cache-20261013-221817/phase-cache.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "生命周期推进"
+        },
+        "database": {
+          "label": "索引与相缓存"
+        },
+        "security": {
+          "label": "保留执行路径"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "update",
+      "label": "PUT 改变策略内容 · 相同策略与安全 headers 可 no-op"
+    },
+    {
+      "id": "decision",
+      "label": "安全刷新判断 · 必须有缓存、当前步骤且不是 ERROR"
+    },
+    {
+      "id": "future",
+      "label": "未来相 · 到达门槛并换相后才装载"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "put",
+      "lane": "update",
+      "col": 1,
+      "label": "更新活策略",
+      "sublabel": "实际变化才增加版本",
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/PutLifecycleMetadataService.java",
+          "line": 123,
+          "end_line": 136,
+          "label": "no-op 判定"
+        },
+        {
+          "path": "x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/PutLifecycleMetadataService.java",
+          "line": 273,
+          "end_line": 306,
+          "label": "版本与缓存刷新"
+        }
+      ]
+    },
+    {
+      "id": "gate",
+      "lane": "update",
+      "col": 2,
+      "label": "比较当前相 StepKey",
+      "sublabel": "当前 step 仍在且集合相同？",
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/PhaseCacheManagement.java",
+          "line": 176,
+          "end_line": 251,
+          "label": "完整安全更新条件"
+        }
+      ]
+    },
+    {
+      "id": "keep",
+      "lane": "decision",
+      "col": 1,
+      "label": "不安全：保留旧相",
+      "sublabel": "本课 A 加 forcemerge 保留 v1",
+      "type": "security",
+      "width": 264,
+      "height": 66,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/PhaseCacheManagement.java",
+          "line": 195,
+          "end_line": 251,
+          "label": "不存在或集合不同拒绝"
+        }
+      ]
+    },
+    {
+      "id": "refresh",
+      "lane": "decision",
+      "col": 2,
+      "label": "安全：刷新当前相",
+      "sublabel": "本课 B 只改 max_age 得 v2",
+      "type": "database",
+      "width": 264,
+      "height": 66,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/PhaseCacheManagement.java",
+          "line": 237,
+          "end_line": 251,
+          "label": "同集合可刷新"
+        }
+      ]
+    },
+    {
+      "id": "transition",
+      "lane": "future",
+      "col": 1,
+      "label": "换相装载最新定义",
+      "sublabel": "阶段门槛另从活策略读取",
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/IndexLifecycleTransition.java",
+          "line": 293,
+          "end_line": 310,
+          "label": "新的 phaseDefinition"
+        },
+        {
+          "path": "x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/PolicyStepsRegistry.java",
+          "line": 436,
+          "end_line": 452,
+          "label": "未来相的 min_age"
+        }
+      ]
+    },
+    {
+      "id": "execute",
+      "lane": "future",
+      "col": 2,
+      "label": "当前 step 使用相缓存",
+      "sublabel": "explain 展示同一份定义",
+      "type": "database",
+      "width": 264,
+      "height": 66,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/PolicyStepsRegistry.java",
+          "line": 293,
+          "end_line": 318,
+          "label": "替换当前相再生成steps"
+        },
+        {
+          "path": "x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/action/TransportExplainLifecycleAction.java",
+          "line": 174,
+          "end_line": 187,
+          "label": "解析 phase_execution"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "put-gate",
+      "from": "put",
+      "to": "gate",
+      "label": "判断",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gate-keep",
+      "from": "gate",
+      "to": "keep",
+      "label": "不安全",
+      "variant": "security"
+    },
+    {
+      "id": "gate-refresh",
+      "from": "gate",
+      "to": "refresh",
+      "label": "安全",
+      "variant": "emphasis"
+    },
+    {
+      "id": "keep-transition",
+      "from": "keep",
+      "to": "transition",
+      "label": "换相",
+      "variant": "emphasis"
+    },
+    {
+      "id": "refresh-execute",
+      "from": "refresh",
+      "to": "execute",
+      "label": "检查",
+      "variant": "emphasis"
+    },
+    {
+      "id": "transition-execute",
+      "from": "transition",
+      "to": "execute",
+      "label": "新相",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "保留的是执行计划",
+      "items": [
+        "加删 action 常改变步骤集合；以实际 StepKey 集合为准，不只比较名称。",
+        "缺缓存、ERROR、当前步骤消失或解析失败也不能按安全刷新处理。"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "当前缓存与未来门槛分开",
+      "items": [
+        "当前相按缓存解析；只改 max_age 时下一次评估可采用新条件。",
+        "未来相 min_age 从活策略读取；换相时才写入该相最新定义。"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,303 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "rollover 后，哪一份索引在等什么",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-ch28-rollover-clocks-20261013-221817/rollover-clocks.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "生命周期推进"
+        },
+        "database": {
+          "label": "索引与相缓存"
+        },
+        "security": {
+          "label": "保留执行路径"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "input",
+      "label": "本课 alias 路径 · 省略 CCR、错误重试与数据层迁移"
+    },
+    {
+      "id": "split",
+      "label": "新代接写 · 旧代收尾"
+    },
+    {
+      "id": "age",
+      "label": "阶段门槛 · 同一个生命周期零点"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "bootstrap",
+      "lane": "input",
+      "col": 1,
+      "label": "托管首索引 000001",
+      "sublabel": "模板设置 + 显式 write alias",
+      "type": "database",
+      "width": 264,
+      "height": 66,
+      "yOffset": -44,
+      "sources": [
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/WaitForRolloverReadyStep.java",
+          "line": 127,
+          "end_line": 193,
+          "label": "alias 与写索引检查"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/metadata/MetadataCreateIndexService.java",
+          "line": 650,
+          "end_line": 675,
+          "label": "选择匹配的V2模板"
+        }
+      ]
+    },
+    {
+      "id": "ready",
+      "lane": "input",
+      "col": 2,
+      "label": "周期检查 rollover",
+      "sublabel": "max_age 1m 且 min_docs 2",
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": -44,
+      "sources": [
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/WaitForRolloverReadyStep.java",
+          "line": 234,
+          "end_line": 275,
+          "label": "dry_run 与默认条件"
+        }
+      ]
+    },
+    {
+      "id": "attempt",
+      "lane": "input",
+      "col": 2,
+      "label": "真正执行 rollover",
+      "sublabel": "条件检查通过才调用",
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": 54,
+      "sources": [
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/RolloverStep.java",
+          "line": 120,
+          "end_line": 141,
+          "label": "无条件执行与独立等待"
+        }
+      ]
+    },
+    {
+      "id": "old",
+      "lane": "split",
+      "col": 1,
+      "label": "000001 更新状态",
+      "sublabel": "等新片、改零点、完成索引",
+      "type": "database",
+      "width": 264,
+      "height": 66,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/RolloverAction.java",
+          "line": 132,
+          "end_line": 158,
+          "label": "五步链"
+        },
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/UpdateRolloverLifecycleDateStep.java",
+          "line": 43,
+          "end_line": 77,
+          "label": "使用 rollover 时刻"
+        }
+      ]
+    },
+    {
+      "id": "new",
+      "lane": "split",
+      "col": 2,
+      "label": "000002 成为写索引",
+      "sublabel": "创建时按匹配模板配置",
+      "type": "database",
+      "width": 264,
+      "height": 66,
+      "yOffset": -36,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/admin/indices/rollover/MetadataRolloverService.java",
+          "line": 248,
+          "end_line": 283,
+          "label": "新索引创建与alias写目标"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/metadata/MetadataCreateIndexService.java",
+          "line": 650,
+          "end_line": 675,
+          "label": "选择匹配的V2模板"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/metadata/MetadataCreateIndexService.java",
+          "line": 976,
+          "end_line": 1005,
+          "label": "模板settings注入创建"
+        }
+      ]
+    },
+    {
+      "id": "wait",
+      "lane": "age",
+      "col": 1,
+      "label": "旧相完成后等待",
+      "sublabel": "rollover 零点 + warm 2h",
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": -54,
+      "sources": [
+        {
+          "path": "x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/IndexLifecycleRunner.java",
+          "line": 141,
+          "end_line": 175,
+          "label": "阶段年龄判断"
+        }
+      ]
+    },
+    {
+      "id": "warm",
+      "lane": "age",
+      "col": 2,
+      "label": "进入 warm 执行动作",
+      "sublabel": "readonly；省略隐式 migrate",
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": -54,
+      "sources": [
+        {
+          "path": "x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/IndexLifecycleTransition.java",
+          "line": 293,
+          "end_line": 310,
+          "label": "进入下一相装载定义"
+        },
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/TimeseriesLifecycleType.java",
+          "line": 61,
+          "end_line": 79,
+          "label": "warm 与 cold 动作"
+        }
+      ]
+    },
+    {
+      "id": "delete",
+      "lane": "age",
+      "col": 2,
+      "label": "到龄进入 delete",
+      "sublabel": "同一零点 + 24h；删除索引",
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": 54,
+      "sources": [
+        {
+          "path": "x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/IndexLifecycleRunner.java",
+          "line": 141,
+          "end_line": 175,
+          "label": "年龄不是逐相累加"
+        },
+        {
+          "path": "x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/TimeseriesLifecycleType.java",
+          "line": 81,
+          "end_line": 82,
+          "label": "delete 阶段动作"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "bootstrap-ready",
+      "from": "bootstrap",
+      "to": "ready",
+      "label": "托管",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ready-attempt",
+      "from": "ready",
+      "to": "attempt",
+      "label": "满足",
+      "variant": "emphasis"
+    },
+    {
+      "id": "attempt-old",
+      "from": "attempt",
+      "to": "old",
+      "label": "收尾",
+      "variant": "emphasis"
+    },
+    {
+      "id": "attempt-new",
+      "from": "attempt",
+      "to": "new",
+      "label": "接写",
+      "variant": "emphasis"
+    },
+    {
+      "id": "old-wait",
+      "from": "old",
+      "to": "wait",
+      "label": "等龄",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wait-warm",
+      "from": "wait",
+      "to": "warm",
+      "label": "到龄",
+      "variant": "emphasis"
+    },
+    {
+      "id": "warm-delete",
+      "from": "warm",
+      "to": "delete",
+      "label": "完成且到龄",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两种时钟与显式门槛",
+      "items": [
+        "rollover.max_age 看创建年龄；至少一项 max_* 与全部 min_* 满足。",
+        "本课 min_docs=2 保持可控等待；箭头表示 ILM 检查与状态推进。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "同一个零点，不逐相累加",
+      "items": [
+        "本课没有 origination_date；老索引生命周期日期更新为 rollover 时刻。",
+        "warm 2h / delete 24h 均从同一零点算；新代托管由模板设置。"
+      ]
+    }
+  ]
+}

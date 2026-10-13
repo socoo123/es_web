@@ -47,7 +47,7 @@
 | ch25 | 熔断器与背压 | ✅ | 29 | 1(熔断水位·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch26 | 脚本引擎 | ✅ | 45 | 1(编译旅程) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch27 | 管道查询语言 | ✅ | 42 | 1(管道执行) | ✅ 管道计划与AVG中间态（2图，2路径动画）；API两轮通过 |
-| ch28 | 索引生命周期管理 | ✅ | 20 | 1(一分钟 rollover) | 待改造 |
+| ch28 | 索引生命周期管理 | ✅ | 40 | 1(受控 rollover·7步) | ✅ 两种时钟与相缓存（2图，2路径动画）；API两轮通过 |
 | ch29 | 安全机制 | ✅ | 19 | 1(认证链) | 待改造 |
 | ch30 | 全景回顾与方法论 | ✅ | 13 | 1(全链回放) | 待改造 |
 
@@ -65,7 +65,7 @@
 | ch06 | 原转写未形成完整代理报告 | 本轮按固定 v9.4.0 源码完成入口边界校对；详细勘误见下方第六章表 | [.archify/CH06-REVIEW.md](.archify/CH06-REVIEW.md)；本轮 API 未实测 |
 | ch10 | 「RestGetAction 一共 76 行」属版本易变数字(非错误) | 网页写「不到百行」不写死;另实测确认 `?refresh=true` 在默认 realtime 下被无视,需配合 `realtime=false` 才刷新(已写进实验) | 本地 9.4.0 实测 |
 | ch27 | 「`POST /_esql` 会 404」 | 实测 **405** `Incorrect HTTP method ... allowed: [GET, PUT, DELETE, HEAD]`——`/_esql` 撞上裸索引路由 `/{index}`(POST 不在 allowed),非「无 handler 400」更非 404;镜像:`GET /_query` → 405 allowed [POST] | 本地 9.4.0 实测 |
-| ch28 | 「新建的 tut-l28-logs-000002 绑定同一策略名」 | 实测 alias 方式 rollover **不复制** `index.lifecycle.name`:000002 settings 无 lifecycle 键、managed=false,链条滚一代即断;正解是 index template 接力,且模板只带 settings——模板带 rollover alias 本体会 ERROR step(duplicated alias) | 本地 9.4.0 实测 |
+| ch28 | 「新建的 tut-l28-logs-000002 绑定同一策略名」 | 实测 alias 方式 rollover **不复制** `index.lifecycle.name`:000002 settings 无 lifecycle 键、managed=false,链条滚一代即断;正解是 index template 注入 lifecycle settings（可带 mappings/其他别名）；模板重复声明 rollover alias 本体会 ERROR step(duplicated alias) | 本地 9.4.0 实测 |
 | ch28 | 课末清理用 `DELETE /tut-l28-*`(通配符) | 默认 **400** `Wildcard expressions or all indices are not allowed`——`action.destructive_requires_name` 默认 true,清理须显式点名;网站将该 400 做成实验(桥接 ch29) | 本地 9.4.0 实测 |
 | ch29 | 暗示 401 只带一个 `WWW-Authenticate: Basic realm="security", charset="UTF-8"` | 9.4.0 实测为**双挑战**:`Basic realm="security", charset="UTF-8"` + `ApiKey` 两个响应头 | 本地 9.4.0(9201)实测 |
 | ch01/02/20 | tutorial 与网页写 Lucene **10.3.2**、JDK **25.0.2+10**、Netty **4.1.130.Final** | Lucene **10.4.0**、bundled JDK **26.0.1+8**(节点 API 显示 `26.0.1`)、Netty **4.1.132.Final**。Jackson 2.15.0 / Log4j 2.19.0 / ANTLR 4.13.1 与 tag 一致,未改 | [v9.4.0 version.properties](https://github.com/elastic/elasticsearch/blob/v9.4.0/build-tools-internal/version.properties) |
@@ -429,7 +429,30 @@
 | 默认Limit999/1000固定；DSL卡只过滤_id却宣称响应含_source | 普通FROM默认输出1000/最大10000可配置，非聚合输入上限；profile内部计数不当契约。DSL保留实际hits与_source，size0空数组也保留 | [输出限制](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/docs/reference/query-languages/esql/_snippets/common/result-set-size-limitation.md#L1-L47)、[原14卡响应](.archify/review/ch27-original-responses.json) |
 | 14卡缺完整等待、显式mapping、首次/重复和搜索视图重置 | 原14ID保留，4组42卡；两索引1P0R/strict、固定ID/显式refresh/green/count、关闭自动refresh排除竞态、D恢复200、点名清理并HEAD404，两轮真实验收 | [注册表](experiments/ch27.js)、[操作顺序](.archify/review/ch27-operations-order.json)、[验收](.archify/CH27-REVIEW.md) |
 
+### 第二十八章重构校对
+
+| 网页旧说法 | 修正 | 依据 |
+|---|---|---|
+| warm后“再满24h”进入delete；默认零点无条件适用于所有索引 | 本课无origination_date时warm2h/delete24h共用rollover零点，不逐相累加；显式origination_date优先分支另说明 | [起算与门槛](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/IndexLifecycleRunner.java#L123-L175) |
+| 初始化必须第一轮poll后发生；new为稳定响应，rollover最多迟到一轮、约80秒完成 | 周期与状态变化runner入口不同；new可能已推进。等待hot/step、alias、新代存在，poll不构成完成上限 | [服务分工](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/IndexLifecycleService.java#L453-L568)、[两轮真实API](.archify/review/ch28-es-review.json) |
+| “须在一分钟内改策略”，自动ID重复写改变文档数 | 保留原20ID；显式min_docs2+固定ID+refresh，一篇保持等待，观察缓存后写第二篇放行；40操作卡两轮重做 | [注册表](experiments/ch28.js)、[验收](.archify/CH28-REVIEW.md) |
+| 每次PUT都version+1；只改条件必然刷新 | 同策略与安全headers可no-op；刷新还看缓存、非ERROR、当前步骤存在、解析及实际StepKey集合 | [no-op](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/PutLifecycleMetadataService.java#L123-L136)、[资格与集合](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/PhaseCacheManagement.java#L88-L251) |
+| data stream省掉模板接力；模板不能带任何alias；缺is_write_index=true都失败 | data stream仍需ILM模板设置，省手工rollover alias/bootstrap；只禁止重复声明rollover alias本体；单目标经典alias有隐式写分支 | [alias兼容分支](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/WaitForRolloverReadyStep.java#L127-L193)、[重复alias检查](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/action/admin/indices/rollover/MetadataRolloverService.java#L612-L639)、[模板应用](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/MetadataCreateIndexService.java#L976-L1005) |
+| min_docs暗门混同本课显式参数；allocate笼统列hot/warm | 默认只在没有文档min条件时补min_docs1，本课显式2；至少一max且全部min，max_primary_shard_size看最大主片；allocate属warm/cold | [默认条件](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/WaitForRolloverReadyStep.java#L234-L275)、[动作顺序](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/TimeseriesLifecycleType.java#L49-L82) |
+| indexing_complete暗示只读；删策略靠引用计数；poll=null总回10m | 该标记不等于index.blocks.write；删除扫描索引策略名；null去掉该层覆盖，有原配置须恢复原值 | [策略扫描](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/action/TransportDeleteLifecycleAction.java#L78-L100)、[两轮恢复原值](.archify/review/ch28-es-review.json) |
+
 ## 会话日志
+
+### 2026-10-13（ch28 索引生命周期管理重构）
+
+- 已按序读取规范，仅处理ch28、首页对应卡片及证据；不重读tutorial、不使用子代理。开工与origin/main一致，已有.gitignore修改保留，不纳入提交。
+- 固定ES9.4.0提交2e8528e92361c3399724226deaf2b46f933e925b / Lucene10.4.0；18文件/30行段源码审计。校正两种时钟、同一rollover零点、origination_date条件、调度非期限、相缓存安全资格、PUT no-op、模板/alias/data stream边界、indexing_complete与清理原值；详见上表。
+- 原20实验ID与七步机制ID保留，2组40操作（前置3/A23/B7/清理7）。1P0R/strict/refresh_interval=-1、固定ID显式refresh；min_docs2屏障消除一分钟内改策略竞态。两交互图/两trace，880px统一阅读列与共用主题/重播控制。
+- **真实API两轮各40卡通过**，状态等待产生81/85请求，每轮7补充观察：A活v2/旧缓存v1、两代alias翻转/新代模板托管/旧complete；B条件改10m缓存v2；同策略PUT no-op仍v2、重复写updated200、重复创建400、三个索引分别HEAD404。点名清理模板/策略/索引，poll恢复前置原值及finally复核，完整原始响应见[API证据](.archify/review/ch28-es-review.json)。
+- 官方Archify3.0.1两workflow v2，zh-CN/showcase/trace、逐节点固定源码、真实--repo-root；仅改JSON正式finalize。当前validate/deliver/strict check/browser-check全通过，9/9且0错误0警告；当前本机file检查可用。phase-cache初稿高度失败、rollover初稿HTTP字偏小诊断保留，按布局测量重新生成；当前收据rollover review-3 / cache review-2。
+- HTTP两图4桌面尺寸×双主题、章节6宽度×双主题；880px列/边界≤1px、整页与iframe不横溢、节点完整。900px桌面/≤800px620px嵌入；主题/源码探索/Enter与Escape/暂停后外层重播/展开/reduced motion/七步/目录/已读/40控制台请求和Pages前缀全通过，JS/资产无错误。源码表与机制SVG仅局部滚动。
+- 已实际view_image审阅7联系表（24章节/图截图+全部7机制快照）及完整浅色rollover、深色cache图。手机图作路径总览，细节用探索/展开/正文；绕行建议实际审阅后可追踪，无交叉遮挡。源码、原生、HTTP、API、视觉与最终SHA分别记录于[CH28-REVIEW](.archify/CH28-REVIEW.md)与[产物绑定](.archify/review/ch28-artifacts.json)。warm2h/delete24h长时动作、跨节点/CCR/快照/data stream及认证权限未实测。
+- node tools/check.mjs：30正式页 / **803操作卡 / 22机制播放器**；JS语法、figwidth、源码/HTTP/局部滚动/机制与diff检查通过。按持久授权提交推送origin/main，提交与Pages交付另核对。
 
 ### 2026-10-13（ch27 管道查询语言重构）
 
