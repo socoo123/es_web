@@ -1,161 +1,349 @@
-/* experiments/ch21.js — 第 21 课:集群状态实验 */
+/* 第21课：3组29张操作卡；保留全部16个原实验ID。 */
 (function () {
   'use strict';
-
   window.ESEXPERIMENTS = window.ESEXPERIMENTS || {};
-
-  window.ESEXPERIMENTS['ch21-00-setup'] = {
-    version: 1, id: 'ch21-00-setup',
-    title: '实验 0 · 建 tut-l21-docs(1 主 0 副)',
-    method: 'PUT', path: '/tut-l21-docs',
-    body: {
-      settings: { number_of_shards: 1, number_of_replicas: 0 },
-      mappings: { properties: { title: { type: 'keyword' } } }
+  window.ESEXPERIMENTS["ch21-16-environment"] = {
+  "version": 1,
+  "id": "ch21-16-environment",
+  "title": "A1 · 核对节点版本",
+  "method": "GET",
+  "path": "/",
+  "body": null,
+  "predict": "本课锚定哪个 ES / Lucene 版本？",
+  "expect": "应为 ES 9.4.0、Lucene 10.4.0；实验使用已运行的匿名学习端点 localhost:9200。受认证保护的端点需有相应权限。"
+};
+  window.ESEXPERIMENTS["ch21-00-setup"] = {
+  "version": 1,
+  "id": "ch21-00-setup",
+  "title": "A2 · 建 tut-l21-docs",
+  "method": "PUT",
+  "path": "/tut-l21-docs",
+  "body": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "auto_expand_replicas": "false",
+      "refresh_interval": "1s",
+      "default_pipeline": "_none",
+      "final_pipeline": "_none"
     },
-    predict: '建索引这件事,会动 ClusterState 的哪几块?',
-    expect: 'acknowledged: true。建索引 = Master 提交一次新 ClusterState:Metadata 多一个索引定义,RoutingTable 多一行分片放置。shards/replicas 这些设置从此躺在 metadata.indices.tut-l21-docs.settings 里。'
-  };
-
-  window.ESEXPERIMENTS['ch21-01-metrics-no-version'] = {
-    version: 1, id: 'ch21-01-metrics-no-version',
-    title: '实验 1 · 只点名 metadata,routing_table',
-    method: 'GET',
-    path: '/_cluster/state/metadata,routing_table?filter_path=cluster_uuid,cluster_name,version,state_uuid,master_node,metadata.indices.tut-l21-docs.settings.index.number_of_shards,metadata.indices.tut-l21-docs.settings.index.number_of_replicas,metadata.indices.tut-l21-docs.mappings,routing_table.indices.tut-l21-docs.shards',
-    body: null,
-    predict: 'filter_path 里写了 version、state_uuid、master_node——它们会出现吗?number_of_shards 在 metadata 还是 routing_table?',
-    expect: 'version / state_uuid / master_node 三个都缺席:toXContentChunked 只在 metric 含 version 时写 version、state_uuid,含 master_node 时写 master_node——filter_path 裁剪的是已经写出的 JSON,变不出没序列化的字段。cluster_uuid 在(header 无条件写)。number_of_shards=1 在 metadata(套了 index 这一层);分片放置在 routing_table:shards["0"] 数组里 state=STARTED、primary=true、node=<本机 id>。'
-  };
-
-  window.ESEXPERIMENTS['ch21-02-metrics-with-version'] = {
-    version: 1, id: 'ch21-02-metrics-with-version',
-    title: '实验 2 · 把 version、master_node 加进 metric',
-    method: 'GET',
-    path: '/_cluster/state/version,metadata,routing_table,master_node?filter_path=version,state_uuid,master_node,metadata.indices.tut-l21-docs.settings.index.number_of_shards,routing_table.indices.tut-l21-docs.shards',
-    body: null,
-    predict: '同一批 filter_path,这次顶层三件套会出现吗?',
-    expect: '出现:version(一个不小的整数)、state_uuid(随机串)、master_node(node id)。对比实验 1——变的是 URL 里的 metric 列表,不是 filter_path。「metric 决定写不写,filter_path 决定留不留」就是这两跑的全部差别。'
-  };
-
-  window.ESEXPERIMENTS['ch21-03-master-node'] = {
-    version: 1, id: 'ch21-03-master-node',
-    title: '实验 3 · master_node:最省的 metric',
-    method: 'GET',
-    path: '/_cluster/state/master_node?filter_path=master_node,cluster_uuid',
-    body: null,
-    predict: '只想知道谁是 Master,有没有比拉 nodes map 更省的路?',
-    expect: '只回 master_node 和 cluster_uuid——master_node 是独立 metric,不必拖整份 nodes。DiscoveryNodes 里存的是 masterNodeId 指针;单节点集群它就是本机 id,和实验 2 看到的一致。'
-  };
-
-  window.ESEXPERIMENTS['ch21-04-blocks-empty'] = {
-    version: 1, id: 'ch21-04-blocks-empty',
-    title: '实验 4 · blocks:空对象也是证据',
-    method: 'GET',
-    path: '/_cluster/state/blocks',
-    body: null,
-    predict: '健康集群的 blocks 长什么样?',
-    expect: 'blocks: {} ——空也是证据:没有集群级/索引级阻断。磁盘水位超限、cluster.blocks.read_only、恢复未完成都会在这里出现条目。第 5 课的动态设置一旦把集群推成只读,这张表立刻非空。'
-  };
-
-  window.ESEXPERIMENTS['ch21-05-term-in-metadata'] = {
-    version: 1, id: 'ch21-05-term-in-metadata',
-    title: '实验 5 · term 住在 Metadata 里',
-    method: 'GET',
-    path: '/_cluster/state/metadata?filter_path=metadata.cluster_coordination.term,metadata.cluster_coordination.config',
-    body: null,
-    predict: 'term 是 ClusterState 的顶层字段吗?',
-    expect: 'term=1,藏在 metadata.cluster_coordination 里——term() 只是转调 coordinationMetadata().term(),它不是 ClusterState 的字段。config 是投票配置(单节点集群一行)。term 每次 Master 换届加一,第 22 课的主角。'
-  };
-
-  window.ESEXPERIMENTS['ch21-06-pending-tasks'] = {
-    version: 1, id: 'ch21-06-pending-tasks',
-    title: '实验 6 · pending_tasks:还没算的队列',
-    method: 'GET',
-    path: '/_cluster/pending_tasks',
-    body: null,
-    predict: '空闲集群上它返回什么?它统计的是「历史更新次数」吗?',
-    expect: 'tasks: []。它列的是 Master 优先级队列里还没算的批——空闲就是空数组,不是坏了。要警惕的反而是持续非空:状态更新堵了,insertOrder/timeInQueue 会一直涨。'
-  };
-
-  window.ESEXPERIMENTS['ch21-07-v1'] = {
-    version: 1, id: 'ch21-07-v1',
-    title: '实验 7 · 记下 V1(version + state_uuid)',
-    method: 'GET',
-    path: '/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid',
-    body: null,
-    predict: '记下这两个值(下面三跑要用):version 是多少?state_uuid 长什么样?',
-    expect: 'version 是一个整数,state_uuid 是一串随机 Base64。注意响应里还有 cluster_uuid——它在 header chunk 里无条件写出,不受 metric 控制(和实验 1 印证)。把 V1 和 uuid 抄下来。'
-  };
-
-  window.ESEXPERIMENTS['ch21-08-create-index'] = {
-    version: 1, id: 'ch21-08-create-index',
-    title: '实验 8 · 建一个新索引 tut-l21-ver',
-    method: 'PUT', path: '/tut-l21-ver',
-    body: { settings: { number_of_shards: 1, number_of_replicas: 0 } },
-    predict: '这次 PUT 会让 version +1、+好几还是不变?state_uuid 会换吗?',
-    expect: 'acknowledged: true。这是一次货真价实的 Master 状态更新(Metadata + RoutingTable 都变)——下一跑对照。'
-  };
-
-  window.ESEXPERIMENTS['ch21-09-v2'] = {
-    version: 1, id: 'ch21-09-v2',
-    title: '实验 9 · V2:version 加一,UUID 换新',
-    method: 'GET',
-    path: '/_cluster/state/version?filter_path=version,state_uuid',
-    body: null,
-    predict: '对照实验 7 抄下的 V1:version 动了没有?state_uuid 是同一个串吗?',
-    expect: 'version 比 V1 大(通常正好 +1;若期间还有别的集群任务会跳更多,但方向一定变大),state_uuid 换成了完全不同的串——incrementVersion 把 UUID 打回 _na_,build() 再随机生成,不是在旧串上改字符。手动对照:V2.version - V1.version ≥ 1,uuid ≠ uuid。'
-  };
-
-  window.ESEXPERIMENTS['ch21-10-write-doc'] = {
-    version: 1, id: 'ch21-10-write-doc',
-    title: '实验 10 · 写一篇 mapping 已声明的文档',
-    method: 'PUT', path: '/tut-l21-docs/_doc/1?refresh=true',
-    body: { title: 'cluster-state-is-a-snapshot' },
-    predict: '写入走的是数据平面还是元数据平面?version 会涨吗?',
-    expect: 'created / _shards.success=1。title 是 keyword、mapping 已声明,不触发动态映射——这次写入只走 Engine/Translog(第 10、14 课),不提交新的 ClusterState。'
-  };
-
-  window.ESEXPERIMENTS['ch21-11-v3'] = {
-    version: 1, id: 'ch21-11-v3',
-    title: '实验 11 · V3:写文档不涨 version',
-    method: 'GET',
-    path: '/_cluster/state/version?filter_path=version,state_uuid',
-    body: null,
-    predict: 'V3 和实验 9 的 V2 什么关系?',
-    expect: 'V3 = V2:version、state_uuid 都没动。文档数据平面和集群元数据平面是两条路——「每写一篇文档 version +1」是把两个平面当成同一块黑板。若你的集群恰好跑了 ILM 之类后台任务偶发 +1,看 state_uuid 是否也换了:换了才是又一次状态更新,和这篇文档无关。'
-  };
-
-  window.ESEXPERIMENTS['ch21-12-settings'] = {
-    version: 1, id: 'ch21-12-settings',
-    title: '实验 12 · 改集群设置(第 5 课回马枪)',
-    method: 'PUT', path: '/_cluster/settings',
-    body: { persistent: { 'cluster.max_shards_per_node': 1200 } },
-    predict: '第 5 课说动态设置改的是 ClusterState 里的 Metadata——这次 PUT 会不会又是一次状态更新?',
-    expect: 'acknowledged: true,设置进了 metadata.persistent_settings。这是又一次 Master 状态更新:下一跑同时看两套计数器。'
-  };
-
-  window.ESEXPERIMENTS['ch21-13-two-counters'] = {
-    version: 1, id: 'ch21-13-two-counters',
-    title: '实验 13 · 两套计数器并排',
-    method: 'GET',
-    path: '/_cluster/state/version,metadata?filter_path=version,state_uuid,metadata.version',
-    body: null,
-    predict: '顶层 version 和 metadata.version 各是多少?谁加得快?',
-    expect: '顶层 version 比实验 11 又大了(设置更新 +1);metadata.version 也在,但它只统计 Metadata 变了的批次——比顶层小(patchVersions 只在 metadata 对象身份变了时才 withIncrementedVersion)。两个数字不相等正是「两套计数器」的证据;wait_for_metadata_version 等的是后者。'
-  };
-
-  window.ESEXPERIMENTS['ch21-14-cleanup-docs'] = {
-    version: 1, id: 'ch21-14-cleanup-docs',
-    title: '清理 · 删 tut-l21-docs',
-    method: 'DELETE', path: '/tut-l21-docs',
-    predict: '删索引算不算一次状态更新?',
-    expect: 'acknowledged: true——而且它自己就是又一次 N→N+1(Metadata 和 RoutingTable 都要改)。删完再看一眼 version metric,数字应该又大了一号。'
-  };
-
-  window.ESEXPERIMENTS['ch21-15-cleanup-ver'] = {
-    version: 1, id: 'ch21-15-cleanup-ver',
-    title: '清理 · 删 tut-l21-ver(顺手还原设置)',
-    method: 'DELETE', path: '/tut-l21-ver',
-    predict: '一句话总结本课?',
-    expect: 'acknowledged: true。想还原实验 12 的设置:PUT /_cluster/settings 把 cluster.max_shards_per_node 置 null(注意:那又是一次状态更新、version 又 +1)。快照不可变、version 只在 Master 手里加一、算和应用各一条队列。'
-  };
+    "mappings": {
+      "dynamic": "strict",
+      "_source": {
+        "enabled": true
+      },
+      "properties": {
+        "title": {
+          "type": "keyword"
+        }
+      }
+    }
+  },
+  "predict": "建索引会增加哪些控制信息？",
+  "expect": "acknowledged、shards_acknowledged 通常 true；显式 1 主 0 副、strict keyword 与 refresh=1s。创建后还可能有分配/启动更新，不承诺只加一次 version。已存在时 400，应先完成末尾清理再重做。"
+};
+  window.ESEXPERIMENTS["ch21-17-health"] = {
+  "version": 1,
+  "id": "ch21-17-health",
+  "title": "A3 · 等本课主分片就绪",
+  "method": "GET",
+  "path": "/_cluster/health/tut-l21-docs?wait_for_status=green&wait_for_no_relocating_shards=true&wait_for_no_initializing_shards=true&timeout=10s",
+  "body": null,
+  "predict": "主分片已经 STARTED 了吗？",
+  "expect": "timed_out=false、status=green、active_primary_shards=1；检查失败时先解决分配条件再继续。仅限定本课索引，不能代表其他索引健康。"
+};
+  window.ESEXPERIMENTS["ch21-01-metrics-no-version"] = {
+  "version": 1,
+  "id": "ch21-01-metrics-no-version",
+  "title": "A4 · metric 未点名 version",
+  "method": "GET",
+  "path": "/_cluster/state/metadata,routing_table/tut-l21-docs?filter_path=cluster_uuid,version,state_uuid,master_node,metadata.indices.tut-l21-docs.settings.index.number_of_shards,metadata.indices.tut-l21-docs.settings.index.number_of_replicas,metadata.indices.tut-l21-docs.mappings,routing_table.indices.tut-l21-docs.shards",
+  "body": null,
+  "predict": "filter_path 写了 version、state_uuid、master_node，它们会出现吗？",
+  "expect": "三个都缺席；cluster_uuid 保留。number_of_shards=1/replicas=0 在 metadata；路由表里 shards[\"0\"] 有 primary=true、state=STARTED、node。filter_path 不能创造未序列化字段。"
+};
+  window.ESEXPERIMENTS["ch21-02-metrics-with-version"] = {
+  "version": 1,
+  "id": "ch21-02-metrics-with-version",
+  "title": "A5 · 点名 version 与 master_node",
+  "method": "GET",
+  "path": "/_cluster/state/version,metadata,routing_table,master_node/tut-l21-docs?filter_path=version,state_uuid,master_node,metadata.indices.tut-l21-docs.settings.index.number_of_shards,routing_table.indices.tut-l21-docs.shards",
+  "body": null,
+  "predict": "与 A4 相比哪些字段新增？",
+  "expect": "version、state_uuid、master_node 出现；改变的是 metric 列表。索引限定限制 metadata/路由的索引范围，不把集群版本变成索引版本。"
+};
+  window.ESEXPERIMENTS["ch21-03-master-node"] = {
+  "version": 1,
+  "id": "ch21-03-master-node",
+  "title": "A6 · 单独查看主节点 ID",
+  "method": "GET",
+  "path": "/_cluster/state/master_node?filter_path=master_node,cluster_uuid",
+  "body": null,
+  "predict": "不取 nodes map，仍能指认主节点吗？",
+  "expect": "返回 master_node 与 cluster_uuid。单节点时主 ID 与 A9 的节点 ID 一致；有主资格不等于当前主节点。"
+};
+  window.ESEXPERIMENTS["ch21-04-blocks-empty"] = {
+  "version": 1,
+  "id": "ch21-04-blocks-empty",
+  "title": "A7 · 看本课与全局阻断",
+  "method": "GET",
+  "path": "/_cluster/state/blocks/tut-l21-docs",
+  "body": null,
+  "predict": "green 是否保证没有任何 block？",
+  "expect": "本例无 block 时 blocks={}；green 描述分片可用性，不证明可写。索引范围只过滤索引级阻断，仍可包含全局阻断；实际条目依环境判断。"
+};
+  window.ESEXPERIMENTS["ch21-05-term-in-metadata"] = {
+  "version": 1,
+  "id": "ch21-05-term-in-metadata",
+  "title": "A8 · term 与两份投票配置",
+  "method": "GET",
+  "path": "/_cluster/state/metadata?filter_path=metadata.cluster_coordination",
+  "body": null,
+  "predict": "term 是顶层字段吗？投票配置叫 config 吗？",
+  "expect": "term 位于 metadata.cluster_coordination，数值随选举历史变化；本次参考实测为 1，不是固定默认。字段是 last_committed_config、last_accepted_config 和 voting_config_exclusions，没有 config。"
+};
+  window.ESEXPERIMENTS["ch21-18-nodes"] = {
+  "version": 1,
+  "id": "ch21-18-nodes",
+  "title": "A9 · 节点角色与当前主分开",
+  "method": "GET",
+  "path": "/_cluster/state/nodes,master_node?filter_path=nodes.*.name,nodes.*.roles,master_node",
+  "body": null,
+  "predict": "nodes 中 master 角色就是当前主吗？",
+  "expect": "nodes 的键是节点 ID、roles 表示资格；master_node 指认当选主。单节点学习环境一个节点，多节点不能将所有有 master 角色的节点都当成主。"
+};
+  window.ESEXPERIMENTS["ch21-06-pending-tasks"] = {
+  "version": 1,
+  "id": "ch21-06-pending-tasks",
+  "title": "A10 · 待处理与正在执行的任务",
+  "method": "GET",
+  "path": "/_cluster/pending_tasks",
+  "body": null,
+  "predict": "它统计历史更新次数吗？executing=true 意味着什么？",
+  "expect": "空闲参考 tasks=[]；列表也可包含 executing=true 的当前批次任务，字段为 insert_order、time_in_queue_millis。不是文档写入队列或历史计数；一次空读不能证明一直没有阻塞。"
+};
+  window.ESEXPERIMENTS["ch21-07-v1"] = {
+  "version": 1,
+  "id": "ch21-07-v1",
+  "title": "B1 · 记录 V1 与 UUID",
+  "method": "GET",
+  "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+  "body": null,
+  "predict": "记下建第二索引之前的版本。",
+  "expect": "记录 V1.version 与 V1.state_uuid；这是本节点的已应用状态，不是文档 _version。后续比较要求同一主任期、没有无关并发状态任务。"
+};
+  window.ESEXPERIMENTS["ch21-08-create-index"] = {
+  "version": 1,
+  "id": "ch21-08-create-index",
+  "title": "B2 · 建 tut-l21-ver",
+  "method": "PUT",
+  "path": "/tut-l21-ver",
+  "body": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "auto_expand_replicas": "false",
+      "refresh_interval": "1s",
+      "default_pipeline": "_none",
+      "final_pipeline": "_none"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "_source": {
+        "enabled": true
+      },
+      "properties": {
+        "title": {
+          "type": "keyword"
+        }
+      }
+    }
+  },
+  "predict": "一次建索引对应一次状态发布吗？",
+  "expect": "通常 acknowledged/shards_acknowledged=true；索引创建、分配、启动可能分多批更新。不要预设 V2−V1=1；重复创建 400 后需先清理重做。"
+};
+  window.ESEXPERIMENTS["ch21-19-health-ver"] = {
+  "version": 1,
+  "id": "ch21-19-health-ver",
+  "title": "B3 · 等第二索引稳定",
+  "method": "GET",
+  "path": "/_cluster/health/tut-l21-ver?wait_for_status=green&wait_for_no_relocating_shards=true&wait_for_no_initializing_shards=true&timeout=10s",
+  "body": null,
+  "predict": "为什么不能立刻把创建响应当稳定基线？",
+  "expect": "timed_out=false、green、1 个活动主分片；先等 STARTED，再记录后续写入的基线，以减小启动任务干扰。仍不保证其他后台任务停止。"
+};
+  window.ESEXPERIMENTS["ch21-09-v2"] = {
+  "version": 1,
+  "id": "ch21-09-v2",
+  "title": "B4 · 记录 V2：允许多次递增",
+  "method": "GET",
+  "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+  "body": null,
+  "predict": "比较 V1：版本差一定是 1 吗？",
+  "expect": "在本例同主任期下 V2>V1，UUID 不同；差值可大于 1，实际差值应自行记录。一个已改变的状态批次加一，一个 API 不等于一个批次。"
+};
+  window.ESEXPERIMENTS["ch21-10-write-doc"] = {
+  "version": 1,
+  "id": "ch21-10-write-doc",
+  "title": "B5 · 写已声明的 keyword 字段",
+  "method": "PUT",
+  "path": "/tut-l21-docs/_doc/1?refresh=true",
+  "body": {
+    "title": "cluster-state-is-a-snapshot"
+  },
+  "predict": "strict mapping 下的普通写入需要改集群状态吗？",
+  "expect": "首次 201/result=created、_shards.successful=1，重复 200/updated；已有字段不触发 mapping 更新。refresh 发布搜索读者，与集群状态版本递增是不同机制。"
+};
+  window.ESEXPERIMENTS["ch21-11-v3"] = {
+  "version": 1,
+  "id": "ch21-11-v3",
+  "title": "B6 · 记录 V3：数据写入对照",
+  "method": "GET",
+  "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+  "body": null,
+  "predict": "没有其他状态任务时 V3 与 V2 如何比较？",
+  "expect": "本轮参考 V3=V2，UUID 相同；仅说明本窗口未观察到新状态。若变大，不能由版本/UUID 判断具体原因，需核对动态映射、后台任务和节点变化。"
+};
+  window.ESEXPERIMENTS["ch21-20-get-doc"] = {
+  "version": 1,
+  "id": "ch21-20-get-doc",
+  "title": "B7 · 文档版本确实增长",
+  "method": "GET",
+  "path": "/tut-l21-docs/_doc/1",
+  "body": null,
+  "predict": "集群版本不动，文档是否已经存下？",
+  "expect": "found=true、_source.title 与 B5 相同；首次文档 _version=1，重复写同 ID 后增加。文档 _version、ClusterState.version、内部 Metadata.version 分属不同对象。"
+};
+  window.ESEXPERIMENTS["ch21-12-settings"] = {
+  "version": 1,
+  "id": "ch21-12-settings",
+  "title": "C1 · 只改本课索引的动态设置",
+  "method": "PUT",
+  "path": "/tut-l21-docs/_settings",
+  "body": {
+    "index": {
+      "refresh_interval": "5s"
+    }
+  },
+  "predict": "与 B5 写文档相比，这次变了哪个平面？",
+  "expect": "acknowledged=true；refresh_interval 从显式 1s 改为 5s，IndexMetadata 随控制状态更新。本卡不改 cluster.max_shards_per_node；C7 显式恢复 1s。"
+};
+  window.ESEXPERIMENTS["ch21-13-two-counters"] = {
+  "version": 1,
+  "id": "ch21-13-two-counters",
+  "title": "C2 · 顶层版本与隐藏的元数据版本",
+  "method": "GET",
+  "path": "/_cluster/state/version,metadata/tut-l21-docs?filter_path=version,state_uuid,metadata.version,metadata.indices.tut-l21-docs.settings.index.refresh_interval",
+  "body": null,
+  "predict": "请求 metadata.version，REST 就会输出内部计数器吗？",
+  "expect": "version 比 B6 大、UUID 换新，refresh_interval=5s；metadata.version 缺席。9.4.0 API 上下文不序列化它，不能用 filter_path 造出来或拿顶层 version 替代它。"
+};
+  window.ESEXPERIMENTS["ch21-21-settings-noop"] = {
+  "version": 1,
+  "id": "ch21-21-settings-noop",
+  "title": "C3 · 重复提交相同设置",
+  "method": "PUT",
+  "path": "/tut-l21-docs/_settings",
+  "body": {
+    "index": {
+      "refresh_interval": "5s"
+    }
+  },
+  "predict": "acknowledged=true 是否保证产生新状态？",
+  "expect": "acknowledged=true；本例值未变可沿用原状态，不发布。下一卡与 C2 比较；响应成功与版本增加是两个不同判断。"
+};
+  window.ESEXPERIMENTS["ch21-22-after-noop"] = {
+  "version": 1,
+  "id": "ch21-22-after-noop",
+  "title": "C4 · 对照相同设置前后版本",
+  "method": "GET",
+  "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+  "body": null,
+  "predict": "C3 没改值，C4 应与 C2 比较什么？",
+  "expect": "本轮版本与 UUID 均相同；仅在没有其他状态任务时可作 no-op 证据。内部计数器并不要求不同数值，也不能当成永恒大小关系。"
+};
+  window.ESEXPERIMENTS["ch21-23-wait-satisfied"] = {
+  "version": 1,
+  "id": "ch21-23-wait-satisfied",
+  "title": "C5 · 元数据等待：已满足的门槛",
+  "method": "GET",
+  "path": "/_cluster/state/version?wait_for_metadata_version=1&wait_for_timeout=1ms",
+  "body": null,
+  "predict": "1 这个门槛会请求修改状态吗？",
+  "expect": "HTTP 200、wait_for_timed_out=false，并带当前 version/state_uuid；等待检查的是内部 Metadata.version≥1，不修改状态，也不输出该内部版本。"
+};
+  window.ESEXPERIMENTS["ch21-24-wait-timeout"] = {
+  "version": 1,
+  "id": "ch21-24-wait-timeout",
+  "title": "C6 · 元数据等待：极高门槛超时",
+  "method": "GET",
+  "path": "/_cluster/state/version?wait_for_metadata_version=9223372036854775807&wait_for_timeout=1ms",
+  "body": null,
+  "predict": "超时会是 HTTP 错误吗？顶层 version 还能读到吗？",
+  "expect": "HTTP 200、wait_for_timed_out=true，只有 cluster_name 与超时标志，无状态 version/UUID。1ms 是等待参数，不是整个请求耗时上限；这个极高门槛仅用于有界超时演示。"
+};
+  window.ESEXPERIMENTS["ch21-26-restore-setting"] = {
+  "version": 1,
+  "id": "ch21-26-restore-setting",
+  "title": "C7 · 显式恢复本课初始设置",
+  "method": "PUT",
+  "path": "/tut-l21-docs/_settings",
+  "body": {
+    "index": {
+      "refresh_interval": "1s"
+    }
+  },
+  "predict": "恢复设置是否也会更新控制状态？",
+  "expect": "acknowledged=true；恢复从 5s 到本章创建时明确设置的 1s，又会更新元数据。不要把 null 或删另一个索引理解成已恢复此设置。"
+};
+  window.ESEXPERIMENTS["ch21-27-settings-readback"] = {
+  "version": 1,
+  "id": "ch21-27-settings-readback",
+  "title": "C8 · 核对恢复结果",
+  "method": "GET",
+  "path": "/tut-l21-docs/_settings?filter_path=tut-l21-docs.settings.index.refresh_interval",
+  "body": null,
+  "predict": "恢复响应成功后，实际值是什么？",
+  "expect": "index.refresh_interval=1s。全套重做仍要按末尾点名删除两个索引，再从 A1 开始；整轮没有写入集群级设置。"
+};
+  window.ESEXPERIMENTS["ch21-14-cleanup-docs"] = {
+  "version": 1,
+  "id": "ch21-14-cleanup-docs",
+  "title": "清理 1 · 删除 tut-l21-docs",
+  "method": "DELETE",
+  "path": "/tut-l21-docs",
+  "body": null,
+  "predict": "会删除哪些资源？",
+  "expect": "acknowledged=true；删除 tut-l21-docs 及其文档，元数据与路由随之更新。再次删除 404/index_not_found_exception 是资源已清理的结果。"
+};
+  window.ESEXPERIMENTS["ch21-15-cleanup-ver"] = {
+  "version": 1,
+  "id": "ch21-15-cleanup-ver",
+  "title": "清理 2 · 删除 tut-l21-ver",
+  "method": "DELETE",
+  "path": "/tut-l21-ver",
+  "body": null,
+  "predict": "删除这个索引会顺手还原集群设置吗？",
+  "expect": "acknowledged=true；只删除 tut-l21-ver。本版未改集群设置；若曾运行旧版，先 GET /_cluster/settings 核对 cluster.max_shards_per_node，并根据原值单独恢复。"
+};
+  window.ESEXPERIMENTS["ch21-25-cleanup-docs-check"] = {
+  "version": 1,
+  "id": "ch21-25-cleanup-docs-check",
+  "title": "清理 3 · 核对文档索引已不存在",
+  "method": "HEAD",
+  "path": "/tut-l21-docs",
+  "body": null,
+  "predict": "清理后第一次创建应该碰到旧资源吗？",
+  "expect": "HTTP 404、空响应正文；确认删除后从 A1 重做。HEAD 的 404 是本卡预期结果。"
+};
+  window.ESEXPERIMENTS["ch21-28-cleanup-ver-check"] = {
+  "version": 1,
+  "id": "ch21-28-cleanup-ver-check",
+  "title": "清理 4 · 核对第二索引已不存在",
+  "method": "HEAD",
+  "path": "/tut-l21-ver",
+  "body": null,
+  "predict": "两个专属资源都删了吗？",
+  "expect": "HTTP 404、空正文。只点名本课两个索引，不用通配符、不删除其他章节资源。"
+};
 })();

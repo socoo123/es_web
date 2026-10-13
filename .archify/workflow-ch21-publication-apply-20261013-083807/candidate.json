@@ -1,0 +1,362 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "新快照：计算、发布与本地可见性",
+    "animation": "trace",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "计算与回调"
+        },
+        "database": {
+          "label": "快照与可见性"
+        },
+        "messagebus": {
+          "label": "发布协议"
+        },
+        "security": {
+          "label": "提交条件"
+        }
+      }
+    },
+    "output": ".archify/workflow-ch21-publication-apply-20261013-083807/publication-apply.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "master",
+      "label": "当选主节点 · MasterService 单线程"
+    },
+    {
+      "id": "publication",
+      "label": "协调层 · 发送、接受与提交"
+    },
+    {
+      "id": "local",
+      "label": "每个节点 · ClusterApplierService 单线程"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "batch",
+      "lane": "master",
+      "col": 2,
+      "type": "backend",
+      "label": "按序计算一批 · patchVersions",
+      "sublabel": "对象换新才递增 version / UUID",
+      "width": 360,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/MasterService.java",
+          "line": 336,
+          "end_line": 382,
+          "label": "执行与无变化分支"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/MasterService.java",
+          "line": 652,
+          "end_line": 675,
+          "label": "两套内部版本"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/MasterService.java",
+          "line": 286,
+          "end_line": 299,
+          "label": "更新并发度一"
+        }
+      ]
+    },
+    {
+      "id": "unchanged",
+      "lane": "master",
+      "col": 0,
+      "type": "database",
+      "label": "无变化 · 结束",
+      "sublabel": "沿用原对象，不发布",
+      "width": 190,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/MasterService.java",
+          "line": 369,
+          "end_line": 382,
+          "label": "同对象短路"
+        }
+      ]
+    },
+    {
+      "id": "send",
+      "lane": "publication",
+      "col": 2,
+      "type": "messagebus",
+      "label": "发布 · 发送新状态",
+      "sublabel": "通常 Diff；基准不符改传全量",
+      "width": 360,
+      "height": 56,
+      "yOffset": -84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/ClusterStatePublisher.java",
+          "line": 23,
+          "end_line": 35,
+          "label": "发送与接受"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/PublicationTransportHandler.java",
+          "line": 411,
+          "end_line": 417,
+          "label": "已有与新节点分支"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/PublicationTransportHandler.java",
+          "line": 467,
+          "end_line": 480,
+          "label": "不兼容回退全量"
+        }
+      ]
+    },
+    {
+      "id": "accept",
+      "lane": "publication",
+      "col": 2,
+      "type": "security",
+      "label": "达到投票配置的接受条件",
+      "sublabel": "足够的主资格节点持久接受",
+      "width": 360,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/ClusterStatePublisher.java",
+          "line": 29,
+          "end_line": 35,
+          "label": "接受与提交"
+        }
+      ]
+    },
+    {
+      "id": "failed",
+      "lane": "publication",
+      "col": 0,
+      "type": "security",
+      "label": "未提交 · 主退位",
+      "sublabel": "候选状态可能保留",
+      "width": 190,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/ClusterStatePublisher.java",
+          "line": 37,
+          "end_line": 48,
+          "label": "提交失败与后续选举"
+        }
+      ]
+    },
+    {
+      "id": "commit",
+      "lane": "publication",
+      "col": 2,
+      "type": "messagebus",
+      "label": "提交 · 通知节点应用",
+      "sublabel": "主节点也应用；完成可有落后节点",
+      "width": 360,
+      "height": 56,
+      "yOffset": 84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/ClusterStatePublisher.java",
+          "line": 31,
+          "end_line": 53,
+          "label": "提交、主应用及落后边界"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/MasterService.java",
+          "line": 626,
+          "end_line": 633,
+          "label": "发布完成再接下一批"
+        }
+      ]
+    },
+    {
+      "id": "appliers",
+      "lane": "local",
+      "col": 2,
+      "type": "backend",
+      "label": "各节点 · 调用 Applier",
+      "sublabel": "内部结构先跟上已提交状态",
+      "width": 360,
+      "height": 56,
+      "yOffset": -84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/ClusterApplierService.java",
+          "line": 538,
+          "end_line": 564,
+          "label": "连接、设置及应用"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/ClusterApplierService.java",
+          "line": 596,
+          "end_line": 609,
+          "label": "按序调用 Applier"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/ClusterStateApplier.java",
+          "line": 15,
+          "end_line": 30,
+          "label": "已提交与快速回调"
+        }
+      ]
+    },
+    {
+      "id": "visible",
+      "lane": "local",
+      "col": 2,
+      "type": "database",
+      "label": "state.set · 本地引用更新",
+      "sublabel": "state() 从此返回新快照",
+      "width": 360,
+      "height": 56,
+      "yOffset": 0,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/ClusterApplierService.java",
+          "line": 564,
+          "end_line": 571,
+          "label": "引用发布边界"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/ClusterService.java",
+          "line": 163,
+          "end_line": 165,
+          "label": "读取本地已应用状态"
+        }
+      ]
+    },
+    {
+      "id": "listeners",
+      "lane": "local",
+      "col": 2,
+      "type": "backend",
+      "label": "通知 Listener · 本轮完成",
+      "sublabel": "仍在应用线程；慢回调会堵后续",
+      "width": 360,
+      "height": 56,
+      "yOffset": 84,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/service/ClusterApplierService.java",
+          "line": 617,
+          "end_line": 639,
+          "label": "同步回调与异常捕获"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/ClusterStateListener.java",
+          "line": 15,
+          "end_line": 27,
+          "label": "快速实现要求"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "step-0",
+      "from": "batch",
+      "to": "send",
+      "variant": "emphasis",
+      "role": "main",
+      "label": "对象已换"
+    },
+    {
+      "id": "step-1",
+      "from": "send",
+      "to": "accept",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "step-2",
+      "from": "accept",
+      "to": "commit",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "step-3",
+      "from": "commit",
+      "to": "appliers",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "step-4",
+      "from": "appliers",
+      "to": "visible",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "step-5",
+      "from": "visible",
+      "to": "listeners",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "no-change",
+      "from": "batch",
+      "to": "unchanged",
+      "label": "同对象",
+      "role": "branch",
+      "variant": "dashed"
+    },
+    {
+      "id": "no-quorum",
+      "from": "accept",
+      "to": "failed",
+      "label": "提交失败",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "batch",
+    "send",
+    "accept",
+    "commit",
+    "appliers",
+    "visible",
+    "listeners"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "顺序与异步边界",
+      "items": [
+        "箭头表示条件与处理依赖，发布异步；主更新线程等待完成回调后再取下一批。",
+        "每个节点独立应用，不是所有节点在同一瞬间换引用。",
+        "主节点本地应用靠后，不保证其晚于每个故障或落后节点完成。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "快照与版本边界",
+      "items": [
+        "图中省略优先级、批次内部错误、超时和选举细节。",
+        "一份新状态加一次版本；一次 API 可引发多个状态更新。",
+        "旧引用仍读旧快照；惰性缓存不改变逻辑状态。"
+      ]
+    }
+  ]
+}

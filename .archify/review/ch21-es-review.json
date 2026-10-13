@@ -1,0 +1,1619 @@
+{
+  "kind": "real-es-api",
+  "endpoint": "http://localhost:9200",
+  "authentication": "anonymous",
+  "reviewedAt": "2026-10-13T08:45:48.772385+08:00",
+  "experimentSha256": "9e0a64be76a839b4f135df03ef935652785594247839bca5b5944339278a24e6",
+  "status": "pass",
+  "rounds": [
+    {
+      "round": 1,
+      "requests": [
+        {
+          "id": "ch21-16-environment",
+          "method": "GET",
+          "path": "/",
+          "body": null,
+          "status": 200,
+          "response": {
+            "name": "de11d253f59a",
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": {
+              "number": "9.4.0",
+              "build_flavor": "default",
+              "build_type": "docker",
+              "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+              "build_date": "2026-04-30T15:05:34.751113474Z",
+              "build_snapshot": false,
+              "lucene_version": "10.4.0",
+              "minimum_wire_compatibility_version": "8.19.0",
+              "minimum_index_compatibility_version": "8.0.0"
+            },
+            "tagline": "You Know, for Search"
+          }
+        },
+        {
+          "id": "ch21-00-setup",
+          "method": "PUT",
+          "path": "/tut-l21-docs",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "1s",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l21-docs"
+          }
+        },
+        {
+          "id": "ch21-17-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l21-docs?wait_for_status=green&wait_for_no_relocating_shards=true&wait_for_no_initializing_shards=true&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch21-01-metrics-no-version",
+          "method": "GET",
+          "path": "/_cluster/state/metadata,routing_table/tut-l21-docs?filter_path=cluster_uuid,version,state_uuid,master_node,metadata.indices.tut-l21-docs.settings.index.number_of_shards,metadata.indices.tut-l21-docs.settings.index.number_of_replicas,metadata.indices.tut-l21-docs.mappings,routing_table.indices.tut-l21-docs.shards",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "metadata": {
+              "indices": {
+                "tut-l21-docs": {
+                  "settings": {
+                    "index": {
+                      "number_of_shards": "1",
+                      "number_of_replicas": "0"
+                    }
+                  },
+                  "mappings": {
+                    "_doc": {
+                      "dynamic": "strict",
+                      "properties": {
+                        "title": {
+                          "type": "keyword"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "routing_table": {
+              "indices": {
+                "tut-l21-docs": {
+                  "shards": {
+                    "0": [
+                      {
+                        "state": "STARTED",
+                        "primary": true,
+                        "node": "QSkpyRrVQ7SrCWvutWILMg",
+                        "relocating_node": null,
+                        "shard": 0,
+                        "index": "tut-l21-docs",
+                        "allocation_id": {
+                          "id": "mHMeBMSWRcSEuADH4aSVDw"
+                        },
+                        "relocation_failure_info": {
+                          "failed_attempts": 0
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-02-metrics-with-version",
+          "method": "GET",
+          "path": "/_cluster/state/version,metadata,routing_table,master_node/tut-l21-docs?filter_path=version,state_uuid,master_node,metadata.indices.tut-l21-docs.settings.index.number_of_shards,routing_table.indices.tut-l21-docs.shards",
+          "body": null,
+          "status": 200,
+          "response": {
+            "version": 402,
+            "state_uuid": "wS2J49vfTlKR28fqQBjhRg",
+            "master_node": "QSkpyRrVQ7SrCWvutWILMg",
+            "metadata": {
+              "indices": {
+                "tut-l21-docs": {
+                  "settings": {
+                    "index": {
+                      "number_of_shards": "1"
+                    }
+                  }
+                }
+              }
+            },
+            "routing_table": {
+              "indices": {
+                "tut-l21-docs": {
+                  "shards": {
+                    "0": [
+                      {
+                        "state": "STARTED",
+                        "primary": true,
+                        "node": "QSkpyRrVQ7SrCWvutWILMg",
+                        "relocating_node": null,
+                        "shard": 0,
+                        "index": "tut-l21-docs",
+                        "allocation_id": {
+                          "id": "mHMeBMSWRcSEuADH4aSVDw"
+                        },
+                        "relocation_failure_info": {
+                          "failed_attempts": 0
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-03-master-node",
+          "method": "GET",
+          "path": "/_cluster/state/master_node?filter_path=master_node,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "master_node": "QSkpyRrVQ7SrCWvutWILMg"
+          }
+        },
+        {
+          "id": "ch21-04-blocks-empty",
+          "method": "GET",
+          "path": "/_cluster/state/blocks/tut-l21-docs",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "blocks": {}
+          }
+        },
+        {
+          "id": "ch21-05-term-in-metadata",
+          "method": "GET",
+          "path": "/_cluster/state/metadata?filter_path=metadata.cluster_coordination",
+          "body": null,
+          "status": 200,
+          "response": {
+            "metadata": {
+              "cluster_coordination": {
+                "term": 1,
+                "last_committed_config": [
+                  "QSkpyRrVQ7SrCWvutWILMg"
+                ],
+                "last_accepted_config": [
+                  "QSkpyRrVQ7SrCWvutWILMg"
+                ],
+                "voting_config_exclusions": []
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-18-nodes",
+          "method": "GET",
+          "path": "/_cluster/state/nodes,master_node?filter_path=nodes.*.name,nodes.*.roles,master_node",
+          "body": null,
+          "status": 200,
+          "response": {
+            "master_node": "QSkpyRrVQ7SrCWvutWILMg",
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-06-pending-tasks",
+          "method": "GET",
+          "path": "/_cluster/pending_tasks",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tasks": []
+          }
+        },
+        {
+          "id": "ch21-07-v1",
+          "method": "GET",
+          "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 402,
+            "state_uuid": "wS2J49vfTlKR28fqQBjhRg"
+          }
+        },
+        {
+          "id": "ch21-08-create-index",
+          "method": "PUT",
+          "path": "/tut-l21-ver",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "1s",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l21-ver"
+          }
+        },
+        {
+          "id": "ch21-19-health-ver",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l21-ver?wait_for_status=green&wait_for_no_relocating_shards=true&wait_for_no_initializing_shards=true&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch21-09-v2",
+          "method": "GET",
+          "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 405,
+            "state_uuid": "ABvYNxmfRpeOYwvxc4X5AA"
+          }
+        },
+        {
+          "id": "ch21-10-write-doc",
+          "method": "PUT",
+          "path": "/tut-l21-docs/_doc/1?refresh=true",
+          "body": {
+            "title": "cluster-state-is-a-snapshot"
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l21-docs",
+            "_id": "1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1
+          }
+        },
+        {
+          "id": "ch21-11-v3",
+          "method": "GET",
+          "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 405,
+            "state_uuid": "ABvYNxmfRpeOYwvxc4X5AA"
+          }
+        },
+        {
+          "id": "ch21-20-get-doc",
+          "method": "GET",
+          "path": "/tut-l21-docs/_doc/1",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l21-docs",
+            "_id": "1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "found": true,
+            "_source": {
+              "title": "cluster-state-is-a-snapshot"
+            }
+          }
+        },
+        {
+          "id": "ch21-12-settings",
+          "method": "PUT",
+          "path": "/tut-l21-docs/_settings",
+          "body": {
+            "index": {
+              "refresh_interval": "5s"
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-13-two-counters",
+          "method": "GET",
+          "path": "/_cluster/state/version,metadata/tut-l21-docs?filter_path=version,state_uuid,metadata.version,metadata.indices.tut-l21-docs.settings.index.refresh_interval",
+          "body": null,
+          "status": 200,
+          "response": {
+            "version": 406,
+            "state_uuid": "vV3ropTaQRunVsn7yh4PfQ",
+            "metadata": {
+              "indices": {
+                "tut-l21-docs": {
+                  "settings": {
+                    "index": {
+                      "refresh_interval": "5s"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-21-settings-noop",
+          "method": "PUT",
+          "path": "/tut-l21-docs/_settings",
+          "body": {
+            "index": {
+              "refresh_interval": "5s"
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-22-after-noop",
+          "method": "GET",
+          "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 406,
+            "state_uuid": "vV3ropTaQRunVsn7yh4PfQ"
+          }
+        },
+        {
+          "id": "ch21-23-wait-satisfied",
+          "method": "GET",
+          "path": "/_cluster/state/version?wait_for_metadata_version=1&wait_for_timeout=1ms",
+          "body": null,
+          "status": 200,
+          "response": {
+            "wait_for_timed_out": false,
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 406,
+            "state_uuid": "vV3ropTaQRunVsn7yh4PfQ"
+          }
+        },
+        {
+          "id": "ch21-24-wait-timeout",
+          "method": "GET",
+          "path": "/_cluster/state/version?wait_for_metadata_version=9223372036854775807&wait_for_timeout=1ms",
+          "body": null,
+          "status": 200,
+          "response": {
+            "wait_for_timed_out": true,
+            "cluster_name": "docker-cluster"
+          }
+        },
+        {
+          "id": "ch21-26-restore-setting",
+          "method": "PUT",
+          "path": "/tut-l21-docs/_settings",
+          "body": {
+            "index": {
+              "refresh_interval": "1s"
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-27-settings-readback",
+          "method": "GET",
+          "path": "/tut-l21-docs/_settings?filter_path=tut-l21-docs.settings.index.refresh_interval",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tut-l21-docs": {
+              "settings": {
+                "index": {
+                  "refresh_interval": "1s"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-14-cleanup-docs",
+          "method": "DELETE",
+          "path": "/tut-l21-docs",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-15-cleanup-ver",
+          "method": "DELETE",
+          "path": "/tut-l21-ver",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-25-cleanup-docs-check",
+          "method": "HEAD",
+          "path": "/tut-l21-docs",
+          "body": null,
+          "status": 404,
+          "response": null
+        },
+        {
+          "id": "ch21-28-cleanup-ver-check",
+          "method": "HEAD",
+          "path": "/tut-l21-ver",
+          "body": null,
+          "status": 404,
+          "response": null
+        }
+      ],
+      "status": "pass",
+      "observations": {
+        "V1": {
+          "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+          "version": 402,
+          "state_uuid": "wS2J49vfTlKR28fqQBjhRg"
+        },
+        "V2": {
+          "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+          "version": 405,
+          "state_uuid": "ABvYNxmfRpeOYwvxc4X5AA"
+        },
+        "V3": {
+          "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+          "version": 405,
+          "state_uuid": "ABvYNxmfRpeOYwvxc4X5AA"
+        },
+        "createVersionDelta": 3,
+        "changedSettingVersion": 406,
+        "noopVersion": 406,
+        "term": 1,
+        "pendingTasks": [],
+        "restMetadataVersionPresent": false
+      }
+    },
+    {
+      "round": 2,
+      "requests": [
+        {
+          "id": "ch21-16-environment",
+          "method": "GET",
+          "path": "/",
+          "body": null,
+          "status": 200,
+          "response": {
+            "name": "de11d253f59a",
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": {
+              "number": "9.4.0",
+              "build_flavor": "default",
+              "build_type": "docker",
+              "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+              "build_date": "2026-04-30T15:05:34.751113474Z",
+              "build_snapshot": false,
+              "lucene_version": "10.4.0",
+              "minimum_wire_compatibility_version": "8.19.0",
+              "minimum_index_compatibility_version": "8.0.0"
+            },
+            "tagline": "You Know, for Search"
+          }
+        },
+        {
+          "id": "ch21-00-setup",
+          "method": "PUT",
+          "path": "/tut-l21-docs",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "1s",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l21-docs"
+          }
+        },
+        {
+          "id": "ch21-17-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l21-docs?wait_for_status=green&wait_for_no_relocating_shards=true&wait_for_no_initializing_shards=true&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch21-01-metrics-no-version",
+          "method": "GET",
+          "path": "/_cluster/state/metadata,routing_table/tut-l21-docs?filter_path=cluster_uuid,version,state_uuid,master_node,metadata.indices.tut-l21-docs.settings.index.number_of_shards,metadata.indices.tut-l21-docs.settings.index.number_of_replicas,metadata.indices.tut-l21-docs.mappings,routing_table.indices.tut-l21-docs.shards",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "metadata": {
+              "indices": {
+                "tut-l21-docs": {
+                  "settings": {
+                    "index": {
+                      "number_of_shards": "1",
+                      "number_of_replicas": "0"
+                    }
+                  },
+                  "mappings": {
+                    "_doc": {
+                      "dynamic": "strict",
+                      "properties": {
+                        "title": {
+                          "type": "keyword"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "routing_table": {
+              "indices": {
+                "tut-l21-docs": {
+                  "shards": {
+                    "0": [
+                      {
+                        "state": "STARTED",
+                        "primary": true,
+                        "node": "QSkpyRrVQ7SrCWvutWILMg",
+                        "relocating_node": null,
+                        "shard": 0,
+                        "index": "tut-l21-docs",
+                        "allocation_id": {
+                          "id": "yTGklA1zS6WzjL7mYlYong"
+                        },
+                        "relocation_failure_info": {
+                          "failed_attempts": 0
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-02-metrics-with-version",
+          "method": "GET",
+          "path": "/_cluster/state/version,metadata,routing_table,master_node/tut-l21-docs?filter_path=version,state_uuid,master_node,metadata.indices.tut-l21-docs.settings.index.number_of_shards,routing_table.indices.tut-l21-docs.shards",
+          "body": null,
+          "status": 200,
+          "response": {
+            "version": 414,
+            "state_uuid": "qorTHibJRqSnO7E61eQ7Dw",
+            "master_node": "QSkpyRrVQ7SrCWvutWILMg",
+            "metadata": {
+              "indices": {
+                "tut-l21-docs": {
+                  "settings": {
+                    "index": {
+                      "number_of_shards": "1"
+                    }
+                  }
+                }
+              }
+            },
+            "routing_table": {
+              "indices": {
+                "tut-l21-docs": {
+                  "shards": {
+                    "0": [
+                      {
+                        "state": "STARTED",
+                        "primary": true,
+                        "node": "QSkpyRrVQ7SrCWvutWILMg",
+                        "relocating_node": null,
+                        "shard": 0,
+                        "index": "tut-l21-docs",
+                        "allocation_id": {
+                          "id": "yTGklA1zS6WzjL7mYlYong"
+                        },
+                        "relocation_failure_info": {
+                          "failed_attempts": 0
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-03-master-node",
+          "method": "GET",
+          "path": "/_cluster/state/master_node?filter_path=master_node,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "master_node": "QSkpyRrVQ7SrCWvutWILMg"
+          }
+        },
+        {
+          "id": "ch21-04-blocks-empty",
+          "method": "GET",
+          "path": "/_cluster/state/blocks/tut-l21-docs",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "blocks": {}
+          }
+        },
+        {
+          "id": "ch21-05-term-in-metadata",
+          "method": "GET",
+          "path": "/_cluster/state/metadata?filter_path=metadata.cluster_coordination",
+          "body": null,
+          "status": 200,
+          "response": {
+            "metadata": {
+              "cluster_coordination": {
+                "term": 1,
+                "last_committed_config": [
+                  "QSkpyRrVQ7SrCWvutWILMg"
+                ],
+                "last_accepted_config": [
+                  "QSkpyRrVQ7SrCWvutWILMg"
+                ],
+                "voting_config_exclusions": []
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-18-nodes",
+          "method": "GET",
+          "path": "/_cluster/state/nodes,master_node?filter_path=nodes.*.name,nodes.*.roles,master_node",
+          "body": null,
+          "status": 200,
+          "response": {
+            "master_node": "QSkpyRrVQ7SrCWvutWILMg",
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "name": "de11d253f59a",
+                "roles": [
+                  "data",
+                  "data_cold",
+                  "data_content",
+                  "data_frozen",
+                  "data_hot",
+                  "data_warm",
+                  "ingest",
+                  "master",
+                  "ml",
+                  "remote_cluster_client",
+                  "transform"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-06-pending-tasks",
+          "method": "GET",
+          "path": "/_cluster/pending_tasks",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tasks": []
+          }
+        },
+        {
+          "id": "ch21-07-v1",
+          "method": "GET",
+          "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 414,
+            "state_uuid": "qorTHibJRqSnO7E61eQ7Dw"
+          }
+        },
+        {
+          "id": "ch21-08-create-index",
+          "method": "PUT",
+          "path": "/tut-l21-ver",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "1s",
+              "default_pipeline": "_none",
+              "final_pipeline": "_none"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l21-ver"
+          }
+        },
+        {
+          "id": "ch21-19-health-ver",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l21-ver?wait_for_status=green&wait_for_no_relocating_shards=true&wait_for_no_initializing_shards=true&timeout=10s",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          }
+        },
+        {
+          "id": "ch21-09-v2",
+          "method": "GET",
+          "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 417,
+            "state_uuid": "5uQvWp8xTkONgk8ehFDUsA"
+          }
+        },
+        {
+          "id": "ch21-10-write-doc",
+          "method": "PUT",
+          "path": "/tut-l21-docs/_doc/1?refresh=true",
+          "body": {
+            "title": "cluster-state-is-a-snapshot"
+          },
+          "status": 201,
+          "response": {
+            "_index": "tut-l21-docs",
+            "_id": "1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1
+          }
+        },
+        {
+          "id": "ch21-11-v3",
+          "method": "GET",
+          "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 417,
+            "state_uuid": "5uQvWp8xTkONgk8ehFDUsA"
+          }
+        },
+        {
+          "id": "ch21-20-get-doc",
+          "method": "GET",
+          "path": "/tut-l21-docs/_doc/1",
+          "body": null,
+          "status": 200,
+          "response": {
+            "_index": "tut-l21-docs",
+            "_id": "1",
+            "_version": 1,
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "found": true,
+            "_source": {
+              "title": "cluster-state-is-a-snapshot"
+            }
+          }
+        },
+        {
+          "id": "ch21-12-settings",
+          "method": "PUT",
+          "path": "/tut-l21-docs/_settings",
+          "body": {
+            "index": {
+              "refresh_interval": "5s"
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-13-two-counters",
+          "method": "GET",
+          "path": "/_cluster/state/version,metadata/tut-l21-docs?filter_path=version,state_uuid,metadata.version,metadata.indices.tut-l21-docs.settings.index.refresh_interval",
+          "body": null,
+          "status": 200,
+          "response": {
+            "version": 418,
+            "state_uuid": "40_uTjlRR_CF266JEos7Zg",
+            "metadata": {
+              "indices": {
+                "tut-l21-docs": {
+                  "settings": {
+                    "index": {
+                      "refresh_interval": "5s"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-21-settings-noop",
+          "method": "PUT",
+          "path": "/tut-l21-docs/_settings",
+          "body": {
+            "index": {
+              "refresh_interval": "5s"
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-22-after-noop",
+          "method": "GET",
+          "path": "/_cluster/state/version?filter_path=version,state_uuid,cluster_uuid",
+          "body": null,
+          "status": 200,
+          "response": {
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 418,
+            "state_uuid": "40_uTjlRR_CF266JEos7Zg"
+          }
+        },
+        {
+          "id": "ch21-23-wait-satisfied",
+          "method": "GET",
+          "path": "/_cluster/state/version?wait_for_metadata_version=1&wait_for_timeout=1ms",
+          "body": null,
+          "status": 200,
+          "response": {
+            "wait_for_timed_out": false,
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": 418,
+            "state_uuid": "40_uTjlRR_CF266JEos7Zg"
+          }
+        },
+        {
+          "id": "ch21-24-wait-timeout",
+          "method": "GET",
+          "path": "/_cluster/state/version?wait_for_metadata_version=9223372036854775807&wait_for_timeout=1ms",
+          "body": null,
+          "status": 200,
+          "response": {
+            "wait_for_timed_out": true,
+            "cluster_name": "docker-cluster"
+          }
+        },
+        {
+          "id": "ch21-26-restore-setting",
+          "method": "PUT",
+          "path": "/tut-l21-docs/_settings",
+          "body": {
+            "index": {
+              "refresh_interval": "1s"
+            }
+          },
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-27-settings-readback",
+          "method": "GET",
+          "path": "/tut-l21-docs/_settings?filter_path=tut-l21-docs.settings.index.refresh_interval",
+          "body": null,
+          "status": 200,
+          "response": {
+            "tut-l21-docs": {
+              "settings": {
+                "index": {
+                  "refresh_interval": "1s"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ch21-14-cleanup-docs",
+          "method": "DELETE",
+          "path": "/tut-l21-docs",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-15-cleanup-ver",
+          "method": "DELETE",
+          "path": "/tut-l21-ver",
+          "body": null,
+          "status": 200,
+          "response": {
+            "acknowledged": true
+          }
+        },
+        {
+          "id": "ch21-25-cleanup-docs-check",
+          "method": "HEAD",
+          "path": "/tut-l21-docs",
+          "body": null,
+          "status": 404,
+          "response": null
+        },
+        {
+          "id": "ch21-28-cleanup-ver-check",
+          "method": "HEAD",
+          "path": "/tut-l21-ver",
+          "body": null,
+          "status": 404,
+          "response": null
+        }
+      ],
+      "status": "pass",
+      "observations": {
+        "V1": {
+          "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+          "version": 414,
+          "state_uuid": "qorTHibJRqSnO7E61eQ7Dw"
+        },
+        "V2": {
+          "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+          "version": 417,
+          "state_uuid": "5uQvWp8xTkONgk8ehFDUsA"
+        },
+        "V3": {
+          "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+          "version": 417,
+          "state_uuid": "5uQvWp8xTkONgk8ehFDUsA"
+        },
+        "createVersionDelta": 3,
+        "changedSettingVersion": 418,
+        "noopVersion": 418,
+        "term": 1,
+        "pendingTasks": [],
+        "restMetadataVersionPresent": false
+      }
+    }
+  ],
+  "supplemental": [
+    {
+      "name": "wait-zero-invalid",
+      "method": "GET",
+      "path": "/_cluster/state/version?wait_for_metadata_version=0&wait_for_timeout=1ms",
+      "body": null,
+      "status": 400,
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "illegal_argument_exception",
+              "reason": "provided waitForMetadataVersion should be >= 1, but instead is [0]"
+            }
+          ],
+          "type": "illegal_argument_exception",
+          "reason": "provided waitForMetadataVersion should be >= 1, but instead is [0]"
+        },
+        "status": 400
+      }
+    },
+    {
+      "name": "repeat-create",
+      "method": "PUT",
+      "path": "/tut-l21-docs",
+      "body": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "auto_expand_replicas": "false",
+          "refresh_interval": "1s",
+          "default_pipeline": "_none",
+          "final_pipeline": "_none"
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "_source": {
+            "enabled": true
+          },
+          "properties": {
+            "title": {
+              "type": "keyword"
+            }
+          }
+        }
+      },
+      "status": 400,
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "resource_already_exists_exception",
+              "reason": "index [tut-l21-docs/UFyOEBh4TK6WqkUSXDTJgA] already exists",
+              "index_uuid": "UFyOEBh4TK6WqkUSXDTJgA",
+              "index": "tut-l21-docs"
+            }
+          ],
+          "type": "resource_already_exists_exception",
+          "reason": "index [tut-l21-docs/UFyOEBh4TK6WqkUSXDTJgA] already exists",
+          "index_uuid": "UFyOEBh4TK6WqkUSXDTJgA",
+          "index": "tut-l21-docs"
+        },
+        "status": 400
+      }
+    },
+    {
+      "name": "explicit-settings",
+      "method": "GET",
+      "path": "/tut-l21-docs/_settings?flat_settings=true",
+      "body": null,
+      "status": 200,
+      "response": {
+        "tut-l21-docs": {
+          "settings": {
+            "index.auto_expand_replicas": "false",
+            "index.creation_date": "1791852348850",
+            "index.default_pipeline": "_none",
+            "index.final_pipeline": "_none",
+            "index.number_of_replicas": "0",
+            "index.number_of_shards": "1",
+            "index.provided_name": "tut-l21-docs",
+            "index.refresh_interval": "1s",
+            "index.routing.allocation.include._tier_preference": "data_content",
+            "index.uuid": "UFyOEBh4TK6WqkUSXDTJgA",
+            "index.version.created": "9094000"
+          }
+        }
+      }
+    },
+    {
+      "name": "strict-keyword-mapping",
+      "method": "GET",
+      "path": "/tut-l21-docs/_mapping",
+      "body": null,
+      "status": 200,
+      "response": {
+        "tut-l21-docs": {
+          "mappings": {
+            "dynamic": "strict",
+            "properties": {
+              "title": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "before-repeat-write",
+      "method": "GET",
+      "path": "/_cluster/state/version",
+      "body": null,
+      "status": 200,
+      "response": {
+        "cluster_name": "docker-cluster",
+        "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+        "version": 407,
+        "state_uuid": "8e3tEG_uSmeJx_mWmkdVDA"
+      }
+    },
+    {
+      "name": "repeat-declared-write",
+      "method": "PUT",
+      "path": "/tut-l21-docs/_doc/1?refresh=true",
+      "body": {
+        "title": "cluster-state-is-a-snapshot"
+      },
+      "status": 200,
+      "response": {
+        "_index": "tut-l21-docs",
+        "_id": "1",
+        "_version": 2,
+        "result": "updated",
+        "forced_refresh": true,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "failed": 0
+        },
+        "_seq_no": 1,
+        "_primary_term": 1
+      }
+    },
+    {
+      "name": "after-repeat-write",
+      "method": "GET",
+      "path": "/_cluster/state/version",
+      "body": null,
+      "status": 200,
+      "response": {
+        "cluster_name": "docker-cluster",
+        "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+        "version": 407,
+        "state_uuid": "8e3tEG_uSmeJx_mWmkdVDA"
+      }
+    },
+    {
+      "name": "document-version-two",
+      "method": "GET",
+      "path": "/tut-l21-docs/_doc/1",
+      "body": null,
+      "status": 200,
+      "response": {
+        "_index": "tut-l21-docs",
+        "_id": "1",
+        "_version": 2,
+        "_seq_no": 1,
+        "_primary_term": 1,
+        "found": true,
+        "_source": {
+          "title": "cluster-state-is-a-snapshot"
+        }
+      }
+    },
+    {
+      "name": "strict-unknown-field",
+      "method": "PUT",
+      "path": "/tut-l21-docs/_doc/bad",
+      "body": {
+        "unknown": 1
+      },
+      "status": 400,
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "strict_dynamic_mapping_exception",
+              "reason": "[1:13] mapping set to strict, dynamic introduction of [unknown] within [_doc] is not allowed"
+            }
+          ],
+          "type": "strict_dynamic_mapping_exception",
+          "reason": "[1:13] mapping set to strict, dynamic introduction of [unknown] within [_doc] is not allowed"
+        },
+        "status": 400
+      }
+    },
+    {
+      "name": "unknown-field-not-written",
+      "method": "GET",
+      "path": "/tut-l21-docs/_doc/bad",
+      "body": null,
+      "status": 404,
+      "response": {
+        "_index": "tut-l21-docs",
+        "_id": "bad",
+        "found": false
+      }
+    },
+    {
+      "name": "set-local-read-only-block",
+      "method": "PUT",
+      "path": "/tut-l21-docs/_settings",
+      "body": {
+        "index.blocks.read_only": true
+      },
+      "status": 200,
+      "response": {
+        "acknowledged": true
+      }
+    },
+    {
+      "name": "read-only-block-visible",
+      "method": "GET",
+      "path": "/_cluster/state/blocks/tut-l21-docs",
+      "body": null,
+      "status": 200,
+      "response": {
+        "cluster_name": "docker-cluster",
+        "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+        "blocks": {
+          "indices": {
+            "tut-l21-docs": {
+              "5": {
+                "description": "index read-only (api)",
+                "retryable": false,
+                "levels": [
+                  "write",
+                  "metadata_write"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "green-can-be-read-only",
+      "method": "GET",
+      "path": "/_cluster/health/tut-l21-docs",
+      "body": null,
+      "status": 200,
+      "response": {
+        "cluster_name": "docker-cluster",
+        "status": "green",
+        "timed_out": false,
+        "number_of_nodes": 1,
+        "number_of_data_nodes": 1,
+        "active_primary_shards": 1,
+        "active_shards": 1,
+        "relocating_shards": 0,
+        "initializing_shards": 0,
+        "unassigned_shards": 0,
+        "unassigned_primary_shards": 0,
+        "delayed_unassigned_shards": 0,
+        "number_of_pending_tasks": 0,
+        "number_of_in_flight_fetch": 0,
+        "task_max_waiting_in_queue_millis": 0,
+        "active_shards_percent_as_number": 100.0
+      }
+    },
+    {
+      "name": "read-only-write-rejected",
+      "method": "PUT",
+      "path": "/tut-l21-docs/_doc/blocked",
+      "body": {
+        "title": "blocked"
+      },
+      "status": 403,
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "cluster_block_exception",
+              "reason": "index [tut-l21-docs] blocked by: [FORBIDDEN/5/index read-only (api)];"
+            }
+          ],
+          "type": "cluster_block_exception",
+          "reason": "index [tut-l21-docs] blocked by: [FORBIDDEN/5/index read-only (api)];"
+        },
+        "status": 403
+      }
+    },
+    {
+      "name": "restore-read-only-setting",
+      "method": "PUT",
+      "path": "/tut-l21-docs/_settings",
+      "body": {
+        "index.blocks.read_only": false
+      },
+      "status": 200,
+      "response": {
+        "acknowledged": true
+      }
+    },
+    {
+      "name": "blocks-empty-again",
+      "method": "GET",
+      "path": "/_cluster/state/blocks/tut-l21-docs",
+      "body": null,
+      "status": 200,
+      "response": {
+        "cluster_name": "docker-cluster",
+        "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+        "blocks": {}
+      }
+    },
+    {
+      "name": "repeat-cleanup-tut-l21-docs",
+      "method": "DELETE",
+      "path": "/tut-l21-docs",
+      "body": null,
+      "status": 404,
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "index_not_found_exception",
+              "reason": "no such index [tut-l21-docs]",
+              "resource.type": "index_or_alias",
+              "resource.id": "tut-l21-docs",
+              "index_uuid": "_na_",
+              "index": "tut-l21-docs"
+            }
+          ],
+          "type": "index_not_found_exception",
+          "reason": "no such index [tut-l21-docs]",
+          "resource.type": "index_or_alias",
+          "resource.id": "tut-l21-docs",
+          "index_uuid": "_na_",
+          "index": "tut-l21-docs"
+        },
+        "status": 404
+      }
+    },
+    {
+      "name": "repeat-cleanup-tut-l21-ver",
+      "method": "DELETE",
+      "path": "/tut-l21-ver",
+      "body": null,
+      "status": 404,
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "index_not_found_exception",
+              "reason": "no such index [tut-l21-ver]",
+              "resource.type": "index_or_alias",
+              "resource.id": "tut-l21-ver",
+              "index_uuid": "_na_",
+              "index": "tut-l21-ver"
+            }
+          ],
+          "type": "index_not_found_exception",
+          "reason": "no such index [tut-l21-ver]",
+          "resource.type": "index_or_alias",
+          "resource.id": "tut-l21-ver",
+          "index_uuid": "_na_",
+          "index": "tut-l21-ver"
+        },
+        "status": 404
+      }
+    }
+  ],
+  "environment": {
+    "status": 200,
+    "response": {
+      "name": "de11d253f59a",
+      "cluster_name": "docker-cluster",
+      "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+      "version": {
+        "number": "9.4.0",
+        "build_flavor": "default",
+        "build_type": "docker",
+        "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+        "build_date": "2026-04-30T15:05:34.751113474Z",
+        "build_snapshot": false,
+        "lucene_version": "10.4.0",
+        "minimum_wire_compatibility_version": "8.19.0",
+        "minimum_index_compatibility_version": "8.0.0"
+      },
+      "tagline": "You Know, for Search"
+    }
+  },
+  "nodes": {
+    "status": 200,
+    "response": {
+      "_nodes": {
+        "total": 1,
+        "successful": 1,
+        "failed": 0
+      },
+      "nodes": {
+        "QSkpyRrVQ7SrCWvutWILMg": {
+          "roles": [
+            "data",
+            "data_cold",
+            "data_content",
+            "data_frozen",
+            "data_hot",
+            "data_warm",
+            "ingest",
+            "master",
+            "ml",
+            "remote_cluster_client",
+            "transform"
+          ]
+        }
+      }
+    }
+  },
+  "clusterSettingsBefore": {
+    "status": 200,
+    "response": {
+      "persistent": {},
+      "transient": {}
+    }
+  },
+  "clusterSettingsAfter": {
+    "status": 200,
+    "response": {
+      "persistent": {},
+      "transient": {}
+    }
+  },
+  "finalHead": {
+    "tut-l21-docs": {
+      "status": 404,
+      "response": null
+    },
+    "tut-l21-ver": {
+      "status": 404,
+      "response": null
+    }
+  }
+}

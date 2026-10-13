@@ -40,7 +40,7 @@
 | ch18 | 查询语法 | ✅ | 34 | 1(match→SHOULD) | ✅ 查询翻译与收集边界（2图，2路径动画） |
 | ch19 | 聚合框架 | ✅ | 30 | 1(cherry/shardSize) | ✅ 收集归并与候选误差（2图，2路径动画） |
 | ch20 | 评分与排序 | ✅ | 30 | 1(BM25 演算·旗舰) | ✅ 评分窗口与解释入口（2图，2路径动画） |
-| ch21 | 集群状态 | ✅ | 16 | — | 待改造 |
+| ch21 | 集群状态 | ✅ | 29 | — | ✅ 快照职责与发布应用（2图，1路径动画） |
 | ch22 | 主节点选举与共识 | ✅ | 10 | 1(选举时序·旗舰) | 待改造 |
 | ch23 | 分片分配 | ✅ | 11 | 1(均衡迁移·旗舰) | 待改造 |
 | ch24 | 分片恢复与快照 | ✅ | 20 | 1(peer recovery·旗舰) | 待改造 |
@@ -316,7 +316,30 @@
 | ch20 | 单篇Explain与所有search是同一棵树，且可读未refresh写入 | 同读者/查询/统计的单片普通search可对齐；DFS与rescore等有差异；未刷文档GET可见、_explain404，刷新后200 | TransportExplainAction非realtime Get/preProcess；ExplainPhase补rescore；13补充实测 |
 | ch20 | 12卡缺健康/完整配置/重复恢复，精确重做只重写文档 | 保留12ID增18，3组30卡；strict/stored source/standard/BM25/norms/Doc Values、局部green、refresh、点名清理重建；mapping序列化省略默认true项，API词向量字段总频名sum_ttf | [注册表](experiments/ch20.js)、[验收](.archify/CH20-REVIEW.md)、[两轮30卡+13观察](.archify/review/ch20-es-review.json) |
 
+### 第二十一章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch21 | minVersions 非 final，列出的字段不完整；读側都无锁 | minVersions 是 final；另有 compatibilityVersions/clusterFeatures；routingNodes 惰性同步慢路径，概念不可变不要求全树深拷贝 | ClusterState163–196/437–458/1190–1203；[固定源码审计](.archify/review/ch21-source-review.json) |
+| ch21 | metadata.version 可与顶层并排 REST 输出，且一定更小 | API 上下文不序列化内部版本，filter_path 不能创造；等待比较内部≥门槛且需≥1，超时200无状态 | Metadata730–758；ClusterStateRequest162–175；[两轮与补充](.archify/review/ch21-es-review.json) |
+| ch21 | 成功建索引 version 只+1，成功任务都发布 | 一份新状态加一，一次 API 可触发多批；两轮创建均+3；相同动态设置重交可 no-op，版本/UUID不变 | MasterService336–382/652–675；两轮402→405、414→417与406/418 no-op |
+| ch21 | term 固定1；投票字段名 config，按换届描述递增 | term 按实际选举历史判断；last_committed_config/last_accepted_config/voting_config_exclusions，无 config | CoordinationMetadata33–47/105–111；两轮 term1仅参考 |
+| ch21 | pending 只列还没算的批，insertOrder/timeInQueue | 同时含执行中与待处理任务，executing 指示；REST键 insert_order/time_in_queue_millis，非历史/文档队列 | MasterService2010–2025；PendingClusterTasksResponse83–98 |
+| ch21 | Listener可慢，重活移过去不会挡；主最后apply代表所有节点先完成 | 同步Listener仍占应用线程，挡下一状态；两回调都应快；可有落后节点，提交/本地可见/各节点应用分别解释 | ClusterStateListener15–27；ClusterApplierService538–571/617–639；Publisher23–53 |
+| ch21 | Metadata每次更新都写盘（未说明条件），其他三块均从Metadata+复制恢复 | 按角色/持久化上下文和全量/增量路径理解；全重启需重新发现、恢复与分配，旧引用不代表各组件全局原子 | GatewayMetaState617–641；ClusterState78–106；图注与正文限定 |
+| ch21 | 16卡无健康等待/完整恢复，删ver索引顺手还原集群设置 | 原16ID保留增13成3组29卡；改本索引refresh 1s→5s、no-op、恢复读回、门槛等待、两索引点名清理后重做；集群配置前后相同 | [注册表](experiments/ch21.js)、[两轮29卡+18观察](.archify/review/ch21-es-review.json)、[验收](.archify/CH21-REVIEW.md) |
+
 ## 会话日志
+
+### 2026-10-13（第二十一章按统一规范重构）
+
+- 固定 ES9.4.0/Lucene10.4.0，20源码文件/46精确区间核对；纠正字段/final与读缓存、隐藏Metadata.version、term/投票字段、API与批次数、no-op、pending执行项、Listener阻塞及本地可见/落后节点。正文/两图/29卡/5问答/4陷阱/速记一致；未重读tutorial、未使用子代理。旧2026-09-24记录保留为首次转写历史，以本次结果为准。
+- 保留原16稳定ID，3组29卡（A10/B7/C8/清理4），2交互图/1有限trace/0机制播放器。显式配置/strict keyword/局部green/声明字段写入、本索引refresh恢复、no-op与元数据等待、点名删两索引重做；全站30正式页/648卡/22机制。共享CSS/JS与其他章节未改。
+- 官方Archify3.0.1 Architecture与Workflow v2，首次附固定源码/真实checkout、只改JSON。当前静态图根收据、流程review-3；validate/deliver/strict check showcase9/9、0errors/warnings、provenance current，原生browser-check/finalize整体PASS。源码越界初稿拒绝、HTTP小字布局诊断及旧候选/收据保留；三职责纵向流程改善字径，许可保留。
+- **真实API两轮各29卡PASS，另18补充请求PASS**：V1/V2/V3=402/405/405、414/417/417，创建均+3/写已知字段不变；5s设置变化与no-op版本406/406、418/418；metadata.version缺席，门槛1满足、最大long超时200无状态；term1只属本次历史。重复创建400/写updated且文档version2/strict未知字段400、green只读写403/恢复、重复删除404确认。最终两索引HEAD404、集群设置前后相同。初稿门槛0真实400、flat_settings过滤读回空对象守卫失败保留；修正后清理重做，不模拟响应。
+- HTTP两图四档桌面×双主题、章节六档×双主题、880px/≤1px对齐、页面/iframe/节点完整、探索/来源/关闭/Escape/键盘/展开、暂停后外层重播、主题/目录/已读、29真实控制台导航与method/path/body、endpoint/auth/raw、Pages前缀、reduced motion PASS。静态图无motion属性/按钮，不假定still；桌面图高760/900、≤800px500/580。实际复看5拼图覆盖20当前截图，另看完整浅色流程；手机概览细字探索/展开、源码表自身横滑。关闭/静态态测试假设诊断保留，最终全量通过。
+- 站点、JS语法、figwidth、diff、16原ID/29有序唯一槽位、GET/HEAD无body、.nojekyll PASS。验收[CH21-REVIEW](.archify/CH21-REVIEW.md)、[API](.archify/review/ch21-es-review.json)、[HTTP](.archify/review/ch21-http-review.json)、[哈希](.archify/review/ch21-artifacts.json)。多节点Diff/选举/落后追赶、全重启持久化、真实安全认证和性能未实测。按授权提交推送origin/main，交付另核对远端/Pages；原.gitignore修改不纳入。
+
 
 ### 2026-10-12（第二十章按统一规范重构）
 

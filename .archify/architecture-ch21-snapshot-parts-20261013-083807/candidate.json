@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "集群状态：一份快照的四种职责",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "快照与内存视图"
+        },
+        "database": {
+          "label": "持久化元数据"
+        },
+        "security": {
+          "label": "操作阻断"
+        }
+      }
+    },
+    "output": ".archify/architecture-ch21-snapshot-parts-20261013-083807/snapshot-parts.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "snapshot",
+      "type": "backend",
+      "label": "ClusterState",
+      "sublabel": "概念不可变的本地快照",
+      "pos": [
+        250,
+        230
+      ],
+      "size": [
+        200,
+        90
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/ClusterState.java",
+          "line": 78,
+          "end_line": 106,
+          "label": "快照与更新契约"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/ClusterState.java",
+          "line": 163,
+          "end_line": 196,
+          "label": "字段与缓存"
+        }
+      ]
+    },
+    {
+      "id": "metadata",
+      "type": "database",
+      "label": "Metadata",
+      "sublabel": "索引定义 / 设置 / term",
+      "pos": [
+        250,
+        30
+      ],
+      "size": [
+        200,
+        90
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/metadata/Metadata.java",
+          "line": 730,
+          "end_line": 758,
+          "label": "REST 与持久化上下文"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/coordination/CoordinationMetadata.java",
+          "line": 33,
+          "end_line": 47,
+          "label": "term 与投票配置"
+        }
+      ]
+    },
+    {
+      "id": "routing",
+      "type": "backend",
+      "label": "GlobalRoutingTable",
+      "sublabel": "分片状态与所在节点",
+      "pos": [
+        0,
+        230
+      ],
+      "size": [
+        200,
+        90
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/ClusterState.java",
+          "line": 173,
+          "end_line": 176,
+          "label": "分片路由职责"
+        }
+      ]
+    },
+    {
+      "id": "members",
+      "type": "backend",
+      "label": "DiscoveryNodes",
+      "sublabel": "成员 / masterNodeId",
+      "pos": [
+        500,
+        230
+      ],
+      "size": [
+        200,
+        90
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/node/DiscoveryNodes.java",
+          "line": 62,
+          "end_line": 99,
+          "label": "成员与节点身份"
+        }
+      ]
+    },
+    {
+      "id": "blocks",
+      "type": "security",
+      "label": "ClusterBlocks",
+      "sublabel": "集群与索引级阻断",
+      "pos": [
+        250,
+        430
+      ],
+      "size": [
+        200,
+        90
+      ],
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/block/ClusterBlocks.java",
+          "line": 41,
+          "end_line": 72,
+          "label": "阻断组成"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "contains-metadata",
+      "from": "snapshot",
+      "to": "metadata",
+      "label": "包含"
+    },
+    {
+      "id": "contains-routing",
+      "from": "snapshot",
+      "to": "routing",
+      "label": "包含"
+    },
+    {
+      "id": "contains-members",
+      "from": "snapshot",
+      "to": "members",
+      "label": "包含"
+    },
+    {
+      "id": "contains-blocks",
+      "from": "snapshot",
+      "to": "blocks",
+      "label": "包含"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "结构箭头的含义",
+      "items": [
+        "箭头表示快照包含的职责，不表示执行顺序。",
+        "term 来自 CoordinationMetadata；索引定义位于 ProjectMetadata。",
+        "路由、成员与阻断不是索引文档的内容。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "持久化与可见性",
+      "items": [
+        "元数据持久化有角色、上下文与增量写入条件；不能理解成每次整份复制落盘。",
+        "全部重启后重新发现成员、恢复并分配分片。",
+        "省略兼容版本、features、customs 与派生 RoutingNodes。"
+      ]
+    }
+  ]
+}
