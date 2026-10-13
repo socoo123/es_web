@@ -1,0 +1,298 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "管道怎样成为可执行计划",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-ch27-query-plan-20261013-213102/query-plan.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "计划处理"
+        },
+        "security": {
+          "label": "分析拒绝"
+        },
+        "messagebus": {
+          "label": "列式执行"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "parse",
+      "label": "解析与分析 · 输入关系及类型约束"
+    },
+    {
+      "id": "optimize",
+      "label": "优化与映射 · 保持查询语义"
+    },
+    {
+      "id": "run",
+      "label": "执行 · 本图省略线程调度和分片编排"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "rest",
+      "lane": "parse",
+      "col": 1,
+      "label": "POST /_query",
+      "sublabel": "query 字符串交给动作层",
+      "type": "backend",
+      "width": 264,
+      "height": 62,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/action/RestEsqlQueryAction.java",
+          "line": 43,
+          "end_line": 77,
+          "label": "同步路由与请求"
+        }
+      ]
+    },
+    {
+      "id": "tree",
+      "lane": "parse",
+      "col": 2,
+      "label": "组合逻辑树",
+      "sublabel": "左侧计划喂给右侧命令",
+      "type": "backend",
+      "width": 264,
+      "height": 62,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/parser/LogicalPlanBuilder.java",
+          "line": 202,
+          "end_line": 219,
+          "label": "visitCompositeQuery"
+        },
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/parser/LogicalPlanBuilder.java",
+          "line": 604,
+          "end_line": 625,
+          "label": "普通 STATS"
+        },
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/parser/LogicalPlanBuilder.java",
+          "line": 660,
+          "end_line": 664,
+          "label": "WHERE → Filter"
+        }
+      ]
+    },
+    {
+      "id": "resolve",
+      "lane": "parse",
+      "col": 2,
+      "label": "字段与类型分析",
+      "sublabel": "本课 views 为 long",
+      "type": "backend",
+      "width": 264,
+      "height": 62,
+      "yOffset": 50,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/session/EsqlSession.java",
+          "line": 1567,
+          "end_line": 1587,
+          "label": "analyzer.analyze"
+        },
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/aggregate/Avg.java",
+          "line": 76,
+          "end_line": 87,
+          "label": "AVG 类型约束"
+        }
+      ]
+    },
+    {
+      "id": "reject",
+      "lane": "parse",
+      "col": 1,
+      "label": "类型不成立",
+      "sublabel": "AVG(title) 返回 400",
+      "type": "security",
+      "width": 264,
+      "height": 62,
+      "yOffset": 50,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/aggregate/Avg.java",
+          "line": 76,
+          "end_line": 87,
+          "label": "拒绝 keyword 输入"
+        }
+      ]
+    },
+    {
+      "id": "rewrite",
+      "lane": "optimize",
+      "col": 2,
+      "label": "等价改写",
+      "sublabel": "AVG(views) → SUM / COUNT",
+      "type": "backend",
+      "width": 264,
+      "height": 62,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/aggregate/Avg.java",
+          "line": 130,
+          "end_line": 146,
+          "label": "普通数值 surrogate"
+        }
+      ]
+    },
+    {
+      "id": "physical",
+      "lane": "optimize",
+      "col": 1,
+      "label": "映射与过滤下推",
+      "sublabel": "可翻译条件进入数据源",
+      "type": "backend",
+      "width": 264,
+      "height": 62,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/session/EsqlSession.java",
+          "line": 1618,
+          "end_line": 1626,
+          "label": "mapper.map"
+        },
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/optimizer/rules/physical/local/PushFiltersToSource.java",
+          "line": 54,
+          "end_line": 91,
+          "label": "分类可下推条件"
+        }
+      ]
+    },
+    {
+      "id": "drivers",
+      "lane": "run",
+      "col": 1,
+      "label": "组织 Driver 链",
+      "sublabel": "Page 逐批传给下游",
+      "type": "messagebus",
+      "width": 264,
+      "height": 62,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/AbstractPhysicalOperationProviders.java",
+          "line": 65,
+          "end_line": 98,
+          "label": "无分组聚合工厂"
+        },
+        {
+          "path": "x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/operator/Driver.java",
+          "line": 302,
+          "end_line": 339,
+          "label": "单链 Page 传递"
+        }
+      ]
+    },
+    {
+      "id": "table",
+      "lane": "run",
+      "col": 2,
+      "label": "结果是一张表",
+      "sublabel": "columns 与 values",
+      "type": "backend",
+      "width": 264,
+      "height": 62,
+      "yOffset": -42,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/LocalExecutionPlanner.java",
+          "line": 536,
+          "end_line": 548,
+          "label": "OutputOperatorFactory"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "rest-tree",
+      "from": "rest",
+      "to": "tree",
+      "label": "解析",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tree-resolve",
+      "from": "tree",
+      "to": "resolve",
+      "label": "分析",
+      "variant": "emphasis"
+    },
+    {
+      "id": "resolve-rewrite",
+      "from": "resolve",
+      "to": "rewrite",
+      "label": "通过",
+      "variant": "emphasis"
+    },
+    {
+      "id": "rewrite-physical",
+      "from": "rewrite",
+      "to": "physical",
+      "label": "映射",
+      "variant": "emphasis"
+    },
+    {
+      "id": "physical-drivers",
+      "from": "physical",
+      "to": "drivers",
+      "label": "运行",
+      "variant": "emphasis"
+    },
+    {
+      "id": "drivers-table",
+      "from": "drivers",
+      "to": "table",
+      "label": "输出",
+      "variant": "emphasis"
+    },
+    {
+      "id": "resolve-reject",
+      "from": "resolve",
+      "to": "reject",
+      "label": "拒绝",
+      "variant": "security",
+      "role": "error"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "管道规定结果语义",
+      "items": [
+        "FROM 的输出是后续命令的输入；普通索引 WHERE→Filter、STATS→Aggregate。",
+        "图中的箭头表示处理计划的步骤；不是每个命令都保留一个运行时算子。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "下推有前提",
+      "items": [
+        "可翻译的数值过滤可以进入 Lucene query；剩余条件仍需要计算算子。",
+        "类型错误在执行前拒绝；本课 long 字段 AVG 改写为 SUM/COUNT。"
+      ]
+    }
+  ]
+}

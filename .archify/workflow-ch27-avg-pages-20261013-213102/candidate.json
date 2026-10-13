@@ -1,0 +1,287 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "AVG 的中间态怎样汇成 200",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-ch27-avg-pages-20261013-213102/avg-pages.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "源与聚合计算"
+        },
+        "database": {
+          "label": "数值列读取"
+        },
+        "messagebus": {
+          "label": "中间态传递"
+        }
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "lucene",
+      "label": "Lucene 源",
+      "sublabel": "views > 100",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/EsPhysicalOperationProviders.java",
+          "line": 424,
+          "end_line": 493,
+          "label": "LuceneSource 工厂"
+        }
+      ],
+      "lane": "compute",
+      "col": 1,
+      "yOffset": -210
+    },
+    {
+      "id": "values",
+      "label": "提取 views 列",
+      "sublabel": "150 / 200 / 250",
+      "type": "database",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/LocalExecutionPlanner.java",
+          "line": 530,
+          "end_line": 534,
+          "label": "字段提取"
+        }
+      ],
+      "lane": "compute",
+      "col": 1,
+      "yOffset": -70
+    },
+    {
+      "id": "initial",
+      "label": "INITIAL 聚合",
+      "sublabel": "Sum600 · Count3",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/AbstractPhysicalOperationProviders.java",
+          "line": 65,
+          "end_line": 98,
+          "label": "聚合模式与工厂"
+        },
+        {
+          "path": "x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/operator/AggregationOperator.java",
+          "line": 107,
+          "end_line": 156,
+          "label": "输入与 finish 输出"
+        }
+      ],
+      "lane": "compute",
+      "col": 1,
+      "yOffset": 70
+    },
+    {
+      "id": "sink",
+      "label": "ExchangeSink",
+      "sublabel": "部分聚合 Page",
+      "type": "messagebus",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/LocalExecutionPlanner.java",
+          "line": 574,
+          "end_line": 585,
+          "label": "ExchangeSink 工厂"
+        }
+      ],
+      "lane": "compute",
+      "col": 1,
+      "yOffset": 210
+    },
+    {
+      "id": "receive",
+      "label": "ExchangeSource",
+      "sublabel": "接收中间态",
+      "type": "messagebus",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/LocalExecutionPlanner.java",
+          "line": 588,
+          "end_line": 597,
+          "label": "ExchangeSource 工厂"
+        }
+      ],
+      "lane": "compute",
+      "col": 2,
+      "yOffset": 210
+    },
+    {
+      "id": "final",
+      "label": "FINAL 聚合",
+      "sublabel": "合并状态",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/AbstractPhysicalOperationProviders.java",
+          "line": 65,
+          "end_line": 98,
+          "label": "FINAL 沿用模式"
+        },
+        {
+          "path": "x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/aggregation/CountAggregatorFunction.java",
+          "line": 126,
+          "end_line": 140,
+          "label": "合并部分计数"
+        }
+      ],
+      "lane": "compute",
+      "col": 2,
+      "yOffset": 70
+    },
+    {
+      "id": "divide",
+      "label": "Eval 除法",
+      "sublabel": "600 / 3 = 200.0",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/aggregate/Avg.java",
+          "line": 130,
+          "end_line": 146,
+          "label": "AVG 的 Div 改写"
+        }
+      ],
+      "lane": "compute",
+      "col": 2,
+      "yOffset": -70
+    },
+    {
+      "id": "output",
+      "label": "输出结果表",
+      "sublabel": "一行 double",
+      "type": "backend",
+      "width": 264,
+      "height": 56,
+      "sources": [
+        {
+          "path": "x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/LocalExecutionPlanner.java",
+          "line": 536,
+          "end_line": 548,
+          "label": "输出对齐与消费者"
+        }
+      ],
+      "lane": "compute",
+      "col": 2,
+      "yOffset": -210
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "本课 long 单值示例",
+      "items": [
+        "过滤后有效值为150、200、250；局部Sum=600、Count=3。",
+        "真实中间态还携带类型与有效性状态，不只有两个裸数字。"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "抽象范围与 profile 边界",
+      "items": [
+        "箭头表示Page的数据方向；Exchange也可能在同一节点上连接不同Driver。",
+        "省略中转Driver、Project和Limit等辅助算子；driver数量和名称由具体计划决定。"
+      ]
+    }
+  ],
+  "lanes": [
+    {
+      "id": "compute",
+      "label": "本课long无分组聚合 · 箭头为Page数据方向"
+    }
+  ],
+  "groups": [
+    {
+      "id": "data",
+      "label": "数据侧 Driver",
+      "lane": "compute",
+      "fromCol": 1,
+      "toCol": 1
+    },
+    {
+      "id": "coordinator",
+      "label": "协调侧 Driver",
+      "lane": "compute",
+      "fromCol": 2,
+      "toCol": 2
+    }
+  ],
+  "edges": [
+    {
+      "id": "lucene-values",
+      "from": "lucene",
+      "to": "values",
+      "label": "文档位置",
+      "variant": "default"
+    },
+    {
+      "id": "values-initial",
+      "from": "values",
+      "to": "initial",
+      "label": "有效数值",
+      "variant": "emphasis"
+    },
+    {
+      "id": "initial-sink",
+      "from": "initial",
+      "to": "sink",
+      "label": "部分聚合",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sink-receive",
+      "from": "sink",
+      "to": "receive",
+      "label": "中间态 Page",
+      "variant": "emphasis"
+    },
+    {
+      "id": "receive-final",
+      "from": "receive",
+      "to": "final",
+      "label": "部分聚合",
+      "variant": "emphasis"
+    },
+    {
+      "id": "final-divide",
+      "from": "final",
+      "to": "divide",
+      "label": "全局状态",
+      "variant": "emphasis"
+    },
+    {
+      "id": "divide-output",
+      "from": "divide",
+      "to": "output",
+      "label": "结果 Page",
+      "variant": "emphasis"
+    }
+  ]
+}

@@ -1,0 +1,194 @@
+{
+  "time": "2026-10-13T21:26:37.799996+08:00",
+  "records": [
+    {
+      "id": "ch27-01-setup",
+      "method": "PUT",
+      "path": "/tut-l27-pages",
+      "body": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0
+        },
+        "mappings": {
+          "properties": {
+            "title": {
+              "type": "keyword"
+            },
+            "views": {
+              "type": "long"
+            }
+          }
+        }
+      },
+      "status": 200,
+      "raw": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-l27-pages\"}"
+    },
+    {
+      "id": "ch27-02-bulk",
+      "method": "POST",
+      "path": "/tut-l27-pages/_bulk?refresh=true",
+      "body": "{\"index\":{\"_id\":\"1\"}}\n{\"title\":\"a\",\"views\":50}\n{\"index\":{\"_id\":\"2\"}}\n{\"title\":\"b\",\"views\":100}\n{\"index\":{\"_id\":\"3\"}}\n{\"title\":\"c\",\"views\":150}\n{\"index\":{\"_id\":\"4\"}}\n{\"title\":\"d\",\"views\":200}\n{\"index\":{\"_id\":\"5\"}}\n{\"title\":\"e\",\"views\":250}\n",
+      "status": 200,
+      "raw": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"1\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"2\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"3\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"4\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"5\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":4,\"_primary_term\":1,\"status\":201}}]}"
+    },
+    {
+      "id": "ch27-03-main",
+      "method": "POST",
+      "path": "/_query?filter_path=columns,values",
+      "body": {
+        "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views)"
+      },
+      "status": 200,
+      "raw": "{\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[200.0]]}"
+    },
+    {
+      "id": "ch27-04-wrong-path",
+      "method": "POST",
+      "path": "/_esql",
+      "body": {
+        "query": "FROM tut-l27-pages | LIMIT 1"
+      },
+      "status": 405,
+      "raw": "{\"error\":\"Incorrect HTTP method for uri [/_esql] and method [POST], allowed: [GET, PUT, DELETE, HEAD]\",\"status\":405}"
+    },
+    {
+      "id": "ch27-05-case",
+      "method": "POST",
+      "path": "/_query?filter_path=columns,values",
+      "body": {
+        "query": "FROM tut-l27-pages | WHERE views > 100 | STATS AVG(views)"
+      },
+      "status": 200,
+      "raw": "{\"columns\":[{\"name\":\"AVG(views)\",\"type\":\"double\"}],\"values\":[[200.0]]}"
+    },
+    {
+      "id": "ch27-06-gte",
+      "method": "POST",
+      "path": "/_query?filter_path=columns,values",
+      "body": {
+        "query": "FROM tut-l27-pages | WHERE views >= 100 | STATS avg(views)"
+      },
+      "status": 200,
+      "raw": "{\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[175.0]]}"
+    },
+    {
+      "id": "ch27-07-nowhere",
+      "method": "POST",
+      "path": "/_query?filter_path=columns,values",
+      "body": {
+        "query": "FROM tut-l27-pages | STATS avg(views)"
+      },
+      "status": 200,
+      "raw": "{\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[150.0]]}"
+    },
+    {
+      "id": "ch27-08-profile",
+      "method": "POST",
+      "path": "/_query?filter_path=profile.drivers.operators.operator,values",
+      "body": {
+        "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views)",
+        "profile": true
+      },
+      "status": 200,
+      "raw": "{\"values\":[[200.0]],\"profile\":{\"drivers\":[{\"operators\":[{\"operator\":\"LuceneSourceOperator[shards = [tut-l27-pages:0], maxPageSize = 21845, remainingDocs = 2147483644]\"},{\"operator\":\"ValuesSourceReaderOperator[fields = [views]]\"},{\"operator\":\"AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[1]], mode=INITIAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[1]], mode=INITIAL]]]\"},{\"operator\":\"ExchangeSinkOperator\"}]},{\"operators\":[{\"operator\":\"ExchangeSourceOperator\"},{\"operator\":\"ExchangeSinkOperator\"}]},{\"operators\":[{\"operator\":\"ExchangeSourceOperator\"},{\"operator\":\"AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[0, 1, 2]], mode=FINAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[3, 4]], mode=FINAL]]]\"},{\"operator\":\"ProjectOperator[projection = [0, 1]]\"},{\"operator\":\"LimitOperator[limit = 999/1000]\"},{\"operator\":\"EvalOperator[evaluator=DivDoublesEvaluator[lhs=CastLongToDoubleEvaluator[v=Attribute[channel=0]], rhs=CastLongToDoubleEvaluator[v=Attribute[channel=1]]]]\"},{\"operator\":\"ProjectOperator[projection = [2]]\"},{\"operator\":\"OutputOperator[columns = [avg(views)]]\"}]}]}}"
+    },
+    {
+      "id": "ch27-09-dsl-avg",
+      "method": "POST",
+      "path": "/tut-l27-pages/_search?filter_path=hits.total,hits.hits,aggregations.avg_views.value",
+      "body": {
+        "size": 0,
+        "query": {
+          "range": {
+            "views": {
+              "gt": 100
+            }
+          }
+        },
+        "aggs": {
+          "avg_views": {
+            "avg": {
+              "field": "views"
+            }
+          }
+        }
+      },
+      "status": 200,
+      "raw": "{\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"hits\":[]},\"aggregations\":{\"avg_views\":{\"value\":200.0}}}"
+    },
+    {
+      "id": "ch27-10-dsl-hits",
+      "method": "POST",
+      "path": "/tut-l27-pages/_search?filter_path=hits.hits._id,aggregations.avg_views.value",
+      "body": {
+        "query": {
+          "range": {
+            "views": {
+              "gt": 100
+            }
+          }
+        },
+        "aggs": {
+          "avg_views": {
+            "avg": {
+              "field": "views"
+            }
+          }
+        }
+      },
+      "status": 200,
+      "raw": "{\"hits\":{\"hits\":[{\"_id\":\"3\"},{\"_id\":\"4\"},{\"_id\":\"5\"}]},\"aggregations\":{\"avg_views\":{\"value\":200.0}}}"
+    },
+    {
+      "id": "ch27-11-dsl-gte",
+      "method": "POST",
+      "path": "/tut-l27-pages/_search?filter_path=aggregations.avg_views.value",
+      "body": {
+        "size": 0,
+        "query": {
+          "range": {
+            "views": {
+              "gte": 100
+            }
+          }
+        },
+        "aggs": {
+          "avg_views": {
+            "avg": {
+              "field": "views"
+            }
+          }
+        }
+      },
+      "status": 200,
+      "raw": "{\"aggregations\":{\"avg_views\":{\"value\":175.0}}}"
+    },
+    {
+      "id": "ch27-12-sort-keep",
+      "method": "POST",
+      "path": "/_query?filter_path=columns,values",
+      "body": {
+        "query": "FROM tut-l27-pages | SORT views DESC | KEEP title, views | LIMIT 2"
+      },
+      "status": 200,
+      "raw": "{\"columns\":[{\"name\":\"title\",\"type\":\"keyword\"},{\"name\":\"views\",\"type\":\"long\"}],\"values\":[[\"e\",250],[\"d\",200]]}"
+    },
+    {
+      "id": "ch27-13-async-route",
+      "method": "GET",
+      "path": "/_query/async",
+      "body": null,
+      "status": 405,
+      "raw": "{\"error\":\"Incorrect HTTP method for uri [/_query/async] and method [GET], allowed: [POST]\",\"status\":405}"
+    },
+    {
+      "id": "ch27-14-cleanup",
+      "method": "DELETE",
+      "path": "/tut-l27-pages",
+      "body": null,
+      "status": 200,
+      "raw": "{\"acknowledged\":true}"
+    }
+  ]
+}

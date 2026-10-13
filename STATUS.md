@@ -46,7 +46,7 @@
 | ch24 | 分片恢复与快照 | ✅ | 57 | 1(peer recovery·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch25 | 熔断器与背压 | ✅ | 29 | 1(熔断水位·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch26 | 脚本引擎 | ✅ | 45 | 1(编译旅程) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
-| ch27 | 管道查询语言 | ✅ | 14 | 1(管道执行) | 待改造 |
+| ch27 | 管道查询语言 | ✅ | 42 | 1(管道执行) | ✅ 管道计划与AVG中间态（2图，2路径动画）；API两轮通过 |
 | ch28 | 索引生命周期管理 | ✅ | 20 | 1(一分钟 rollover) | 待改造 |
 | ch29 | 安全机制 | ✅ | 19 | 1(认证链) | 待改造 |
 | ch30 | 全景回顾与方法论 | ✅ | 13 | 1(全链回放) | 待改造 |
@@ -416,7 +416,32 @@
 | update 固定 _version=2；失败 PUT 证明同名管道永远不存在 | 版本取决于历史；失败不删除同名旧资源。新增空白前提、固定 ID、计数、等待和清理后 404 对照 | [45 卡顺序](.archify/review/ch26-operations-order.json)；真实重做未实测 |
 | null 直接恢复默认 true；可以清掉未知原覆盖 | null 删除指定 transient 键；E 及相应设置清理只在起步两层无该键且节点基线 true 时执行 | [设置层合并](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/server/src/main/java/org/elasticsearch/cluster/metadata/Metadata.java#L1680-L1688) |
 
+### 第二十七章重构校对
+
+| 网页旧说法 | 修正 | 依据 |
+| --- | --- | --- |
+| “你写的一行已经是执行模型”、Unix pipe是同一件事、每命令让表变小 | 管道规定输入关系与结果语义；解析/分析/优化完整计划，物理算子可合并下推，SORT改序、EVAL可加列 | [组合计划](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/parser/LogicalPlanBuilder.java#L202-L219)、[验收](.archify/CH27-REVIEW.md) |
+| PushDownAndCombineFilters直接下推Lucene；profile名称直接证明内部range且只有两条Driver | 逻辑移动与PushFiltersToSource物理翻译分开；可下推部分合入query、剩余过滤保留。真实profile有中转Driver；算子名称不足以证明具体range | [物理翻译](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/optimizer/rules/physical/local/PushFiltersToSource.java#L109-L143)、[两轮profile及残留过滤](.archify/review/ch27-es-review.json) |
+| AVG分母是过滤后的全部行数；先局部再合并就一定是原索引全集 | 分母是有效字段值Count：四篇含多值/缺失/null时有效值3、sum70；聚合输入受前置LIMIT影响，225/200对照。空输入无BY一行AVG=null/COUNT(*)0 | [有效值计数](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/aggregation/CountAggregatorFunction.java#L71-L123)、[真实API](.archify/review/ch27-es-review.json) |
+| Page只剩views列，默认约256KB固定切批；Driver单线程即整个执行模型 | Page可带文档位置等实现列，单位置可空/单/多值；256KiB是按估算行宽求批次的目标，不是固定大小或上限。Driver一条单线程链，多Driver可并行 | [pageSize分支](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/LocalExecutionPlanner.java#L1742-L1759)、[源码审计](.archify/review/ch27-source-review.json) |
+| ES|QL没有_score、全文排名必须回_search、列式就不会读_source | 9.4支持MATCH与METADATA _score / _source；本课STATS不请求评分。没有hits包装不代表没有评分能力 | [固定元数据文档](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/docs/reference/query-languages/esql/esql-metadata-fields.md#L24-L34)、[MATCH实测](.archify/review/ch27-es-review.json) |
+| 固定版本文档表把_score写float，验收初稿沿用该断言 | 本轮_score列响应double；MetadataAttribute明确注册DataType.DOUBLE。文档/断言冲突按运行与固定源码纠正，失败原响应保留 | [DOUBLE注册](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/core/expression/MetadataAttribute.java#L45-L61)、[失败证据](.archify/review/ch27-es-review-score-type-diagnostic.json) |
+| 默认Limit999/1000固定；DSL卡只过滤_id却宣称响应含_source | 普通FROM默认输出1000/最大10000可配置，非聚合输入上限；profile内部计数不当契约。DSL保留实际hits与_source，size0空数组也保留 | [输出限制](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/docs/reference/query-languages/esql/_snippets/common/result-set-size-limitation.md#L1-L47)、[原14卡响应](.archify/review/ch27-original-responses.json) |
+| 14卡缺完整等待、显式mapping、首次/重复和搜索视图重置 | 原14ID保留，4组42卡；两索引1P0R/strict、固定ID/显式refresh/green/count、关闭自动refresh排除竞态、D恢复200、点名清理并HEAD404，两轮真实验收 | [注册表](experiments/ch27.js)、[操作顺序](.archify/review/ch27-operations-order.json)、[验收](.archify/CH27-REVIEW.md) |
+
 ## 会话日志
+
+### 2026-10-13（ch27 管道查询语言重构）
+
+- 已按序读取AGENTS/STATUS/PLAN/CHAPTER_STANDARD/CLAUDE；仅ch27、首页对应卡片及本轮证据，未重读tutorial、未用子代理。开工fetch与origin/main一致；原.gitignore修改保留，不纳入提交。
+- 固定ES9.4.0提交2e8528e92361c3399724226deaf2b46f933e925b / Lucene10.4.0；19文件/31精确行段核对。校正管道语义/计划、下推分类、AVG有效值计数/空输入、Page/Driver/256KiB目标、前置LIMIT与输出截断、MATCH/_score/_source能力及_score的DOUBLE注册，勘误见上表。
+- 原14实验ID和ch27-esql-pipeline七步保留，4组42操作（前置3/A14/B7/C6/D8/清理4），两交互图/两trace。专属两索引显式1P0R/strict/refresh_interval=-1，固定ID、局部green/count/refresh，D组删除六号并refresh恢复200，再点名删除两索引和HEAD404完整重做。
+- **真实API两轮各42卡通过，另13补充观察通过**：主值200/175/150、LIMIT前225/后200；类型400、三个路由方法405；DSL真实_source/size1仍均值200；四篇有效值3/sum70/mean≈23.333333、空聚合null/0；MATCH两行正分数且列double；未刷新GET可见/FROM5篇、刷新225、恢复200。补充updated200/重复创建400/strict400后正确200/LENGTH残留FilterOperator与162.5/重复清理404，两索引最终不存在。真实响应及两次初稿失败诊断保留，无合成响应或集群设置修改。
+- 官方Archify3.0.1最终两幅workflow v2，zh-CN/showcase/trace、真实固定checkout与逐节点源码；只改JSON并正式finalize。当前validate/deliver/strict check/browser-check全通过，showcase9/9、0错误0警告；本机原生file检查实际可用，不把旧云限制沿用。旧dataflow原生通过但手机裁切，改为两列Page数据流程；再据测量展开纵向，当前AVG收据review-2，原稿/失败记录保留。
+- HTTP两图4桌面尺寸×双主题、章节6宽度×双主题通过，880px列/边界≤1px/整页与iframe不横溢/节点完整。900px桌面嵌入、≤800px600/560px；探索源码/关闭/键盘/主题/暂停后外层重播/展开/reduced-motion/七步/目录/已读/42控制台请求及认证端点raw/Pages前缀通过，无JS/资产错误。390/320表和旧SVG仅局部横滚。
+- 实际view_image审阅7联系表（24最终截图+7完整机制快照），另看完整两图与裁切诊断；手机图为路径总览，细字通过探索/展开/正文读取。源码/原生/HTTP/API/视觉与最终SHA分别记录于[CH27-REVIEW](.archify/CH27-REVIEW.md)及[产物绑定](.archify/review/ch27-artifacts.json)。跨机器Exchange/性能、异步结果生命周期和安全权限未实测。
+- node tools/check.mjs：30正式页 / **783操作卡 / 22机制播放器**；JS语法、figwidth、源码/HTTP/局部滚动/七步与diff检查通过。按持久授权提交并推送origin/main，提交与Pages交付结果另核对。
+
 
 ### 2026-10-13（ch26 脚本引擎重构）
 

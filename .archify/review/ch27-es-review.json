@@ -1,0 +1,3983 @@
+{
+  "kind": "real-es-two-round-review",
+  "endpoint": "http://localhost:9200",
+  "reviewedAt": "2026-10-13T21:48:09.061600+08:00",
+  "rounds": [
+    {
+      "run": 1,
+      "records": [
+        {
+          "id": "ch27-pre-version",
+          "method": "GET",
+          "path": "/",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\n  \"name\" : \"de11d253f59a\",\n  \"cluster_name\" : \"docker-cluster\",\n  \"cluster_uuid\" : \"z4NaUMjfQ-ani0stap2hZw\",\n  \"version\" : {\n    \"number\" : \"9.4.0\",\n    \"build_flavor\" : \"default\",\n    \"build_type\" : \"docker\",\n    \"build_hash\" : \"2e8528e92361c3399724226deaf2b46f933e925b\",\n    \"build_date\" : \"2026-04-30T15:05:34.751113474Z\",\n    \"build_snapshot\" : false,\n    \"lucene_version\" : \"10.4.0\",\n    \"minimum_wire_compatibility_version\" : \"8.19.0\",\n    \"minimum_index_compatibility_version\" : \"8.0.0\"\n  },\n  \"tagline\" : \"You Know, for Search\"\n}\n",
+          "response": {
+            "name": "de11d253f59a",
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": {
+              "number": "9.4.0",
+              "build_flavor": "default",
+              "build_type": "docker",
+              "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+              "build_date": "2026-04-30T15:05:34.751113474Z",
+              "build_snapshot": false,
+              "lucene_version": "10.4.0",
+              "minimum_wire_compatibility_version": "8.19.0",
+              "minimum_index_compatibility_version": "8.0.0"
+            },
+            "tagline": "You Know, for Search"
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-pre-pages",
+          "method": "HEAD",
+          "path": "/tut-l27-pages",
+          "body": null,
+          "httpStatus": 404,
+          "raw": "",
+          "response": null,
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-pre-values",
+          "method": "HEAD",
+          "path": "/tut-l27-values",
+          "body": null,
+          "httpStatus": 404,
+          "raw": "",
+          "response": null,
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-01-setup",
+          "method": "PUT",
+          "path": "/tut-l27-pages",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "-1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "keyword",
+                  "doc_values": true
+                },
+                "description": {
+                  "type": "text",
+                  "analyzer": "standard"
+                },
+                "views": {
+                  "type": "long",
+                  "doc_values": true
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "raw": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-l27-pages\"}",
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l27-pages"
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l27-pages?wait_for_status=green&wait_for_no_initializing_shards=true&wait_for_no_relocating_shards=true&timeout=30s",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"cluster_name\":\"docker-cluster\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}",
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-config",
+          "method": "GET",
+          "path": "/tut-l27-pages?filter_path=*.settings.index,*.mappings",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"tut-l27-pages\":{\"mappings\":{\"dynamic\":\"strict\",\"properties\":{\"description\":{\"type\":\"text\",\"analyzer\":\"standard\"},\"title\":{\"type\":\"keyword\"},\"views\":{\"type\":\"long\"}}},\"settings\":{\"index\":{\"routing\":{\"allocation\":{\"include\":{\"_tier_preference\":\"data_content\"}}},\"refresh_interval\":\"-1\",\"number_of_shards\":\"1\",\"auto_expand_replicas\":\"false\",\"provided_name\":\"tut-l27-pages\",\"creation_date\":\"1791899289180\",\"number_of_replicas\":\"0\",\"uuid\":\"yZ44CDjDT1yTcDI-jGMmBA\",\"version\":{\"created\":\"9094000\"}}}}}",
+          "response": {
+            "tut-l27-pages": {
+              "mappings": {
+                "dynamic": "strict",
+                "properties": {
+                  "description": {
+                    "type": "text",
+                    "analyzer": "standard"
+                  },
+                  "title": {
+                    "type": "keyword"
+                  },
+                  "views": {
+                    "type": "long"
+                  }
+                }
+              },
+              "settings": {
+                "index": {
+                  "routing": {
+                    "allocation": {
+                      "include": {
+                        "_tier_preference": "data_content"
+                      }
+                    }
+                  },
+                  "refresh_interval": "-1",
+                  "number_of_shards": "1",
+                  "auto_expand_replicas": "false",
+                  "provided_name": "tut-l27-pages",
+                  "creation_date": "1791899289180",
+                  "number_of_replicas": "0",
+                  "uuid": "yZ44CDjDT1yTcDI-jGMmBA",
+                  "version": {
+                    "created": "9094000"
+                  }
+                }
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-02-bulk",
+          "method": "POST",
+          "path": "/tut-l27-pages/_bulk?refresh=true",
+          "body": "{\"index\":{\"_id\":\"1\"}}\n{\"title\":\"a\",\"description\":\"quick brown fox\",\"views\":50}\n{\"index\":{\"_id\":\"2\"}}\n{\"title\":\"b\",\"description\":\"quick fox\",\"views\":100}\n{\"index\":{\"_id\":\"3\"}}\n{\"title\":\"c\",\"description\":\"slow turtle\",\"views\":150}\n{\"index\":{\"_id\":\"4\"}}\n{\"title\":\"d\",\"description\":\"quick brown\",\"views\":200}\n{\"index\":{\"_id\":\"5\"}}\n{\"title\":\"e\",\"description\":\"brown bear\",\"views\":250}\n",
+          "httpStatus": 200,
+          "raw": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"1\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"2\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"3\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"4\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"5\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":4,\"_primary_term\":1,\"status\":201}}]}",
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "4",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "5",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 4,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-count",
+          "method": "GET",
+          "path": "/tut-l27-pages/_count",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"count\":5,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0}}",
+          "response": {
+            "count": 5,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-03-main",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[200.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                200.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-05-case",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS AVG(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"AVG(views)\",\"type\":\"double\"}],\"values\":[[200.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "AVG(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                200.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-06-gte",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views >= 100 | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[175.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                175.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-07-nowhere",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[150.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                150.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-12-sort-keep",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | SORT views DESC | KEEP title, views | LIMIT 2"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"title\",\"type\":\"keyword\"},{\"name\":\"views\",\"type\":\"long\"}],\"values\":[[\"e\",250],[\"d\",200]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "title",
+                "type": "keyword"
+              },
+              {
+                "name": "views",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                "e",
+                250
+              ],
+              [
+                "d",
+                200
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-08-profile",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views)",
+            "profile": true
+          },
+          "httpStatus": 200,
+          "raw": "{\"took\":6,\"is_partial\":false,\"completion_time_in_millis\":1791899289293,\"documents_found\":3,\"values_loaded\":3,\"start_time_in_millis\":1791899289287,\"expiration_time_in_millis\":1792331289234,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[200.0]],\"profile\":{\"query\":{\"start_millis\":1791899289287,\"stop_millis\":1791899289293,\"took_millis\":6,\"took_nanos\":6497318},\"planning\":{\"start_millis\":1791899289287,\"stop_millis\":1791899289290,\"took_millis\":3,\"took_nanos\":3801778},\"parsing\":{\"start_millis\":1791899289287,\"stop_millis\":1791899289287,\"took_millis\":0,\"took_nanos\":396105},\"view_resolution\":{\"start_millis\":1791899289287,\"stop_millis\":1791899289287,\"took_millis\":0,\"took_nanos\":7707},\"preanalysis\":{\"start_millis\":1791899289287,\"stop_millis\":1791899289287,\"took_millis\":0,\"took_nanos\":12802},\"indices_resolution\":{\"start_millis\":1791899289287,\"stop_millis\":1791899289288,\"took_millis\":1,\"took_nanos\":539496},\"enrich_resolution\":{\"start_millis\":1791899289288,\"stop_millis\":1791899289288,\"took_millis\":0,\"took_nanos\":45734},\"inference_resolution\":{\"start_millis\":1791899289288,\"stop_millis\":1791899289288,\"took_millis\":0,\"took_nanos\":15245},\"analysis\":{\"start_millis\":1791899289288,\"stop_millis\":1791899289288,\"took_millis\":0,\"took_nanos\":599421},\"field_caps_calls\":1,\"drivers\":[{\"description\":\"data\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"start_millis\":1791899289292,\"stop_millis\":1791899289292,\"took_nanos\":489382,\"cpu_nanos\":220034,\"documents_found\":3,\"values_loaded\":3,\"iterations\":2,\"operators\":[{\"operator\":\"LuceneSourceOperator[shards = [tut-l27-pages:0], maxPageSize = 21845, remainingDocs = 2147483644]\",\"status\":{\"processed_slices\":1,\"processed_queries\":[\"IndexOrDocValuesQuery(indexQuery=views:[101 TO 9223372036854775807], dvQuery=views:[101 TO 9223372036854775807])\"],\"processed_shards\":[\"tut-l27-pages:0\"],\"process_nanos\":83971,\"slice_index\":0,\"total_slices\":1,\"pages_emitted\":1,\"slice_min\":0,\"slice_max\":0,\"current\":2147483647,\"rows_emitted\":3,\"partitioning_strategies\":{\"tut-l27-pages:0\":\"SHARD\"}}},{\"operator\":\"ValuesSourceReaderOperator[fields = [views]]\",\"status\":{\"readers_built\":{\"views:column_at_a_time:LongsFromDocValues.Singleton\":1},\"values_loaded\":3,\"process_nanos\":35374,\"pages_received\":1,\"pages_emitted\":1,\"rows_received\":3,\"rows_emitted\":3}},{\"operator\":\"AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[1]], mode=INITIAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[1]], mode=INITIAL]]]\",\"status\":{\"aggregation_nanos\":10781,\"aggregation_finish_nanos\":19246,\"pages_processed\":1,\"rows_received\":3,\"rows_emitted\":1}},{\"operator\":\"ExchangeSinkOperator\",\"status\":{\"pages_received\":1,\"rows_received\":1}}],\"sleeps\":{\"counts\":{},\"first\":[],\"last\":[]}},{\"description\":\"node_reduce\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"start_millis\":1791899289292,\"stop_millis\":1791899289292,\"took_nanos\":447355,\"cpu_nanos\":44344,\"documents_found\":0,\"values_loaded\":0,\"iterations\":3,\"operators\":[{\"operator\":\"ExchangeSourceOperator\",\"status\":{\"pages_waiting\":0,\"pages_emitted\":1,\"rows_emitted\":1}},{\"operator\":\"ExchangeSinkOperator\",\"status\":{\"pages_received\":1,\"rows_received\":1}}],\"sleeps\":{\"counts\":{\"exchange empty\":1},\"first\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#2]\",\"sleep_millis\":1791899289292,\"wake_millis\":1791899289292}],\"last\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#2]\",\"sleep_millis\":1791899289292,\"wake_millis\":1791899289292}]}},{\"description\":\"final\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"start_millis\":1791899289291,\"stop_millis\":1791899289293,\"took_nanos\":2345170,\"cpu_nanos\":138380,\"documents_found\":0,\"values_loaded\":0,\"iterations\":4,\"operators\":[{\"operator\":\"ExchangeSourceOperator\",\"status\":{\"pages_waiting\":0,\"pages_emitted\":1,\"rows_emitted\":1}},{\"operator\":\"AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[0, 1, 2]], mode=FINAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[3, 4]], mode=FINAL]]]\",\"status\":{\"aggregation_nanos\":7159,\"aggregation_finish_nanos\":25730,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"ProjectOperator[projection = [0, 1]]\",\"status\":{\"process_nanos\":1810,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"LimitOperator[limit = 999/1000]\",\"status\":{\"limit\":1000,\"limit_remaining\":999,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"EvalOperator[evaluator=DivDoublesEvaluator[lhs=CastLongToDoubleEvaluator[v=Attribute[channel=0]], rhs=CastLongToDoubleEvaluator[v=Attribute[channel=1]]]]\",\"status\":{\"process_nanos\":15708,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"ProjectOperator[projection = [2]]\",\"status\":{\"process_nanos\":1306,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"OutputOperator[columns = [avg(views)]]\"}],\"sleeps\":{\"counts\":{\"exchange empty\":2},\"first\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#1]\",\"sleep_millis\":1791899289292,\"wake_millis\":1791899289293},{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#3]\",\"sleep_millis\":1791899289293,\"wake_millis\":1791899289293}],\"last\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#1]\",\"sleep_millis\":1791899289292,\"wake_millis\":1791899289293},{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#3]\",\"sleep_millis\":1791899289293,\"wake_millis\":1791899289293}]}}],\"plans\":[{\"description\":\"data\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"plan\":\"ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg(\\nviews)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],true]\\n\\\\_AggregateExec[[],[SUM(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $$\\nSUM$avg(views)$0#694, COUNT(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#695],INITI\\nAL,[$$SUM$avg(views)$0$sum{r}#706, $$SUM$avg(views)$0$seen{r}#707, $$SUM$avg(views)$0$failed{r}#708, $$COUNT$a\\nvg(views)$1$count{r}#709, $$COUNT$avg(views)$1$seen{r}#710],16]\\n  \\\\_FieldExtractExec[views{f}#693]<[],[],[]>\\n    \\\\_EsQueryExec[tut-l27-pages], indexMode[standard], [_doc{f}#711], limit[], sort[] estimatedRowSize[12] queryBuilderAndTags [[QueryBuilderAndTags[query={\\n  \\\"bool\\\" : {\\n    \\\"must\\\" : [\\n      {\\n        \\\"esql_single_value\\\" : {\\n          \\\"field\\\" : \\\"views\\\",\\n          \\\"next\\\" : {\\n            \\\"range\\\" : {\\n              \\\"views\\\" : {\\n                \\\"gt\\\" : 100,\\n                \\\"boost\\\" : 0.0\\n              }\\n            }\\n          },\\n          \\\"source\\\" : \\\"views > 100@1:28\\\"\\n        }\\n      },\\n      {\\n        \\\"exists\\\" : {\\n          \\\"field\\\" : \\\"views\\\",\\n          \\\"boost\\\" : 0.0\\n        }\\n      }\\n    ],\\n    \\\"boost\\\" : 1.0\\n  }\\n}, tags=[]]]]\",\"logical_plan\":\"Aggregate[[],[SUM(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $$\\nSUM$avg(views)$0#694, COUNT(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#695]]\\n\\\\_Filter[views{f}#693 > 100[INTEGER] AND ISNOTNULL(views{f}#693)]\\n  \\\\_EsRelation[tut-l27-pages][views{f}#693]\",\"logical_optimization_nanos\":241596,\"physical_optimization_nanos\":135474},{\"description\":\"node_reduce\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"plan\":\"ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg(\\nviews)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],true]\\n\\\\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg(\\nviews)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],true]\",\"reduction_nanos\":0},{\"description\":\"final\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"plan\":\"OutputExec[org.elasticsearch.xpack.esql.plugin.ComputeService$$Lambda/0x0000000043bb9b58@13e049ac]\\n\\\\_ProjectExec[[avg(views){r}#692]]\\n  \\\\_EvalExec[[$$SUM$avg(views)$0{r$}#694 / $$COUNT$avg(views)$1{r$}#695 AS avg(views)#692]]\\n    \\\\_LimitExec[1000[INTEGER],16]\\n      \\\\_AggregateExec[[],[SUM(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $$\\nSUM$avg(views)$0#694, COUNT(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#695],FINAL\\n,[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg\\n(views)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],24]\\n        \\\\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg(\\nviews)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],true]\",\"logical_optimization_nanos\":1981323,\"physical_optimization_nanos\":106038}],\"minimumTransportVersion\":9348001}}",
+          "response": {
+            "took": 6,
+            "is_partial": false,
+            "completion_time_in_millis": 1791899289293,
+            "documents_found": 3,
+            "values_loaded": 3,
+            "start_time_in_millis": 1791899289287,
+            "expiration_time_in_millis": 1792331289234,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                200.0
+              ]
+            ],
+            "profile": {
+              "query": {
+                "start_millis": 1791899289287,
+                "stop_millis": 1791899289293,
+                "took_millis": 6,
+                "took_nanos": 6497318
+              },
+              "planning": {
+                "start_millis": 1791899289287,
+                "stop_millis": 1791899289290,
+                "took_millis": 3,
+                "took_nanos": 3801778
+              },
+              "parsing": {
+                "start_millis": 1791899289287,
+                "stop_millis": 1791899289287,
+                "took_millis": 0,
+                "took_nanos": 396105
+              },
+              "view_resolution": {
+                "start_millis": 1791899289287,
+                "stop_millis": 1791899289287,
+                "took_millis": 0,
+                "took_nanos": 7707
+              },
+              "preanalysis": {
+                "start_millis": 1791899289287,
+                "stop_millis": 1791899289287,
+                "took_millis": 0,
+                "took_nanos": 12802
+              },
+              "indices_resolution": {
+                "start_millis": 1791899289287,
+                "stop_millis": 1791899289288,
+                "took_millis": 1,
+                "took_nanos": 539496
+              },
+              "enrich_resolution": {
+                "start_millis": 1791899289288,
+                "stop_millis": 1791899289288,
+                "took_millis": 0,
+                "took_nanos": 45734
+              },
+              "inference_resolution": {
+                "start_millis": 1791899289288,
+                "stop_millis": 1791899289288,
+                "took_millis": 0,
+                "took_nanos": 15245
+              },
+              "analysis": {
+                "start_millis": 1791899289288,
+                "stop_millis": 1791899289288,
+                "took_millis": 0,
+                "took_nanos": 599421
+              },
+              "field_caps_calls": 1,
+              "drivers": [
+                {
+                  "description": "data",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "start_millis": 1791899289292,
+                  "stop_millis": 1791899289292,
+                  "took_nanos": 489382,
+                  "cpu_nanos": 220034,
+                  "documents_found": 3,
+                  "values_loaded": 3,
+                  "iterations": 2,
+                  "operators": [
+                    {
+                      "operator": "LuceneSourceOperator[shards = [tut-l27-pages:0], maxPageSize = 21845, remainingDocs = 2147483644]",
+                      "status": {
+                        "processed_slices": 1,
+                        "processed_queries": [
+                          "IndexOrDocValuesQuery(indexQuery=views:[101 TO 9223372036854775807], dvQuery=views:[101 TO 9223372036854775807])"
+                        ],
+                        "processed_shards": [
+                          "tut-l27-pages:0"
+                        ],
+                        "process_nanos": 83971,
+                        "slice_index": 0,
+                        "total_slices": 1,
+                        "pages_emitted": 1,
+                        "slice_min": 0,
+                        "slice_max": 0,
+                        "current": 2147483647,
+                        "rows_emitted": 3,
+                        "partitioning_strategies": {
+                          "tut-l27-pages:0": "SHARD"
+                        }
+                      }
+                    },
+                    {
+                      "operator": "ValuesSourceReaderOperator[fields = [views]]",
+                      "status": {
+                        "readers_built": {
+                          "views:column_at_a_time:LongsFromDocValues.Singleton": 1
+                        },
+                        "values_loaded": 3,
+                        "process_nanos": 35374,
+                        "pages_received": 1,
+                        "pages_emitted": 1,
+                        "rows_received": 3,
+                        "rows_emitted": 3
+                      }
+                    },
+                    {
+                      "operator": "AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[1]], mode=INITIAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[1]], mode=INITIAL]]]",
+                      "status": {
+                        "aggregation_nanos": 10781,
+                        "aggregation_finish_nanos": 19246,
+                        "pages_processed": 1,
+                        "rows_received": 3,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "ExchangeSinkOperator",
+                      "status": {
+                        "pages_received": 1,
+                        "rows_received": 1
+                      }
+                    }
+                  ],
+                  "sleeps": {
+                    "counts": {},
+                    "first": [],
+                    "last": []
+                  }
+                },
+                {
+                  "description": "node_reduce",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "start_millis": 1791899289292,
+                  "stop_millis": 1791899289292,
+                  "took_nanos": 447355,
+                  "cpu_nanos": 44344,
+                  "documents_found": 0,
+                  "values_loaded": 0,
+                  "iterations": 3,
+                  "operators": [
+                    {
+                      "operator": "ExchangeSourceOperator",
+                      "status": {
+                        "pages_waiting": 0,
+                        "pages_emitted": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "ExchangeSinkOperator",
+                      "status": {
+                        "pages_received": 1,
+                        "rows_received": 1
+                      }
+                    }
+                  ],
+                  "sleeps": {
+                    "counts": {
+                      "exchange empty": 1
+                    },
+                    "first": [
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#2]",
+                        "sleep_millis": 1791899289292,
+                        "wake_millis": 1791899289292
+                      }
+                    ],
+                    "last": [
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#2]",
+                        "sleep_millis": 1791899289292,
+                        "wake_millis": 1791899289292
+                      }
+                    ]
+                  }
+                },
+                {
+                  "description": "final",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "start_millis": 1791899289291,
+                  "stop_millis": 1791899289293,
+                  "took_nanos": 2345170,
+                  "cpu_nanos": 138380,
+                  "documents_found": 0,
+                  "values_loaded": 0,
+                  "iterations": 4,
+                  "operators": [
+                    {
+                      "operator": "ExchangeSourceOperator",
+                      "status": {
+                        "pages_waiting": 0,
+                        "pages_emitted": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[0, 1, 2]], mode=FINAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[3, 4]], mode=FINAL]]]",
+                      "status": {
+                        "aggregation_nanos": 7159,
+                        "aggregation_finish_nanos": 25730,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "ProjectOperator[projection = [0, 1]]",
+                      "status": {
+                        "process_nanos": 1810,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "LimitOperator[limit = 999/1000]",
+                      "status": {
+                        "limit": 1000,
+                        "limit_remaining": 999,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "EvalOperator[evaluator=DivDoublesEvaluator[lhs=CastLongToDoubleEvaluator[v=Attribute[channel=0]], rhs=CastLongToDoubleEvaluator[v=Attribute[channel=1]]]]",
+                      "status": {
+                        "process_nanos": 15708,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "ProjectOperator[projection = [2]]",
+                      "status": {
+                        "process_nanos": 1306,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "OutputOperator[columns = [avg(views)]]"
+                    }
+                  ],
+                  "sleeps": {
+                    "counts": {
+                      "exchange empty": 2
+                    },
+                    "first": [
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#1]",
+                        "sleep_millis": 1791899289292,
+                        "wake_millis": 1791899289293
+                      },
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#3]",
+                        "sleep_millis": 1791899289293,
+                        "wake_millis": 1791899289293
+                      }
+                    ],
+                    "last": [
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#1]",
+                        "sleep_millis": 1791899289292,
+                        "wake_millis": 1791899289293
+                      },
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#3]",
+                        "sleep_millis": 1791899289293,
+                        "wake_millis": 1791899289293
+                      }
+                    ]
+                  }
+                }
+              ],
+              "plans": [
+                {
+                  "description": "data",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "plan": "ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg(\nviews)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],true]\n\\_AggregateExec[[],[SUM(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $$\nSUM$avg(views)$0#694, COUNT(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#695],INITI\nAL,[$$SUM$avg(views)$0$sum{r}#706, $$SUM$avg(views)$0$seen{r}#707, $$SUM$avg(views)$0$failed{r}#708, $$COUNT$a\nvg(views)$1$count{r}#709, $$COUNT$avg(views)$1$seen{r}#710],16]\n  \\_FieldExtractExec[views{f}#693]<[],[],[]>\n    \\_EsQueryExec[tut-l27-pages], indexMode[standard], [_doc{f}#711], limit[], sort[] estimatedRowSize[12] queryBuilderAndTags [[QueryBuilderAndTags[query={\n  \"bool\" : {\n    \"must\" : [\n      {\n        \"esql_single_value\" : {\n          \"field\" : \"views\",\n          \"next\" : {\n            \"range\" : {\n              \"views\" : {\n                \"gt\" : 100,\n                \"boost\" : 0.0\n              }\n            }\n          },\n          \"source\" : \"views > 100@1:28\"\n        }\n      },\n      {\n        \"exists\" : {\n          \"field\" : \"views\",\n          \"boost\" : 0.0\n        }\n      }\n    ],\n    \"boost\" : 1.0\n  }\n}, tags=[]]]]",
+                  "logical_plan": "Aggregate[[],[SUM(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $$\nSUM$avg(views)$0#694, COUNT(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#695]]\n\\_Filter[views{f}#693 > 100[INTEGER] AND ISNOTNULL(views{f}#693)]\n  \\_EsRelation[tut-l27-pages][views{f}#693]",
+                  "logical_optimization_nanos": 241596,
+                  "physical_optimization_nanos": 135474
+                },
+                {
+                  "description": "node_reduce",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "plan": "ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg(\nviews)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],true]\n\\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg(\nviews)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],true]",
+                  "reduction_nanos": 0
+                },
+                {
+                  "description": "final",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "plan": "OutputExec[org.elasticsearch.xpack.esql.plugin.ComputeService$$Lambda/0x0000000043bb9b58@13e049ac]\n\\_ProjectExec[[avg(views){r}#692]]\n  \\_EvalExec[[$$SUM$avg(views)$0{r$}#694 / $$COUNT$avg(views)$1{r$}#695 AS avg(views)#692]]\n    \\_LimitExec[1000[INTEGER],16]\n      \\_AggregateExec[[],[SUM(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $$\nSUM$avg(views)$0#694, COUNT(views{f}#693,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#695],FINAL\n,[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg\n(views)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],24]\n        \\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#696, $$SUM$avg(views)$0$seen{r}#697, $$SUM$avg(views)$0$failed{r}#698, $$COUNT$avg(\nviews)$1$count{r}#699, $$COUNT$avg(views)$1$seen{r}#700],true]",
+                  "logical_optimization_nanos": 1981323,
+                  "physical_optimization_nanos": 106038
+                }
+              ],
+              "minimumTransportVersion": 9348001
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-limit-before",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | SORT views DESC | LIMIT 2 | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[225.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                225.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-limit-after",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views) | LIMIT 1"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[200.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                200.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-type-error",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | STATS avg(title)"
+          },
+          "httpStatus": 400,
+          "raw": "{\"error\":{\"root_cause\":[{\"type\":\"verification_exception\",\"reason\":\"Found 1 problem\\nline 1:28: argument of [avg(title)] must be [aggregate_metric_double, exponential_histogram, tdigest or numeric except unsigned_long or counter types], found value [title] type [keyword]\"}],\"type\":\"verification_exception\",\"reason\":\"Found 1 problem\\nline 1:28: argument of [avg(title)] must be [aggregate_metric_double, exponential_histogram, tdigest or numeric except unsigned_long or counter types], found value [title] type [keyword]\"},\"status\":400}",
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "verification_exception",
+                  "reason": "Found 1 problem\nline 1:28: argument of [avg(title)] must be [aggregate_metric_double, exponential_histogram, tdigest or numeric except unsigned_long or counter types], found value [title] type [keyword]"
+                }
+              ],
+              "type": "verification_exception",
+              "reason": "Found 1 problem\nline 1:28: argument of [avg(title)] must be [aggregate_metric_double, exponential_histogram, tdigest or numeric except unsigned_long or counter types], found value [title] type [keyword]"
+            },
+            "status": 400
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-09-dsl-avg",
+          "method": "POST",
+          "path": "/tut-l27-pages/_search?request_cache=false&filter_path=hits.total,hits.hits,aggregations.avg_views.value",
+          "body": {
+            "query": {
+              "range": {
+                "views": {
+                  "gt": 100
+                }
+              }
+            },
+            "aggs": {
+              "avg_views": {
+                "avg": {
+                  "field": "views"
+                }
+              }
+            },
+            "size": 0
+          },
+          "httpStatus": 200,
+          "raw": "{\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"hits\":[]},\"aggregations\":{\"avg_views\":{\"value\":200.0}}}",
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": []
+            },
+            "aggregations": {
+              "avg_views": {
+                "value": 200.0
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-10-dsl-hits",
+          "method": "POST",
+          "path": "/tut-l27-pages/_search?request_cache=false&filter_path=hits.total,hits.hits,aggregations.avg_views.value",
+          "body": {
+            "query": {
+              "range": {
+                "views": {
+                  "gt": 100
+                }
+              }
+            },
+            "aggs": {
+              "avg_views": {
+                "avg": {
+                  "field": "views"
+                }
+              }
+            },
+            "sort": [
+              {
+                "views": "desc"
+              }
+            ]
+          },
+          "httpStatus": 200,
+          "raw": "{\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"hits\":[{\"_index\":\"tut-l27-pages\",\"_id\":\"5\",\"_score\":null,\"_source\":{\"title\":\"e\",\"description\":\"brown bear\",\"views\":250},\"sort\":[250]},{\"_index\":\"tut-l27-pages\",\"_id\":\"4\",\"_score\":null,\"_source\":{\"title\":\"d\",\"description\":\"quick brown\",\"views\":200},\"sort\":[200]},{\"_index\":\"tut-l27-pages\",\"_id\":\"3\",\"_score\":null,\"_source\":{\"title\":\"c\",\"description\":\"slow turtle\",\"views\":150},\"sort\":[150]}]},\"aggregations\":{\"avg_views\":{\"value\":200.0}}}",
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_index": "tut-l27-pages",
+                  "_id": "5",
+                  "_score": null,
+                  "_source": {
+                    "title": "e",
+                    "description": "brown bear",
+                    "views": 250
+                  },
+                  "sort": [
+                    250
+                  ]
+                },
+                {
+                  "_index": "tut-l27-pages",
+                  "_id": "4",
+                  "_score": null,
+                  "_source": {
+                    "title": "d",
+                    "description": "quick brown",
+                    "views": 200
+                  },
+                  "sort": [
+                    200
+                  ]
+                },
+                {
+                  "_index": "tut-l27-pages",
+                  "_id": "3",
+                  "_score": null,
+                  "_source": {
+                    "title": "c",
+                    "description": "slow turtle",
+                    "views": 150
+                  },
+                  "sort": [
+                    150
+                  ]
+                }
+              ]
+            },
+            "aggregations": {
+              "avg_views": {
+                "value": 200.0
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-11-dsl-gte",
+          "method": "POST",
+          "path": "/tut-l27-pages/_search?request_cache=false&filter_path=hits.total,hits.hits,aggregations.avg_views.value",
+          "body": {
+            "query": {
+              "range": {
+                "views": {
+                  "gte": 100
+                }
+              }
+            },
+            "aggs": {
+              "avg_views": {
+                "avg": {
+                  "field": "views"
+                }
+              }
+            },
+            "size": 0
+          },
+          "httpStatus": 200,
+          "raw": "{\"hits\":{\"total\":{\"value\":4,\"relation\":\"eq\"},\"hits\":[]},\"aggregations\":{\"avg_views\":{\"value\":175.0}}}",
+          "response": {
+            "hits": {
+              "total": {
+                "value": 4,
+                "relation": "eq"
+              },
+              "hits": []
+            },
+            "aggregations": {
+              "avg_views": {
+                "value": 175.0
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-b-size-one",
+          "method": "POST",
+          "path": "/tut-l27-pages/_search?request_cache=false&filter_path=hits.total,hits.hits,aggregations.avg_views.value",
+          "body": {
+            "query": {
+              "range": {
+                "views": {
+                  "gt": 100
+                }
+              }
+            },
+            "aggs": {
+              "avg_views": {
+                "avg": {
+                  "field": "views"
+                }
+              }
+            },
+            "size": 1,
+            "sort": [
+              {
+                "views": "desc"
+              }
+            ]
+          },
+          "httpStatus": 200,
+          "raw": "{\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"hits\":[{\"_index\":\"tut-l27-pages\",\"_id\":\"5\",\"_score\":null,\"_source\":{\"title\":\"e\",\"description\":\"brown bear\",\"views\":250},\"sort\":[250]}]},\"aggregations\":{\"avg_views\":{\"value\":200.0}}}",
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_index": "tut-l27-pages",
+                  "_id": "5",
+                  "_score": null,
+                  "_source": {
+                    "title": "e",
+                    "description": "brown bear",
+                    "views": 250
+                  },
+                  "sort": [
+                    250
+                  ]
+                }
+              ]
+            },
+            "aggregations": {
+              "avg_views": {
+                "value": 200.0
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-04-wrong-path",
+          "method": "POST",
+          "path": "/_esql",
+          "body": {
+            "query": "FROM tut-l27-pages | LIMIT 1"
+          },
+          "httpStatus": 405,
+          "raw": "{\"error\":\"Incorrect HTTP method for uri [/_esql] and method [POST], allowed: [GET, PUT, DELETE, HEAD]\",\"status\":405}",
+          "response": {
+            "error": "Incorrect HTTP method for uri [/_esql] and method [POST], allowed: [GET, PUT, DELETE, HEAD]",
+            "status": 405
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-b-wrong-method",
+          "method": "GET",
+          "path": "/_query",
+          "body": null,
+          "httpStatus": 405,
+          "raw": "{\"error\":\"Incorrect HTTP method for uri [/_query] and method [GET], allowed: [POST]\",\"status\":405}",
+          "response": {
+            "error": "Incorrect HTTP method for uri [/_query] and method [GET], allowed: [POST]",
+            "status": 405
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-13-async-route",
+          "method": "GET",
+          "path": "/_query/async",
+          "body": null,
+          "httpStatus": 405,
+          "raw": "{\"error\":\"Incorrect HTTP method for uri [/_query/async] and method [GET], allowed: [POST]\",\"status\":405}",
+          "response": {
+            "error": "Incorrect HTTP method for uri [/_query/async] and method [GET], allowed: [POST]",
+            "status": 405
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-setup",
+          "method": "PUT",
+          "path": "/tut-l27-values",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "-1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "properties": {
+                "title": {
+                  "type": "keyword"
+                },
+                "views": {
+                  "type": "long",
+                  "doc_values": true
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "raw": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-l27-values\"}",
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l27-values"
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l27-values?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"cluster_name\":\"docker-cluster\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}",
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-bulk",
+          "method": "POST",
+          "path": "/tut-l27-values/_bulk?refresh=true",
+          "body": "{\"index\":{\"_id\":\"1\"}}\n{\"title\":\"single\",\"views\":10}\n{\"index\":{\"_id\":\"2\"}}\n{\"title\":\"multi\",\"views\":[20,40]}\n{\"index\":{\"_id\":\"3\"}}\n{\"title\":\"missing\"}\n{\"index\":{\"_id\":\"4\"}}\n{\"title\":\"null\",\"views\":null}\n",
+          "httpStatus": 200,
+          "raw": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-l27-values\",\"_id\":\"1\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-values\",\"_id\":\"2\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-values\",\"_id\":\"3\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-values\",\"_id\":\"4\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}}]}",
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l27-values",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-values",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-values",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-values",
+                  "_id": "4",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-count",
+          "method": "GET",
+          "path": "/tut-l27-values/_count",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"count\":4,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0}}",
+          "response": {
+            "count": 4,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-values",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-values | STATS mean=AVG(views), total=SUM(views), value_count=COUNT(views), rows=COUNT(*)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"mean\",\"type\":\"double\"},{\"name\":\"total\",\"type\":\"long\"},{\"name\":\"value_count\",\"type\":\"long\"},{\"name\":\"rows\",\"type\":\"long\"}],\"values\":[[23.333333333333332,70,3,4]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "mean",
+                "type": "double"
+              },
+              {
+                "name": "total",
+                "type": "long"
+              },
+              {
+                "name": "value_count",
+                "type": "long"
+              },
+              {
+                "name": "rows",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                23.333333333333332,
+                70,
+                3,
+                4
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-empty",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-values | WHERE views > 1000 | STATS mean=AVG(views), rows=COUNT(*)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"mean\",\"type\":\"double\"},{\"name\":\"rows\",\"type\":\"long\"}],\"values\":[[null,0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "mean",
+                "type": "double"
+              },
+              {
+                "name": "rows",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                null,
+                0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-score",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages METADATA _score | WHERE MATCH(description, \"fox\") | SORT _score DESC, title ASC | KEEP title, _score | LIMIT 2"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"title\",\"type\":\"keyword\"},{\"name\":\"_score\",\"type\":\"double\"}],\"values\":[[\"b\",0.9092850685119629],[\"a\",0.7620985507965088]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "title",
+                "type": "keyword"
+              },
+              {
+                "name": "_score",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                "b",
+                0.9092850685119629
+              ],
+              [
+                "a",
+                0.7620985507965088
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-write",
+          "method": "PUT",
+          "path": "/tut-l27-pages/_doc/6?refresh=false",
+          "body": {
+            "title": "pending",
+            "description": "quick fox",
+            "views": 300
+          },
+          "httpStatus": 201,
+          "raw": "{\"_index\":\"tut-l27-pages\",\"_id\":\"6\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":5,\"_primary_term\":1}",
+          "response": {
+            "_index": "tut-l27-pages",
+            "_id": "6",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 5,
+            "_primary_term": 1
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-get",
+          "method": "GET",
+          "path": "/tut-l27-pages/_doc/6",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"_index\":\"tut-l27-pages\",\"_id\":\"6\",\"_version\":1,\"_seq_no\":5,\"_primary_term\":1,\"found\":true,\"_source\":{\"title\": \"pending\", \"description\": \"quick fox\", \"views\": 300}}",
+          "response": {
+            "_index": "tut-l27-pages",
+            "_id": "6",
+            "_version": 1,
+            "_seq_no": 5,
+            "_primary_term": 1,
+            "found": true,
+            "_source": {
+              "title": "pending",
+              "description": "quick fox",
+              "views": 300
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-before",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | STATS rows=COUNT(*)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"rows\",\"type\":\"long\"}],\"values\":[[5]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "rows",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                5
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-refresh",
+          "method": "POST",
+          "path": "/tut-l27-pages/_refresh",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0}}",
+          "response": {
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-after",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[225.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                225.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-reset",
+          "method": "DELETE",
+          "path": "/tut-l27-pages/_doc/6?refresh=true",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"_index\":\"tut-l27-pages\",\"_id\":\"6\",\"_version\":2,\"result\":\"deleted\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":6,\"_primary_term\":1}",
+          "response": {
+            "_index": "tut-l27-pages",
+            "_id": "6",
+            "_version": 2,
+            "result": "deleted",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 6,
+            "_primary_term": 1
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-restored",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS mean=AVG(views), rows=COUNT(*)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"mean\",\"type\":\"double\"},{\"name\":\"rows\",\"type\":\"long\"}],\"values\":[[200.0,3]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "mean",
+                "type": "double"
+              },
+              {
+                "name": "rows",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                200.0,
+                3
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-14-cleanup",
+          "method": "DELETE",
+          "path": "/tut-l27-pages",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"acknowledged\":true}",
+          "response": {
+            "acknowledged": true
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-clean-pages",
+          "method": "HEAD",
+          "path": "/tut-l27-pages",
+          "body": null,
+          "httpStatus": 404,
+          "raw": "",
+          "response": null,
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-clean-values-delete",
+          "method": "DELETE",
+          "path": "/tut-l27-values",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"acknowledged\":true}",
+          "response": {
+            "acknowledged": true
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-clean-values",
+          "method": "HEAD",
+          "path": "/tut-l27-values",
+          "body": null,
+          "httpStatus": 404,
+          "raw": "",
+          "response": null,
+          "verification": "pass"
+        }
+      ],
+      "status": "pass"
+    },
+    {
+      "run": 2,
+      "records": [
+        {
+          "id": "ch27-pre-version",
+          "method": "GET",
+          "path": "/",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\n  \"name\" : \"de11d253f59a\",\n  \"cluster_name\" : \"docker-cluster\",\n  \"cluster_uuid\" : \"z4NaUMjfQ-ani0stap2hZw\",\n  \"version\" : {\n    \"number\" : \"9.4.0\",\n    \"build_flavor\" : \"default\",\n    \"build_type\" : \"docker\",\n    \"build_hash\" : \"2e8528e92361c3399724226deaf2b46f933e925b\",\n    \"build_date\" : \"2026-04-30T15:05:34.751113474Z\",\n    \"build_snapshot\" : false,\n    \"lucene_version\" : \"10.4.0\",\n    \"minimum_wire_compatibility_version\" : \"8.19.0\",\n    \"minimum_index_compatibility_version\" : \"8.0.0\"\n  },\n  \"tagline\" : \"You Know, for Search\"\n}\n",
+          "response": {
+            "name": "de11d253f59a",
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": {
+              "number": "9.4.0",
+              "build_flavor": "default",
+              "build_type": "docker",
+              "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+              "build_date": "2026-04-30T15:05:34.751113474Z",
+              "build_snapshot": false,
+              "lucene_version": "10.4.0",
+              "minimum_wire_compatibility_version": "8.19.0",
+              "minimum_index_compatibility_version": "8.0.0"
+            },
+            "tagline": "You Know, for Search"
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-pre-pages",
+          "method": "HEAD",
+          "path": "/tut-l27-pages",
+          "body": null,
+          "httpStatus": 404,
+          "raw": "",
+          "response": null,
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-pre-values",
+          "method": "HEAD",
+          "path": "/tut-l27-values",
+          "body": null,
+          "httpStatus": 404,
+          "raw": "",
+          "response": null,
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-01-setup",
+          "method": "PUT",
+          "path": "/tut-l27-pages",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "-1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "_source": {
+                "enabled": true
+              },
+              "properties": {
+                "title": {
+                  "type": "keyword",
+                  "doc_values": true
+                },
+                "description": {
+                  "type": "text",
+                  "analyzer": "standard"
+                },
+                "views": {
+                  "type": "long",
+                  "doc_values": true
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "raw": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-l27-pages\"}",
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l27-pages"
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l27-pages?wait_for_status=green&wait_for_no_initializing_shards=true&wait_for_no_relocating_shards=true&timeout=30s",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"cluster_name\":\"docker-cluster\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}",
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-config",
+          "method": "GET",
+          "path": "/tut-l27-pages?filter_path=*.settings.index,*.mappings",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"tut-l27-pages\":{\"mappings\":{\"dynamic\":\"strict\",\"properties\":{\"description\":{\"type\":\"text\",\"analyzer\":\"standard\"},\"title\":{\"type\":\"keyword\"},\"views\":{\"type\":\"long\"}}},\"settings\":{\"index\":{\"routing\":{\"allocation\":{\"include\":{\"_tier_preference\":\"data_content\"}}},\"refresh_interval\":\"-1\",\"number_of_shards\":\"1\",\"auto_expand_replicas\":\"false\",\"provided_name\":\"tut-l27-pages\",\"creation_date\":\"1791899289525\",\"number_of_replicas\":\"0\",\"uuid\":\"3vLNpVpkTIep54zVGOvJ6g\",\"version\":{\"created\":\"9094000\"}}}}}",
+          "response": {
+            "tut-l27-pages": {
+              "mappings": {
+                "dynamic": "strict",
+                "properties": {
+                  "description": {
+                    "type": "text",
+                    "analyzer": "standard"
+                  },
+                  "title": {
+                    "type": "keyword"
+                  },
+                  "views": {
+                    "type": "long"
+                  }
+                }
+              },
+              "settings": {
+                "index": {
+                  "routing": {
+                    "allocation": {
+                      "include": {
+                        "_tier_preference": "data_content"
+                      }
+                    }
+                  },
+                  "refresh_interval": "-1",
+                  "number_of_shards": "1",
+                  "auto_expand_replicas": "false",
+                  "provided_name": "tut-l27-pages",
+                  "creation_date": "1791899289525",
+                  "number_of_replicas": "0",
+                  "uuid": "3vLNpVpkTIep54zVGOvJ6g",
+                  "version": {
+                    "created": "9094000"
+                  }
+                }
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-02-bulk",
+          "method": "POST",
+          "path": "/tut-l27-pages/_bulk?refresh=true",
+          "body": "{\"index\":{\"_id\":\"1\"}}\n{\"title\":\"a\",\"description\":\"quick brown fox\",\"views\":50}\n{\"index\":{\"_id\":\"2\"}}\n{\"title\":\"b\",\"description\":\"quick fox\",\"views\":100}\n{\"index\":{\"_id\":\"3\"}}\n{\"title\":\"c\",\"description\":\"slow turtle\",\"views\":150}\n{\"index\":{\"_id\":\"4\"}}\n{\"title\":\"d\",\"description\":\"quick brown\",\"views\":200}\n{\"index\":{\"_id\":\"5\"}}\n{\"title\":\"e\",\"description\":\"brown bear\",\"views\":250}\n",
+          "httpStatus": 200,
+          "raw": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"1\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"2\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"3\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"4\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"5\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":4,\"_primary_term\":1,\"status\":201}}]}",
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "4",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-pages",
+                  "_id": "5",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 4,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-count",
+          "method": "GET",
+          "path": "/tut-l27-pages/_count",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"count\":5,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0}}",
+          "response": {
+            "count": 5,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-03-main",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[200.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                200.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-05-case",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS AVG(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"AVG(views)\",\"type\":\"double\"}],\"values\":[[200.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "AVG(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                200.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-06-gte",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views >= 100 | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[175.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                175.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-07-nowhere",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[150.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                150.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-12-sort-keep",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | SORT views DESC | KEEP title, views | LIMIT 2"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"title\",\"type\":\"keyword\"},{\"name\":\"views\",\"type\":\"long\"}],\"values\":[[\"e\",250],[\"d\",200]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "title",
+                "type": "keyword"
+              },
+              {
+                "name": "views",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                "e",
+                250
+              ],
+              [
+                "d",
+                200
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-08-profile",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views)",
+            "profile": true
+          },
+          "httpStatus": 200,
+          "raw": "{\"took\":5,\"is_partial\":false,\"completion_time_in_millis\":1791899289661,\"documents_found\":3,\"values_loaded\":3,\"start_time_in_millis\":1791899289656,\"expiration_time_in_millis\":1792331289635,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[200.0]],\"profile\":{\"query\":{\"start_millis\":1791899289656,\"stop_millis\":1791899289662,\"took_millis\":6,\"took_nanos\":5520744},\"planning\":{\"start_millis\":1791899289656,\"stop_millis\":1791899289658,\"took_millis\":2,\"took_nanos\":1766847},\"parsing\":{\"start_millis\":1791899289656,\"stop_millis\":1791899289656,\"took_millis\":0,\"took_nanos\":356393},\"view_resolution\":{\"start_millis\":1791899289656,\"stop_millis\":1791899289656,\"took_millis\":0,\"took_nanos\":6485},\"preanalysis\":{\"start_millis\":1791899289656,\"stop_millis\":1791899289656,\"took_millis\":0,\"took_nanos\":11833},\"indices_resolution\":{\"start_millis\":1791899289656,\"stop_millis\":1791899289657,\"took_millis\":1,\"took_nanos\":363258},\"enrich_resolution\":{\"start_millis\":1791899289657,\"stop_millis\":1791899289657,\"took_millis\":0,\"took_nanos\":1853},\"inference_resolution\":{\"start_millis\":1791899289657,\"stop_millis\":1791899289657,\"took_millis\":0,\"took_nanos\":16086},\"analysis\":{\"start_millis\":1791899289657,\"stop_millis\":1791899289657,\"took_millis\":0,\"took_nanos\":557267},\"field_caps_calls\":1,\"drivers\":[{\"description\":\"data\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"start_millis\":1791899289660,\"stop_millis\":1791899289661,\"took_nanos\":453629,\"cpu_nanos\":252376,\"documents_found\":3,\"values_loaded\":3,\"iterations\":2,\"operators\":[{\"operator\":\"LuceneSourceOperator[shards = [tut-l27-pages:0], maxPageSize = 21845, remainingDocs = 2147483644]\",\"status\":{\"processed_slices\":1,\"processed_queries\":[\"IndexOrDocValuesQuery(indexQuery=views:[101 TO 9223372036854775807], dvQuery=views:[101 TO 9223372036854775807])\"],\"processed_shards\":[\"tut-l27-pages:0\"],\"process_nanos\":97404,\"slice_index\":0,\"total_slices\":1,\"pages_emitted\":1,\"slice_min\":0,\"slice_max\":0,\"current\":2147483647,\"rows_emitted\":3,\"partitioning_strategies\":{\"tut-l27-pages:0\":\"SHARD\"}}},{\"operator\":\"ValuesSourceReaderOperator[fields = [views]]\",\"status\":{\"readers_built\":{\"views:column_at_a_time:LongsFromDocValues.Singleton\":1},\"values_loaded\":3,\"process_nanos\":42323,\"pages_received\":1,\"pages_emitted\":1,\"rows_received\":3,\"rows_emitted\":3}},{\"operator\":\"AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[1]], mode=INITIAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[1]], mode=INITIAL]]]\",\"status\":{\"aggregation_nanos\":10528,\"aggregation_finish_nanos\":18529,\"pages_processed\":1,\"rows_received\":3,\"rows_emitted\":1}},{\"operator\":\"ExchangeSinkOperator\",\"status\":{\"pages_received\":1,\"rows_received\":1}}],\"sleeps\":{\"counts\":{},\"first\":[],\"last\":[]}},{\"description\":\"node_reduce\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"start_millis\":1791899289661,\"stop_millis\":1791899289661,\"took_nanos\":634290,\"cpu_nanos\":117702,\"documents_found\":0,\"values_loaded\":0,\"iterations\":2,\"operators\":[{\"operator\":\"ExchangeSourceOperator\",\"status\":{\"pages_waiting\":0,\"pages_emitted\":1,\"rows_emitted\":1}},{\"operator\":\"ExchangeSinkOperator\",\"status\":{\"pages_received\":1,\"rows_received\":1}}],\"sleeps\":{\"counts\":{\"exchange empty\":1},\"first\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#1]\",\"sleep_millis\":1791899289661,\"wake_millis\":1791899289661}],\"last\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#1]\",\"sleep_millis\":1791899289661,\"wake_millis\":1791899289661}]}},{\"description\":\"final\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"start_millis\":1791899289658,\"stop_millis\":1791899289661,\"took_nanos\":3394303,\"cpu_nanos\":252924,\"documents_found\":0,\"values_loaded\":0,\"iterations\":4,\"operators\":[{\"operator\":\"ExchangeSourceOperator\",\"status\":{\"pages_waiting\":0,\"pages_emitted\":1,\"rows_emitted\":1}},{\"operator\":\"AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[0, 1, 2]], mode=FINAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[3, 4]], mode=FINAL]]]\",\"status\":{\"aggregation_nanos\":6233,\"aggregation_finish_nanos\":11454,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"ProjectOperator[projection = [0, 1]]\",\"status\":{\"process_nanos\":1853,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"LimitOperator[limit = 999/1000]\",\"status\":{\"limit\":1000,\"limit_remaining\":999,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"EvalOperator[evaluator=DivDoublesEvaluator[lhs=CastLongToDoubleEvaluator[v=Attribute[channel=0]], rhs=CastLongToDoubleEvaluator[v=Attribute[channel=1]]]]\",\"status\":{\"process_nanos\":16634,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"ProjectOperator[projection = [2]]\",\"status\":{\"process_nanos\":1179,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"OutputOperator[columns = [avg(views)]]\"}],\"sleeps\":{\"counts\":{\"exchange empty\":2},\"first\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#4]\",\"sleep_millis\":1791899289658,\"wake_millis\":1791899289661},{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#2]\",\"sleep_millis\":1791899289661,\"wake_millis\":1791899289661}],\"last\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#4]\",\"sleep_millis\":1791899289658,\"wake_millis\":1791899289661},{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#2]\",\"sleep_millis\":1791899289661,\"wake_millis\":1791899289661}]}}],\"plans\":[{\"description\":\"data\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"plan\":\"ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$COUNT$a\\nvg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],true]\\n\\\\_AggregateExec[[],[SUM(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\\n$SUM$avg(views)$0#1032, COUNT(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1033],I\\nNITIAL,[$$SUM$avg(views)$0$sum{r}#1044, $$SUM$avg(views)$0$seen{r}#1045, $$SUM$avg(views)$0$failed{r}#1046, $$\\nCOUNT$avg(views)$1$count{r}#1047, $$COUNT$avg(views)$1$seen{r}#1048],16]\\n  \\\\_FieldExtractExec[views{f}#1031]<[],[],[]>\\n    \\\\_EsQueryExec[tut-l27-pages], indexMode[standard], [_doc{f}#1049], limit[], sort[] estimatedRowSize[12] queryBuilderAndTags [[QueryBuilderAndTags[query={\\n  \\\"bool\\\" : {\\n    \\\"must\\\" : [\\n      {\\n        \\\"esql_single_value\\\" : {\\n          \\\"field\\\" : \\\"views\\\",\\n          \\\"next\\\" : {\\n            \\\"range\\\" : {\\n              \\\"views\\\" : {\\n                \\\"gt\\\" : 100,\\n                \\\"boost\\\" : 0.0\\n              }\\n            }\\n          },\\n          \\\"source\\\" : \\\"views > 100@1:28\\\"\\n        }\\n      },\\n      {\\n        \\\"exists\\\" : {\\n          \\\"field\\\" : \\\"views\\\",\\n          \\\"boost\\\" : 0.0\\n        }\\n      }\\n    ],\\n    \\\"boost\\\" : 1.0\\n  }\\n}, tags=[]]]]\",\"logical_plan\":\"Aggregate[[],[SUM(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\\n$SUM$avg(views)$0#1032, COUNT(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1033]]\\n\\\\_Filter[views{f}#1031 > 100[INTEGER] AND ISNOTNULL(views{f}#1031)]\\n  \\\\_EsRelation[tut-l27-pages][views{f}#1031]\",\"logical_optimization_nanos\":395473,\"physical_optimization_nanos\":254861},{\"description\":\"node_reduce\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"plan\":\"ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$COUNT$a\\nvg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],true]\\n\\\\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$COUNT$a\\nvg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],true]\",\"reduction_nanos\":0},{\"description\":\"final\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"plan\":\"OutputExec[org.elasticsearch.xpack.esql.plugin.ComputeService$$Lambda/0x0000000043bb9b58@407d16d2]\\n\\\\_ProjectExec[[avg(views){r}#1030]]\\n  \\\\_EvalExec[[$$SUM$avg(views)$0{r$}#1032 / $$COUNT$avg(views)$1{r$}#1033 AS avg(views)#1030]]\\n    \\\\_LimitExec[1000[INTEGER],16]\\n      \\\\_AggregateExec[[],[SUM(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\\n$SUM$avg(views)$0#1032, COUNT(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1033],F\\nINAL,[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$CO\\nUNT$avg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],24]\\n        \\\\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$COUNT$a\\nvg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],true]\",\"logical_optimization_nanos\":291036,\"physical_optimization_nanos\":110207}],\"minimumTransportVersion\":9348001}}",
+          "response": {
+            "took": 5,
+            "is_partial": false,
+            "completion_time_in_millis": 1791899289661,
+            "documents_found": 3,
+            "values_loaded": 3,
+            "start_time_in_millis": 1791899289656,
+            "expiration_time_in_millis": 1792331289635,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                200.0
+              ]
+            ],
+            "profile": {
+              "query": {
+                "start_millis": 1791899289656,
+                "stop_millis": 1791899289662,
+                "took_millis": 6,
+                "took_nanos": 5520744
+              },
+              "planning": {
+                "start_millis": 1791899289656,
+                "stop_millis": 1791899289658,
+                "took_millis": 2,
+                "took_nanos": 1766847
+              },
+              "parsing": {
+                "start_millis": 1791899289656,
+                "stop_millis": 1791899289656,
+                "took_millis": 0,
+                "took_nanos": 356393
+              },
+              "view_resolution": {
+                "start_millis": 1791899289656,
+                "stop_millis": 1791899289656,
+                "took_millis": 0,
+                "took_nanos": 6485
+              },
+              "preanalysis": {
+                "start_millis": 1791899289656,
+                "stop_millis": 1791899289656,
+                "took_millis": 0,
+                "took_nanos": 11833
+              },
+              "indices_resolution": {
+                "start_millis": 1791899289656,
+                "stop_millis": 1791899289657,
+                "took_millis": 1,
+                "took_nanos": 363258
+              },
+              "enrich_resolution": {
+                "start_millis": 1791899289657,
+                "stop_millis": 1791899289657,
+                "took_millis": 0,
+                "took_nanos": 1853
+              },
+              "inference_resolution": {
+                "start_millis": 1791899289657,
+                "stop_millis": 1791899289657,
+                "took_millis": 0,
+                "took_nanos": 16086
+              },
+              "analysis": {
+                "start_millis": 1791899289657,
+                "stop_millis": 1791899289657,
+                "took_millis": 0,
+                "took_nanos": 557267
+              },
+              "field_caps_calls": 1,
+              "drivers": [
+                {
+                  "description": "data",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "start_millis": 1791899289660,
+                  "stop_millis": 1791899289661,
+                  "took_nanos": 453629,
+                  "cpu_nanos": 252376,
+                  "documents_found": 3,
+                  "values_loaded": 3,
+                  "iterations": 2,
+                  "operators": [
+                    {
+                      "operator": "LuceneSourceOperator[shards = [tut-l27-pages:0], maxPageSize = 21845, remainingDocs = 2147483644]",
+                      "status": {
+                        "processed_slices": 1,
+                        "processed_queries": [
+                          "IndexOrDocValuesQuery(indexQuery=views:[101 TO 9223372036854775807], dvQuery=views:[101 TO 9223372036854775807])"
+                        ],
+                        "processed_shards": [
+                          "tut-l27-pages:0"
+                        ],
+                        "process_nanos": 97404,
+                        "slice_index": 0,
+                        "total_slices": 1,
+                        "pages_emitted": 1,
+                        "slice_min": 0,
+                        "slice_max": 0,
+                        "current": 2147483647,
+                        "rows_emitted": 3,
+                        "partitioning_strategies": {
+                          "tut-l27-pages:0": "SHARD"
+                        }
+                      }
+                    },
+                    {
+                      "operator": "ValuesSourceReaderOperator[fields = [views]]",
+                      "status": {
+                        "readers_built": {
+                          "views:column_at_a_time:LongsFromDocValues.Singleton": 1
+                        },
+                        "values_loaded": 3,
+                        "process_nanos": 42323,
+                        "pages_received": 1,
+                        "pages_emitted": 1,
+                        "rows_received": 3,
+                        "rows_emitted": 3
+                      }
+                    },
+                    {
+                      "operator": "AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[1]], mode=INITIAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[1]], mode=INITIAL]]]",
+                      "status": {
+                        "aggregation_nanos": 10528,
+                        "aggregation_finish_nanos": 18529,
+                        "pages_processed": 1,
+                        "rows_received": 3,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "ExchangeSinkOperator",
+                      "status": {
+                        "pages_received": 1,
+                        "rows_received": 1
+                      }
+                    }
+                  ],
+                  "sleeps": {
+                    "counts": {},
+                    "first": [],
+                    "last": []
+                  }
+                },
+                {
+                  "description": "node_reduce",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "start_millis": 1791899289661,
+                  "stop_millis": 1791899289661,
+                  "took_nanos": 634290,
+                  "cpu_nanos": 117702,
+                  "documents_found": 0,
+                  "values_loaded": 0,
+                  "iterations": 2,
+                  "operators": [
+                    {
+                      "operator": "ExchangeSourceOperator",
+                      "status": {
+                        "pages_waiting": 0,
+                        "pages_emitted": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "ExchangeSinkOperator",
+                      "status": {
+                        "pages_received": 1,
+                        "rows_received": 1
+                      }
+                    }
+                  ],
+                  "sleeps": {
+                    "counts": {
+                      "exchange empty": 1
+                    },
+                    "first": [
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#1]",
+                        "sleep_millis": 1791899289661,
+                        "wake_millis": 1791899289661
+                      }
+                    ],
+                    "last": [
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#1]",
+                        "sleep_millis": 1791899289661,
+                        "wake_millis": 1791899289661
+                      }
+                    ]
+                  }
+                },
+                {
+                  "description": "final",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "start_millis": 1791899289658,
+                  "stop_millis": 1791899289661,
+                  "took_nanos": 3394303,
+                  "cpu_nanos": 252924,
+                  "documents_found": 0,
+                  "values_loaded": 0,
+                  "iterations": 4,
+                  "operators": [
+                    {
+                      "operator": "ExchangeSourceOperator",
+                      "status": {
+                        "pages_waiting": 0,
+                        "pages_emitted": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[0, 1, 2]], mode=FINAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[3, 4]], mode=FINAL]]]",
+                      "status": {
+                        "aggregation_nanos": 6233,
+                        "aggregation_finish_nanos": 11454,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "ProjectOperator[projection = [0, 1]]",
+                      "status": {
+                        "process_nanos": 1853,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "LimitOperator[limit = 999/1000]",
+                      "status": {
+                        "limit": 1000,
+                        "limit_remaining": 999,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "EvalOperator[evaluator=DivDoublesEvaluator[lhs=CastLongToDoubleEvaluator[v=Attribute[channel=0]], rhs=CastLongToDoubleEvaluator[v=Attribute[channel=1]]]]",
+                      "status": {
+                        "process_nanos": 16634,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "ProjectOperator[projection = [2]]",
+                      "status": {
+                        "process_nanos": 1179,
+                        "pages_processed": 1,
+                        "rows_received": 1,
+                        "rows_emitted": 1
+                      }
+                    },
+                    {
+                      "operator": "OutputOperator[columns = [avg(views)]]"
+                    }
+                  ],
+                  "sleeps": {
+                    "counts": {
+                      "exchange empty": 2
+                    },
+                    "first": [
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#4]",
+                        "sleep_millis": 1791899289658,
+                        "wake_millis": 1791899289661
+                      },
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#2]",
+                        "sleep_millis": 1791899289661,
+                        "wake_millis": 1791899289661
+                      }
+                    ],
+                    "last": [
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#4]",
+                        "sleep_millis": 1791899289658,
+                        "wake_millis": 1791899289661
+                      },
+                      {
+                        "reason": "exchange empty",
+                        "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#2]",
+                        "sleep_millis": 1791899289661,
+                        "wake_millis": 1791899289661
+                      }
+                    ]
+                  }
+                }
+              ],
+              "plans": [
+                {
+                  "description": "data",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "plan": "ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$COUNT$a\nvg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],true]\n\\_AggregateExec[[],[SUM(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\n$SUM$avg(views)$0#1032, COUNT(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1033],I\nNITIAL,[$$SUM$avg(views)$0$sum{r}#1044, $$SUM$avg(views)$0$seen{r}#1045, $$SUM$avg(views)$0$failed{r}#1046, $$\nCOUNT$avg(views)$1$count{r}#1047, $$COUNT$avg(views)$1$seen{r}#1048],16]\n  \\_FieldExtractExec[views{f}#1031]<[],[],[]>\n    \\_EsQueryExec[tut-l27-pages], indexMode[standard], [_doc{f}#1049], limit[], sort[] estimatedRowSize[12] queryBuilderAndTags [[QueryBuilderAndTags[query={\n  \"bool\" : {\n    \"must\" : [\n      {\n        \"esql_single_value\" : {\n          \"field\" : \"views\",\n          \"next\" : {\n            \"range\" : {\n              \"views\" : {\n                \"gt\" : 100,\n                \"boost\" : 0.0\n              }\n            }\n          },\n          \"source\" : \"views > 100@1:28\"\n        }\n      },\n      {\n        \"exists\" : {\n          \"field\" : \"views\",\n          \"boost\" : 0.0\n        }\n      }\n    ],\n    \"boost\" : 1.0\n  }\n}, tags=[]]]]",
+                  "logical_plan": "Aggregate[[],[SUM(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\n$SUM$avg(views)$0#1032, COUNT(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1033]]\n\\_Filter[views{f}#1031 > 100[INTEGER] AND ISNOTNULL(views{f}#1031)]\n  \\_EsRelation[tut-l27-pages][views{f}#1031]",
+                  "logical_optimization_nanos": 395473,
+                  "physical_optimization_nanos": 254861
+                },
+                {
+                  "description": "node_reduce",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "plan": "ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$COUNT$a\nvg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],true]\n\\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$COUNT$a\nvg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],true]",
+                  "reduction_nanos": 0
+                },
+                {
+                  "description": "final",
+                  "cluster_name": "docker-cluster",
+                  "node_name": "de11d253f59a",
+                  "plan": "OutputExec[org.elasticsearch.xpack.esql.plugin.ComputeService$$Lambda/0x0000000043bb9b58@407d16d2]\n\\_ProjectExec[[avg(views){r}#1030]]\n  \\_EvalExec[[$$SUM$avg(views)$0{r$}#1032 / $$COUNT$avg(views)$1{r$}#1033 AS avg(views)#1030]]\n    \\_LimitExec[1000[INTEGER],16]\n      \\_AggregateExec[[],[SUM(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\n$SUM$avg(views)$0#1032, COUNT(views{f}#1031,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1033],F\nINAL,[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$CO\nUNT$avg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],24]\n        \\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#1034, $$SUM$avg(views)$0$seen{r}#1035, $$SUM$avg(views)$0$failed{r}#1036, $$COUNT$a\nvg(views)$1$count{r}#1037, $$COUNT$avg(views)$1$seen{r}#1038],true]",
+                  "logical_optimization_nanos": 291036,
+                  "physical_optimization_nanos": 110207
+                }
+              ],
+              "minimumTransportVersion": 9348001
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-limit-before",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | SORT views DESC | LIMIT 2 | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[225.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                225.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-limit-after",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views) | LIMIT 1"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[200.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                200.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-a-type-error",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | STATS avg(title)"
+          },
+          "httpStatus": 400,
+          "raw": "{\"error\":{\"root_cause\":[{\"type\":\"verification_exception\",\"reason\":\"Found 1 problem\\nline 1:28: argument of [avg(title)] must be [aggregate_metric_double, exponential_histogram, tdigest or numeric except unsigned_long or counter types], found value [title] type [keyword]\"}],\"type\":\"verification_exception\",\"reason\":\"Found 1 problem\\nline 1:28: argument of [avg(title)] must be [aggregate_metric_double, exponential_histogram, tdigest or numeric except unsigned_long or counter types], found value [title] type [keyword]\"},\"status\":400}",
+          "response": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "verification_exception",
+                  "reason": "Found 1 problem\nline 1:28: argument of [avg(title)] must be [aggregate_metric_double, exponential_histogram, tdigest or numeric except unsigned_long or counter types], found value [title] type [keyword]"
+                }
+              ],
+              "type": "verification_exception",
+              "reason": "Found 1 problem\nline 1:28: argument of [avg(title)] must be [aggregate_metric_double, exponential_histogram, tdigest or numeric except unsigned_long or counter types], found value [title] type [keyword]"
+            },
+            "status": 400
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-09-dsl-avg",
+          "method": "POST",
+          "path": "/tut-l27-pages/_search?request_cache=false&filter_path=hits.total,hits.hits,aggregations.avg_views.value",
+          "body": {
+            "query": {
+              "range": {
+                "views": {
+                  "gt": 100
+                }
+              }
+            },
+            "aggs": {
+              "avg_views": {
+                "avg": {
+                  "field": "views"
+                }
+              }
+            },
+            "size": 0
+          },
+          "httpStatus": 200,
+          "raw": "{\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"hits\":[]},\"aggregations\":{\"avg_views\":{\"value\":200.0}}}",
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": []
+            },
+            "aggregations": {
+              "avg_views": {
+                "value": 200.0
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-10-dsl-hits",
+          "method": "POST",
+          "path": "/tut-l27-pages/_search?request_cache=false&filter_path=hits.total,hits.hits,aggregations.avg_views.value",
+          "body": {
+            "query": {
+              "range": {
+                "views": {
+                  "gt": 100
+                }
+              }
+            },
+            "aggs": {
+              "avg_views": {
+                "avg": {
+                  "field": "views"
+                }
+              }
+            },
+            "sort": [
+              {
+                "views": "desc"
+              }
+            ]
+          },
+          "httpStatus": 200,
+          "raw": "{\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"hits\":[{\"_index\":\"tut-l27-pages\",\"_id\":\"5\",\"_score\":null,\"_source\":{\"title\":\"e\",\"description\":\"brown bear\",\"views\":250},\"sort\":[250]},{\"_index\":\"tut-l27-pages\",\"_id\":\"4\",\"_score\":null,\"_source\":{\"title\":\"d\",\"description\":\"quick brown\",\"views\":200},\"sort\":[200]},{\"_index\":\"tut-l27-pages\",\"_id\":\"3\",\"_score\":null,\"_source\":{\"title\":\"c\",\"description\":\"slow turtle\",\"views\":150},\"sort\":[150]}]},\"aggregations\":{\"avg_views\":{\"value\":200.0}}}",
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_index": "tut-l27-pages",
+                  "_id": "5",
+                  "_score": null,
+                  "_source": {
+                    "title": "e",
+                    "description": "brown bear",
+                    "views": 250
+                  },
+                  "sort": [
+                    250
+                  ]
+                },
+                {
+                  "_index": "tut-l27-pages",
+                  "_id": "4",
+                  "_score": null,
+                  "_source": {
+                    "title": "d",
+                    "description": "quick brown",
+                    "views": 200
+                  },
+                  "sort": [
+                    200
+                  ]
+                },
+                {
+                  "_index": "tut-l27-pages",
+                  "_id": "3",
+                  "_score": null,
+                  "_source": {
+                    "title": "c",
+                    "description": "slow turtle",
+                    "views": 150
+                  },
+                  "sort": [
+                    150
+                  ]
+                }
+              ]
+            },
+            "aggregations": {
+              "avg_views": {
+                "value": 200.0
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-11-dsl-gte",
+          "method": "POST",
+          "path": "/tut-l27-pages/_search?request_cache=false&filter_path=hits.total,hits.hits,aggregations.avg_views.value",
+          "body": {
+            "query": {
+              "range": {
+                "views": {
+                  "gte": 100
+                }
+              }
+            },
+            "aggs": {
+              "avg_views": {
+                "avg": {
+                  "field": "views"
+                }
+              }
+            },
+            "size": 0
+          },
+          "httpStatus": 200,
+          "raw": "{\"hits\":{\"total\":{\"value\":4,\"relation\":\"eq\"},\"hits\":[]},\"aggregations\":{\"avg_views\":{\"value\":175.0}}}",
+          "response": {
+            "hits": {
+              "total": {
+                "value": 4,
+                "relation": "eq"
+              },
+              "hits": []
+            },
+            "aggregations": {
+              "avg_views": {
+                "value": 175.0
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-b-size-one",
+          "method": "POST",
+          "path": "/tut-l27-pages/_search?request_cache=false&filter_path=hits.total,hits.hits,aggregations.avg_views.value",
+          "body": {
+            "query": {
+              "range": {
+                "views": {
+                  "gt": 100
+                }
+              }
+            },
+            "aggs": {
+              "avg_views": {
+                "avg": {
+                  "field": "views"
+                }
+              }
+            },
+            "size": 1,
+            "sort": [
+              {
+                "views": "desc"
+              }
+            ]
+          },
+          "httpStatus": 200,
+          "raw": "{\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"hits\":[{\"_index\":\"tut-l27-pages\",\"_id\":\"5\",\"_score\":null,\"_source\":{\"title\":\"e\",\"description\":\"brown bear\",\"views\":250},\"sort\":[250]}]},\"aggregations\":{\"avg_views\":{\"value\":200.0}}}",
+          "response": {
+            "hits": {
+              "total": {
+                "value": 3,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_index": "tut-l27-pages",
+                  "_id": "5",
+                  "_score": null,
+                  "_source": {
+                    "title": "e",
+                    "description": "brown bear",
+                    "views": 250
+                  },
+                  "sort": [
+                    250
+                  ]
+                }
+              ]
+            },
+            "aggregations": {
+              "avg_views": {
+                "value": 200.0
+              }
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-04-wrong-path",
+          "method": "POST",
+          "path": "/_esql",
+          "body": {
+            "query": "FROM tut-l27-pages | LIMIT 1"
+          },
+          "httpStatus": 405,
+          "raw": "{\"error\":\"Incorrect HTTP method for uri [/_esql] and method [POST], allowed: [GET, PUT, DELETE, HEAD]\",\"status\":405}",
+          "response": {
+            "error": "Incorrect HTTP method for uri [/_esql] and method [POST], allowed: [GET, PUT, DELETE, HEAD]",
+            "status": 405
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-b-wrong-method",
+          "method": "GET",
+          "path": "/_query",
+          "body": null,
+          "httpStatus": 405,
+          "raw": "{\"error\":\"Incorrect HTTP method for uri [/_query] and method [GET], allowed: [POST]\",\"status\":405}",
+          "response": {
+            "error": "Incorrect HTTP method for uri [/_query] and method [GET], allowed: [POST]",
+            "status": 405
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-13-async-route",
+          "method": "GET",
+          "path": "/_query/async",
+          "body": null,
+          "httpStatus": 405,
+          "raw": "{\"error\":\"Incorrect HTTP method for uri [/_query/async] and method [GET], allowed: [POST]\",\"status\":405}",
+          "response": {
+            "error": "Incorrect HTTP method for uri [/_query/async] and method [GET], allowed: [POST]",
+            "status": 405
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-setup",
+          "method": "PUT",
+          "path": "/tut-l27-values",
+          "body": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "auto_expand_replicas": "false",
+              "refresh_interval": "-1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "properties": {
+                "title": {
+                  "type": "keyword"
+                },
+                "views": {
+                  "type": "long",
+                  "doc_values": true
+                }
+              }
+            }
+          },
+          "httpStatus": 200,
+          "raw": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-l27-values\"}",
+          "response": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l27-values"
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-health",
+          "method": "GET",
+          "path": "/_cluster/health/tut-l27-values?wait_for_status=green&wait_for_no_initializing_shards=true&timeout=30s",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"cluster_name\":\"docker-cluster\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}",
+          "response": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-bulk",
+          "method": "POST",
+          "path": "/tut-l27-values/_bulk?refresh=true",
+          "body": "{\"index\":{\"_id\":\"1\"}}\n{\"title\":\"single\",\"views\":10}\n{\"index\":{\"_id\":\"2\"}}\n{\"title\":\"multi\",\"views\":[20,40]}\n{\"index\":{\"_id\":\"3\"}}\n{\"title\":\"missing\"}\n{\"index\":{\"_id\":\"4\"}}\n{\"title\":\"null\",\"views\":null}\n",
+          "httpStatus": 200,
+          "raw": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-l27-values\",\"_id\":\"1\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-values\",\"_id\":\"2\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-values\",\"_id\":\"3\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-values\",\"_id\":\"4\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}}]}",
+          "response": {
+            "errors": false,
+            "took": 0,
+            "items": [
+              {
+                "index": {
+                  "_index": "tut-l27-values",
+                  "_id": "1",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 0,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-values",
+                  "_id": "2",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 1,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-values",
+                  "_id": "3",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 2,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              },
+              {
+                "index": {
+                  "_index": "tut-l27-values",
+                  "_id": "4",
+                  "_version": 1,
+                  "result": "created",
+                  "forced_refresh": true,
+                  "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "failed": 0
+                  },
+                  "_seq_no": 3,
+                  "_primary_term": 1,
+                  "status": 201
+                }
+              }
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-count",
+          "method": "GET",
+          "path": "/tut-l27-values/_count",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"count\":4,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0}}",
+          "response": {
+            "count": 4,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-values",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-values | STATS mean=AVG(views), total=SUM(views), value_count=COUNT(views), rows=COUNT(*)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"mean\",\"type\":\"double\"},{\"name\":\"total\",\"type\":\"long\"},{\"name\":\"value_count\",\"type\":\"long\"},{\"name\":\"rows\",\"type\":\"long\"}],\"values\":[[23.333333333333332,70,3,4]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "mean",
+                "type": "double"
+              },
+              {
+                "name": "total",
+                "type": "long"
+              },
+              {
+                "name": "value_count",
+                "type": "long"
+              },
+              {
+                "name": "rows",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                23.333333333333332,
+                70,
+                3,
+                4
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-c-empty",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-values | WHERE views > 1000 | STATS mean=AVG(views), rows=COUNT(*)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"mean\",\"type\":\"double\"},{\"name\":\"rows\",\"type\":\"long\"}],\"values\":[[null,0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "mean",
+                "type": "double"
+              },
+              {
+                "name": "rows",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                null,
+                0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-score",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages METADATA _score | WHERE MATCH(description, \"fox\") | SORT _score DESC, title ASC | KEEP title, _score | LIMIT 2"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"title\",\"type\":\"keyword\"},{\"name\":\"_score\",\"type\":\"double\"}],\"values\":[[\"b\",0.9092850685119629],[\"a\",0.7620985507965088]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "title",
+                "type": "keyword"
+              },
+              {
+                "name": "_score",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                "b",
+                0.9092850685119629
+              ],
+              [
+                "a",
+                0.7620985507965088
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-write",
+          "method": "PUT",
+          "path": "/tut-l27-pages/_doc/6?refresh=false",
+          "body": {
+            "title": "pending",
+            "description": "quick fox",
+            "views": 300
+          },
+          "httpStatus": 201,
+          "raw": "{\"_index\":\"tut-l27-pages\",\"_id\":\"6\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":5,\"_primary_term\":1}",
+          "response": {
+            "_index": "tut-l27-pages",
+            "_id": "6",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 5,
+            "_primary_term": 1
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-get",
+          "method": "GET",
+          "path": "/tut-l27-pages/_doc/6",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"_index\":\"tut-l27-pages\",\"_id\":\"6\",\"_version\":1,\"_seq_no\":5,\"_primary_term\":1,\"found\":true,\"_source\":{\"title\": \"pending\", \"description\": \"quick fox\", \"views\": 300}}",
+          "response": {
+            "_index": "tut-l27-pages",
+            "_id": "6",
+            "_version": 1,
+            "_seq_no": 5,
+            "_primary_term": 1,
+            "found": true,
+            "_source": {
+              "title": "pending",
+              "description": "quick fox",
+              "views": 300
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-before",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | STATS rows=COUNT(*)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"rows\",\"type\":\"long\"}],\"values\":[[5]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "rows",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                5
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-refresh",
+          "method": "POST",
+          "path": "/tut-l27-pages/_refresh",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0}}",
+          "response": {
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            }
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-after",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[225.0]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "avg(views)",
+                "type": "double"
+              }
+            ],
+            "values": [
+              [
+                225.0
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-reset",
+          "method": "DELETE",
+          "path": "/tut-l27-pages/_doc/6?refresh=true",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"_index\":\"tut-l27-pages\",\"_id\":\"6\",\"_version\":2,\"result\":\"deleted\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":6,\"_primary_term\":1}",
+          "response": {
+            "_index": "tut-l27-pages",
+            "_id": "6",
+            "_version": 2,
+            "result": "deleted",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 6,
+            "_primary_term": 1
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-d-restored",
+          "method": "POST",
+          "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+          "body": {
+            "query": "FROM tut-l27-pages | WHERE views > 100 | STATS mean=AVG(views), rows=COUNT(*)"
+          },
+          "httpStatus": 200,
+          "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"mean\",\"type\":\"double\"},{\"name\":\"rows\",\"type\":\"long\"}],\"values\":[[200.0,3]]}",
+          "response": {
+            "is_partial": false,
+            "columns": [
+              {
+                "name": "mean",
+                "type": "double"
+              },
+              {
+                "name": "rows",
+                "type": "long"
+              }
+            ],
+            "values": [
+              [
+                200.0,
+                3
+              ]
+            ]
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-14-cleanup",
+          "method": "DELETE",
+          "path": "/tut-l27-pages",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"acknowledged\":true}",
+          "response": {
+            "acknowledged": true
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-clean-pages",
+          "method": "HEAD",
+          "path": "/tut-l27-pages",
+          "body": null,
+          "httpStatus": 404,
+          "raw": "",
+          "response": null,
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-clean-values-delete",
+          "method": "DELETE",
+          "path": "/tut-l27-values",
+          "body": null,
+          "httpStatus": 200,
+          "raw": "{\"acknowledged\":true}",
+          "response": {
+            "acknowledged": true
+          },
+          "verification": "pass"
+        },
+        {
+          "id": "ch27-clean-values",
+          "method": "HEAD",
+          "path": "/tut-l27-values",
+          "body": null,
+          "httpStatus": 404,
+          "raw": "",
+          "response": null,
+          "verification": "pass"
+        }
+      ],
+      "status": "pass"
+    }
+  ],
+  "supplemental": [
+    {
+      "id": "ch27-01-setup",
+      "method": "PUT",
+      "path": "/tut-l27-pages",
+      "body": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "auto_expand_replicas": "false",
+          "refresh_interval": "-1"
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "_source": {
+            "enabled": true
+          },
+          "properties": {
+            "title": {
+              "type": "keyword",
+              "doc_values": true
+            },
+            "description": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "views": {
+              "type": "long",
+              "doc_values": true
+            }
+          }
+        }
+      },
+      "httpStatus": 200,
+      "raw": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-l27-pages\"}",
+      "response": {
+        "acknowledged": true,
+        "shards_acknowledged": true,
+        "index": "tut-l27-pages"
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "ch27-a-health",
+      "method": "GET",
+      "path": "/_cluster/health/tut-l27-pages?wait_for_status=green&wait_for_no_initializing_shards=true&wait_for_no_relocating_shards=true&timeout=30s",
+      "body": null,
+      "httpStatus": 200,
+      "raw": "{\"cluster_name\":\"docker-cluster\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}",
+      "response": {
+        "cluster_name": "docker-cluster",
+        "status": "green",
+        "timed_out": false,
+        "number_of_nodes": 1,
+        "number_of_data_nodes": 1,
+        "active_primary_shards": 1,
+        "active_shards": 1,
+        "relocating_shards": 0,
+        "initializing_shards": 0,
+        "unassigned_shards": 0,
+        "unassigned_primary_shards": 0,
+        "delayed_unassigned_shards": 0,
+        "number_of_pending_tasks": 0,
+        "number_of_in_flight_fetch": 0,
+        "task_max_waiting_in_queue_millis": 0,
+        "active_shards_percent_as_number": 100.0
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "ch27-02-bulk",
+      "method": "POST",
+      "path": "/tut-l27-pages/_bulk?refresh=true",
+      "body": "{\"index\":{\"_id\":\"1\"}}\n{\"title\":\"a\",\"description\":\"quick brown fox\",\"views\":50}\n{\"index\":{\"_id\":\"2\"}}\n{\"title\":\"b\",\"description\":\"quick fox\",\"views\":100}\n{\"index\":{\"_id\":\"3\"}}\n{\"title\":\"c\",\"description\":\"slow turtle\",\"views\":150}\n{\"index\":{\"_id\":\"4\"}}\n{\"title\":\"d\",\"description\":\"quick brown\",\"views\":200}\n{\"index\":{\"_id\":\"5\"}}\n{\"title\":\"e\",\"description\":\"brown bear\",\"views\":250}\n",
+      "httpStatus": 200,
+      "raw": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"1\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"2\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"3\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"4\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"5\",\"_version\":1,\"result\":\"created\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":4,\"_primary_term\":1,\"status\":201}}]}",
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "1",
+              "_version": 1,
+              "result": "created",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 0,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "2",
+              "_version": 1,
+              "result": "created",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 1,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "3",
+              "_version": 1,
+              "result": "created",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 2,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "4",
+              "_version": 1,
+              "result": "created",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 3,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "5",
+              "_version": 1,
+              "result": "created",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 4,
+              "_primary_term": 1,
+              "status": 201
+            }
+          }
+        ]
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "repeat-create",
+      "method": "PUT",
+      "path": "/tut-l27-pages",
+      "body": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "auto_expand_replicas": "false",
+          "refresh_interval": "-1"
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "_source": {
+            "enabled": true
+          },
+          "properties": {
+            "title": {
+              "type": "keyword",
+              "doc_values": true
+            },
+            "description": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "views": {
+              "type": "long",
+              "doc_values": true
+            }
+          }
+        }
+      },
+      "httpStatus": 400,
+      "raw": "{\"error\":{\"root_cause\":[{\"type\":\"resource_already_exists_exception\",\"reason\":\"index [tut-l27-pages/m6THwO10T-y2OxKDcdlw5w] already exists\",\"index_uuid\":\"m6THwO10T-y2OxKDcdlw5w\",\"index\":\"tut-l27-pages\"}],\"type\":\"resource_already_exists_exception\",\"reason\":\"index [tut-l27-pages/m6THwO10T-y2OxKDcdlw5w] already exists\",\"index_uuid\":\"m6THwO10T-y2OxKDcdlw5w\",\"index\":\"tut-l27-pages\"},\"status\":400}",
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "resource_already_exists_exception",
+              "reason": "index [tut-l27-pages/m6THwO10T-y2OxKDcdlw5w] already exists",
+              "index_uuid": "m6THwO10T-y2OxKDcdlw5w",
+              "index": "tut-l27-pages"
+            }
+          ],
+          "type": "resource_already_exists_exception",
+          "reason": "index [tut-l27-pages/m6THwO10T-y2OxKDcdlw5w] already exists",
+          "index_uuid": "m6THwO10T-y2OxKDcdlw5w",
+          "index": "tut-l27-pages"
+        },
+        "status": 400
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "repeat-bulk",
+      "method": "POST",
+      "path": "/tut-l27-pages/_bulk?refresh=true",
+      "body": "{\"index\":{\"_id\":\"1\"}}\n{\"title\":\"a\",\"description\":\"quick brown fox\",\"views\":50}\n{\"index\":{\"_id\":\"2\"}}\n{\"title\":\"b\",\"description\":\"quick fox\",\"views\":100}\n{\"index\":{\"_id\":\"3\"}}\n{\"title\":\"c\",\"description\":\"slow turtle\",\"views\":150}\n{\"index\":{\"_id\":\"4\"}}\n{\"title\":\"d\",\"description\":\"quick brown\",\"views\":200}\n{\"index\":{\"_id\":\"5\"}}\n{\"title\":\"e\",\"description\":\"brown bear\",\"views\":250}\n",
+      "httpStatus": 200,
+      "raw": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"1\",\"_version\":2,\"result\":\"updated\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":5,\"_primary_term\":1,\"status\":200}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"2\",\"_version\":2,\"result\":\"updated\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":6,\"_primary_term\":1,\"status\":200}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"3\",\"_version\":2,\"result\":\"updated\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":7,\"_primary_term\":1,\"status\":200}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"4\",\"_version\":2,\"result\":\"updated\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":8,\"_primary_term\":1,\"status\":200}},{\"index\":{\"_index\":\"tut-l27-pages\",\"_id\":\"5\",\"_version\":2,\"result\":\"updated\",\"forced_refresh\":true,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":9,\"_primary_term\":1,\"status\":200}}]}",
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "1",
+              "_version": 2,
+              "result": "updated",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 5,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "2",
+              "_version": 2,
+              "result": "updated",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 6,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "3",
+              "_version": 2,
+              "result": "updated",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 7,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "4",
+              "_version": 2,
+              "result": "updated",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 8,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-l27-pages",
+              "_id": "5",
+              "_version": 2,
+              "result": "updated",
+              "forced_refresh": true,
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 9,
+              "_primary_term": 1,
+              "status": 200
+            }
+          }
+        ]
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "strict-unknown",
+      "method": "PUT",
+      "path": "/tut-l27-pages/_doc/bad?refresh=true",
+      "body": {
+        "unknown": 1
+      },
+      "httpStatus": 400,
+      "raw": "{\"error\":{\"root_cause\":[{\"type\":\"strict_dynamic_mapping_exception\",\"reason\":\"[1:13] mapping set to strict, dynamic introduction of [unknown] within [_doc] is not allowed\"}],\"type\":\"strict_dynamic_mapping_exception\",\"reason\":\"[1:13] mapping set to strict, dynamic introduction of [unknown] within [_doc] is not allowed\"},\"status\":400}",
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "strict_dynamic_mapping_exception",
+              "reason": "[1:13] mapping set to strict, dynamic introduction of [unknown] within [_doc] is not allowed"
+            }
+          ],
+          "type": "strict_dynamic_mapping_exception",
+          "reason": "[1:13] mapping set to strict, dynamic introduction of [unknown] within [_doc] is not allowed"
+        },
+        "status": 400
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "correct-query-after-error",
+      "method": "POST",
+      "path": "/_query?allow_partial_results=false&filter_path=columns,values,is_partial",
+      "body": {
+        "query": "FROM tut-l27-pages | WHERE views > 100 | STATS avg(views)"
+      },
+      "httpStatus": 200,
+      "raw": "{\"is_partial\":false,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[200.0]]}",
+      "response": {
+        "is_partial": false,
+        "columns": [
+          {
+            "name": "avg(views)",
+            "type": "double"
+          }
+        ],
+        "values": [
+          [
+            200.0
+          ]
+        ]
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "residual-filter-profile",
+      "method": "POST",
+      "path": "/_query?allow_partial_results=false",
+      "body": {
+        "query": "FROM tut-l27-pages | WHERE LENGTH(description) > 9 | STATS avg(views)",
+        "profile": true
+      },
+      "httpStatus": 200,
+      "raw": "{\"took\":18,\"is_partial\":false,\"completion_time_in_millis\":1791899290059,\"documents_found\":5,\"values_loaded\":9,\"start_time_in_millis\":1791899290041,\"expiration_time_in_millis\":1792331290035,\"columns\":[{\"name\":\"avg(views)\",\"type\":\"double\"}],\"values\":[[162.5]],\"profile\":{\"query\":{\"start_millis\":1791899290041,\"stop_millis\":1791899290060,\"took_millis\":19,\"took_nanos\":18723044},\"planning\":{\"start_millis\":1791899290041,\"stop_millis\":1791899290043,\"took_millis\":2,\"took_nanos\":2199846},\"parsing\":{\"start_millis\":1791899290041,\"stop_millis\":1791899290042,\"took_millis\":1,\"took_nanos\":668735},\"view_resolution\":{\"start_millis\":1791899290042,\"stop_millis\":1791899290042,\"took_millis\":0,\"took_nanos\":7571},\"preanalysis\":{\"start_millis\":1791899290042,\"stop_millis\":1791899290042,\"took_millis\":0,\"took_nanos\":11692},\"indices_resolution\":{\"start_millis\":1791899290042,\"stop_millis\":1791899290042,\"took_millis\":0,\"took_nanos\":340045},\"enrich_resolution\":{\"start_millis\":1791899290042,\"stop_millis\":1791899290042,\"took_millis\":0,\"took_nanos\":2187},\"inference_resolution\":{\"start_millis\":1791899290042,\"stop_millis\":1791899290042,\"took_millis\":0,\"took_nanos\":15015},\"analysis\":{\"start_millis\":1791899290042,\"stop_millis\":1791899290043,\"took_millis\":1,\"took_nanos\":572715},\"field_caps_calls\":1,\"drivers\":[{\"description\":\"data\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"start_millis\":1791899290049,\"stop_millis\":1791899290060,\"took_nanos\":10377474,\"cpu_nanos\":9585800,\"documents_found\":5,\"values_loaded\":9,\"iterations\":3,\"operators\":[{\"operator\":\"LuceneSourceOperator[shards = [tut-l27-pages:0], maxPageSize = 253, remainingDocs = 2147483642]\",\"status\":{\"processed_slices\":1,\"processed_queries\":[\"*:*\"],\"processed_shards\":[\"tut-l27-pages:0\"],\"process_nanos\":158941,\"slice_index\":0,\"total_slices\":1,\"pages_emitted\":2,\"slice_min\":0,\"slice_max\":0,\"current\":2147483647,\"rows_emitted\":5,\"partitioning_strategies\":{\"tut-l27-pages:0\":\"SHARD\"}}},{\"operator\":\"ValuesSourceReaderOperator[fields = [description]]\",\"status\":{\"readers_built\":{\"description:column_at_a_time:null\":1,\"description:row_stride:BlockSourceReader.Bytes\":1,\"stored_fields[requires_source:true, fields:0, sequential: false]\":1},\"values_loaded\":5,\"process_nanos\":6721130,\"pages_received\":1,\"pages_emitted\":1,\"rows_received\":5,\"rows_emitted\":5}},{\"operator\":\"FilterOperator[evaluator=GreaterThanIntsEvaluator[lhs=LengthEvaluator[val=Attribute[channel=1]], rhs=LiteralsEvaluator[lit=9]]]\",\"status\":{\"process_nanos\":1953507,\"pages_processed\":1,\"rows_received\":5,\"rows_emitted\":4}},{\"operator\":\"ValuesSourceReaderOperator[fields = [views]]\",\"status\":{\"readers_built\":{\"views:column_at_a_time:LongsFromDocValues.Singleton\":1},\"values_loaded\":4,\"process_nanos\":84538,\"pages_received\":1,\"pages_emitted\":1,\"rows_received\":4,\"rows_emitted\":4}},{\"operator\":\"AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[2]], mode=INITIAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[2]], mode=INITIAL]]]\",\"status\":{\"aggregation_nanos\":16192,\"aggregation_finish_nanos\":28684,\"pages_processed\":1,\"rows_received\":4,\"rows_emitted\":1}},{\"operator\":\"ExchangeSinkOperator\",\"status\":{\"pages_received\":1,\"rows_received\":1}}],\"sleeps\":{\"counts\":{},\"first\":[],\"last\":[]}},{\"description\":\"node_reduce\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"start_millis\":1791899290049,\"stop_millis\":1791899290060,\"took_nanos\":10193047,\"cpu_nanos\":421514,\"documents_found\":0,\"values_loaded\":0,\"iterations\":2,\"operators\":[{\"operator\":\"ExchangeSourceOperator\",\"status\":{\"pages_waiting\":0,\"pages_emitted\":1,\"rows_emitted\":1}},{\"operator\":\"ExchangeSinkOperator\",\"status\":{\"pages_received\":1,\"rows_received\":1}}],\"sleeps\":{\"counts\":{\"exchange empty\":1},\"first\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#1]\",\"sleep_millis\":1791899290050,\"wake_millis\":1791899290059}],\"last\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#1]\",\"sleep_millis\":1791899290050,\"wake_millis\":1791899290059}]}},{\"description\":\"final\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"start_millis\":1791899290044,\"stop_millis\":1791899290060,\"took_nanos\":16117751,\"cpu_nanos\":225267,\"documents_found\":0,\"values_loaded\":0,\"iterations\":4,\"operators\":[{\"operator\":\"ExchangeSourceOperator\",\"status\":{\"pages_waiting\":0,\"pages_emitted\":1,\"rows_emitted\":1}},{\"operator\":\"AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[0, 1, 2]], mode=FINAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[3, 4]], mode=FINAL]]]\",\"status\":{\"aggregation_nanos\":9884,\"aggregation_finish_nanos\":20146,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"ProjectOperator[projection = [0, 1]]\",\"status\":{\"process_nanos\":2187,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"LimitOperator[limit = 999/1000]\",\"status\":{\"limit\":1000,\"limit_remaining\":999,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"EvalOperator[evaluator=DivDoublesEvaluator[lhs=CastLongToDoubleEvaluator[v=Attribute[channel=0]], rhs=CastLongToDoubleEvaluator[v=Attribute[channel=1]]]]\",\"status\":{\"process_nanos\":21492,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"ProjectOperator[projection = [2]]\",\"status\":{\"process_nanos\":1009,\"pages_processed\":1,\"rows_received\":1,\"rows_emitted\":1}},{\"operator\":\"OutputOperator[columns = [avg(views)]]\"}],\"sleeps\":{\"counts\":{\"exchange empty\":2},\"first\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#4]\",\"sleep_millis\":1791899290044,\"wake_millis\":1791899290059},{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#3]\",\"sleep_millis\":1791899290059,\"wake_millis\":1791899290060}],\"last\":[{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#4]\",\"sleep_millis\":1791899290044,\"wake_millis\":1791899290059},{\"reason\":\"exchange empty\",\"thread_name\":\"elasticsearch[de11d253f59a][esql_worker][T#3]\",\"sleep_millis\":1791899290059,\"wake_millis\":1791899290060}]}}],\"plans\":[{\"description\":\"data\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"plan\":\"ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$COUNT$a\\nvg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],true]\\n\\\\_AggregateExec[[],[SUM(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\\n$SUM$avg(views)$0#1287, COUNT(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1288],I\\nNITIAL,[$$SUM$avg(views)$0$sum{r}#1299, $$SUM$avg(views)$0$seen{r}#1300, $$SUM$avg(views)$0$failed{r}#1301, $$\\nCOUNT$avg(views)$1$count{r}#1302, $$COUNT$avg(views)$1$seen{r}#1303],16]\\n  \\\\_FieldExtractExec[views{f}#1286]<[],[],[]>\\n    \\\\_FilterExec[LENGTH(description{f}#1285) > 9[INTEGER]]\\n      \\\\_FieldExtractExec[description{f}#1285]<[],[],[]>\\n        \\\\_EsQueryExec[tut-l27-pages], indexMode[standard], [_doc{f}#1304], limit[], sort[] estimatedRowSize[1036] queryBuilderAndTags [[QueryBuilderAndTags[query={\\n  \\\"exists\\\" : {\\n    \\\"field\\\" : \\\"views\\\",\\n    \\\"boost\\\" : 0.0\\n  }\\n}, tags=[]]]]\",\"logical_plan\":\"Aggregate[[],[SUM(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\\n$SUM$avg(views)$0#1287, COUNT(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1288]]\\n\\\\_Filter[LENGTH(description{f}#1285) > 9[INTEGER] AND ISNOTNULL(views{f}#1286)]\\n  \\\\_EsRelation[tut-l27-pages][description{f}#1285, views{f}#1286]\",\"logical_optimization_nanos\":256012,\"physical_optimization_nanos\":2486730},{\"description\":\"node_reduce\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"plan\":\"ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$COUNT$a\\nvg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],true]\\n\\\\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$COUNT$a\\nvg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],true]\",\"reduction_nanos\":0},{\"description\":\"final\",\"cluster_name\":\"docker-cluster\",\"node_name\":\"de11d253f59a\",\"plan\":\"OutputExec[org.elasticsearch.xpack.esql.plugin.ComputeService$$Lambda/0x0000000043bb9b58@779f80ee]\\n\\\\_ProjectExec[[avg(views){r}#1284]]\\n  \\\\_EvalExec[[$$SUM$avg(views)$0{r$}#1287 / $$COUNT$avg(views)$1{r$}#1288 AS avg(views)#1284]]\\n    \\\\_LimitExec[1000[INTEGER],16]\\n      \\\\_AggregateExec[[],[SUM(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\\n$SUM$avg(views)$0#1287, COUNT(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1288],F\\nINAL,[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$CO\\nUNT$avg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],24]\\n        \\\\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$COUNT$a\\nvg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],true]\",\"logical_optimization_nanos\":416803,\"physical_optimization_nanos\":118228}],\"minimumTransportVersion\":9348001}}",
+      "response": {
+        "took": 18,
+        "is_partial": false,
+        "completion_time_in_millis": 1791899290059,
+        "documents_found": 5,
+        "values_loaded": 9,
+        "start_time_in_millis": 1791899290041,
+        "expiration_time_in_millis": 1792331290035,
+        "columns": [
+          {
+            "name": "avg(views)",
+            "type": "double"
+          }
+        ],
+        "values": [
+          [
+            162.5
+          ]
+        ],
+        "profile": {
+          "query": {
+            "start_millis": 1791899290041,
+            "stop_millis": 1791899290060,
+            "took_millis": 19,
+            "took_nanos": 18723044
+          },
+          "planning": {
+            "start_millis": 1791899290041,
+            "stop_millis": 1791899290043,
+            "took_millis": 2,
+            "took_nanos": 2199846
+          },
+          "parsing": {
+            "start_millis": 1791899290041,
+            "stop_millis": 1791899290042,
+            "took_millis": 1,
+            "took_nanos": 668735
+          },
+          "view_resolution": {
+            "start_millis": 1791899290042,
+            "stop_millis": 1791899290042,
+            "took_millis": 0,
+            "took_nanos": 7571
+          },
+          "preanalysis": {
+            "start_millis": 1791899290042,
+            "stop_millis": 1791899290042,
+            "took_millis": 0,
+            "took_nanos": 11692
+          },
+          "indices_resolution": {
+            "start_millis": 1791899290042,
+            "stop_millis": 1791899290042,
+            "took_millis": 0,
+            "took_nanos": 340045
+          },
+          "enrich_resolution": {
+            "start_millis": 1791899290042,
+            "stop_millis": 1791899290042,
+            "took_millis": 0,
+            "took_nanos": 2187
+          },
+          "inference_resolution": {
+            "start_millis": 1791899290042,
+            "stop_millis": 1791899290042,
+            "took_millis": 0,
+            "took_nanos": 15015
+          },
+          "analysis": {
+            "start_millis": 1791899290042,
+            "stop_millis": 1791899290043,
+            "took_millis": 1,
+            "took_nanos": 572715
+          },
+          "field_caps_calls": 1,
+          "drivers": [
+            {
+              "description": "data",
+              "cluster_name": "docker-cluster",
+              "node_name": "de11d253f59a",
+              "start_millis": 1791899290049,
+              "stop_millis": 1791899290060,
+              "took_nanos": 10377474,
+              "cpu_nanos": 9585800,
+              "documents_found": 5,
+              "values_loaded": 9,
+              "iterations": 3,
+              "operators": [
+                {
+                  "operator": "LuceneSourceOperator[shards = [tut-l27-pages:0], maxPageSize = 253, remainingDocs = 2147483642]",
+                  "status": {
+                    "processed_slices": 1,
+                    "processed_queries": [
+                      "*:*"
+                    ],
+                    "processed_shards": [
+                      "tut-l27-pages:0"
+                    ],
+                    "process_nanos": 158941,
+                    "slice_index": 0,
+                    "total_slices": 1,
+                    "pages_emitted": 2,
+                    "slice_min": 0,
+                    "slice_max": 0,
+                    "current": 2147483647,
+                    "rows_emitted": 5,
+                    "partitioning_strategies": {
+                      "tut-l27-pages:0": "SHARD"
+                    }
+                  }
+                },
+                {
+                  "operator": "ValuesSourceReaderOperator[fields = [description]]",
+                  "status": {
+                    "readers_built": {
+                      "description:column_at_a_time:null": 1,
+                      "description:row_stride:BlockSourceReader.Bytes": 1,
+                      "stored_fields[requires_source:true, fields:0, sequential: false]": 1
+                    },
+                    "values_loaded": 5,
+                    "process_nanos": 6721130,
+                    "pages_received": 1,
+                    "pages_emitted": 1,
+                    "rows_received": 5,
+                    "rows_emitted": 5
+                  }
+                },
+                {
+                  "operator": "FilterOperator[evaluator=GreaterThanIntsEvaluator[lhs=LengthEvaluator[val=Attribute[channel=1]], rhs=LiteralsEvaluator[lit=9]]]",
+                  "status": {
+                    "process_nanos": 1953507,
+                    "pages_processed": 1,
+                    "rows_received": 5,
+                    "rows_emitted": 4
+                  }
+                },
+                {
+                  "operator": "ValuesSourceReaderOperator[fields = [views]]",
+                  "status": {
+                    "readers_built": {
+                      "views:column_at_a_time:LongsFromDocValues.Singleton": 1
+                    },
+                    "values_loaded": 4,
+                    "process_nanos": 84538,
+                    "pages_received": 1,
+                    "pages_emitted": 1,
+                    "rows_received": 4,
+                    "rows_emitted": 4
+                  }
+                },
+                {
+                  "operator": "AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[2]], mode=INITIAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[2]], mode=INITIAL]]]",
+                  "status": {
+                    "aggregation_nanos": 16192,
+                    "aggregation_finish_nanos": 28684,
+                    "pages_processed": 1,
+                    "rows_received": 4,
+                    "rows_emitted": 1
+                  }
+                },
+                {
+                  "operator": "ExchangeSinkOperator",
+                  "status": {
+                    "pages_received": 1,
+                    "rows_received": 1
+                  }
+                }
+              ],
+              "sleeps": {
+                "counts": {},
+                "first": [],
+                "last": []
+              }
+            },
+            {
+              "description": "node_reduce",
+              "cluster_name": "docker-cluster",
+              "node_name": "de11d253f59a",
+              "start_millis": 1791899290049,
+              "stop_millis": 1791899290060,
+              "took_nanos": 10193047,
+              "cpu_nanos": 421514,
+              "documents_found": 0,
+              "values_loaded": 0,
+              "iterations": 2,
+              "operators": [
+                {
+                  "operator": "ExchangeSourceOperator",
+                  "status": {
+                    "pages_waiting": 0,
+                    "pages_emitted": 1,
+                    "rows_emitted": 1
+                  }
+                },
+                {
+                  "operator": "ExchangeSinkOperator",
+                  "status": {
+                    "pages_received": 1,
+                    "rows_received": 1
+                  }
+                }
+              ],
+              "sleeps": {
+                "counts": {
+                  "exchange empty": 1
+                },
+                "first": [
+                  {
+                    "reason": "exchange empty",
+                    "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#1]",
+                    "sleep_millis": 1791899290050,
+                    "wake_millis": 1791899290059
+                  }
+                ],
+                "last": [
+                  {
+                    "reason": "exchange empty",
+                    "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#1]",
+                    "sleep_millis": 1791899290050,
+                    "wake_millis": 1791899290059
+                  }
+                ]
+              }
+            },
+            {
+              "description": "final",
+              "cluster_name": "docker-cluster",
+              "node_name": "de11d253f59a",
+              "start_millis": 1791899290044,
+              "stop_millis": 1791899290060,
+              "took_nanos": 16117751,
+              "cpu_nanos": 225267,
+              "documents_found": 0,
+              "values_loaded": 0,
+              "iterations": 4,
+              "operators": [
+                {
+                  "operator": "ExchangeSourceOperator",
+                  "status": {
+                    "pages_waiting": 0,
+                    "pages_emitted": 1,
+                    "rows_emitted": 1
+                  }
+                },
+                {
+                  "operator": "AggregationOperator[aggregators=[Aggregator[aggregatorFunction=SumLongAggregatorFunction[channels=[0, 1, 2]], mode=FINAL], Aggregator[aggregatorFunction=CountAggregatorFunction[channels=[3, 4]], mode=FINAL]]]",
+                  "status": {
+                    "aggregation_nanos": 9884,
+                    "aggregation_finish_nanos": 20146,
+                    "pages_processed": 1,
+                    "rows_received": 1,
+                    "rows_emitted": 1
+                  }
+                },
+                {
+                  "operator": "ProjectOperator[projection = [0, 1]]",
+                  "status": {
+                    "process_nanos": 2187,
+                    "pages_processed": 1,
+                    "rows_received": 1,
+                    "rows_emitted": 1
+                  }
+                },
+                {
+                  "operator": "LimitOperator[limit = 999/1000]",
+                  "status": {
+                    "limit": 1000,
+                    "limit_remaining": 999,
+                    "pages_processed": 1,
+                    "rows_received": 1,
+                    "rows_emitted": 1
+                  }
+                },
+                {
+                  "operator": "EvalOperator[evaluator=DivDoublesEvaluator[lhs=CastLongToDoubleEvaluator[v=Attribute[channel=0]], rhs=CastLongToDoubleEvaluator[v=Attribute[channel=1]]]]",
+                  "status": {
+                    "process_nanos": 21492,
+                    "pages_processed": 1,
+                    "rows_received": 1,
+                    "rows_emitted": 1
+                  }
+                },
+                {
+                  "operator": "ProjectOperator[projection = [2]]",
+                  "status": {
+                    "process_nanos": 1009,
+                    "pages_processed": 1,
+                    "rows_received": 1,
+                    "rows_emitted": 1
+                  }
+                },
+                {
+                  "operator": "OutputOperator[columns = [avg(views)]]"
+                }
+              ],
+              "sleeps": {
+                "counts": {
+                  "exchange empty": 2
+                },
+                "first": [
+                  {
+                    "reason": "exchange empty",
+                    "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#4]",
+                    "sleep_millis": 1791899290044,
+                    "wake_millis": 1791899290059
+                  },
+                  {
+                    "reason": "exchange empty",
+                    "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#3]",
+                    "sleep_millis": 1791899290059,
+                    "wake_millis": 1791899290060
+                  }
+                ],
+                "last": [
+                  {
+                    "reason": "exchange empty",
+                    "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#4]",
+                    "sleep_millis": 1791899290044,
+                    "wake_millis": 1791899290059
+                  },
+                  {
+                    "reason": "exchange empty",
+                    "thread_name": "elasticsearch[de11d253f59a][esql_worker][T#3]",
+                    "sleep_millis": 1791899290059,
+                    "wake_millis": 1791899290060
+                  }
+                ]
+              }
+            }
+          ],
+          "plans": [
+            {
+              "description": "data",
+              "cluster_name": "docker-cluster",
+              "node_name": "de11d253f59a",
+              "plan": "ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$COUNT$a\nvg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],true]\n\\_AggregateExec[[],[SUM(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\n$SUM$avg(views)$0#1287, COUNT(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1288],I\nNITIAL,[$$SUM$avg(views)$0$sum{r}#1299, $$SUM$avg(views)$0$seen{r}#1300, $$SUM$avg(views)$0$failed{r}#1301, $$\nCOUNT$avg(views)$1$count{r}#1302, $$COUNT$avg(views)$1$seen{r}#1303],16]\n  \\_FieldExtractExec[views{f}#1286]<[],[],[]>\n    \\_FilterExec[LENGTH(description{f}#1285) > 9[INTEGER]]\n      \\_FieldExtractExec[description{f}#1285]<[],[],[]>\n        \\_EsQueryExec[tut-l27-pages], indexMode[standard], [_doc{f}#1304], limit[], sort[] estimatedRowSize[1036] queryBuilderAndTags [[QueryBuilderAndTags[query={\n  \"exists\" : {\n    \"field\" : \"views\",\n    \"boost\" : 0.0\n  }\n}, tags=[]]]]",
+              "logical_plan": "Aggregate[[],[SUM(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\n$SUM$avg(views)$0#1287, COUNT(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1288]]\n\\_Filter[LENGTH(description{f}#1285) > 9[INTEGER] AND ISNOTNULL(views{f}#1286)]\n  \\_EsRelation[tut-l27-pages][description{f}#1285, views{f}#1286]",
+              "logical_optimization_nanos": 256012,
+              "physical_optimization_nanos": 2486730
+            },
+            {
+              "description": "node_reduce",
+              "cluster_name": "docker-cluster",
+              "node_name": "de11d253f59a",
+              "plan": "ExchangeSinkExec[[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$COUNT$a\nvg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],true]\n\\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$COUNT$a\nvg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],true]",
+              "reduction_nanos": 0
+            },
+            {
+              "description": "final",
+              "cluster_name": "docker-cluster",
+              "node_name": "de11d253f59a",
+              "plan": "OutputExec[org.elasticsearch.xpack.esql.plugin.ComputeService$$Lambda/0x0000000043bb9b58@779f80ee]\n\\_ProjectExec[[avg(views){r}#1284]]\n  \\_EvalExec[[$$SUM$avg(views)$0{r$}#1287 / $$COUNT$avg(views)$1{r$}#1288 AS avg(views)#1284]]\n    \\_LimitExec[1000[INTEGER],16]\n      \\_AggregateExec[[],[SUM(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION],compensated[KEYWORD],long_overflow_warn[KEYWORD]) AS $\n$SUM$avg(views)$0#1287, COUNT(views{f}#1286,true[BOOLEAN],PT0S[TIME_DURATION]) AS $$COUNT$avg(views)$1#1288],F\nINAL,[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$CO\nUNT$avg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],24]\n        \\_ExchangeSourceExec[[$$SUM$avg(views)$0$sum{r}#1289, $$SUM$avg(views)$0$seen{r}#1290, $$SUM$avg(views)$0$failed{r}#1291, $$COUNT$a\nvg(views)$1$count{r}#1292, $$COUNT$avg(views)$1$seen{r}#1293],true]",
+              "logical_optimization_nanos": 416803,
+              "physical_optimization_nanos": 118228
+            }
+          ],
+          "minimumTransportVersion": 9348001
+        }
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "ch27-14-cleanup",
+      "method": "DELETE",
+      "path": "/tut-l27-pages",
+      "body": null,
+      "httpStatus": 200,
+      "raw": "{\"acknowledged\":true}",
+      "response": {
+        "acknowledged": true
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "ch27-clean-pages",
+      "method": "HEAD",
+      "path": "/tut-l27-pages",
+      "body": null,
+      "httpStatus": 404,
+      "raw": "",
+      "response": null,
+      "verification": "pass"
+    },
+    {
+      "id": "repeat-cleanup",
+      "method": "DELETE",
+      "path": "/tut-l27-pages",
+      "body": null,
+      "httpStatus": 404,
+      "raw": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-l27-pages]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-l27-pages\",\"index_uuid\":\"_na_\",\"index\":\"tut-l27-pages\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-l27-pages]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-l27-pages\",\"index_uuid\":\"_na_\",\"index\":\"tut-l27-pages\"},\"status\":404}",
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "index_not_found_exception",
+              "reason": "no such index [tut-l27-pages]",
+              "resource.type": "index_or_alias",
+              "resource.id": "tut-l27-pages",
+              "index_uuid": "_na_",
+              "index": "tut-l27-pages"
+            }
+          ],
+          "type": "index_not_found_exception",
+          "reason": "no such index [tut-l27-pages]",
+          "resource.type": "index_or_alias",
+          "resource.id": "tut-l27-pages",
+          "index_uuid": "_na_",
+          "index": "tut-l27-pages"
+        },
+        "status": 404
+      },
+      "verification": "pass"
+    },
+    {
+      "id": "final-absent-pages",
+      "method": "HEAD",
+      "path": "/tut-l27-pages",
+      "body": null,
+      "httpStatus": 404,
+      "raw": "",
+      "response": null,
+      "verification": "pass"
+    },
+    {
+      "id": "final-absent-values",
+      "method": "HEAD",
+      "path": "/tut-l27-values",
+      "body": null,
+      "httpStatus": 404,
+      "raw": "",
+      "response": null,
+      "verification": "pass"
+    }
+  ],
+  "status": "pass",
+  "authentication": "anonymous",
+  "sourceCommit": "2e8528e92361c3399724226deaf2b46f933e925b",
+  "firstAndCleanupRebuildPass": true,
+  "finalResourcesAbsent": true,
+  "chapterSha256": "8488e8df021253fa0d522749a456dd567c2099a35b6ec162e6058e906c34f5de",
+  "experimentSha256": "13c8def0a9a98ed98e3e8b2f3fa31f3ccfffedad6a7980bbd5addf9712e92ae3"
+}
