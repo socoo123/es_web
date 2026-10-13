@@ -1,272 +1,69 @@
-/* experiments/ch23.js — 第 23 课:分片分配实验 + 均衡迁移动画(旗舰) */
+/* ch23 · ES9.4.0：分配、目标与搬迁；多节点动画为概念示意，API请求仅操作本课索引。 */
 (function () {
   'use strict';
-
-  /* ===== 动画:从单节点 Yellow 到三节点均衡 ===== */
-  function rect(x, y, w, h, cls, anim) {
-    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="9" class="' + cls + (anim ? ' ' + anim : '') + '"/>';
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function text(x,y,s,c) { return '<text x="'+x+'" y="'+y+'" text-anchor="middle" class="'+c+'">'+esc(s)+'</text>'; }
+  function box(x,y,w,h,hot) { return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9" class="'+(hot?'fig-box-hot':'fig-box')+'"/>'; }
+  function snapshot(n,nodes,lines,title,note) {
+    var id='ch23-step-'+n;
+    var s='<svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="'+esc(title)+'"><defs><marker id="'+id+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>';
+    nodes.forEach(function(a,i) { var x=15+i*255;s+=box(x,15,220,88,a[2])+text(x+110,39,'Node-'+['A','B','C'][i],'fig-name')+text(x+110,64,a[0],'fig-key')+text(x+110,88,a[1],'fig-sub'); });
+    if(n===3) s+='<line x1="235" y1="68" x2="268" y2="68" class="fig-arrow" marker-end="url(#'+id+')"/>'+text(380,130,'实线 A → B：本例 replica 向 active primary 恢复','fig-sub');
+    if(n===6) {
+      s+='<line x1="490" y1="68" x2="521" y2="68" class="fig-arrow" style="stroke-dasharray:5 4" marker-end="url(#'+id+')"/>';
+      s+='<path d="M 125 103 V 116 H 635 V 103" fill="none" class="fig-arrow" marker-end="url(#'+id+')"/>';
+      s+=text(380,136,'虚线 B → C：搬迁配对；实线 A → C：本例恢复数据','fig-sub');
+    }
+    s+=box(15,147,730,128,false);lines.forEach(function(l,i) {s+=text(380,168+i*25,l,i===0?'fig-key':'fig-sub');});
+    s+=box(15,312,730,43,true)+text(380,331,title,'fig-name')+text(380,348,note,'fig-sub');return s+'</svg>';
   }
-  function txt(x, y, s, cls, warn, anim) {
-    var st = warn ? ' style="fill: rgb(var(--warn))"' : '';
-    return '<text x="' + x + '" y="' + y + '" text-anchor="middle" class="' + cls + (anim ? ' ' + anim : '') + '"' + st + '>' + s + '</text>';
-  }
-  function arrow(id, x1, y1, x2, y2) {
-    return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" class="fig-arrow" marker-end="url(#' + id + ')"/>';
-  }
-  function defs(id) {
-    return '<defs><marker id="' + id + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-      + '<path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>';
-  }
-  /* 节点盒子:x 传列左缘,w=222,y=15,h=96 */
-  function nodeBox(x, name, chips, hot, anim) {
-    var s = rect(x, 15, 222, 96, hot ? 'fig-box-hot' : 'fig-box', anim);
-    s += txt(x + 111, 40, name, 'fig-name');
-    s += txt(x + 111, 66, chips, 'fig-key');
-    return s;
-  }
-  function ghost(x, label) {
-    return txt(x + 111, 60, label, 'fig-sub');
-  }
-  function bottom(title, sub) {
-    var s = rect(15, 242, 730, 46, 'fig-box-hot', 'fp-pop');
-    s += txt(380, 263, title, 'fig-name');
-    s += txt(380, 282, sub, 'fig-sub');
-    return s;
-  }
-  var A = 126, B = 380, C = 634;
-
-  /* 步骤 1:单节点 Yellow */
-  function step1() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('b1');
-    s += nodeBox(269, 'Node-A', 'idx1 P0 STARTED', true);
-    s += ghost(15, '(还没有别的节点)');
-    s += rect(15, 130, 730, 46, 'fig-box');
-    s += txt(380, 149, 'R0 问 Node-A:same_shard 投 NO', 'fig-key', true);
-    s += txt(380, 169, 'a copy of this shard is already allocated to this node', 'fig-sub');
-    s += rect(15, 190, 730, 40, 'fig-box');
-    s += txt(380, 208, '过滤链遇 NO 即 break,balancer 根本没上场', 'fig-sub');
-    s += txt(380, 224, 'R0 停在 UNASSIGNED,RoutingTable 这行没有 node', 'fig-sub');
-    s += bottom('集群 Yellow:能读写,但没有第二台可切', '这就是第 1 课看见的现象——本课终于能说出投出那一票的名字');
-    return s + '</svg>';
-  }
-
-  /* 步骤 2:Node-B 加入 */
-  function step2() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('b2');
-    s += nodeBox(15, 'Node-A', 'idx1 P0 STARTED', true);
-    s += nodeBox(269, 'Node-B', '(空)', false, 'fp-pop');
-    s += txt(380, 100, '节点加入 → 触发 reroute,R0 重新走过滤链', 'fig-sub');
-    s += rect(15, 130, 340, 52, 'fig-box');
-    s += txt(185, 150, 'R0 问 A:same_shard → NO', 'fig-sub', true);
-    s += txt(185, 172, '同号副本已在这台,剔除', 'fig-sub', true);
-    s += rect(405, 130, 340, 52, 'fig-box');
-    s += txt(575, 150, 'R0 问 B:全链 YES', 'fig-sub');
-    s += txt(575, 172, '磁盘/过滤/限流全放行', 'fig-sub');
-    s += bottom('过滤链的产出是候选集:{Node-B}', '磁盘没过水位、没有 filter、并发 recovery 没超限——每张票都是 YES');
-    return s + '</svg>';
-  }
-
-  /* 步骤 3:balancer 打分,R0 落 B */
-  function step3() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('b3');
-    s += nodeBox(15, 'Node-A', 'idx1 P0 STARTED', true);
-    s += nodeBox(269, 'Node-B', 'idx1 R0 INITIALIZING', true, 'fp-pop');
-    s += arrow('b3', 237, 63, 263, 63);
-    s += txt(250, 120, 'peer recovery:从 P0 拷数据(第 24 课)', 'fig-sub');
-    s += rect(15, 130, 730, 46, 'fig-box');
-    s += txt(380, 149, '候选集只有一个,权重最低也只能是它', 'fig-key');
-    s += txt(380, 169, 'THROTTLE 会说「这轮先别动」:并发 recovery 默认每节点 2', 'fig-sub');
-    s += rect(15, 190, 730, 40, 'fig-box');
-    s += txt(380, 208, 'Master 把这步写进新的 ClusterState(第 21 课)', 'fig-sub');
-    s += txt(380, 224, 'RoutingTable:idx1 R0 → node B,state=INITIALIZING', 'fig-sub');
-    s += bottom('balancer 只在候选集里挑人,不推翻 NO', '它根本看不到 Node-A——被剔除的节点不进打分');
-    return s + '</svg>';
-  }
-
-  /* 步骤 4:Green */
-  function step4() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('b4');
-    s += nodeBox(15, 'Node-A', 'idx1 P0 STARTED', true);
-    s += nodeBox(269, 'Node-B', 'idx1 R0 STARTED', true);
-    s += ghost(523, '(两台各持一份)');
-    s += rect(15, 130, 730, 46, 'fig-box');
-    s += txt(380, 149, '恢复完成:R0 STARTED,集群 Green', 'fig-key');
-    s += txt(380, 169, '一份数据、两个故障域:任一台挂掉,另一份还在', 'fig-sub');
-    s += rect(15, 190, 730, 40, 'fig-box');
-    s += txt(380, 208, 'explain 再问 R0 已没有 unassigned 可解释', 'fig-sub');
-    s += txt(380, 224, '想再看到那一票,就再建一个带副本的索引', 'fig-sub');
-    s += bottom('Yellow → Green 的全部原因:多了一个合法候选', '不是「副本终于创建了」,是过滤链第一次有了放行的节点');
-    return s + '</svg>';
-  }
-
-  /* 步骤 5:新索引,P/R 交错落位 */
-  function step5() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('b5');
-    s += nodeBox(15, 'Node-A', 'idx1 P0 + idx2 P0', true);
-    s += nodeBox(269, 'Node-B', 'idx1 R0 + idx2 R0', true);
-    s += rect(15, 130, 340, 52, 'fig-box');
-    s += txt(185, 150, 'idx2 P0:A/B 都 YES', 'fig-sub');
-    s += txt(185, 172, '权重相同,选一台(示意 A)', 'fig-sub');
-    s += rect(405, 130, 340, 52, 'fig-box');
-    s += txt(575, 150, 'idx2 R0:A 已有 idx2 P0', 'fig-sub', true);
-    s += txt(575, 172, 'same_shard NO → 落 B', 'fig-sub', true);
-    s += rect(15, 196, 730, 36, 'fig-box');
-    s += txt(380, 218, 'balance.index=0.55:同一索引的分片尽量不堆一台——P/R 天然交错', 'fig-sub');
-    s += bottom('两节点各 2 片:总分片均衡,同索引也打散', '每一步落位都是「过滤链先答行不行,权重再挑谁最好」');
-    return s + '</svg>';
-  }
-
-  /* 步骤 6:Node-C 加入,relocation */
-  function step6() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('b6');
-    s += nodeBox(15, 'Node-A', 'idx1 P0 + idx2 P0', true);
-    s += nodeBox(269, 'Node-B', 'idx1 R0* + idx2 R0', false);
-    s += nodeBox(523, 'Node-C', 'idx1 R0 INITIALIZING', true, 'fp-pop');
-    s += arrow('b6', 491, 63, 517, 63);
-    s += txt(504, 120, 'relocation(搬迁)', 'fig-sub');
-    s += rect(15, 130, 730, 46, 'fig-box');
-    s += txt(380, 149, 'DesiredBalance 重算:A=2,B=2,C=0 偏差超 threshold', 'fig-key');
-    s += txt(380, 169, 'balance() 挑「搬哪个最划算」:idx1 R0 从 B 搬 C', 'fig-sub');
-    s += rect(15, 190, 730, 40, 'fig-box');
-    s += txt(380, 208, '搬迁期间源分片仍 STARTED(可读写),目标同步完成后才切换', 'fig-sub');
-    s += txt(380, 224, 'R0*:搬迁中的源副本;threshold=1.0 之下的小不平衡不搬,防抖动', 'fig-sub');
-    s += bottom('节点加入不只是「新分片有地方放」', 'balancer 会把存量也往理想位置挪——每次挪仍要过过滤链');
-    return s + '</svg>';
-  }
-
-  /* 步骤 7:终态与收束 */
-  function step7() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('b7');
-    s += nodeBox(15, 'Node-A', 'idx1 P0 + idx2 P0', true);
-    s += nodeBox(269, 'Node-B', 'idx2 R0', false);
-    s += nodeBox(523, 'Node-C', 'idx1 R0 STARTED', true);
-    s += rect(15, 130, 730, 46, 'fig-box');
-    s += txt(380, 149, '终态 2/1/1:主副分离、总分片摊开、同索引打散', 'fig-key');
-    s += txt(380, 169, '磁盘 86% 的话:C 进不来了(disk_threshold NO);91% 才动存量', 'fig-sub');
-    s += rect(15, 190, 730, 40, 'fig-box');
-    s += txt(380, 208, '搬错的每一步都能被 explain 读出那一票', 'fig-sub');
-    s += txt(380, 224, '搬过去的每个分片都要走 peer recovery(第 24 课)', 'fig-sub');
-    s += bottom('过滤链管「行不行」,balancer 管「谁最好」', '一个 NO 就出局;能放的节点里,永远选偏差最小的那个');
-    return s + '</svg>';
-  }
-
-  window.ESFLOWS = window.ESFLOWS || {};
-  window.ESFLOWS['ch23-balance'] = {
-    version: 1,
-    id: 'ch23-balance',
-    title: '从单节点 Yellow 到三节点均衡',
-    speed: 2600,
-    steps: [
-      { svg: step1(), note: '起点是第 1 课的老朋友:单节点 Node-A 持有 idx1 的 P0,replica R0 想进同一台被 same_shard 拒绝——a copy of this shard is already allocated to this node。过滤链遇 NO 即 break,balancer 没上场,集群 Yellow。' },
-      { svg: step2(), note: 'Node-B 加入,触发 reroute,R0 重新走过滤链:A 仍被 same_shard 剔除;B 磁盘没过水位、没有 filter、并发 recovery 没超限,全链 YES。过滤链的产出只是候选集 {B}。' },
-      { svg: step3(), note: 'balancer 只在候选集里选权重最低者——这里只有一个候选。R0 落到 B,状态 INITIALIZING,数据从 A 的 P0 拷(peer recovery,第 24 课)。THROTTLE 若出现会说「这轮先别动」:并发 recovery 默认每节点 2。' },
-      { svg: step4(), note: 'R0 STARTED,集群 Green。Yellow→Green 的全部原因不是「副本终于创建了」,是过滤链第一次有了放行的节点——一份数据、两个故障域,任一台挂掉另一份还在。' },
-      { svg: step5(), note: '再建一个 1P1R 的索引 idx2:P0 对 A、B 都 YES(权重相同,示意落 A);R0 对 A 被 same_shard 拒(idx2 P0 已在那)→ 落 B。balance.index=0.55 让同一索引的分片天然交错,两台各 2 片。' },
-      { svg: step6(), note: 'Node-C 加入,DesiredBalance 重算:A=2、B=2、C=0,偏差超过 threshold=1.0,balance() 决定把 idx1 的 R0 从 B 搬到 C:搬迁期间源分片仍 STARTED 可读写,目标 INITIALIZING,同步完成才切换。每次挪都要再过过滤链。' },
-      { svg: step7(), note: '终态 2/1/1:主副分离、总分片摊开、同索引打散。若某台磁盘 86%,新分片进不来(disk_threshold 对新 replica 投 NO),91% 才迁存量,95% 是只读块。搬过去的每个分片都要走 peer recovery——第 24 课接着拆。' }
-    ]
-  };
-
-  /* ===== 实验 ===== */
-  window.ESEXPERIMENTS = window.ESEXPERIMENTS || {};
-
-  window.ESEXPERIMENTS['ch23-00-setup'] = {
-    version: 1, id: 'ch23-00-setup',
-    title: '实验 0 · 建 tut-l23-yellow(1 主 1 副,单节点)',
-    method: 'PUT', path: '/tut-l23-yellow',
-    body: { settings: { number_of_shards: 1, number_of_replicas: 1 } },
-    predict: '单节点放 1 主 1 副,集群会是什么颜色?',
-    expect: 'acknowledged: true。P0 会 STARTED;R0 想进同一台被 same_shard 拒——第 1 课的 Yellow 重现。这次我们不只知道黄,还要读出投出那一票的 Decider 名字。'
-  };
-
-  window.ESEXPERIMENTS['ch23-01-cat-shards'] = {
-    version: 1, id: 'ch23-01-cat-shards',
-    title: '实验 1 · _cat/shards:两行,一行 UNASSIGNED',
-    method: 'GET',
-    path: '/_cat/shards/tut-l23-yellow?v&h=index,shard,prirep,state,unassigned.reason,node',
-    body: null,
-    predict: '几行?哪行 UNASSIGNED?unassigned.reason 是什么?',
-    expect: '两行:p = STARTED(node 有名有姓)、r = UNASSIGNED(node 空)。unassigned.reason = INDEX_CREATED:分片从建索引起就没分出去过。第 1 课是 2P+2R 的四行版,现象同源。'
-  };
-
-  window.ESEXPERIMENTS['ch23-02-health'] = {
-    version: 1, id: 'ch23-02-health',
-    title: '实验 2 · Yellow 又来了',
-    method: 'GET', path: '/_cat/health?v',
-    body: null,
-    predict: 'status 列是什么颜色对应的词?',
-    expect: 'yellow。主分片全在、能读写;缺的是副本这一层冗余。Green 的定义是「所有副本也就位」——单节点永远给不了第二台。'
-  };
-
-  window.ESEXPERIMENTS['ch23-03-explain'] = {
-    version: 1, id: 'ch23-03-explain',
-    title: '实验 3 · explain:读出 same_shard 那一票',
-    method: 'POST', path: '/_cluster/allocation/explain',
-    body: { index: 'tut-l23-yellow', shard: 0, primary: false },
-    predict: 'can_allocate 是 yes 还是 no?deciders[].decider 叫什么?explanation 以什么开头?',
-    expect: 'current_state=unassigned、can_allocate=no;node_allocation_decisions[0].node_decision=no;deciders 里 decider=same_shard、decision=NO、explanation 以 a copy of this shard is already allocated to this node 开头。这一票就是 Yellow 的全部原因。默认 include_yes_decisions=false:不是链上只有一个 Decider,是 YES 被滤掉了。'
-  };
-
-  window.ESEXPERIMENTS['ch23-04-explain-yes'] = {
-    version: 1, id: 'ch23-04-explain-yes',
-    title: '实验 4 · include_yes_decisions=true:看整条链',
-    method: 'POST', path: '/_cluster/allocation/explain?include_yes_decisions=true',
-    body: { index: 'tut-l23-yellow', shard: 0, primary: false },
-    predict: 'deciders 数组会变长还是变短?same_shard 那条 NO 会不会变 YES?',
-    expect: '明显变长:replica_after_primary_active、disk_threshold、throttling、enable、filter 等都以 YES 出现(DebugMode.ON 收齐所有非 ALWAYS 票);same_shard 仍是 NO——看见整条链 ≠ 改写投票。对比实验 3:默认模式下你只看到 1 条,是过滤不是缺席。'
-  };
-
-  window.ESEXPERIMENTS['ch23-05-defaults'] = {
-    version: 1, id: 'ch23-05-defaults',
-    title: '实验 5 · 默认值核对:水位 + 平衡因子',
-    method: 'GET',
-    path: '/_cluster/settings?include_defaults=true&filter_path=defaults.cluster.routing.allocation.disk.watermark,defaults.cluster.routing.allocation.disk.threshold_enabled,defaults.cluster.routing.allocation.balance',
-    body: null,
-    predict: '三档水位默认各是多少?balance 五个因子呢?',
-    expect: 'watermark: low=85%、high=90%、flood_stage=95%,threshold_enabled=true——与 DiskThresholdSettings 源码字符串逐字一致。balance: shard=0.45、index=0.55、write_load=10.0、disk_usage=2e-11(没看错,就是 2×10⁻¹¹,磁盘大头由水位硬阈值管)、threshold=1.0。'
-  };
-
-  window.ESEXPERIMENTS['ch23-06-cat-allocation'] = {
-    version: 1, id: 'ch23-06-cat-allocation',
-    title: '实验 6 · _cat/allocation:本机磁盘离水位远吗',
-    method: 'GET', path: '/_cat/allocation?v&h=shards,disk.indices,disk.used,disk.avail,disk.percent,node',
-    body: null,
-    predict: '本机 disk.percent 过 85% 了吗?这跟实验 3 的 NO 什么关系?',
-    expect: '远低于 85%。所以实验 3 里投 NO 的不是 disk_threshold,是 same_shard——单节点 Yellow 的锅不在磁盘。这张表正是 DiskThresholdDecider 的输入(ClusterInfo 的磁盘快照);真正灌磁盘验证水位是被禁止的,读 canAllocate 分支就够了。'
-  };
-
-  window.ESEXPERIMENTS['ch23-07-replicas-0'] = {
-    version: 1, id: 'ch23-07-replicas-0',
-    title: '实验 7 · 副本数归零:Yellow 的开关(上)',
-    method: 'PUT', path: '/tut-l23-yellow/_settings',
-    body: { number_of_replicas: 0 },
-    predict: '不需要第二份了,集群会变什么颜色?',
-    expect: 'acknowledged: true。改副本数是一次 ClusterState 更新(第 21 课:version +1);R0 被移出 RoutingTable。顺带一提:这也是动态索引设置,和第 5 课同一套机制。'
-  };
-
-  window.ESEXPERIMENTS['ch23-08-green'] = {
-    version: 1, id: 'ch23-08-green',
-    title: '实验 8 · Yellow 的开关(下):Green',
-    method: 'GET', path: '/_cat/health?v&h=status',
-    body: null,
-    predict: '现在 status 是什么?',
-    expect: 'green。Yellow 说的是「副本没处放」而不是「集群坏了」:需求消失,黄也消失。生产上这是权衡——单节点要 Green 只能 0 副本,等于放弃冗余(思考题 2 的另一面)。'
-  };
-
-  window.ESEXPERIMENTS['ch23-09-replicas-back'] = {
-    version: 1, id: 'ch23-09-replicas-back',
-    title: '实验 9 · 副本数改回 1:Yellow 回来了',
-    method: 'PUT', path: '/tut-l23-yellow/_settings',
-    body: { number_of_replicas: 1 },
-    predict: 'explain 指定 primary:false 还能解释到分片吗?空 body 会怎样?',
-    expect: 'acknowledged: true,R0 重新 UNASSIGNED(又能用实验 3 读出 same_shard 那一票)。空 body 的 GET /_cluster/allocation/explain 会挑「第一条 unassigned」并带一段 note——集群里有别的黄分片时容易解释错对象,所以实验 3 用 body 指定。'
-  };
-
-  window.ESEXPERIMENTS['ch23-10-cleanup'] = {
-    version: 1, id: 'ch23-10-cleanup',
-    title: '清理 · 删 tut-l23-yellow',
-    method: 'DELETE', path: '/tut-l23-yellow',
-    predict: '一句话总结本课?',
-    expect: 'acknowledged: true。过滤链管「行不行」(一个 NO 就出局:同号副本不同节点、磁盘水位、filter、总开关),balancer 管「谁最好」(候选集里选权重最低);Yellow 是那张 NO 的合法产物,explain 能把票箱读出来。'
-  };
+  window.ESFLOWS=window.ESFLOWS||{};
+  window.ESFLOWS['ch23-balance']={version:1,id:'ch23-balance',title:'七步概念示意：副本分配、目标规划与一次搬迁',speed:2600,steps:[
+    {svg:snapshot(1,[['idx1 P0 STARTED','已有主分片',true],['尚未加入','没有第二个候选'],['尚未加入','没有第三个候选']],['idx1 设1主1副；仅一个合格数据节点 A','R0 未分配；same_shard 对已有 P0 的 A 给 NO','这是一个充分阻碍，不证明只有它投 NO','本索引 Yellow 不等于所有请求都能成功'],'起点：副本不能与同号主分片放同一节点','固定前提的概念动画，不是本轮多节点运行录像'),note:'设 idx1 为1主1副，P0在唯一合格数据节点A上active，R0未分配。same_shard的NO足以阻止叠放，但其他decider也可能给NO。本索引Yellow只说明副本冗余未就绪，不承诺写入不受其他块或条件影响。'},
+    {svg:snapshot(2,[['idx1 P0 STARTED','已持有同号副本',true],['加入集群','新的可能目标'],['尚未加入','无候选']],['B 加入会带来新分配输入，不等于立刻恢复完','后台 Balanced 规划；Master 可先执行现有目标','假设 B 的磁盘、过滤、角色等条件允许','NO 不能落位；THROTTLE 本轮暂缓，不是立即分配'],'多了可能目标，但仍需实际约束通过','NOT_PREFERRED 在不同动作中的准入条件不同'),note:'B加入使候选条件改变；默认desired_balance后台算目标，同时本轮可先按现有目标reconcile。本例假设B角色、磁盘、过滤等允许且最终解除节流。规划目标不是已完成落位，THROTTLE不会让本轮立即开始。'},
+    {svg:snapshot(3,[['idx1 P0 STARTED','active primary',true],['idx1 R0 INITIALIZING','本例向 A 恢复',true],['尚未加入','无分片']],['Master 通过当前检查，初始化 B 上的 R0','路由 INITIALIZING 不等于复制数据已经完成','数据节点进行 peer recovery；primary 须 active','默认 incoming/outgoing 各2；初始本地主分片另有4'],'R0 正在恢复，尚未成为活跃副本','本例 A → B 是数据路径；规划箭头不是数据复制'),note:'获准后先产生INITIALIZING路由，再由数据节点恢复。replica从active primary所在节点A获取数据，不从“目标模型”复制。incoming/outgoing recovery默认各2，初始本地主分片另有4，不能概括为任意节点所有恢复总共只有2。'},
+    {svg:snapshot(4,[['idx1 P0 STARTED','主分片活跃',true],['idx1 R0 STARTED','副本恢复完成',true],['尚未加入','无分片']],['恢复完成、启动上报与路由更新后，R0 STARTED','满足本例前提时 idx1 可以转 Green','两个 node 不自动等于两个独立物理故障域','带其他索引或写入块的全群状态需另行判断'],'本索引 Green：所有所需副本 active','不把健康颜色当作可写、性能或零数据丢失保证'),note:'R0恢复并进入STARTED，本例索引全体所需副本active，颜色可转Green。A/B可能同宿主机，因此不能自动叫两个独立物理故障域；master可用、写入块及其他请求条件也不能由Green推出。'},
+    {svg:snapshot(5,[['idx1 P0 + idx2 P0','本例均已 STARTED',true],['idx1 R0 + idx2 R0','本例均已 STARTED',true],['尚未加入','无分片']],['再放一个1主1副索引 idx2，图中是可能的布局','same_shard 保证同号两份不叠在同一节点','index 因子看同索引分片数，不强制主角色平均','权重还含总片数、预测写入负载与磁盘字节差'],'A/B 各2片是本例，不是算法唯一答案','不能从0.55推导每个新 primary 必落不同节点'),note:'idx2形成1主1副；图中选择A放主、B放副只是一个可行示意，角色没有强制平均。index因子看同索引分片数，权重还考虑预测写负载和磁盘字节差；相同条件也可能有其他平局结果。'},
+    {svg:snapshot(6,[['idx1 P0 STARTED','idx2 P0 STARTED',true],['idx1 R0 RELOCATING','idx2 R0 STARTED'],['idx1 R0 INITIALIZING','新目标仍恢复中',true]],['假设新目标建议 R0 从 B 搬到 C，当前约束允许','源 B：RELOCATING 且 active；目标 C：INITIALIZING','本例 replica 目标向 active primary A 恢复','B → C 表示路由搬迁关系，不表示数据一定来自 B'],'搬迁同时存在源与目标路由','C加入不保证触发这次搬迁，也不保证固定完成时间'),note:'C加入后，假设规划和实际动作检查允许这次R0搬迁。B的源路由是RELOCATING但仍active，C目标是INITIALIZING；本例目标从active primary A恢复。虚线是B/C配对，实线才是A/C数据路径，不承诺一定选这一片。'},
+    {svg:snapshot(7,[['idx1 P0 + idx2 P0','2片 · 示意',true],['idx2 R0 STARTED','1片 · 示意'],['idx1 R0 STARTED','1片 · 示意',true]],['目标 C 启动后移除 B 的源路由，得到本例2/1/1','若目标失败且源仍在，可取消源搬迁、删除目标','threshold=1.0 是模型改进门槛，不是片数差公式','水位还受headroom/估计大小影响，不能仅看86/91/95'],'一次可能的终态，不是永久唯一目标','NO可随条件变化；完成搬迁也不证明所有分配已收敛'),note:'目标C进入STARTED后，B的搬迁源路由被移除，本例形成2/1/1。若初始化目标失败且源仍存在，可取消源搬迁并删除目标。布局、门槛与水位都带条件，不承诺片数绝对平均或固定恢复时间。'}
+  ]};
+  window.ESEXPERIMENTS=window.ESEXPERIMENTS||{};
+  function add(id,title,method,path,body,predict,expect) {window.ESEXPERIMENTS[id]={version:1,id:id,title:title,method:method,path:path,body:body,predict:predict,expect:expect};}
+  var yellow={index:'tut-l23-yellow',shard:0,primary:false};
+  var filtered={index:'tut-l23-filter',shard:0,primary:true};
+  var healthFields='&filter_path=status,timed_out,number_of_nodes,number_of_data_nodes,active_primary_shards,active_shards,unassigned_shards';
+  var settled='&wait_for_no_initializing_shards=true&wait_for_no_relocating_shards=true&timeout=30s';
+  add('ch23-11-version','A1 · 确认固定版本','GET','/?filter_path=version.number,version.build_hash,version.lucene_version',null,'是否为对应的ES9.4.0/Lucene10.4.0？','应为9.4.0、固定build 2e8528e92361c3399724226deaf2b46f933e925b、Lucene10.4.0；版本不同时不能直接套本课源码结论。');
+  add('ch23-12-nodes','A2 · 检查单节点实验前提','GET','/_nodes?filter_path=_nodes.total,_nodes.failed,nodes.*.name,nodes.*.roles',null,'是否只有一个合格数据节点？名字是否与C组虚构名不同？','A组颜色和same_shard预期限定一个合格数据节点及active primary；多节点时副本可能就绪，勿硬套Yellow。确认没有节点名__ch23_no_matching_node__，C组才使用它制造明确过滤。');
+  add('ch23-13-yellow-empty','A3 · 确认本课索引空前提','HEAD','/tut-l23-yellow',null,'第一次或清理后应是什么状态？','404且无响应体是预期前提；200表示已有资源。需要重做时先执行末尾点名清理，再从A3开始；删除会清掉此索引全部数据。');
+  add('ch23-00-setup','A4 · 明确建1主1副的普通索引','PUT','/tut-l23-yellow?wait_for_active_shards=1',{settings:{number_of_shards:1,number_of_replicas:1,auto_expand_replicas:false,refresh_interval:'1s'},mappings:{dynamic:'strict',properties:{marker:{type:'keyword'}}}},'单数据节点能满足主分片等待，却满足不了副本冗余吗？','首次正常创建后，以A6等待为准再观察；request确认不等于副本全active。重复创建通常400 resource_already_exists_exception，不覆盖原索引；清理后再做。不预设version恰好+1。');
+  add('ch23-01-cat-shards','A5 · 看本索引两条路由','GET','/_cat/shards/tut-l23-yellow?v&h=index,shard,prirep,state,unassigned.reason,node',null,'p/r各一行，现在已经稳定了吗？','在A6就绪前可短暂见INITIALIZING；稳定单数据节点通常p STARTED、r UNASSIGNED。第一次创建可见INDEX_CREATED；重加副本后的原因可不同，不能把原因枚举当成永久诊断结论。');
+  add('ch23-02-health','A6 · 等主分片就绪，限定索引','GET','/_cluster/health/tut-l23-yellow?wait_for_status=yellow'+settled+healthFields,null,'单数据节点且无其他阻碍时，应是哪种本索引颜色？','预期timed_out=false、yellow、active_primary_shards=1、active_shards=1、unassigned_shards=1。若其他条件阻碍主分配、超时或多节点副本已就绪，先核对前提。wait_for_status=yellow也接受更好的green，须读实际status。');
+  add('ch23-03-explain','A7 · 指定R0，读same_shard的NO','POST','/_cluster/allocation/explain',yellow,'哪个node已经持有同号主分片？是否还有别的NO？','本例R0 unassigned/can_allocate=no；合格唯一节点的same_shard应NO，说明已有同号副本。可能还出现磁盘、过滤、角色等NO，不写死只有一票；数组路径node_allocation_decisions[].deciders[]，不要固定第0个节点。');
+  add('ch23-04-explain-yes','A8 · 对照显示更多决定','POST','/_cluster/allocation/explain?include_yes_decisions=true',yellow,'显示YES是否改变分配许可？','same_shard仍NO；通常显示更多具体YES，但ALWAYS哨兵仍不进数组，不承诺出现每个注册decider。该参数仅改变解释可见性，不修改配置、强制分配或启动搬迁。');
+  add('ch23-07-replicas-0','A9 · 本索引副本数改为0','PUT','/tut-l23-yellow/_settings',{index:{number_of_replicas:0}},'取消副本需求后要不要等路由更新？','正常acknowledged=true，副本路由需求移除；下一卡局部等待green。元数据/路由更新可多次，重复设置同值也可能无变化，不保证每次API都使version+1。');
+  add('ch23-08-green','A10 · 仅验证本索引Green','GET','/_cluster/health/tut-l23-yellow?wait_for_status=green'+settled+healthFields,null,'取消需求与恢复了第二份数据，是同一件事吗？','本例timed_out=false、green、active_shards=1、unassigned_shards=0。这是不再要求副本，未新增冗余；其他索引不改变本索引颜色，Green也不保证一定可写。');
+  add('ch23-09-replicas-back','A11 · 恢复副本需求','PUT','/tut-l23-yellow/_settings',{index:{number_of_replicas:1}},'恢复1副本会立刻有第二份数据吗？','正常acknowledged=true，单合格数据节点仍无第二个落点。先等待下一卡，再解释R0；新副本原因可能REPLICA_ADDED，而不是第一次创建的INDEX_CREATED。');
+  add('ch23-14-yellow-again','A12 · 等待恢复需求后的局部状态','GET','/_cluster/health/tut-l23-yellow?wait_for_status=yellow'+settled+healthFields,null,'是否重新看到一个未分配副本？','本例yellow、active_primary_shards=1、active_shards=1、unassigned_shards=1，timed_out=false；若多节点或配置变化须按实际判断。此等待消除“点得快才看见”的竞态。');
+  add('ch23-15-explain-again','A13 · 对照恢复需求后的R0','POST','/_cluster/allocation/explain',yellow,'原因枚举改变后，same_shard规则改变了吗？','本例仍有same_shard NO；比较unassigned_info.reason和当前deciders，两者分别描述进入未分配的原因与现在不能落位的条件。不能从INDEX_CREATED或REPLICA_ADDED直接推断唯一NO。');
+  add('ch23-05-defaults','B1 · 读取分配器、水位和覆盖值','GET','/_cluster/settings?include_defaults=true&filter_path=defaults.cluster.routing.allocation,persistent.cluster.routing.allocation,transient.cluster.routing.allocation',null,'默认模型与水位是什么？有显式覆盖吗？','源码默认desired_balance；balance为.45/.55/10/2e-11、threshold1；普通水位85/90/95%，未显式改各水位时headroom200/150/100GB。persistent/transient及节点设置可覆盖；小系数乘字节不能理解成磁盘只微调。');
+  add('ch23-06-cat-allocation','B2 · 区分显示统计与策略输入','GET','/_cat/allocation?v&bytes=b&h=shards,disk.indices,disk.used,disk.avail,disk.total,disk.percent,node',null,'当前磁盘一定低于85%吗？表格是decider的完整输入吗？','磁盘和总片数由环境及所有索引决定，不写死低于85%。CAT统计、分配使用的ClusterInfo快照、搬迁空间预留和预计分片大小不同；disk.percent也不能单独复现每次disk_threshold结论。');
+  add('ch23-16-disk-info','B3 · 指定R0并请求磁盘解释信息','POST','/_cluster/allocation/explain?include_disk_info=true&include_yes_decisions=true',yellow,'是否能看到ClusterInfo与disk_threshold说明？','若已收集磁盘信息可见相关cluster_info；可缺省、滞后或因尚无信息给YES，不能把YES都读成磁盘肯定充足。结合设置、headroom和预计大小解释；不是灌盘/高水位/性能实测。');
+  add('ch23-17-filter-empty','C1 · 另一个专属索引空前提','HEAD','/tut-l23-filter',null,'为何不在A组索引上混入过滤和块？','404、无响应体为前提；与A组分离，避免另一个NO污染单副本对照。若已有资源，末尾点名清理再从C1做；不会改集群过滤设置。');
+  add('ch23-18-filter-create','C2 · 创建一个明确匹配不到节点的过滤','PUT','/tut-l23-filter?wait_for_active_shards=0',{settings:{number_of_shards:1,number_of_replicas:0,auto_expand_replicas:false,refresh_interval:'1s','index.routing.allocation.require._name':'__ch23_no_matching_node__'},mappings:{dynamic:'strict',properties:{marker:{type:'keyword'}}}},'虚构名无节点匹配，0副本还会Green吗？','前提A2确认无同名节点。wait_for_active_shards=0避免等待故意未分配的primary；request确认不证明primary active。下一卡指定P0应见filter NO；重复创建通常400，先清理重做。');
+  add('ch23-19-filter-explain','C3 · 指定未分配的P0','POST','/_cluster/allocation/explain?include_yes_decisions=true',filtered,'本次0副本的主要分配阻碍是什么？','P0应unassigned，候选不匹配require._name时filter给NO；可能有其他阻碍，不能只数一个decider。主分片未active对应本索引Red，说明Red/Yellow要结合具体路由，不都是same_shard。');
+  add('ch23-20-filter-settings','C4 · 读回索引过滤配置','GET','/tut-l23-filter/_settings?filter_path=*.settings.index.routing.allocation,*.settings.index.number_of_shards,*.settings.index.number_of_replicas,*.settings.index.auto_expand_replicas',null,'配置是否真的只写在本索引？','require._name应是本课虚构名，1主0副且auto_expand=false。值通常序列化为字符串；此次请求不修改cluster.routing.allocation的全局规则。');
+  add('ch23-21-filter-clear','C5 · 移除本索引require条件','PUT','/tut-l23-filter/_settings',{'index.routing.allocation.require._name':null},'NO会永久保持，还是条件变化后重评？','正常acknowledged=true，移除此索引的require._name；其他条件允许时可分配primary。NO不是“只能人工永远修复”的永久票；本次改变条件后仍等下一卡局部就绪。');
+  add('ch23-22-filter-ready','C6 · 等过滤移除后的局部Green','GET','/_cluster/health/tut-l23-filter?wait_for_status=green'+settled+healthFields,null,'还在初始化时可继续写入吗？','本例timed_out=false、green、active_primary_shards=1、active_shards=1、unassigned_shards=0。没有满足就绪条件时先停在这里检查剩余NO/磁盘/角色/总开关，不靠操作快慢。');
+  add('ch23-23-doc-before','C7 · 先写一个确定存在的文档','PUT','/tut-l23-filter/_doc/1?refresh=wait_for',{marker:'before'},'随后文档删除失败能否排除“本来就不存在”？','首次正常201 created；固定ID重复执行可200 updated。显式refresh等待及原始响应建立文档存在基线。这里不需要bulk或自动ID，重复运行不会累加新文档。');
+  add('ch23-24-write-block','C8 · 设置可恢复的普通写入块','PUT','/tut-l23-filter/_settings',{'index.blocks.write':true},'这会改变分片健康颜色，还是阻挡写请求？','正常acknowledged=true。是普通index.blocks.write，不是flood-stage的read_only_allow_delete；没有填满磁盘或触发Monitor。普通写块不会由磁盘恢复自动清除，本组末尾显式还原。');
+  add('ch23-25-green-blocked','C9 · Green不等于可写','GET','/_cluster/health/tut-l23-filter?wait_for_status=green'+settled+healthFields,null,'所有分片active时，写块会把颜色改为Yellow吗？','本索引通常仍green且1 active primary，块本身没有制造未分配副本。健康颜色与写请求准入分开，下一卡观察403；这是普通写块对照，不冒充真实磁盘故障。');
+  add('ch23-26-write-rejected','C10 · 预期普通写块拒绝写入','PUT','/tut-l23-filter/_doc/1',{marker:'blocked'},'这条预期错误会把marker更新成blocked吗？','在C8写块保持时，单文档请求预期403 cluster_block_exception，理由index write (api)。不要把它写成flood-stage错误；9.4源码的flood块使用429。恢复写块后再重试。');
+  add('ch23-27-delete-rejected','C11 · 文档删除也是写请求','DELETE','/tut-l23-filter/_doc/1',null,'删除已有文档是不是也受WRITE级块限制？','普通写块保持时预期403 cluster_block_exception；不是404证明文档不存在。删除整个索引与删除文档是不同操作。本卡不把普通写块伪装成flood块；后卡显式恢复再确认更新。');
+  add('ch23-28-write-restore','C12 · 移除本索引普通写块','PUT','/tut-l23-filter/_settings',{'index.blocks.write':null},'何时恢复，才能安全继续本组对照？','正常acknowledged=true，移除刚设置的本索引普通写块。之后才能重试C10；不修改全局磁盘阈值、其他索引或read_only_allow_delete设置。');
+  add('ch23-29-doc-after','C13 · 恢复后更新同一个文档','PUT','/tut-l23-filter/_doc/1?refresh=wait_for',{marker:'after'},'基线文档仍存在时应created还是updated？','前序按顺序完成且文档仍在，正常200 updated；403表示还有块，201表示原文档/索引前提已改变。依据实际响应判断，不声称本轮已API验证。');
+  add('ch23-10-cleanup','清理1 · 点名删除Yellow实验索引','DELETE','/tut-l23-yellow',null,'删除范围和重复语义是什么？','删除tut-l23-yellow全部文档与映射；正常acknowledged=true，重复删除通常404 index_not_found_exception。完整重做从A3开始；保留稳定清理ID。');
+  add('ch23-30-filter-cleanup','清理2 · 点名删除Filter实验索引','DELETE','/tut-l23-filter',null,'是否已执行C12恢复，是否仅删本课资源？','删除tut-l23-filter全部文档与映射；正常acknowledged=true，重复删除通常404。两个索引不使用通配符，不清其他索引或修改cluster配置。');
+  add('ch23-31-yellow-missing','清理3 · 确认Yellow索引不存在','HEAD','/tut-l23-yellow',null,'是否回到A3前提？','404、无响应体；再做A3–A13。节点名、时间、状态版本及磁盘统计无需与前轮完全一样，分配条件和路由语义才是重复目标。');
+  add('ch23-32-filter-missing','清理4 · 确认Filter索引不存在','HEAD','/tut-l23-filter',null,'是否回到C1前提？','404、无响应体；再做C1–C13后清理。全流程只改两本课索引；多节点搬迁和真实磁盘水位未由这些单节点操作证明。');
 })();

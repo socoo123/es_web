@@ -1,0 +1,210 @@
+{
+  "schema_version": 2,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "一次搬迁，两条路由：源仍活跃，目标先恢复",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/lifecycle-ch23-relocation-pair-20261013-114724/relocation-pair.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "active": {
+          "label": "活跃源副本"
+        },
+        "waiting": {
+          "label": "恢复中的目标"
+        },
+        "success": {
+          "label": "已启动目标"
+        },
+        "neutral": {
+          "label": "已移除源路由"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "搬迁前 · 只有源副本"
+    },
+    {
+      "id": "pair",
+      "label": "搬迁中 · 源与目标同时存在"
+    },
+    {
+      "id": "terminal",
+      "label": "恢复后 · 目标启动并清理源"
+    }
+  ],
+  "states": [
+    {
+      "id": "source_started",
+      "lane": "main",
+      "col": 0,
+      "type": "active",
+      "label": "源 B · STARTED",
+      "sublabel": "已有活跃副本",
+      "width": 210,
+      "height": 76,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/ShardRouting.java",
+          "line": 217,
+          "end_line": 228,
+          "label": "active 的两种路由状态"
+        }
+      ]
+    },
+    {
+      "id": "source_relocating",
+      "lane": "pair",
+      "col": 0,
+      "type": "active",
+      "label": "源 B · RELOCATING",
+      "sublabel": "仍 active；与目标成对",
+      "width": 210,
+      "height": 76,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/ShardRouting.java",
+          "line": 500,
+          "end_line": 514,
+          "label": "源进入 RELOCATING"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/ShardRouting.java",
+          "line": 227,
+          "end_line": 228,
+          "label": "RELOCATING 仍 active"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/allocator/DesiredBalanceReconciler.java",
+          "line": 607,
+          "end_line": 637,
+          "label": "平衡检查后启动搬迁"
+        }
+      ]
+    },
+    {
+      "id": "target_initializing",
+      "lane": "pair",
+      "col": 1,
+      "type": "waiting",
+      "label": "目标 C · INITIALIZING",
+      "sublabel": "与源并存，先完成恢复",
+      "width": 210,
+      "height": 76,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/ShardRouting.java",
+          "line": 135,
+          "end_line": 153,
+          "label": "创建配对目标"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/indices/cluster/IndicesClusterStateService.java",
+          "line": 1006,
+          "end_line": 1027,
+          "label": "replica 目标向活跃主分片恢复"
+        }
+      ]
+    },
+    {
+      "id": "target_started",
+      "lane": "terminal",
+      "col": 1,
+      "type": "success",
+      "label": "目标 C · STARTED",
+      "sublabel": "目标恢复完成后启动",
+      "width": 210,
+      "height": 76,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/ShardRouting.java",
+          "line": 594,
+          "end_line": 614,
+          "label": "目标启动并结束配对"
+        }
+      ]
+    },
+    {
+      "id": "source_removed",
+      "lane": "terminal",
+      "col": 0,
+      "type": "neutral",
+      "label": "源 B · 路由已移除",
+      "sublabel": "这是结果，不是状态枚举",
+      "width": 210,
+      "height": 76,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/RoutingNodes.java",
+          "line": 522,
+          "end_line": 542,
+          "label": "目标启动后移除源路由"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "source_started-source_relocating",
+      "from": "source_started",
+      "to": "source_relocating",
+      "label": "获准搬迁",
+      "variant": "emphasis"
+    },
+    {
+      "id": "source_relocating-target_initializing",
+      "from": "source_relocating",
+      "to": "target_initializing",
+      "label": "创建配对目标",
+      "variant": "emphasis"
+    },
+    {
+      "id": "target_initializing-target_started",
+      "from": "target_initializing",
+      "to": "target_started",
+      "label": "恢复完成",
+      "variant": "emphasis"
+    },
+    {
+      "id": "target_started-source_removed",
+      "from": "target_started",
+      "to": "source_removed",
+      "label": "清理源路由",
+      "variant": "emphasis"
+    },
+    {
+      "id": "target_initializing-source_started",
+      "from": "target_initializing",
+      "to": "source_started",
+      "label": "目标失败且源仍在",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两条路由，不是同一对象变身份",
+      "items": [
+        "箭头表示启动搬迁、创建目标、恢复和清理；不表示每条箭头都是数据传输。",
+        "搬迁时源为 RELOCATING，目标为 INITIALIZING；不是源也停成 INITIALIZING。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "副本恢复与失败范围",
+      "items": [
+        "本图普通 replica 目标向 active primary 恢复；不能仅凭 B→C 的搬迁关系推断数据来自 B。",
+        "若初始化目标失败且源仍存在，可取消源搬迁、删除目标；不覆盖源也故障等全部路径。"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,269 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "目标分配不是当前落位：后台算，Master 执行",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch23-desired-reconcile-20261013-114724/desired-reconcile.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "协调与规划"
+        },
+        "database": {
+          "label": "目标与路由"
+        },
+        "security": {
+          "label": "本轮约束"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "master",
+      "label": "Master 本轮 · 已有副本与新输入"
+    },
+    {
+      "id": "planner",
+      "label": "后台计算 · 模型中的目标布局"
+    },
+    {
+      "id": "reconcile",
+      "label": "Master 执行 · 对实际状态重新检查"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "existing",
+      "lane": "master",
+      "col": 1,
+      "type": "backend",
+      "label": "已有副本分配器 · 先处理",
+      "sublabel": "先主后副；索引可选择 allocator",
+      "width": 300,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/AllocationService.java",
+          "line": 583,
+          "end_line": 622,
+          "label": "已有副本入口"
+        }
+      ]
+    },
+    {
+      "id": "input",
+      "lane": "master",
+      "col": 1,
+      "type": "backend",
+      "label": "提交新输入 · 本轮继续",
+      "sublabel": "新计算异步；现有目标可先使用",
+      "width": 300,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/allocator/DesiredBalanceShardsAllocator.java",
+          "line": 277,
+          "end_line": 299,
+          "label": "入队与旧目标执行"
+        }
+      ]
+    },
+    {
+      "id": "compute",
+      "lane": "planner",
+      "col": 3,
+      "type": "backend",
+      "label": "Balanced · 模拟规划",
+      "sublabel": "模拟 start 不等于真实 recovery",
+      "width": 278,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/allocator/DesiredBalanceComputer.java",
+          "line": 348,
+          "end_line": 386,
+          "label": "多轮模型与模拟启动"
+        }
+      ]
+    },
+    {
+      "id": "desired",
+      "lane": "planner",
+      "col": 3,
+      "type": "database",
+      "label": "生成目标 · 完成后再入队",
+      "sublabel": "新的目标供后续 Master 任务使用",
+      "width": 278,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/allocator/DesiredBalanceShardsAllocator.java",
+          "line": 366,
+          "end_line": 380,
+          "label": "目标与执行任务"
+        }
+      ]
+    },
+    {
+      "id": "check",
+      "lane": "reconcile",
+      "col": 1,
+      "type": "backend",
+      "label": "Reconciler · 再查实际约束",
+      "sublabel": "未分配 / 必要移动 / 平衡分开",
+      "width": 300,
+      "height": 66,
+      "yOffset": -48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/allocator/DesiredBalanceReconciler.java",
+          "line": 150,
+          "end_line": 177,
+          "label": "当前三类动作"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/allocator/DesiredBalanceReconciler.java",
+          "line": 317,
+          "end_line": 359,
+          "label": "分配的 NO / THROTTLE"
+        }
+      ]
+    },
+    {
+      "id": "routing",
+      "lane": "reconcile",
+      "col": 1,
+      "type": "database",
+      "label": "获准动作 · 更新路由",
+      "sublabel": "初始化或搬迁；恢复在数据节点进行",
+      "width": 300,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/allocator/DesiredBalanceReconciler.java",
+          "line": 329,
+          "end_line": 357,
+          "label": "初始化"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/allocator/DesiredBalanceReconciler.java",
+          "line": 607,
+          "end_line": 637,
+          "label": "平衡需检查后搬迁"
+        }
+      ]
+    },
+    {
+      "id": "wait",
+      "lane": "reconcile",
+      "col": 2,
+      "type": "security",
+      "label": "本轮不落位 / 暂缓",
+      "sublabel": "NO / THROTTLE；条件变化后再评估",
+      "width": 228,
+      "height": 66,
+      "yOffset": 48,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/cluster/routing/allocation/allocator/DesiredBalanceReconciler.java",
+          "line": 352,
+          "end_line": 365,
+          "label": "本轮忽略与等待"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "existing-input",
+      "from": "existing",
+      "to": "input",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "input-compute",
+      "from": "input",
+      "to": "compute",
+      "variant": "dashed",
+      "role": "async",
+      "label": "新输入"
+    },
+    {
+      "id": "compute-desired",
+      "from": "compute",
+      "to": "desired",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "input-check",
+      "from": "input",
+      "to": "check",
+      "variant": "emphasis",
+      "role": "main",
+      "label": "现有目标"
+    },
+    {
+      "id": "desired-check",
+      "from": "desired",
+      "to": "check",
+      "variant": "dashed",
+      "role": "return",
+      "label": "后续任务"
+    },
+    {
+      "id": "check-routing",
+      "from": "check",
+      "to": "routing",
+      "variant": "emphasis",
+      "role": "main",
+      "label": "动作允许"
+    },
+    {
+      "id": "check-wait",
+      "from": "check",
+      "to": "wait",
+      "variant": "security",
+      "role": "branch",
+      "label": "未满足"
+    }
+  ],
+  "mainPath": [
+    "existing",
+    "input",
+    "check",
+    "routing"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "默认 desired_balance 主线",
+      "items": [
+        "箭头是控制或目标传递；本轮可用旧目标，不必等新计算完成。",
+        "后台会在模型中模拟开始与移动；真实初始化仍需恢复和后续状态更新。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "约束贯穿执行",
+      "items": [
+        "主副不同节点、磁盘、过滤与节流仍约束实际动作；规划不保证立刻完成。",
+        "NOT_PREFERRED 的准入因动作而异，THROTTLE 不表示这轮立即落位。"
+      ]
+    }
+  ]
+}

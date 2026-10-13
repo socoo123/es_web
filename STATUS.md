@@ -42,7 +42,7 @@
 | ch20 | 评分与排序 | ✅ | 30 | 1(BM25 演算·旗舰) | ✅ 评分窗口与解释入口（2图，2路径动画） |
 | ch21 | 集群状态 | ✅ | 29 | — | ✅ 快照职责与发布应用（2图，1路径动画） |
 | ch22 | 主节点选举与共识 | ✅ | 18 | 1(选举时序·旗舰) | ✅ 选举资格与提交边界（2图，2路径；API/原生浏览器限制见日志） |
-| ch23 | 分片分配 | ✅ | 11 | 1(均衡迁移·旗舰) | 待改造 |
+| ch23 | 分片分配 | ✅ | 33 | 1(均衡迁移·旗舰) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch24 | 分片恢复与快照 | ✅ | 20 | 1(peer recovery·旗舰) | 待改造 |
 | ch25 | 熔断器与背压 | ✅ | 14 | 1(熔断水位·旗舰) | 待改造 |
 | ch26 | 脚本引擎 | ✅ | 20 | 1(编译旅程) | 待改造 |
@@ -343,7 +343,30 @@
 | ch22 | 建索引version恰好+1、term=1，全群health应green；single-node无条件验自己的多数 | 变化状态版本推进，创建/分配/其他活动可多次；同mapping可无变化；局部就绪等待；single-node已有非空配置才验quorum | MasterService652–674；MetadataMappingService190–198/235–242；Coordinator1185–1202/2050–2062 |
 | ch22 | 10卡缺版本/空前提/配置读回/重做；静态三图与七步多个绝对论断 | 保留10ID增8共18，2官方交互图/2路径/七步；显式配置、局部等待、点名清理HEAD404；纠正链式发布和角色矛盾 | [验收](.archify/CH22-REVIEW.md)、[HTTP](.archify/review/ch22-http-review.json)；真实API未跑，原因见运行证据 |
 
+### 第二十三章重构校对
+
+| 课 | 网页旧说法 / 遗漏 | 修正 | 依据 |
+|---|---|---|---|
+| ch23 | 先过滤NO才算权重，balancer根本看不到NO节点 | 约束贯穿规划/当前动作，解释先算权重并保留NO排名；默认后台算新目标，本轮可先按旧目标reconcile | BalancedShardsAllocator1495–1565；DesiredBalanceShardsAllocator277–299；[固定源码审计](.archify/review/ch23-source-review.json) |
+| ch23 | 三种决定只有一条序；THROTTLE也会开始；NO永久待人工修 | 四种决定，汇总与节点比较中THROTTLE/NOT_PREFERRED顺序相反；初始化可接受YES/NOT_PREFERRED，THROTTLE暂缓；条件变可重评 | Decision194–224；AllocationDeciders209–237；DesiredBalanceReconciler317–365/692–734 |
+| ch23 | index系数强制主副角色交错，threshold=片数差，磁盘系数只微调 | 四维归一化模型：片数/同索引数/预测写负载/分片字节；index不均衡主角色，小系数乘大字节；门槛结合minWeightDelta | BalancedShardsAllocator86–119/690–704；WeightFunction52–104/145–168 |
+| ch23 | 源搬迁时仍STARTED；副本B→C一定从B复制；新节点必达2/1/1 | 源RELOCATING仍active，目标独立INITIALIZING；普通replica目标向active primary恢复；2/1/1是可能示意 | ShardRouting135–153/217–228/500–537/594–614；IndicesClusterStateService1006–1027 |
+| ch23 | 任何恢复失败都变UNASSIGNED；所有恢复总共最多2 | 目标失败且源仍在可取消源搬迁、删除目标；incoming/outgoing各2，初始本地primary另4，均可调整 | RoutingNodes645–662；ThrottlingAllocationDecider48–78 |
+| ch23 | 达85/90/95%必依次拒绝/迁移/封写，存量过low必不动 | headroom默认有配置条件，比例已用/绝对空闲分开，考虑估计大小/预留/路径；low豁免新空/clone主有条件，high不保证找到目标 | DiskThresholdSettings38–103/478–505；RelativeByteSizeValue59–72；DiskThresholdDecider221–328/397–482 |
+| ch23 | flood-stage写入都403；Green意味着可写，允许删除等于能删文档 | 默认flood read_only_allow_delete WRITE块429；普通write块403；健康与准入分开，文档删除也是WRITE | IndexMetadata117–143；DiskThresholdMonitor214–239/404–433；C组普通写块对照 |
+| ch23 | explain总选第一个未分配、包含所有YES、排名证明可落位 | 优先可访问未分配primary再replica；ALWAYS不进数组，在途可NOT_TAKEN；当前Balanced解释不等于目标历史，缺磁盘信息可fail-open | TransportClusterAllocationExplainAction123–168；AllocationDeciders209–237；DiskThresholdDecider547–558 |
+| ch23 | 11卡无版本/就绪/过滤恢复与清理确认，三静图与七步有绝对结论 | 保留11ID增22共33卡，2官方交互图/2trace/七步；显式配置、等待、过滤解除、普通写块恢复、点名两索引HEAD404重做 | [验收](.archify/CH23-REVIEW.md)、[HTTP](.archify/review/ch23-http-review.json)；真实API未实测，原因见运行证据 |
+
 ## 会话日志
+
+### 2026-10-13（第二十三章按统一规范重构）
+
+- 固定ES9.4.0/Lucene10.4.0，24目标源码文件/56精确区间核对PASS。区分默认后台目标计算与当前Master执行、已有副本优先、两种决定序及各动作准入、四维权重/threshold、搬迁配对与replica恢复源、headroom条件与水位分支、默认flood429/普通write403、explain当前观察边界。正文/两图/七步/33卡/5问答/5陷阱/速记一致；未重读tutorial、未用子代理。
+- 原11稳定ID和七步旗舰保留，增22共3组33操作（A13/B3/C13/清理4）；两专属索引显式1主1副或1主0副、auto-expand=false/strict，HEAD空前提、局部yellow/green与在途等待、过滤NO解除、普通写块恢复、固定文档ID和点名清理后两HEAD404重做。全站30正式页/678卡/22机制。首页仅更新ch23计数及去掉错误的先过滤后打分简介，共享CSS/JS及其他章节未改。
+- 官方Archify3.0.1 Workflow v2 + Lifecycle v2，固定源码/真实checkout、只改JSON、许可保留；当前两图validate/deliver/strict check均showcase9/9、0errors/warnings、provenance current。**原生browser-check失败，finalize整体非成功**：file导航ERR_BLOCKED_BY_ADMINISTRATOR。迁移图初稿手机节点裁切真实失败，改JSON为三阶段两列后完整finalize，review-2与初稿/失败截图保留；未改生成HTML/策略或以HTTP替代原生门禁。
+- **真实API及两轮重做未实测**：本轮实际重新Compose启动官方9.4.0进程，仍因缺/proc/self/coredump_filter、setCoredumpFilter抛RuntimeException/NoSuchFileException退出1。Docker和缓存镜像可用而9200无服务，实际启动错误已存，没有模拟API成功或修改ES绕过。多节点搬迁、真实磁盘压力/水位和性能均只据源码解释。
+- 独立HTTP两图四档桌面/双主题、章节六档、≤880px/≤1px对齐、页面/iframe/全部节点容纳、探索关闭/键盘Enter/Escape/展开、暂停后重播/Enter、目录/已读、七步控制键盘、33条真实控制台导航method/path/body、endpoint/auth/raw、Pages前缀、reduced motion均PASS；390/320表格/旧SVG局部滚动PASS。实际查看7拼图覆盖24最终截图和全部7步。手机图为概览，细字探索/展开，正文/图注保留结论；旧机制局部横滑，标题省略而控制/步数/解说可读。图高桌面850/700、≤800px540/480。
+- 站点、JS语法、figwidth、diff、11原ID/33有序唯一槽、GET/HEAD无body与.nojekyll PASS；源码/HTTP/滚动/机制/实际审阅记录绑定当前文件。[CH23-REVIEW](.archify/CH23-REVIEW.md)、[HTTP](.archify/review/ch23-http-review.json)、[运行限制](.archify/review/ch23-es-runtime.json)、[产物](.archify/review/ch23-artifacts.json)。按授权提交推送origin/main，远端与Pages交付另核对。
 
 ### 2026-10-13（第二十二章按统一规范重构）
 
