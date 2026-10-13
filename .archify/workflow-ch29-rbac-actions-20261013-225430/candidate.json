@@ -1,0 +1,218 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "alice 能搜索，为什么 GET / 却返回 403",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-ch29-rbac-actions-20261013-225430/rbac-actions.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "认证与权限检查"
+        },
+        "database": {
+          "label": "身份与角色"
+        },
+        "security": {
+          "label": "请求拒绝"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "identity",
+      "label": "本课 native 用户 · 单一 reader 角色 · 无 FLS/DLS"
+    },
+    {
+      "id": "check",
+      "label": "RBAC 按 Action 与资源检查 · 省略复合动作优化"
+    },
+    {
+      "id": "result",
+      "label": "同一身份，不同请求 · 结果分别对照"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "alice",
+      "lane": "identity",
+      "col": 1,
+      "label": "alice 认证成功",
+      "sublabel": "Authentication 已经就位",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/RealmsAuthenticator.java",
+          "line": 239,
+          "end_line": 247,
+          "label": "创建 Realm 身份"
+        }
+      ],
+      "type": "database",
+      "width": 264,
+      "height": 66,
+      "yOffset": -90
+    },
+    {
+      "id": "role",
+      "lane": "identity",
+      "col": 1,
+      "label": "解析 reader 角色",
+      "sublabel": "仅 tut-l29-* 的 read",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authz/RBACEngine.java",
+          "line": 173,
+          "end_line": 189,
+          "label": "解析角色信息"
+        }
+      ],
+      "type": "database",
+      "width": 264,
+      "height": 66,
+      "yOffset": 90
+    },
+    {
+      "id": "cluster",
+      "lane": "check",
+      "col": 1,
+      "label": "GET /：集群动作",
+      "sublabel": "cluster:monitor/main 无权限",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authz/RBACEngine.java",
+          "line": 205,
+          "end_line": 224,
+          "label": "checkClusterAction"
+        }
+      ],
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": 0
+    },
+    {
+      "id": "index",
+      "lane": "check",
+      "col": 2,
+      "label": "搜索指定日志索引",
+      "sublabel": "read 且资源名匹配",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authz/RBACEngine.java",
+          "line": 418,
+          "end_line": 455,
+          "label": "资源解析与访问控制"
+        }
+      ],
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": 0
+    },
+    {
+      "id": "forbidden",
+      "lane": "result",
+      "col": 1,
+      "label": "授权拒绝：403",
+      "sublabel": "已认证，但该动作未获准",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authz/RBACEngine.java",
+          "line": 213,
+          "end_line": 220,
+          "label": "拒绝集群授权"
+        }
+      ],
+      "type": "security",
+      "width": 264,
+      "height": 66,
+      "yOffset": 0
+    },
+    {
+      "id": "read",
+      "lane": "result",
+      "col": 2,
+      "label": "允许搜索：200",
+      "sublabel": "返回 tut-l29-logs 的文档",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authz/RBACEngine.java",
+          "line": 428,
+          "end_line": 455,
+          "label": "按具体资源授权"
+        }
+      ],
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": 0
+    }
+  ],
+  "edges": [
+    {
+      "id": "alice-role",
+      "from": "alice",
+      "to": "role",
+      "label": "角色",
+      "variant": "emphasis"
+    },
+    {
+      "id": "role-cluster",
+      "from": "role",
+      "to": "cluster",
+      "label": "集群",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "id": "role-index",
+      "from": "role",
+      "to": "index",
+      "label": "索引",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cluster-forbidden",
+      "from": "cluster",
+      "to": "forbidden",
+      "label": "拒绝",
+      "variant": "security"
+    },
+    {
+      "id": "index-read",
+      "from": "index",
+      "to": "read",
+      "label": "允许",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "资源与动作一起决定",
+      "items": [
+        "名字匹配不能授予写入/建索引；read 也不覆盖 CAT 所需的监控动作。",
+        "本课仅一个普通索引与一个角色；实际索引路径还处理别名、受限索引和复合子请求。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "自查也经过授权判断",
+      "items": [
+        "GET _security/_authenticate 可由 checkSameUserPermissions 授予，不需要 manage_security。",
+        "这不是跳过授权层：无凭据仍 401；alice 查询自己的权限也可获准。"
+      ]
+    }
+  ]
+}

@@ -48,7 +48,7 @@
 | ch26 | 脚本引擎 | ✅ | 45 | 1(编译旅程) | 已重构：2交互图/2路径动画；API与原生浏览器受限，见日志 |
 | ch27 | 管道查询语言 | ✅ | 42 | 1(管道执行) | ✅ 管道计划与AVG中间态（2图，2路径动画）；API两轮通过 |
 | ch28 | 索引生命周期管理 | ✅ | 40 | 1(受控 rollover·7步) | ✅ 两种时钟与相缓存（2图，2路径动画）；API两轮通过 |
-| ch29 | 安全机制 | ✅ | 19 | 1(认证链) | 待改造 |
+| ch29 | 安全机制 | ✅ | 32 | 1(认证与授权·7步) | ✅ Basic入口与RBAC动作边界（2图，2路径动画）；API两轮通过 |
 | ch30 | 全景回顾与方法论 | ✅ | 13 | 1(全链回放) | 待改造 |
 
 转写状态与图解重构分别统计；重构已完成不代表真实 ES 实验或技能原生浏览器检查全部通过，具体结果见会话日志。
@@ -441,7 +441,32 @@
 | min_docs暗门混同本课显式参数；allocate笼统列hot/warm | 默认只在没有文档min条件时补min_docs1，本课显式2；至少一max且全部min，max_primary_shard_size看最大主片；allocate属warm/cold | [默认条件](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/WaitForRolloverReadyStep.java#L234-L275)、[动作顺序](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ilm/TimeseriesLifecycleType.java#L49-L82) |
 | indexing_complete暗示只读；删策略靠引用计数；poll=null总回10m | 该标记不等于index.blocks.write；删除扫描索引策略名；null去掉该层覆盖，有原配置须恢复原值 | [策略扫描](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/ilm/src/main/java/org/elasticsearch/xpack/ilm/action/TransportDeleteLifecycleAction.java#L78-L100)、[两轮恢复原值](.archify/review/ch28-es-review.json) |
 
+### 第二十九章重构校对
+
+| 网页旧说法 | 修正 | 依据 |
+|---|---|---|
+| CONTINUE就是“不是我的凭据”；Realms错密码CONTINUE后由链生成统一异常 | CONTINUE可带失败信息；本版本错Basic由consumeNullUser→authenticationFailed失败回调生成用户文案 | [链迭代](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/AuthenticatorChain.java#L122-L195)、[Realm失败](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/RealmsAuthenticator.java#L288-L315) |
+| handleNullToken意味着从未抽出任何token | 已抽取的伪造ApiKey校验失败也可到该方法；是否回退受context和匿名配置决定 | [回退条件](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/AuthenticatorChain.java#L270-L320)、[两轮真实API](.archify/review/ch29-es-review.json) |
+| reserved永远第一，LDAP不认Basic | 默认列表与成功缓存后的实际校验顺序分开；LDAP/AD等用户名密码Realm也可认Basic | [缓存重排](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/RealmsAuthenticator.java#L388-L407)、[Basic抽取](chapters/ch29.html#auth-chain) |
+| 同时塞ApiKey+Basic则API Key赢；一次请求只能有一个主体 | 双Authorization值真实400，不演示凭据后备；普通认证得到一份Authentication，run-as/附加认证另有流程 | [两轮双头请求](.archify/review/ch29-es-review.json)、[抽象边界](chapters/ch29.html#auth-model) |
+| 9.4.0总有Basic+ApiKey两挑战 | 本课无匿名、token service关闭、API Key开启才是该两项；挑战列表取决于配置 | [挑战汇集](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/Security.java#L1503-L1528)、[真实服务开关](.archify/review/ch29-es-review.json) |
+| _authenticate免授权；索引授权只查checkIndicesAction | 自查经过同用户授权分支获准；索引还解析具体资源并建立访问控制 | [同用户授权](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authz/RBACEngine.java#L205-L267)、[索引访问控制](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authz/RBACEngine.java#L418-L455) |
+| FLS/DLS逐个AND再削一刀 | 普通角色允许权限组合；同资源DLS组合不逐个AND，不受限授权可去掉限制；本课未实测许可扩展 | [合并条件](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authz/store/CompositeRolesStore.java#L748-L762) |
+| 关闭安全人人是匿名superuser；_security任意URL都400；available只表示发行版存在 | 无该认证授权且不构造匿名superuser；仅指定路由400，任意URL/方法另判断；available含许可可用性 | [Handler注册](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/Security.java#L1847-L1856)、[指定API对照](.archify/review/ch29-es-review.json) |
+| 重复删除用户/角色仍200；缓存残留后“下次完整认证必然失败” | 实测重复404 found=false；删除用户成功清理Realm缓存，本课新请求401，不推断在途请求/其他凭据失效 | [删除缓存](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/esnative/NativeUsersStore.java#L579-L606)、[两轮清理与重做](.archify/review/ch29-es-review.json) |
+| 原实验只有拒绝，缺少read成功数据、重做语义；用户JSON密码进控制台URL | 19原ID保留，5组32卡，显式mapping/固定ID/refresh；允许/拒绝/权限自查及点名清理；用户卡控制台入口手动填写，密码不进URL | [注册表](experiments/ch29.js)、[验收](.archify/CH29-REVIEW.md) |
+
 ## 会话日志
+
+### 2026-10-13（ch29 安全机制重构）
+
+- 按规范只读/改本章及首页对应卡片，不通读tutorial、不用子代理；已有.gitignore修改保留、不纳入本轮提交。固定9.4.0/10.4.0，真实源码Git 19文件/37段核对，校正认证回调、Realm缓存、null-token回退、双头/挑战、自查与索引授权、关闭安全/角色组合及重复清理，详见上表。
+- 原19实验ID与七步机制ID保留；5组32卡，1P0R/strict keyword/refresh_interval=-1，固定ID显式refresh。管理员准备，alice读取/搜索200与cluster/CAT/创建/写入/范围外403、自查200对照；9200/9201端点与认证显式固定。
+- **真实API两轮各32卡通过**，每轮另10项重复/副作用/双Authorization观察；重复删身份404 found=false，双Authorization400，三种401双挑战，403无挑战。finally逐项点名清理确认资源不存在，两个节点留跑。原始响应与历史失败保留，[API记录](.archify/review/ch29-es-review.json)。未实测真实密钥、外部Realm、TLS、多节点、匿名/run-as/附加认证、FLS/DLS与性能。
+- 两幅官方Archify3.0.1 workflow-v2/trace只改JSON生成：当前Basic review-2、RBAC review-4，validate/deliver/strict/browser-check全部PASS，showcase9/9、零错误/警告，原生file浏览器可用。初稿高度、一次路由交叉及HTTP390px裁切按诊断修复；旧收据保留。许可、字体说明与delivery哈希保留。
+- HTTP两图4桌面尺寸×双主题、章节6尺寸×双主题通过；桌面880px，390正文362px、320正文292px，边界≤1px、页面/iframe不横溢、节点完整。主题/探索/键盘/展开/暂停外层重播/reduced-motion/七步/目录/已读、31请求深链+含密码body手动控制台入口、/es_web/前缀通过；ApiKey头不进深链的限制已明确。表格/机制仅自身横滑；HTTP自动ES流量abort，不代替真实API。
+- 已实际view_image审阅7联系表（24章节/图截图+全部7机制快照），另看完整浅色Basic与深色RBAC；手机图为总览，通过探索/展开/正文读细节。首图左侧成功绕行可追踪；独立图最小SVG字7.258/7.466px，节点字8.295/8.533px。
+- 站点816卡/22动画/30正式页、JS语法、figwidth、diff、19原ID/32有序唯一槽位、GET/HEAD无body和.nojekyll通过。[验收](.archify/CH29-REVIEW.md)、[源码](.archify/review/ch29-source-review.json)、[HTTP](.archify/review/ch29-http-review.json)、[产物绑定](.archify/review/ch29-artifacts.json)分别留存；按授权自动提交推送origin/main，交付另核对GitHub提交与Pages。
 
 ### 2026-10-13（ch28 索引生命周期管理重构）
 

@@ -1,0 +1,303 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Basic 凭据从哪里进入认证链",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-ch29-basic-path-20261013-225430/basic-path.html",
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "认证与权限检查"
+        },
+        "database": {
+          "label": "身份与角色"
+        },
+        "security": {
+          "label": "请求拒绝"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "entry",
+      "label": "普通 Basic 请求 · 前两类只抽取 Bearer"
+    },
+    {
+      "id": "realm",
+      "label": "API Key 到 Realms · Basic 在 Realms 抽取与校验"
+    },
+    {
+      "id": "result",
+      "label": "成功身份交给 Action 授权 · 省略匿名与 run-as"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "request",
+      "lane": "entry",
+      "col": 1,
+      "label": "HTTP Basic 请求",
+      "sublabel": "凭据先进入 ThreadContext",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/Security.java",
+          "line": 2226,
+          "end_line": 2239,
+          "label": "HTTP 头认证入口"
+        }
+      ],
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": -50
+    },
+    {
+      "id": "service",
+      "lane": "entry",
+      "col": 2,
+      "label": "Service Account",
+      "sublabel": "只解析服务账号 Bearer",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/ServiceAccountAuthenticator.java",
+          "line": 60,
+          "end_line": 68,
+          "label": "服务账号凭据抽取"
+        }
+      ],
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": -50
+    },
+    {
+      "id": "oauth",
+      "lane": "entry",
+      "col": 2,
+      "label": "OAuth2 token",
+      "sublabel": "抽取 Bearer access token",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/OAuth2TokenAuthenticator.java",
+          "line": 54,
+          "end_line": 61,
+          "label": "OAuth2 凭据抽取"
+        }
+      ],
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": 50
+    },
+    {
+      "id": "apikey",
+      "lane": "realm",
+      "col": 1,
+      "label": "API Key",
+      "sublabel": "抽取 ApiKey；不是 Basic",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/ApiKeyAuthenticator.java",
+          "line": 60,
+          "end_line": 64,
+          "label": "ApiKey 凭据抽取"
+        },
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/Authenticator.java",
+          "line": 76,
+          "end_line": 78,
+          "label": "ApiKey 前缀"
+        }
+      ],
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": -50
+    },
+    {
+      "id": "realms",
+      "lane": "realm",
+      "col": 1,
+      "label": "Realms 校验 Basic",
+      "sublabel": "默认顺序受成功缓存影响",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/RealmsAuthenticator.java",
+          "line": 83,
+          "end_line": 92,
+          "label": "抽取后关闭匿名回退"
+        },
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/RealmsAuthenticator.java",
+          "line": 169,
+          "end_line": 214,
+          "label": "Realm 校验与停止"
+        },
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/RealmsAuthenticator.java",
+          "line": 388,
+          "end_line": 407,
+          "label": "缓存重排 Realm"
+        }
+      ],
+      "type": "database",
+      "width": 264,
+      "height": 66,
+      "yOffset": 50
+    },
+    {
+      "id": "reject",
+      "lane": "realm",
+      "col": 2,
+      "label": "本课认证拒绝：401",
+      "sublabel": "缺凭据与错密码 reason 不同",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/AuthenticatorChain.java",
+          "line": 270,
+          "end_line": 320,
+          "label": "本课无匿名回退"
+        },
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/RealmsAuthenticator.java",
+          "line": 306,
+          "end_line": 315,
+          "label": "Basic 无有效用户"
+        }
+      ],
+      "type": "security",
+      "width": 264,
+      "height": 66,
+      "yOffset": 50
+    },
+    {
+      "id": "identity",
+      "lane": "result",
+      "col": 1,
+      "label": "得到 Authentication",
+      "sublabel": "SUCCESS 后不再试下一环",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/AuthenticatorChain.java",
+          "line": 122,
+          "end_line": 141,
+          "label": "SUCCESS 停链"
+        },
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/AuthenticatorChain.java",
+          "line": 320,
+          "end_line": 357,
+          "label": "校验身份并写上下文"
+        }
+      ],
+      "type": "database",
+      "width": 264,
+      "height": 66,
+      "yOffset": 0
+    },
+    {
+      "id": "authorize",
+      "lane": "result",
+      "col": 2,
+      "label": "Action 授权",
+      "sublabel": "GET / 检查集群权限",
+      "sources": [
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/action/filter/SecurityActionFilter.java",
+          "line": 166,
+          "end_line": 190,
+          "label": "已有身份交给授权"
+        },
+        {
+          "path": "x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authz/RBACEngine.java",
+          "line": 205,
+          "end_line": 224,
+          "label": "集群动作授权"
+        }
+      ],
+      "type": "backend",
+      "width": 264,
+      "height": 66,
+      "yOffset": 0
+    }
+  ],
+  "edges": [
+    {
+      "id": "request-service",
+      "from": "request",
+      "to": "service",
+      "label": "抽取",
+      "variant": "emphasis"
+    },
+    {
+      "id": "service-oauth",
+      "from": "service",
+      "to": "oauth",
+      "label": "未认领",
+      "variant": "emphasis"
+    },
+    {
+      "id": "oauth-apikey",
+      "from": "oauth",
+      "to": "apikey",
+      "label": "未认领",
+      "variant": "emphasis"
+    },
+    {
+      "id": "apikey-realms",
+      "from": "apikey",
+      "to": "realms",
+      "label": "未认领",
+      "variant": "emphasis"
+    },
+    {
+      "id": "realms-identity",
+      "from": "realms",
+      "to": "identity",
+      "label": "通过",
+      "variant": "emphasis"
+    },
+    {
+      "id": "realms-reject",
+      "from": "realms",
+      "to": "reject",
+      "label": "失败",
+      "variant": "security"
+    },
+    {
+      "id": "identity-authorize",
+      "from": "identity",
+      "to": "authorize",
+      "label": "动作",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "这是一条 Basic 教学路径",
+      "items": [
+        "前三类抽不到 Basic 凭据，返回 CONTINUE；图中箭头是调用/结果分支。",
+        "全链顺序还可在最前加入插件认证器；有效 Bearer / ApiKey 可更早成功停止。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "停止与回退有条件",
+      "items": [
+        "CONTINUE 允许继续；SUCCESS 停止；TERMINATE 或异常结束，不承诺密码后备。",
+        "本课匿名访问关闭。Realm 默认 reserved/file/native；成功缓存可将此前成功 Realm 提前。"
+      ]
+    }
+  ]
+}

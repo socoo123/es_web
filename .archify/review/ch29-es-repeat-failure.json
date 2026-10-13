@@ -1,0 +1,1892 @@
+{
+  "status": "fail",
+  "kind": "real-es-two-rounds",
+  "startedAt": "2026-10-13T23:04:07.138985+08:00",
+  "experimentSha256": "24d60a3fc3e405354c6cdad73a5ffeced5e91a949f1af530cf2d094779c16758",
+  "preflight": [
+    {
+      "method": "GET",
+      "path": "/",
+      "endpoint": "http://localhost:9200",
+      "authMode": "anonymous",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 200,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "540"
+        ]
+      ],
+      "body": {
+        "name": "de11d253f59a",
+        "cluster_name": "docker-cluster",
+        "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+        "version": {
+          "number": "9.4.0",
+          "build_flavor": "default",
+          "build_type": "docker",
+          "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+          "build_date": "2026-04-30T15:05:34.751113474Z",
+          "build_snapshot": false,
+          "lucene_version": "10.4.0",
+          "minimum_wire_compatibility_version": "8.19.0",
+          "minimum_index_compatibility_version": "8.0.0"
+        },
+        "tagline": "You Know, for Search"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 200,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "540"
+        ]
+      ],
+      "body": {
+        "name": "7123a12e4dda",
+        "cluster_name": "docker-cluster",
+        "cluster_uuid": "A1yje7oiQdapaTfjaKXT2Q",
+        "version": {
+          "number": "9.4.0",
+          "build_flavor": "default",
+          "build_type": "docker",
+          "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+          "build_date": "2026-04-30T15:05:34.751113474Z",
+          "build_snapshot": false,
+          "lucene_version": "10.4.0",
+          "minimum_wire_compatibility_version": "8.19.0",
+          "minimum_index_compatibility_version": "8.0.0"
+        },
+        "tagline": "You Know, for Search"
+      }
+    },
+    {
+      "method": "HEAD",
+      "path": "/tut-l29-logs",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "401"
+        ]
+      ],
+      "body": ""
+    },
+    {
+      "method": "HEAD",
+      "path": "/tut-l29-denied",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "413"
+        ]
+      ],
+      "body": ""
+    },
+    {
+      "method": "GET",
+      "path": "/_security/user/tut-l29-alice",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "2"
+        ]
+      ],
+      "body": {}
+    },
+    {
+      "method": "GET",
+      "path": "/_security/role/tut-l29-reader",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "2"
+        ]
+      ],
+      "body": {}
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/",
+          "endpoint": "http://localhost:9201",
+          "authMode": "anonymous",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 401,
+          "headers": [
+            [
+              "WWW-Authenticate",
+              "Basic realm=\"security\", charset=\"UTF-8\""
+            ],
+            [
+              "WWW-Authenticate",
+              "ApiKey"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "405"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "missing authentication credentials for REST request [/]",
+                  "header": {
+                    "WWW-Authenticate": [
+                      "Basic realm=\"security\", charset=\"UTF-8\"",
+                      "ApiKey"
+                    ]
+                  }
+                }
+              ],
+              "type": "security_exception",
+              "reason": "missing authentication credentials for REST request [/]",
+              "header": {
+                "WWW-Authenticate": [
+                  "Basic realm=\"security\", charset=\"UTF-8\"",
+                  "ApiKey"
+                ]
+              }
+            },
+            "status": 401
+          },
+          "id": "ch29-01-unauth-root"
+        },
+        {
+          "method": "GET",
+          "path": "/_security/_authenticate",
+          "endpoint": "http://localhost:9201",
+          "authMode": "anonymous",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 401,
+          "headers": [
+            [
+              "WWW-Authenticate",
+              "Basic realm=\"security\", charset=\"UTF-8\""
+            ],
+            [
+              "WWW-Authenticate",
+              "ApiKey"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "451"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "missing authentication credentials for REST request [/_security/_authenticate]",
+                  "header": {
+                    "WWW-Authenticate": [
+                      "Basic realm=\"security\", charset=\"UTF-8\"",
+                      "ApiKey"
+                    ]
+                  }
+                }
+              ],
+              "type": "security_exception",
+              "reason": "missing authentication credentials for REST request [/_security/_authenticate]",
+              "header": {
+                "WWW-Authenticate": [
+                  "Basic realm=\"security\", charset=\"UTF-8\"",
+                  "ApiKey"
+                ]
+              }
+            },
+            "status": 401
+          },
+          "id": "ch29-02-unauth-self"
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "540"
+            ]
+          ],
+          "body": {
+            "name": "7123a12e4dda",
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "A1yje7oiQdapaTfjaKXT2Q",
+            "version": {
+              "number": "9.4.0",
+              "build_flavor": "default",
+              "build_type": "docker",
+              "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+              "build_date": "2026-04-30T15:05:34.751113474Z",
+              "build_snapshot": false,
+              "lucene_version": "10.4.0",
+              "minimum_wire_compatibility_version": "8.19.0",
+              "minimum_index_compatibility_version": "8.0.0"
+            },
+            "tagline": "You Know, for Search"
+          },
+          "id": "ch29-03-auth-root"
+        },
+        {
+          "method": "GET",
+          "path": "/_security/_authenticate",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "263"
+            ]
+          ],
+          "body": {
+            "username": "elastic",
+            "roles": [
+              "superuser"
+            ],
+            "full_name": null,
+            "email": null,
+            "metadata": {
+              "_reserved": true
+            },
+            "enabled": true,
+            "authentication_realm": {
+              "name": "reserved",
+              "type": "reserved"
+            },
+            "lookup_realm": {
+              "name": "reserved",
+              "type": "reserved"
+            },
+            "authentication_type": "realm"
+          },
+          "id": "ch29-04-authenticate"
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "endpoint": "http://localhost:9201",
+          "authMode": "wrong",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 401,
+          "headers": [
+            [
+              "WWW-Authenticate",
+              "Basic realm=\"security\", charset=\"UTF-8\""
+            ],
+            [
+              "WWW-Authenticate",
+              "ApiKey"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "411"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "unable to authenticate user [elastic] for REST request [/]",
+                  "header": {
+                    "WWW-Authenticate": [
+                      "Basic realm=\"security\", charset=\"UTF-8\"",
+                      "ApiKey"
+                    ]
+                  }
+                }
+              ],
+              "type": "security_exception",
+              "reason": "unable to authenticate user [elastic] for REST request [/]",
+              "header": {
+                "WWW-Authenticate": [
+                  "Basic realm=\"security\", charset=\"UTF-8\"",
+                  "ApiKey"
+                ]
+              }
+            },
+            "status": 401
+          },
+          "id": "ch29-05-wrong-password"
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "endpoint": "http://localhost:9201",
+          "authMode": "anonymous",
+          "customHeaders": {
+            "Authorization": "ApiKey eHh4Onl5eQ=="
+          },
+          "requestBody": null,
+          "status": 401,
+          "headers": [
+            [
+              "WWW-Authenticate",
+              "Basic realm=\"security\", charset=\"UTF-8\""
+            ],
+            [
+              "WWW-Authenticate",
+              "ApiKey"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "663"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "unable to authenticate with provided credentials and anonymous access is not allowed for this request",
+                  "additional_unsuccessful_credentials": "API key: unable to find apikey with id xxx",
+                  "header": {
+                    "WWW-Authenticate": [
+                      "Basic realm=\"security\", charset=\"UTF-8\"",
+                      "ApiKey"
+                    ]
+                  }
+                }
+              ],
+              "type": "security_exception",
+              "reason": "unable to authenticate with provided credentials and anonymous access is not allowed for this request",
+              "additional_unsuccessful_credentials": "API key: unable to find apikey with id xxx",
+              "header": {
+                "WWW-Authenticate": [
+                  "Basic realm=\"security\", charset=\"UTF-8\"",
+                  "ApiKey"
+                ]
+              }
+            },
+            "status": 401
+          },
+          "id": "ch29-06-bogus-apikey"
+        },
+        {
+          "method": "GET",
+          "path": "/_xpack/usage?filter_path=security.enabled,security.anonymous,security.token_service,security.api_key_service,security.ssl",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "232"
+            ]
+          ],
+          "body": {
+            "security": {
+              "enabled": true,
+              "ssl": {
+                "remote_cluster_client": {
+                  "enabled": true
+                },
+                "http": {
+                  "enabled": false
+                },
+                "transport": {
+                  "enabled": false
+                }
+              },
+              "token_service": {
+                "enabled": false
+              },
+              "api_key_service": {
+                "enabled": true
+              },
+              "anonymous": {
+                "enabled": false
+              }
+            }
+          },
+          "id": "ch29-20-secure-usage"
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l29-logs",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "refresh_interval": "-1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "properties": {
+                "msg": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "71"
+            ]
+          ],
+          "body": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l29-logs"
+          },
+          "id": "ch29-21-create-data"
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l29-logs/_doc/1?refresh=true",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": {
+            "msg": "security-demo"
+          },
+          "status": 201,
+          "headers": [
+            [
+              "Location",
+              "/tut-l29-logs/_doc/1"
+            ],
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "167"
+            ]
+          ],
+          "body": {
+            "_index": "tut-l29-logs",
+            "_id": "1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1
+          },
+          "id": "ch29-22-seed-data"
+        },
+        {
+          "method": "PUT",
+          "path": "/_security/role/tut-l29-reader",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": {
+            "cluster": [],
+            "indices": [
+              {
+                "names": [
+                  "tut-l29-*"
+                ],
+                "privileges": [
+                  "read"
+                ]
+              }
+            ]
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "25"
+            ]
+          ],
+          "body": {
+            "role": {
+              "created": true
+            }
+          },
+          "id": "ch29-07-role"
+        },
+        {
+          "method": "PUT",
+          "path": "/_security/user/tut-l29-alice",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": {
+            "password": "alice-password",
+            "roles": [
+              "tut-l29-reader"
+            ]
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "16"
+            ]
+          ],
+          "body": {
+            "created": true
+          },
+          "id": "ch29-08-user"
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 403,
+          "headers": [
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "479"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "action [cluster:monitor/main] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader], this action is granted by the cluster privileges [monitor,manage,all]"
+                }
+              ],
+              "type": "security_exception",
+              "reason": "action [cluster:monitor/main] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader], this action is granted by the cluster privileges [monitor,manage,all]"
+            },
+            "status": 403
+          },
+          "id": "ch29-09-alice-403"
+        },
+        {
+          "method": "GET",
+          "path": "/_security/_authenticate",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "266"
+            ]
+          ],
+          "body": {
+            "username": "tut-l29-alice",
+            "roles": [
+              "tut-l29-reader"
+            ],
+            "full_name": null,
+            "email": null,
+            "metadata": {},
+            "enabled": true,
+            "authentication_realm": {
+              "name": "default_native",
+              "type": "native"
+            },
+            "lookup_realm": {
+              "name": "default_native",
+              "type": "native"
+            },
+            "authentication_type": "realm"
+          },
+          "id": "ch29-10-alice-self"
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l29-logs/_doc/1",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "126"
+            ]
+          ],
+          "body": {
+            "_index": "tut-l29-logs",
+            "_id": "1",
+            "_version": 2,
+            "_seq_no": 1,
+            "_primary_term": 1,
+            "found": true,
+            "_source": {
+              "msg": "security-demo"
+            }
+          },
+          "id": "ch29-23-alice-get"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l29-logs/_search",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": {
+            "query": {
+              "match_all": {}
+            },
+            "track_total_hits": true
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "took": 11,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "max_score": 1.0,
+              "hits": [
+                {
+                  "_index": "tut-l29-logs",
+                  "_id": "1",
+                  "_score": 1.0,
+                  "_source": {
+                    "msg": "security-demo"
+                  }
+                }
+              ]
+            }
+          },
+          "id": "ch29-24-alice-search"
+        },
+        {
+          "method": "GET",
+          "path": "/_cat/indices/tut-l29-logs?h=index",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 403,
+          "headers": [
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "1727"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "action [indices:monitor/settings/get] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [tut-l29-logs], this action is granted by the index privileges [monitor,view_index_metadata,manage,all]",
+                  "suppressed": [
+                    {
+                      "type": "security_exception",
+                      "reason": "action [cluster:monitor/state] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader], this action is granted by the cluster privileges [cross_cluster_replication,read_ccr,transport_client,manage_ccr,monitor,manage,all]"
+                    },
+                    {
+                      "type": "security_exception",
+                      "reason": "action [indices:monitor/stats] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [tut-l29-logs], this action is granted by the index privileges [monitor,cross_cluster_replication,manage,all]"
+                    }
+                  ]
+                }
+              ],
+              "type": "security_exception",
+              "reason": "action [indices:monitor/settings/get] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [tut-l29-logs], this action is granted by the index privileges [monitor,view_index_metadata,manage,all]",
+              "suppressed": [
+                {
+                  "type": "security_exception",
+                  "reason": "action [cluster:monitor/state] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader], this action is granted by the cluster privileges [cross_cluster_replication,read_ccr,transport_client,manage_ccr,monitor,manage,all]"
+                },
+                {
+                  "type": "security_exception",
+                  "reason": "action [indices:monitor/stats] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [tut-l29-logs], this action is granted by the index privileges [monitor,cross_cluster_replication,manage,all]"
+                }
+              ]
+            },
+            "status": 403
+          },
+          "id": "ch29-11-alice-cat"
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l29-denied",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0
+            }
+          },
+          "status": 403,
+          "headers": [
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "541"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "action [indices:admin/create] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [tut-l29-denied], this action is granted by the index privileges [create_index,manage,all]"
+                }
+              ],
+              "type": "security_exception",
+              "reason": "action [indices:admin/create] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [tut-l29-denied], this action is granted by the index privileges [create_index,manage,all]"
+            },
+            "status": 403
+          },
+          "id": "ch29-12-alice-put"
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l29-logs/_doc/2?refresh=true",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": {
+            "msg": "must-not-write"
+          },
+          "status": 403,
+          "headers": [
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "565"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "action [indices:data/write/index] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [tut-l29-logs], this action is granted by the index privileges [create_doc,create,index,write,all]"
+                }
+              ],
+              "type": "security_exception",
+              "reason": "action [indices:data/write/index] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [tut-l29-logs], this action is granted by the index privileges [create_doc,create,index,write,all]"
+            },
+            "status": 403
+          },
+          "id": "ch29-25-alice-write"
+        },
+        {
+          "method": "POST",
+          "path": "/_security/user/_has_privileges",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": {
+            "cluster": [
+              "monitor"
+            ],
+            "index": [
+              {
+                "names": [
+                  "tut-l29-logs"
+                ],
+                "privileges": [
+                  "read",
+                  "write",
+                  "create_index"
+                ]
+              }
+            ]
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "173"
+            ]
+          ],
+          "body": {
+            "username": "tut-l29-alice",
+            "has_all_requested": false,
+            "cluster": {
+              "monitor": false
+            },
+            "index": {
+              "tut-l29-logs": {
+                "create_index": false,
+                "read": true,
+                "write": false
+              }
+            },
+            "application": {}
+          },
+          "id": "ch29-26-alice-privileges"
+        },
+        {
+          "method": "GET",
+          "path": "/outside-tut-l29/_search",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 403,
+          "headers": [
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "521"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "action [indices:data/read/search] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [outside-tut-l29], this action is granted by the index privileges [read,all]"
+                }
+              ],
+              "type": "security_exception",
+              "reason": "action [indices:data/read/search] is unauthorized for user [tut-l29-alice] with effective roles [tut-l29-reader] on indices [outside-tut-l29], this action is granted by the index privileges [read,all]"
+            },
+            "status": 403
+          },
+          "id": "ch29-27-outside-name"
+        },
+        {
+          "method": "GET",
+          "path": "/_xpack/usage?filter_path=security",
+          "endpoint": "http://localhost:9200",
+          "authMode": "anonymous",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "47"
+            ]
+          ],
+          "body": {
+            "security": {
+              "available": true,
+              "enabled": false
+            }
+          },
+          "id": "ch29-13-usage"
+        },
+        {
+          "method": "GET",
+          "path": "/_security/_authenticate",
+          "endpoint": "http://localhost:9200",
+          "authMode": "anonymous",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 400,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "80"
+            ]
+          ],
+          "body": {
+            "error": "no handler found for uri [/_security/_authenticate] and method [GET]"
+          },
+          "id": "ch29-14-nohandler"
+        },
+        {
+          "method": "POST",
+          "path": "/_security/api_key",
+          "endpoint": "http://localhost:9200",
+          "authMode": "anonymous",
+          "customHeaders": {},
+          "requestBody": {
+            "name": "tut-l29-will-fail"
+          },
+          "status": 400,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "75"
+            ]
+          ],
+          "body": {
+            "error": "no handler found for uri [/_security/api_key] and method [POST]"
+          },
+          "id": "ch29-15-nohandler-key"
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "endpoint": "http://localhost:9200",
+          "authMode": "anonymous",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "540"
+            ]
+          ],
+          "body": {
+            "name": "de11d253f59a",
+            "cluster_name": "docker-cluster",
+            "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+            "version": {
+              "number": "9.4.0",
+              "build_flavor": "default",
+              "build_type": "docker",
+              "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+              "build_date": "2026-04-30T15:05:34.751113474Z",
+              "build_snapshot": false,
+              "lucene_version": "10.4.0",
+              "minimum_wire_compatibility_version": "8.19.0",
+              "minimum_index_compatibility_version": "8.0.0"
+            },
+            "tagline": "You Know, for Search"
+          },
+          "id": "ch29-16-anon-root"
+        },
+        {
+          "method": "DELETE",
+          "path": "/_security/user/tut-l29-alice",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "14"
+            ]
+          ],
+          "body": {
+            "found": true
+          },
+          "id": "ch29-17-del-user"
+        },
+        {
+          "method": "DELETE",
+          "path": "/_security/role/tut-l29-reader",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "14"
+            ]
+          ],
+          "body": {
+            "found": true
+          },
+          "id": "ch29-18-del-role"
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "endpoint": "http://localhost:9201",
+          "authMode": "alice",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 401,
+          "headers": [
+            [
+              "WWW-Authenticate",
+              "Basic realm=\"security\", charset=\"UTF-8\""
+            ],
+            [
+              "WWW-Authenticate",
+              "ApiKey"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "423"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "security_exception",
+                  "reason": "unable to authenticate user [tut-l29-alice] for REST request [/]",
+                  "header": {
+                    "WWW-Authenticate": [
+                      "Basic realm=\"security\", charset=\"UTF-8\"",
+                      "ApiKey"
+                    ]
+                  }
+                }
+              ],
+              "type": "security_exception",
+              "reason": "unable to authenticate user [tut-l29-alice] for REST request [/]",
+              "header": {
+                "WWW-Authenticate": [
+                  "Basic realm=\"security\", charset=\"UTF-8\"",
+                  "ApiKey"
+                ]
+              }
+            },
+            "status": 401
+          },
+          "id": "ch29-19-alice-gone"
+        },
+        {
+          "method": "DELETE",
+          "path": "/tut-l29-logs",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "21"
+            ]
+          ],
+          "body": {
+            "acknowledged": true
+          },
+          "id": "ch29-28-delete-data"
+        },
+        {
+          "method": "HEAD",
+          "path": "/tut-l29-logs",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "401"
+            ]
+          ],
+          "body": "",
+          "id": "ch29-29-data-gone"
+        },
+        {
+          "method": "GET",
+          "path": "/_security/user/tut-l29-alice",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "2"
+            ]
+          ],
+          "body": {},
+          "id": "ch29-30-user-gone"
+        },
+        {
+          "method": "GET",
+          "path": "/_security/role/tut-l29-reader",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "2"
+            ]
+          ],
+          "body": {},
+          "id": "ch29-31-role-gone"
+        },
+        {
+          "method": "HEAD",
+          "path": "/tut-l29-denied",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "413"
+            ]
+          ],
+          "body": "",
+          "id": "ch29-32-denied-index-absent"
+        }
+      ],
+      "supplementary": [
+        {
+          "method": "PUT",
+          "path": "/_security/role/tut-l29-reader",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": {
+            "cluster": [],
+            "indices": [
+              {
+                "names": [
+                  "tut-l29-*"
+                ],
+                "privileges": [
+                  "read"
+                ]
+              }
+            ]
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "26"
+            ]
+          ],
+          "body": {
+            "role": {
+              "created": false
+            }
+          }
+        },
+        {
+          "method": "PUT",
+          "path": "/_security/user/tut-l29-alice",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": {
+            "password": "alice-password",
+            "roles": [
+              "tut-l29-reader"
+            ]
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "17"
+            ]
+          ],
+          "body": {
+            "created": false
+          }
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l29-logs/_doc/1?refresh=true",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": {
+            "msg": "security-demo"
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "167"
+            ]
+          ],
+          "body": {
+            "_index": "tut-l29-logs",
+            "_id": "1",
+            "_version": 2,
+            "result": "updated",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 1,
+            "_primary_term": 1
+          }
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l29-logs",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "refresh_interval": "-1"
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "properties": {
+                "msg": {
+                  "type": "keyword"
+                }
+              }
+            }
+          },
+          "status": 400,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "389"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "resource_already_exists_exception",
+                  "reason": "index [tut-l29-logs/SrMkNlANQqGgPAlCz8prDA] already exists",
+                  "index_uuid": "SrMkNlANQqGgPAlCz8prDA",
+                  "index": "tut-l29-logs"
+                }
+              ],
+              "type": "resource_already_exists_exception",
+              "reason": "index [tut-l29-logs/SrMkNlANQqGgPAlCz8prDA] already exists",
+              "index_uuid": "SrMkNlANQqGgPAlCz8prDA",
+              "index": "tut-l29-logs"
+            },
+            "status": 400
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l29-logs/_count",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "71"
+            ]
+          ],
+          "body": {
+            "count": 1,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l29-logs/_doc/2",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "49"
+            ]
+          ],
+          "body": {
+            "_index": "tut-l29-logs",
+            "_id": "2",
+            "found": false
+          }
+        },
+        {
+          "method": "DELETE",
+          "path": "/_security/user/tut-l29-alice",
+          "endpoint": "http://localhost:9201",
+          "authMode": "elastic",
+          "customHeaders": {},
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "15"
+            ]
+          ],
+          "body": {
+            "found": false
+          }
+        }
+      ]
+    }
+  ],
+  "finally": [
+    {
+      "method": "DELETE",
+      "path": "/_security/user/tut-l29-alice",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "15"
+        ]
+      ],
+      "body": {
+        "found": false
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/_security/role/tut-l29-reader",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "15"
+        ]
+      ],
+      "body": {
+        "found": false
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/tut-l29-logs",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "401"
+        ]
+      ],
+      "body": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "index_not_found_exception",
+              "reason": "no such index [tut-l29-logs]",
+              "resource.type": "index_or_alias",
+              "resource.id": "tut-l29-logs",
+              "index_uuid": "_na_",
+              "index": "tut-l29-logs"
+            }
+          ],
+          "type": "index_not_found_exception",
+          "reason": "no such index [tut-l29-logs]",
+          "resource.type": "index_or_alias",
+          "resource.id": "tut-l29-logs",
+          "index_uuid": "_na_",
+          "index": "tut-l29-logs"
+        },
+        "status": 404
+      }
+    },
+    {
+      "method": "HEAD",
+      "path": "/tut-l29-logs",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "401"
+        ]
+      ],
+      "body": ""
+    },
+    {
+      "method": "HEAD",
+      "path": "/tut-l29-denied",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "413"
+        ]
+      ],
+      "body": ""
+    },
+    {
+      "method": "GET",
+      "path": "/_security/user/tut-l29-alice",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "2"
+        ]
+      ],
+      "body": {}
+    },
+    {
+      "method": "GET",
+      "path": "/_security/role/tut-l29-reader",
+      "endpoint": "http://localhost:9201",
+      "authMode": "elastic",
+      "customHeaders": {},
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "2"
+        ]
+      ],
+      "body": {}
+    }
+  ],
+  "failure": "",
+  "finishedAt": "2026-10-13T23:04:08.024537+08:00"
+}
