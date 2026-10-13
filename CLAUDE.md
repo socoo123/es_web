@@ -7,6 +7,7 @@
 
 1. **读 `STATUS.md`** — 知道做到哪了、上次留下什么
 2. **读 `PLAN.md` 与 `CHAPTER_STANDARD.md`** — 前者定义结构与注册表，后者定义后续章节内容校对、Archify 图解、布局和验收
+   框架篇 F01–F45 另读 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)：正文增加可运行代码、输入输出与反例；图解优先 D2、可用 Mermaid，复杂机制可用 SVG，沿用源码篇阅读与实验方式。
 3. **做完就更新 `STATUS.md`,然后跑 `node tools/check.mjs`，提交并推送 GitHub** — 站点检查必须全绿；用户已授权每次章节重构后自动提交本轮代码、图源、产物与验收记录并推送 `origin/main`，无需逐次确认。交付 GitHub 提交链接；未执行的验证与推送失败须如实记录。
 
 ## 常用命令
@@ -30,4 +31,4 @@ open index.html             # 纯静态,file:// 直接可用
 - 不照抄 tutorial 原文措辞——按 CHAPTER_STANDARD 的教学结构重排、用自己的话重写
 - 发现原文错误:网页里写对的,并在 STATUS.md 勘误表登记
 - 版本锚定 9.4.0:线程池参数等易变数字,以本地实测 + `DefaultBuiltInExecutorBuilders` 为准
-- 图不搬运 ASCII/mermaid 原图。后续重构使用官方 Archify 生成自包含 HTML，按 CHAPTER_STANDARD 嵌入；旧机制快照 SVG 继续遵循 PLAN 的 fig-* 规则。不得手改生成的 Archify HTML
+- 源码篇图不搬运 ASCII/mermaid 原图。后续源码章节重构使用官方 Archify 生成自包含 HTML，按 CHAPTER_STANDARD 嵌入；框架篇按 FRAMEWORK_STANDARD 优先使用 D2。旧机制快照与专门编写的 SVG 遵循 PLAN 的 fig-* 规则。不得手改生成的 Archify HTML 或 D2/Mermaid 产物

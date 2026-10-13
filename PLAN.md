@@ -6,6 +6,8 @@
 
 2026-10-12 整体课程规划更新：[FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)、[FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。第一部分作为学习核心，采用「F01–F45 旅游门户完整系统 + 155 个业务案例」，贯穿前后端代码、评分/酒店房型排序、中文搜索与 PostgreSQL/MySQL 日志驱动 ES；第二部分是现有源码篇 ch01–ch30，编号不变。本轮仍为规划，课程与项目尚未实现；下述 30 课模板与 chNN 注册规则继续适用于源码篇，新篇接入和验收按新规划逐阶段扩展。
 
+2026-10-13 框架篇写作要求更新：[FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。F01–F45 以可运行代码、输入输出与业务案例为正文主线，图解优先 D2、可用 Mermaid，复杂机制可用 SVG；阅读列、双主题与实验方式参考源码篇。下文源码走读的「不贴大段源码、贴关键行」不限制框架篇展示完整关键实现。
+
 ## 1. 站点形态
 
 纯静态、零构建、零 CDN。双击 `index.html` 即用(file:// 场景靠 `.js` 注册表而非 fetch JSON)。

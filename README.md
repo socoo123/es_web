@@ -17,6 +17,8 @@
 
 完整目录、前后端实验交付要求、数据模型与同步链路见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，逐课案例见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。目前新增部分仅有规划，课程页面、前后端工程和案例尚未实现或运行验收。
 
+框架篇正文以可运行代码、输入输出和反例为主，图解优先 **D2**、可用 Mermaid，复杂机制可用 SVG；阅读布局、双主题和实验重做方式参考源码篇。具体要求见 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。
+
 ## 快速开始
 
 ```bash

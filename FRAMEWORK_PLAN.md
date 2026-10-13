@@ -1,6 +1,6 @@
 # ES 框架学习篇：旅游门户完整系统规划
 
-修订日期：2026-10-12。用户已明确第一部分为学习核心，至少 30 课，要求大量业务案例、评分排序、景点/酒店/房型，以及 PostgreSQL/MySQL 日志到 ES 的变更链路。本版确定 **45 节核心课、155 个核心案例**，替代最初的 14 课方案。当前完成的是规划；课程、前后端工程和案例均待实现与真实验收。进度见 [STATUS.md](STATUS.md)，案例清单见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。
+修订日期：2026-10-13。用户已明确第一部分为学习核心，至少 30 课，要求大量业务案例、评分排序、景点/酒店/房型，以及 PostgreSQL/MySQL 日志到 ES 的变更链路。本版确定 **45 节核心课、155 个核心案例**，替代最初的 14 课方案。框架篇以可运行代码为主，必要图解优先 D2、可用 Mermaid，复杂机制可用 SVG，阅读与实验方式参考源码篇。当前完成的是规划；课程、前后端工程和案例均待实现与真实验收。进度见 [STATUS.md](STATUS.md)，案例清单见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)，编写要求见 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。
 
 ## 1. 第一部分的定位与最终交付
 
@@ -114,15 +114,15 @@
 
 ## 3. 每课实验必须包含什么
 
-每课至少有一个完整项目增量，页面直接链接本课涉及的 Vue/TypeScript、Java、SQL、ES 请求与配置文件。讲代码时给出「文件位置 → 输入 → 关键实现 → 输出」，并提供完整文件入口。实验按课交付，不能等到最后一课才补一个与教程脱节的项目。
+每课至少有一个完整项目增量，正文直接展示本课关键代码，页面链接涉及的 Vue/TypeScript、Java、SQL、ES 请求与配置文件。按「业务问题 → 输入与样本 → 代码实现 → 运行结果 → 解释与反例」讲解，给出文件位置、必要类型/调用上下文、运行命令、完整文件与阶段提交入口。核心查询、报价、投影或异常分支不能只放源码链接；重复样板可折叠，关键实现不以省略号代替。具体代码与图解要求按 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。实验按课交付，不能等到最后一课才补一个与教程脱节的项目。
 
 | 产物 | 要求 |
 | --- | --- |
 | 本课说明 | 业务问题、前置课程/阶段、功能变化、预期现象与失败恢复 |
-| 前后端代码 | 实际适用的页面/组件/请求模块与 Java API/Service/消费者；基础设施课提供对应配置/SQL，不生硬制造 UI 改动 |
+| 前后端代码 | 正文展示实际适用的页面/组件/请求模块与 Java API/Service/消费者的关键实现；基础设施课提供可执行配置/SQL，搜索课提供完整 DSL 与项目查询实现 |
 | 数据来源 | 迁移 SQL、固定 seed、生成规则、查询标注、对应表与 ES 字段；价格/评分/库存标明教学数据 |
 | 执行入口 | 依赖版本、启动命令、环境示例、请求/脚本、页面路径；源码不依赖未公开的本机文件 |
-| 场景验收 | 输入、操作步骤、预期命中/顺序/报价/数据变更、实际响应与解释 |
+| 场景验收 | 每个案例对应具体输入、执行代码、预期命中/顺序/报价/数据变更与结果断言；区分预期示例与真实响应 |
 | 重做流程 | 点名清理与重新初始化；保持课程资源和项目数据隔离 |
 | 阶段快照 | 已验收阶段用固定 Git tag/提交复现，本课文件入口与增量说明匹配快照 |
 | 验证记录 | 教学站检查、前后端构建、数据库/消息/ES 实测、HTTP 浏览器分别登记 |
@@ -135,17 +135,9 @@
 
 建议技术组合：Vue 3 + TypeScript + Vite，Java 21 + Spring Boot + Maven + 官方 Java API Client，PostgreSQL 主线/MySQL 对照，Debezium + Kafka + Java 投影消费者，ES 沿用 9.4.0。具体补丁、镜像 digest 与依赖树在预检/首次运行时锁定，目前不声称已编译运行。[Vue 官方入门](https://vuejs.org/guide/quick-start.html)、[Java 客户端](https://www.elastic.co/docs/reference/elasticsearch/clients/java)
 
-```mermaid
-flowchart LR
-  UI["Vue 门户与后台"] --> API["Java 业务 API"]
-  API -->|"写入 / 精确报价 / 事务"| DB["PostgreSQL 或 MySQL"]
-  API -->|"受控搜索"| ES["Elasticsearch"]
-  DB -->|"WAL / binlog"| CDC["Debezium"]
-  CDC --> K["Kafka 变更消息"]
-  K --> P["Java 投影消费者"]
-  P -->|"回查关联数据"| DB
-  P -->|"完整文档 / 删除 / Bulk"| ES
-```
+![旅游门户系统分工与日志驱动搜索投影](docs/framework-diagrams/travel-system-light.svg)
+
+这是规划中的系统总览，业务请求与日志同步分为两个视图，重复画出的数据库/ES 表示同一套系统的角色。箭头表示请求或数据流，省略认证、报价细节、消息重试与索引重建；不代表链路已实现。优先采用 D2，保留 [图源](docs/framework-diagrams/travel-system.d2)、[深色图](docs/framework-diagrams/travel-system-dark.svg)和[生成/审阅记录](docs/framework-diagrams/README.md)。各课按代码讲解需要选图，普通查询和配置可以直接展示代码与运行结果。
 
 数据库是业务数据来源，ES 保存为搜索设计的投影。日志产生的是表行变更事件；一个酒店搜索文档可能包含酒店、设施、房型和点评聚合，必须说明哪些事件会使哪些搜索文档失效/重建。PG/MySQL 使用两个可独立启动的 profile，读者可分别完成同一系统的两条链路；不要求同时把两个数据库当成一套数据的双主源。
 
@@ -211,6 +203,7 @@ index.html / source.html                      # 总入口 / 源码目录
 chapters/ch01.html … ch30.html                 # 原源码章节与编号
 framework/index.html / f01.html … f45.html     # 框架篇目录、独立 F 编号
 framework/experiments/f01.js … f45.js          # REST 操作卡、原注册表 schema
+framework/diagrams/fNN/                       # D2/Mermaid 图源、SVG 产物或复杂机制 SVG
 framework/labs/travel-portal/index.html        # 项目总实验入口
 projects/travel-portal/frontend/              # Vue / TypeScript：前台与后台
 projects/travel-portal/backend/               # Spring Boot：API、业务、投影消费者
@@ -224,7 +217,7 @@ projects/travel-portal/review/                # 构建、数据链路、API、�
 
 教学站保持纯静态/零构建、880px 阅读列、双主题、控制台、JS 注册表与可重做实验。实战工程有自己的前后端构建/HTTP 服务；开发时 Vite 代理 Java API，最终用同源入口部署。Pages 用于教程阅读，完整系统在本机/指定服务器运行，浏览器凭据与数据库/ES 凭据分离。
 
-入口改造与 tools/check.mjs 扩展要兼容 source.html、框架目录/fNN 前缀、缺失链接、stub、操作卡槽位与独立进度；不能直接把新脚本塞进写死 chNN 的旧目录。沿用 es-web:read，用 f01–f45 与 ch01–ch30 分开统计，项目阶段另记 es-web:travel-lab；保留旧已读记录与源码深链。图解按 [CHAPTER_STANDARD.md](CHAPTER_STANDARD.md) 的适用要求生成与验收，业务图不强制包含源码文件表。
+入口改造与 tools/check.mjs 扩展要兼容 source.html、框架目录/fNN 前缀、缺失链接、stub、操作卡槽位与独立进度；不能直接把新脚本塞进写死 chNN 的旧目录。沿用 es-web:read，用 f01–f45 与 ch01–ch30 分开统计，项目阶段另记 es-web:travel-lab；保留旧已读记录与源码深链。框架篇按 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md) 编写代码、选择图解与记录验收，内容、宽度、主题与实验要求沿用 [CHAPTER_STANDARD.md](CHAPTER_STANDARD.md) 的适用部分；图解优先 D2、可用 Mermaid，复杂机制可用 SVG，业务课按需提供项目文件入口。
 
 | 阶段 | 范围 | 可运行交付 |
 | --- | --- | --- |
