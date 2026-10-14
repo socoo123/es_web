@@ -4,55 +4,32 @@
 
 ## 框架学习篇与旅游搜索实验
 
-规划见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，可见目录见 [框架篇入口](framework/index.html)。2026-10-14 按用户反馈再次重排为八阶段：先认识 ES/旅游搜索/全程路线，再动手；新版与旧启动实验分开统计。源码篇 ch01–ch30 编号与验收记录不变。
+当前路线见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，阅读入口见 [框架篇目录](framework/index.html)。八阶段 45 课从 ES 用途与旅游搜索问题讲起，F12/F22/F45 独立结业；只按指定课次推进。旧规划与旧首课验收摘要集中到 [历史记录](FRAMEWORK_HISTORY.md)，不作为当前待办。源码篇 ch01–ch30 编号与验收记录不变。
 
 | 项目 | 当前状态 |
 | --- | --- |
-| 八阶段、45 课目录与教学路线 | ✅ 新规划已落盘；F12/F22/F45 三个独立结业点；不再按九个等长单元/155 配额编排 |
-| 新 F01/F02 导学与概念课 | 待编写；F01 先讲 ES 用途/问题/职责/全程大纲/网站学习方式，F02 用样本推演数据到结果 |
-| 新 F03–F45 正文与实验 | 待实施；F03 首次启动、F07 Java/本机展示壳，之后按阶段推进 |
-| 逐课教学问题与案例覆盖 | ✅ [覆盖清单](FRAMEWORK_CASES.md)重排，按实际教学需要确定案例数，全部新课待验收 |
-| 旧版 F01 实验、图解与记录 | 保留 [旧页](framework/f01.html)/工程/三个案例两轮 ES 实测；新增历史说明，计划迁入 F03；不算新版导学或 F03 完成 |
+| 八阶段、45 课目录与教学路线 | ✅ 当前规划、覆盖清单与可见目录一致；F01 可阅读，F02–F45 待实施 |
+| F01 · ES 用途、职责与全程导学 | ✅ 正文、独立内容审阅与 HTTP 阅读通过；1 个导学情境、1 份小 JSON、5 道理解题；0 条执行请求 |
+| F02 · 数据到搜索结果的概念推演 | 待编写；下一指定课次，先推演再运行 |
+| F03–F45 正文与实验 | 待实施；F03 首次启动、F07 Java/本机展示壳，其后按阶段推进 |
+| 逐课教学问题与案例覆盖 | ✅ [覆盖清单](FRAMEWORK_CASES.md)按问题设计对照与判断证据；验收按课次实际记录 |
+| 历史启动实验 | [存档正文](framework/f01-startup-legacy.html)与原工程/三案例两轮实测记录保留；迁入 F03 后重新验收 |
 | 本机搜索展示壳与 Java | 规划 F07 开始提供；Boot 4/JDK 25/官方客户端与展示壳尚未构建/交付 |
 | 集群与索引运行 | F28–F35 规划；多节点/角色/routing/故障、分配、模板/alias/重建/恢复/安全尚未实测 |
 | PG WAL / MySQL binlog → Kafka → Java → ES | F36–F42 规划；两种独立环境串行学习，实际链路与恢复尚未验收 |
 | 中文召回与评分质量 | F13–F22 规划；插件/词典/同义词与查询集评估尚未实施 |
-| 图解重构进度 | 本轮没有新图或图源改动；旧 F01 D2/验收仍有效，新导学职责图待实际重写时生成 |
+| 图解重构进度 | ✅ F01 职责/数据路径与八阶段路线共 2 幅静态 D2、浅深 4 SVG；格式/语法/生成通过，阅读记录另列 |
+| 后续教程写作与内容审阅 | 用户指定 xhigh，已写入协作规范与逐课提示词；本轮 F01 作者及独立审阅实际设置 xhigh |
 
-## 2026-10-14 · 教学重排：先认识 ES，再用网站学会搜索
+## 2026-10-14 · 重写 F01 导学并清理旧编排
 
-- 用户指出目录编排缺乏学习路线，F01 代码过多且未解释 ES 的用途、解决的问题、后续大纲与网站教学方式。本轮只重新规划，不提前批量写课或开发演示站。
-- FRAMEWORK_PLAN 改为八阶段/45课的问题目录，新增用途与数据库职责、网站四层观察/同输入前后对照、F12/F22/F45独立验收、F01八段详细正文方案与单课推进顺序。F03才首个运行实验，F07才Java，取消155案例硬配额。
-- FRAMEWORK_CASES、FRAMEWORK_STANDARD、逐课提示词同步；导学/概念课使用解释与推演证据，执行课再做真实请求/Java及重做。规定新术语先解释、关键代码逐段讲解，通用样板与长响应折叠。
-- 框架入口直接展示八阶段45课标题/目标与首课方案，首页主入口指向新路线；旧F01加历史提示，保留代码/图源/案例ID和原始记录，迁移到F03后重新验收。同步README、PLAN与项目说明，不把旧实验通过称为新导学完成。
-- 内容勘误/教学纠偏：旧“F01启动、F02Java、九单元155例、F01已完成”不再适用于新版；未发现或修改旧ES实测事实。应用基线Boot4/JDK25保持，具体制品锁定与实连推迟到新F07实施。
-- 实际验证：node tools/check.mjs 与 git diff --check 通过；规划/案例/目录45课连续一致，八阶段、正文/目录逐条标题与内容一致，本地链接/文档围栏检查通过。HTTP /es_web/ 下1920/1440/1024/768/390/320×双主题无整页溢出、阅读列≤880px且课程区对齐；主题、八阶段锚点/固定顶栏避让、首页入口、旧课提示、file预览与reduced motion通过，无JS错误/HTTP失败。首页和旧F01做12组有限回归；实际查看最终6张桌面/手机/主题/目录/首课方案截图，见[阅读记录](docs/framework-review/20261014-curriculum/README.md)。框架页无Java/ES请求，源码首页既有连接探测按原功能单列。未启动ES/Java/插件/多节点/CDC，也未生成图解；本轮规划与入口更新不计执行课验收。
-- 本轮仅提交规划与配套入口/说明/阅读记录，不纳入预先存在的 .gitignore、旧门户草稿与未提交 health-path 图等文件；按持续授权提交推送 origin/main。
-
-## 2026-10-14 · 历史版本 F01：启动 ES，完成第一次写入与搜索
-
-| 课次 | 内容 / 实验 | 图解 / 阅读 | 后续边界 |
-| --- | --- | --- | --- |
-| F01 | ✅ 11 条主流程 HTTP 请求；3 个案例，两轮真实 ES 9.4.0 验收 | ✅ 1 幅 D2 静态图，浅/深 SVG；880px，HTTP 12 组尺寸/主题、复制/展开/目录/进度、file 与 reduced motion | F02 Boot 4/JDK 25 未实现；不以 F01 代替 Java/插件/多节点/CDC 验收 |
-
-- 重写框架目录与 F01，旅游搜索是案例：节点观察→显式 mapping/1 主 0 副→固定西湖 ID 写入→refresh→match→mapping/count/GET；正文给完整配置、JSON、curl、实际响应及解释，不含前端代码。保留折叠练习/陷阱/速记与源码问题入口。
-- 新建 projects/travel-search/：ES 9.4.0、Compose project es-framework-single、127.0.0.1:19200、持久卷、1GB 容器/512MB 堆。只访问隔离实验端口，不启动旧门户、不发布 React，不操作源码篇 9200/9201。应用 Java 在 F02 实现；ES bundled JVM 实测 26.0.1，不等同于应用 JDK 25。
-- f01-c01 版本/节点、创建/健康、created、固定命中/字段/计数；f01-c02 错误端口与真实停机 curl exit 7、恢复后仍命中；f01-c03 重复建索引 400/resource_already_exists_exception、同 ID 写入 updated/version=2、计数仍 1。每轮点名删索引；第二轮文档重新 version=1；最终索引删除、专用容器停止，卷保留。真实响应与哈希见 [ES 验收](projects/travel-search/review/f01/es-review.json)。
-- 实测修正：初次恢复步骤只等 HTTP，立刻 refresh 短暂返回 index_not_found_exception。增加限定本课索引的健康等待/临时 404 重试；正文、脚本、案例说明同步，不把 HTTP 开启等同于索引已恢复。
-- D2 官方 v0.9.0 / ELK / 主题 4、201：fmt/validate/双产物生成通过，[生成记录](framework/diagrams/f01/generation.json)含哈希/版本，许可沿用仓库 Source Sans；不手改 SVG。本课无机制播放器、未采用 Archify，无其原生门禁项目。
-- 阅读验收经 HTTP /es_web/ 前缀：1920/1440/1024/768/390/320 × 双主题，列最大 880px、左右对齐、整页无横向溢出；代码/图局部滚动、复制、展开图、目录/答案、主题、读/取消及目录进度、相对链接、reduced motion 与 file 预览通过，无框架页面 Java/ES 请求或 JS 错误。实际审阅 8 张桌面/手机/图/代码浅深截图，见 [HTTP 记录](projects/travel-search/review/f01/http-review.json)。
-- [逐课提示词](docs/framework-lesson-prompt.md)已保存，只替换课号；复用工程/规范、限一课、折叠通用样板减少重复上下文，保留机制和反例。FRAMEWORK_PLAN/CASES 与 README 同步为 F01 完成、其余待实现；node tools/check.mjs 加入框架结构/链接/代码片段门禁，正文片段与工程一致。
-- 本轮只交付 F01、对应工程/图源产物/验收和入口。旧 travel-portal 与旧预览资产仍是未提交草稿，不纳入发布；不包含其他并行章节或预先存在的 .gitignore 修改。完成站点、JS/Bash/Python 语法与差异检查后，按持续授权提交推送 origin/main。
-
-## 2026-10-14 · 历史规划校正：用旅游搜索学 ES
-
-- 用户明确学习对象是 ES 启动、索引读写、查询、分词、评分、排序、集群化；旅游网站中的搜索是贯穿案例，不要求另建门户。先改规划，课程重构以后再推进。
-- 重写 FRAMEWORK_PLAN：保留 45 课规模，F01 直接启动/建索引/写查，F02 建 Boot 4/JDK 25 的 Java 连接；查询/中文/评分/房型、集群、索引运行、PG/MySQL CDC 与源码衔接构成九单元。移除前端、登录/收藏/后台/订单课程。
-- FRAMEWORK_CASES 同步为 155 个 ES 案例设计；前端旅程换为 REST/Java 输出、分片/恢复和搜索数据观察。案例设计数不代表验收通过数。
-- 更新 FRAMEWORK_STANDARD、PLAN、AGENTS、CLAUDE、CHAPTER_STANDARD 和 README：正文讲机制/DSL/Java，Pages 只承载教程，工程由读者本机启动；D2 优先，旧完整门户规划图标记历史资产。
-- 上一轮 F01 与项目留为未交付本地草稿，不加入本次提交；上一轮未提交的站点入口/工具接入已撤回并在仓库外保留补丁。本轮没有重构页面、升级项目或运行新基线 ES/Java/集群/CDC 实验。
-- 版本依据：[Boot 4.0 系统要求](https://docs.spring.io/spring-boot/4.0/system-requirements.html)兼容范围包含 Java 25；这是资料核对，新 Boot 4/JDK 25 工程与客户端仍待真实构建/连接。
-- 本轮验证：45 课连续且与案例一一对应，155 案例序号/数量正确；集群单元覆盖、必修课无门户/前端任务、文档围栏和 195 个本地链接检查通过。node tools/check.mjs 与 git diff --check 通过。没有进行新版页面/图解视觉或 ES/Java/集群/CDC 实验；提交只包含规划与协作记录，按持续授权推送 origin/main。
+- 仅处理用户指定 F01 与配套入口/规范。正文用“西湖 + 杭州 + 200 元预算 + 可游玩”及五份样本解释检索、过滤、相关性/显式排序、聚合；再讲引入 ES 的收益/成本、数据库/Java/ES/网站职责、一份小 JSON、网站学习方式、八阶段完整 45 课和 F12/F22/F45 三个独立检查点。1 导学情境、1 JSON、5 折叠理解题、3 陷阱；没有 Docker/curl/Java 工程样板，执行验收不适用。所有样本/目标结果/未交付网站均标示意。
+- 当前入口只保留新路线：F01 可阅读，F02–F45 待逐课实施。清除旧配额与反复出现的旧待办说明，六段旧规划/验收摘要迁到 FRAMEWORK_HISTORY；废弃完整门户 D2/两 SVG/六 PNG/旧夹具脚本与 JSON 共 11 文件从当前目录删除，Git 历史可查，字体许可保留。原工作区门户草稿、health-path 图和 .gitignore 没有修改，不纳入提交。
+- 原启动课保存为 framework/f01-startup-legacy.html，技术正文去历史提示后与源提交 af670eb 严格一致；原案例 ID/项目路径/生成记录/ES 与 HTTP 原始 JSON、截图不覆写，迁入 F03 后重新验收。新已读键 f01-v2 与旧 f01 分开，目录显示新进度，保留读/取消和相对路径。
+- 图解：两幅新静态 D2 分别解释查询/数据更新路径与八阶段；官方 v0.9.0 / TALA / 主题 4、201，fmt/validate/浅深生成通过，未手改 SVG；图源/命令/哈希见 [生成记录](framework/diagrams/f01/generation-intro.json)。本课无机制播放器或 Archify，原生门禁不适用。
+- 教学纠偏/内容校对：先解释 ES 用途与学习路线，再在 F02 推演、F03 运行、F07 接入 Java；保留数据库也能搜索、ES 本身存储数据的边界。明确 DB→ES 同步延迟与 ES 内部近实时可见性分别判断，不承诺固定时限。作者与独立内容审阅实际选 xhigh，45/45 标题、样本与金额单位一致；后续 xhigh 偏好已写协作规范及默认 F02 的逐课提示词。
+- 实际阅读验证：HTTP /es_web/ 下 1920/1440/1024/768/390/320 × 双主题，新课/目录/旧页各 12 组无整页横溢，列最大 880px且边界对齐；15锚点/组、主题/双图同步/展开、真实 JSON 复制、五题/八阶段折叠、新旧进度隔离与持久化、首页/目录/旧页导航、file 双主题、reduced motion通过。JS错误/HTTP失败/框架业务请求均0。最终生成18 PNG，根实际审阅11张桌面/手机/对照/大纲/理解题/独立图，范围见 [阅读验收](docs/framework-review/20261014-f01-intro/README.md)。修复图锚点顶栏遮挡后完整重跑；SVG整页截图超时及截取起点是作者工具问题，最终使用元素截图与实际区域。
+- 未运行 ES/Java/插件/多节点/数据库/Kafka/CDC，未交付本机展示壳；不把旧实验当作新课完成。node tools/check.mjs、JS/Python语法、片段一致性、文档链接与差异检查通过。按持续授权将本轮页面/图源产物/清理/验收提交推送 origin/main，交付时核对远端提交。
 
 ## 进度表(30 课)
 
@@ -518,15 +495,6 @@
 - node --check、展开机制快照figwidth、node tools/check.mjs通过，全站823操作/22机制动画。本轮代码、图源、产物及验收记录按授权提交并推送origin/main；Git结果与提交链接见交付。
 
 
-### 2026-10-13（框架篇增加代码讲解、优先 D2）
-
-- 根据用户要求新增 FRAMEWORK_STANDARD：沿用源码篇 880px、双主题、七段式、预测/操作/对照/重做；正文按业务问题→输入→关键代码→结果→反例展开。每个案例要求具体执行代码、完整文件/阶段提交入口、运行命令与结果核对，核心查询/报价/投影/异常逻辑不省略。
-- 同步 FRAMEWORK_PLAN/CASES、PLAN、README、AGENTS、CLAUDE 与 CHAPTER_STANDARD 的适用范围。框架图优先 D2、可用 Mermaid，复杂机制可专门编写 SVG；普通查询/配置可直接用代码与结果，不要求每课架构图。D2 的 SVG 产物与专门手写的复杂 SVG 区分，生成资产保留图源、版本/命令，站点主题同步按页面开关验收。
-- 原规划 Mermaid 总览改为 D2 源与浅/深 SVG，业务请求/CDC 分为两个视图；图是规划概念，不能证明链路已实现。官方 v0.9.0 包 digest 已核对，TALA/主题4和201，最终格式/语法/生成检查通过，字体许可与产物SHA保留在 [规划图记录](docs/framework-diagrams/README.md)。
-- HTTP 独立浅/深图 + 1440/1024/390/320px 双主题夹具共10组通过，图中文字在viewBox内、桌面880px、整页无横溢、窄屏局部滚动与展开入口可用；实际查看全部6张截图，当前图无标签重叠。初稿交叉标签/方向过高与夹具896px问题已修正并重测。夹具不是课程页面，未把其结果登记为F章节验收。
-- 45课/155案例规划数量、文档链接/代码块、Python脚本语法、D2格式/语法、git diff --check 与 node tools/check.mjs 均通过；站点当前工作区检查为30正式页/816操作卡/22机制播放器。本轮仅更新规范与规划图，课程/项目/案例代码尚未编写，前后端构建、业务API、真实ES/CDC案例与F页面交互未执行；未使用Archify，无原生门禁项目。无新增API勘误。
-- 按已有持续授权仅提交推送本轮文档与规划图/证据；开工已有ch29、index、.gitignore及ch29图源/验收文件不纳入本轮提交。远端提交核对在交付时完成。
-
 ### 2026-10-13（ch29 安全机制重构）
 
 - 按规范只读/改本章及首页对应卡片，不通读tutorial、不用子代理；已有.gitignore修改保留、不纳入本轮提交。固定9.4.0/10.4.0，真实源码Git 19文件/37段核对，校正认证回调、Realm缓存、null-token回退、双头/挑战、自查与索引授权、关闭安全/角色组合及重复清理，详见上表。
@@ -645,13 +613,6 @@
 - **真实API两轮每轮30卡PASS，另29重复性观察PASS**：小店3/3/2、月份2/2/3/1、range4/2/2，1 hit仍聚合8篇/query只books3；两片各11篇、cherry全局5；容量2→apple10/date4、other8/error7/桶0和3，默认13→apple10/cherry5、other7/error0，抬3→准确前三、other3但保守error5；key序apple/banana、other9/error0；两次bucket_sort仅cherry5/date4，terms.other仍7/0；apple均值42/10=4.2；20值size2/20的other18/0，两轮profile实为StringTermsAggregatorFromFilters/FilterByFilter。四索引settings/mapping、重复创建400/写入updated200/计数不增/重复清理404确认，最终HEAD四索引404。浏览器阻断ES自动执行，API单列；未实测多节点/slice/百万基数/故障/熔断/性能。
 - 站点、JS语法、figwidth、diff、17稳定ID/30有序唯一槽位、GET/HEAD无body与.nojekyll PASS。验收[CH19-REVIEW](.archify/CH19-REVIEW.md)、[HTTP](.archify/review/ch19-http-review.json)、[真实API](.archify/review/ch19-es-review.json)、[artifacts](.archify/review/ch19-artifacts.json)。按授权提交推送origin/main；远端/Pages交付时另核对，原有.gitignore修改不纳入。
 
-### 2026-10-12（框架篇提升为核心：45 课旅游门户与 155 案例）
-
-- 用户明确至少 30 课、从零完成旅游门户、前后端代码纳入实验，并强调景点/房型评分排序与 PG/MySQL 日志同步。将未实施的 14 课规划改为 F01–F45 / 九个单元；源码 ch01–ch30 编号、路径与本轮重构状态保留。
-- 新增 FRAMEWORK_CASES：35 课各 3 案例、评分/酒店 F16–F25 各 5，共 155 个已设计/未实现案例。完整系统规划 Vue 前台/后台、Java、数据/索引、中文搜索、报价/教学预订、PG/MySQL CDC、重建与运维；按课提供代码入口、数据与可运行阶段快照。
-- 将日志驱动同步提升为必修，核对 Debezium PG/MySQL、PG 重复消息、ES 评分/nested/collapse/版本与 Vue 官方文档。明确同房型条件、符合条件最低价、多晚库存、准确总价排序范围、数据库下单复核、至少一次处理、多表投影和删除重放保护；当前仅调研/规划，没有新工程或链路运行。
-- 45 课连续编号、155 案例序号/数量、50 个评分与酒店案例、文档本地引用/代码块、`git diff --check` 与 `node tools/check.mjs` 全部 PASS。本轮仅规划，无新页面/工程/链路，前后端构建、业务 API、浏览器、真实 CDC/ES 案例未执行。按授权只提交五份规划文档并推送 origin/main，远端交付时核对；其他任务代码/图源/验收与 .gitignore 修改不纳入。
-
 ### 2026-10-12(第十八章按统一规范重构)
 
 - 固定ES9.4.0/Lucene10.4.0：18源码文件/39精确区间及2个Lucene固定tag文件；重排Builder/Lucene改写、字段分析/工厂、词项/位置、评分/should门槛、缓存条件、两路收集和Explain。正文/两图/六步/卡片/5问答/4陷阱/速记一致。
@@ -660,15 +621,6 @@
 - HTTP两图四档桌面/双主题、章节六档宽度、880px/≤1px对齐、页面/iframe/节点完整、探索/来源/关闭/展开、暂停后重播/Enter、目录/已读、六步控制/键盘、34实际控制台导航method/path/body、endpoint/auth/raw、Pages前缀、reduced motion PASS。390/320源码表/旧SVG局部滚动PASS。实际查看24张最终截图与全部六步；手机图为概览，细字需探索/展开，必要解释在正文/图注。
 - **真实API两轮每轮34卡PASS**：旧GET Explain两卡真实400缺query，POST后200；词项/保存位置/标点小写、text match/term/keyword normalizer、OR/AND/反向与间隔phrase、stop零词项none0/all4、validate OR、两入口Explain/别名false且含status约束；filter→must分数1.1608025→1.5174774，纯filter三篇0，should默认可选与显式门槛对照；post_filter聚合published3/draft1，query.filter只published3。另8条重复性观察确认重复创建400/写入updated200/删除404及实际mapping/settings。mapping冗余search_analyzer省略导致初始验收守卫失败，修正后针对性重做通过，最终父索引/别名HEAD404。浏览器阻断ES自动执行，真实API单列；未实测多节点/词图/模糊/缓存收益或性能。
 - 站点、JS语法、figwidth、diff、19稳定ID/34有序唯一槽位、GET/HEAD无body与.nojekyll PASS。验收[CH18-REVIEW](.archify/CH18-REVIEW.md)、[HTTP](.archify/review/ch18-http-review.json)、[真实API](.archify/review/ch18-es-review.json)、[artifacts](.archify/review/ch18-artifacts.json)。按授权提交推送origin/main；远端与Pages在交付时另核对，原有.gitignore修改不纳入。
-
-### 2026-10-12（框架学习篇与旅游搜索综合实验规划）
-
-此条为初始 14 课方案的历史记录，当前范围已由上方 45 课/155 案例规划替代。
-
-- 根据用户需求规划「框架学习篇 → 旅游搜索实验 → 源码篇」路线，新增 FRAMEWORK_PLAN；14 课覆盖基础 API、DSL/分页/聚合/地理查询、中文分析、Java/Spring Boot、数据同步与相关性评估。综合实验按 REST 原型、可用搜索页、工程完善三次交付。
-- 新篇使用 F01–F14 / fNN- 实验前缀，课程进度与项目里程碑分别统计；规划首页与目录、校验器扩展、旧深链与已读兼容。只修改规划文档，现有源码章节、编号、图源与重构状态未改。
-- 核对官方 Java API Client、Spring Data 版本矩阵、SmartCN/ICU/IK 与 synonym_graph 文档。中文插件安装/效果、Java 依赖下载/构建/运行、旅游业务 API 和浏览器验收均未执行，不将调研写为运行通过。
-- 文档本地引用、14 课连续编号、`git diff --check` 与 `node tools/check.mjs` 均 PASS；本轮仅文档，没有新页面、图解或项目，HTTP 浏览器、Archify 原生门禁及真实 ES 实验不适用。按仓库授权仅提交本轮四份规划文档并推送 origin/main，远端结果交付时核对；已有 .gitignore 与 ch18 章节/实验/图源/验收工作文件不纳入。
 
 ### 2026-10-12(第十七章按统一规范重构)
 

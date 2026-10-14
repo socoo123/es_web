@@ -1,0 +1,26 @@
+# 课程架构示意：左右两条路径使用同一套 Java / ES，不是两个系统。
+# 双向箭头表示搜索请求和结果返回；更新箭头表示数据流，不承诺立即可搜索。
+direction: right
+classes: {
+  item: {
+    width: 240
+    height: 88
+    style.border-radius: 10
+  }
+}
+query: "查询路径 · F07 起接入本机网站" {
+  direction: down
+  web: "游客的浏览器\n输入条件，查看结果" {class: item}
+  java: "Java 搜索接口\n组织查询，返回卡片数据" {class: item}
+  es: "Elasticsearch\n检索 · 筛选 · 排序 · 聚合" {class: item}
+  web <-> java: "搜索条件 / 结果卡片"
+  java <-> es: "搜索请求 / 命中与计数"
+}
+update: "数据准备与更新路径" {
+  direction: down
+  source: "F03–F35：固定样本\nF36 起：业务数据库" {class: item}
+  java: "组织搜索文档\n初期导入，后期 Java 同步" {class: item}
+  es: "同一个 Elasticsearch\n保存供搜索使用的数据" {class: item}
+  source -> java: "准备搜索所需的字段"
+  java -> es: "导入 / 持续更新"
+}

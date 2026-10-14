@@ -1,225 +1,269 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>F01 · 启动 ES，完成第一次写入与搜索</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F01 · Elasticsearch 是什么，我们怎样用旅游搜索学会它</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
+  <link rel="stylesheet" href="assets/course.css">
+</head>
 <body class="framework-page chapter-visual-page">
 <header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
-<main class="wrap chapter-visual"><aside class="callout warn legacy-course-note"><strong>旧版启动实验 · 待迁移</strong><p>课程已重新规划：新 F01 先介绍 ES 的用途、旅游搜索问题与完整学习路线，本页保留原有启动实验和真实验收，计划迁入新 F03。新 F01 正文尚未重写，<a href="index.html">先查看新版课程目录与首课安排</a>。</p></aside><article class="chapter" id="f01" data-ch="f01">
-<header class="ch-header"><div class="ch-kicker">FRAMEWORK 01 · 启动、Java 连接与索引读写</div><h1>启动 ES，<br>完成第一次写入与搜索</h1><div class="meta-line">约 25 分钟 · 前置：终端 / Docker / JSON · 3 个案例 · 主流程 11 条 HTTP 操作 · 1 幅静态 D2 图 · 0 个机制播放器</div><p class="ch-intro">游客在你的旅游网站输入“西湖”，后端需要从搜索索引取回景点。这一课直接把“杭州西湖”写进 Elasticsearch，并查到它；从真实响应认识节点、索引、文档与搜索可见性。</p><div class="diagram-jumps"><a href="#fig-first-search"><span>01</span>四步闭环</a><a href="#create">建索引</a><a href="#search">执行搜索</a><a href="#cases">错误对照与重做</a></div></header>
-<section class="goal"><h2 id="goals">本课目标</h2><ol><li>启动隔离的 ES 9.4.0，确认节点版本，区分 HTTP 可访问与本课索引就绪。</li><li>显式创建索引、写入固定景点 ID，刷新后按名称搜索，核对命中、字段与计数。</li><li>复现连接拒绝和索引已存在错误，解释相同 ID 重复写入为什么不增加文档数，清理后重做。</li></ol><div class="callout tip">实验工程在 <a href="../projects/travel-search/README.md"><code>projects/travel-search/</code></a>，由你本机启动。本页用于阅读与复制代码。F02 再接入 <strong>Spring Boot 4 / JDK 25</strong> 的 Java 客户端；F01 无需安装应用 JDK。</div><details class="chapter-outline"><summary>展开本课目录</summary><nav><a href="#model">1. 索引、文档与搜索</a><a href="#start">2. 启动与观察节点</a><a href="#create">3. 创建景点索引</a><a href="#write">4. 写入一条景点</a><a href="#search">5. 刷新后搜索</a><a href="#inspect">6. 核对三种信息</a><a href="#cases">7. 错误对照</a><a href="#repeat">8. 清理与重做</a><a href="#drills">练习与速记</a></nav></details></section>
-<section class="lesson"><h2 id="model">1. 先分清：索引不是一条景点</h2>
-<p>本课的索引叫 <code>tut-f01-attractions</code>，它组织一组景点文档及其字段规则。每条景点是一份 JSON 文档，用 <code>_id</code> 定位；<code>settings</code> 描述主分片/副本等索引配置，<code>mappings</code> 描述字段如何索引。可以把它理解为搜索数据的容器，但不要据此把它等同于关系数据库表。</p><p>旅游网站的业务数据库以后可以产生这些文档。现在使用固定文件样本即可把搜索学明白：索引先创建好，再写文档，然后让新搜索视图看到写入，最后执行查询。无需先搭数据库或网站。</p>
-<figure class="fig d2-figure" id="fig-first-search"><div class="d2-shell"><div class="d2-tools"><strong>01 · 从空索引到一次命中</strong><a data-expand-d2 href="diagrams/f01/first-search-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f01/first-search-light.svg" data-d2-light="diagrams/f01/first-search-light.svg" data-d2-dark="diagrams/f01/first-search-dark.svg" alt="创建索引、写入景点、显式刷新、按名称搜索四步；箭头表示本课操作顺序"></div></div><figcaption>箭头表示本课的手工操作顺序，省略 ES 内部 action、分片与 Lucene 调用。本图是静态图；窄屏可在图内横向滚动或展开查看。<a href="diagrams/f01/README.md">图源与生成记录</a>。</figcaption></figure>
-<table class="ktable"><thead><tr><th>请求</th><th>作用</th></tr></thead><tbody><tr><td><code>PUT /tut-f01-attractions</code></td><td>创建索引，配置 settings / mappings</td></tr><tr><td><code>PUT /tut-f01-attractions/_doc/a-hz-xihu</code></td><td>写入或完整覆盖这个 ID 的文档</td></tr><tr><td><code>POST /tut-f01-attractions/_refresh</code></td><td>让此前写入对新搜索可见</td></tr><tr><td><code>POST /tut-f01-attractions/_search</code></td><td>在该索引执行查询，返回命中</td></tr></tbody></table>
-<h2 id="start">2. C01：启动自己的 ES 节点</h2><p>准备 Docker Engine/Desktop、Compose v2+、Bash 和 curl 7.76+。Windows 可使用 WSL2；本课实际验收环境是 macOS arm64 + Docker。<a href="https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-docker-basic" target="_blank" rel="noopener">官方 Docker 指南</a>要求 Docker Desktop 至少分配 4GB 内存。这里给单个教学容器 1GB 上限、512MB 堆，只用一条景点样本。</p><p>完整配置在 <a href="../projects/travel-search/infra/single-node/compose.yaml"><code>infra/single-node/compose.yaml</code></a>。宿主端口 <code>19200</code> 映射到容器 HTTP <code>9200</code>，不发布 transport 9300；Compose 项目和数据卷也与源码篇分离。</p>
-<pre class="code-block" data-label="YAML · 单节点实验配置" data-source="projects/travel-search/infra/single-node/compose.yaml"><code class="language-yaml">name: es-framework-single
-services:
-  es:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
-    environment:
-      cluster.name: travel-search-lab
-      node.name: travel-search-01
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      xpack.ml.enabled: "false"
-      ES_JAVA_OPTS: -Xms512m -Xmx512m
-    ports:
-      - "127.0.0.1:19200:9200"
-    mem_limit: 1g
-    volumes:
-      - es-data:/usr/share/elasticsearch/data
-volumes:
-  es-data:</code></pre>
-<p><code>discovery.type=single-node</code> 用于本课单节点；<code>xpack.security.enabled=false</code> 是显式选择，和官方默认的安全启动流程不同。端口只绑定本机，curl 不需要 CORS。<code>es-data</code> 挂在 ES 数据目录，停止/重启保留数据。ES 使用镜像自带 JVM，和 F02 的应用 JDK 25 是两回事。</p>
-<pre class="code-block" data-label="Bash · 从仓库根目录启动"><code class="language-bash">cd projects/travel-search
-docker compose -f infra/single-node/compose.yaml up -d
-bash infra/single-node/wait.sh
-export ES_URL=http://127.0.0.1:19200</code></pre>
-<p>后面的命令都在工程根目录执行。等待脚本最多探测 180 秒；它只确认 HTTP 入口可访问。首次拉镜像需要网络，失败时先区分拉取失败、容器退出与节点未就绪。</p>
-<pre class="code-block" data-label="Bash · 01-observe.sh（3 条请求）" data-source="projects/travel-search/labs/f01/01-observe.sh" data-lines="5-8"><code class="language-bash">curl --fail-with-body -sS "$ES_URL/?pretty"
-curl --fail-with-body -sS \
-  "$ES_URL/_cat/nodes?format=json&amp;h=name,ip,node.role,master"
-curl --fail-with-body -sS "$ES_URL/_cluster/health?pretty"</code></pre>
-<p><code>GET /</code> 返回版本与集群标识，不返回节点角色；角色由第二条 <code>_cat/nodes</code> 请求观察。第三条健康请求覆盖整个集群。</p>
-<pre class="code-block" data-label="JSON · 实际节点响应摘录" data-source="projects/travel-search/review/f01/outputs/node.json"><code class="language-json">{
-  "name": "travel-search-01",
-  "cluster_name": "travel-search-lab",
-  "version": {
-    "number": "9.4.0"
-  },
-  "nodes": [
-    {
-      "name": "travel-search-01",
-      "ip": "172.19.0.2",
-      "node.role": "cdfhilmrstw",
-      "master": "*"
-    }
-  ]
-}</code></pre>
-<p><code>master: "*"</code> 表示当前主节点，角色缩写不是业务字段。本实验没有单独配置角色列表。整个集群 <code>green</code> 只说明分配健康，不能证明景点已导入；集群还可能存在系统索引，主分片总数不等于本课景点索引的主分片数。后面把健康检查限定到本课索引。</p><details><summary>端口连不上时看什么？</summary><p>先看服务状态再看日志。若端口被占用，Compose 会报绑定失败；不要为本课停止已有业务服务。若容器退出 137，还需结合 OOMKilled / 日志判断是否内存不足。Linux 内核条件按日志和官方 Docker 运行要求核对。</p>
-<pre class="code-block" data-label="Bash · 排查容器"><code class="language-bash">docker info
-docker compose -f infra/single-node/compose.yaml ps -a
-docker compose -f infra/single-node/compose.yaml logs --tail=100 es</code></pre>
-</details><h2 id="create">3. 创建索引：先声明字段如何搜索</h2><p>下面的 <a href="../projects/travel-search/search/f01/index.json"><code>index.json</code></a> 是请求体。名称要参与全文检索，设为 <code>text</code> 并显式采用 <code>standard</code>；业务 ID 和城市编码设为 <code>keyword</code>；门票用整数分，<code>0</code> 是本课样本值，不是景区价格承诺。字段类型和中文分析链会在 F04 / F11–F14 继续对照。</p>
-<pre class="code-block" data-label="JSON · search/f01/index.json" data-source="projects/travel-search/search/f01/index.json"><code class="language-json">{
-  "settings": {
-    "number_of_shards": 1,
-    "number_of_replicas": 0
-  },
-  "mappings": {
-    "properties": {
-      "attraction_id": { "type": "keyword" },
-      "name": { "type": "text", "analyzer": "standard" },
-      "city_code": { "type": "keyword" },
-      "ticket_price_fen": { "type": "integer" }
-    }
-  }
-}</code></pre>
-<p>索引有一个主分片、零副本。单节点不能把同一主分片的副本放回自己，因此本课不要求副本；零副本也意味着没有另一份在线副本提供冗余。这里的配置只为小样本实验服务。</p>
-<pre class="code-block" data-label="Bash · 02-create.sh（创建与限定健康）" data-source="projects/travel-search/labs/f01/02-create.sh" data-lines="5-11"><code class="language-bash">curl --fail-with-body -sS -X PUT \
-  "$ES_URL/tut-f01-attractions?pretty" \
-  -H 'Content-Type: application/json' \
-  --data-binary @search/f01/index.json
+<main class="wrap chapter-visual">
+<article class="chapter" id="f01" data-ch="f01-v2">
+  <header class="ch-header">
+    <div class="ch-kicker">FRAMEWORK 01 · 认识搜索与学习路线</div>
+    <h1>Elasticsearch 是什么，<br>我们怎样用旅游搜索学会它</h1>
+    <div class="meta-line">约 30 分钟 · 前置：无需 ES / Docker / Java 基础 · 1 个导学情境 · 0 条 HTTP 操作 · 2 幅静态 D2 图 · 0 个机制播放器</div>
+    <p class="ch-intro">想象你在杭州准备一天的行程：输入“西湖”，选好城市和预算，网站便列出值得去的地方。我们将沿着这一次搜索，认识 Elasticsearch（简称 ES）能做什么、怎样与数据库配合，再看完整课程怎样把这个目标一步步变成可以解释、可以验证的搜索服务。</p>
+    <div class="diagram-jumps"><a href="#scene">从一次搜索开始</a><a href="#fig-search-roles"><span>01</span>ES 的位置</a><a href="#fig-learning-route"><span>02</span>八阶段路线</a><a href="#curriculum">45 课大纲</a></div>
+  </header>
 
-curl --fail-with-body -sS \
-  "$ES_URL/_cluster/health/tut-f01-attractions?wait_for_status=green&amp;timeout=30s&amp;pretty"</code></pre>
-<p><code>--data-binary @文件</code> 把文件内容作为请求体发送；<code>Content-Type</code> 声明 JSON。<code>--fail-with-body</code> 让 HTTP 4xx/5xx 保留错误正文并返回非零退出码。URL 要加双引号，里面的 <code>&amp;</code> 才不会被 shell 当作后台执行符。</p>
-<pre class="code-block" data-label="JSON · 实际创建与索引健康摘录" data-source="projects/travel-search/review/f01/outputs/index-created.json"><code class="language-json">{
-  "create": {
-    "acknowledged": true,
-    "shards_acknowledged": true,
-    "index": "tut-f01-attractions"
-  },
-  "index_health": {
-    "status": "green",
-    "timed_out": false,
-    "active_primary_shards": 1,
-    "active_shards": 1
-  }
-}</code></pre>
-<p><code>acknowledged</code> 表示创建操作被确认；<code>shards_acknowledged</code> 表示等待的分片启动条件达成。随后请求显式等待本课索引 <code>green</code>，同时检查 <code>timed_out=false</code>、活动主分片和活动总分片均为 1。此时创建的是空索引，尚未写入西湖。</p><h2 id="write">4. 写入景点：ID 放在 URL，字段放在 JSON</h2><p>固定业务 ID 为 <code>a-hz-xihu</code>。JSON 中的 <code>attraction_id</code> 是普通字段；URL 最后一段才设置 ES 的 <code>_id</code>。两者保持相同是应用约定，ES 不会自动替你同步。</p>
-<pre class="code-block" data-label="JSON · data/f01/xihu.json" data-source="projects/travel-search/data/f01/xihu.json"><code class="language-json">{
+  <section class="goal">
+    <h2 id="goals">读完这一课，你能说明什么？</h2>
+    <ol>
+      <li>用“西湖”这次搜索解释：找候选、筛条件、排次序和算数量分别解决什么问题。</li>
+      <li>画出数据库、Java 服务、ES 与浏览器的分工，并解释为什么搜索卡片里的价格需要与业务事实区分。</li>
+      <li>从八阶段路线找到当前问题该在哪几课学习，并判断一个简单查询是否值得引入 ES。</li>
+    </ol>
+    <p>本课先建立认识。下一课用少量数据推演搜索，F03 才首次启动 ES。你现在只需要读懂情境、图和一份小数据样本。</p>
+    <details class="chapter-outline">
+      <summary>展开本课目录</summary>
+      <nav><a href="#scene">1. 游客想完成什么</a><a href="#what-is-es">2. ES 是什么</a><a href="#why-es">3. 为什么考虑 ES</a><a href="#roles">4. ES 在网站哪里工作</a><a href="#document">5. 认识一份搜索数据</a><a href="#learn-through-site">6. 怎样通过网站学习</a><a href="#curriculum">7. 完整路线与结业点</a><a href="#drills">8. 检查理解</a><a href="#pitfalls">本课陷阱</a><a href="#recap">速记与下一课</a></nav>
+    </details>
+  </section>
+
+  <section class="lesson">
+    <h2 id="scene">1. 从游客的一次“西湖”搜索开始</h2>
+    <p>你已经在杭州，想找一个今天可以游玩的景点，门票预算不超过 200 元。你记得“西湖”这个名字，却不知道网站给它分配了什么编号。于是打开景点搜索，输入“西湖”，选择“杭州”“门票 ≤ 200 元”“可游玩”，使用默认的相关性排序。</p>
+    <p>这句话包含几种不同的要求。“西湖”帮助表达你想去哪里；城市、预算和可游玩状态划定可接受的范围；相关性排序决定这些结果里先看哪一个。网站不能因为某条记录很热门，就把不在杭州或超过预算的地方塞进来。</p>
+    <div class="callout tip"><strong>以下是设计示意。</strong>本课的景点名称、价格、状态和结果次序用于讲解搜索规则，不代表真实旅游信息，也不是 ES 实测输出。课程规划的本机搜索展示壳尚未交付；这里先用文字与表格看懂目标。</div>
+    <p>假设搜索系统里有下面五份景点信息。我们故意放入容易混淆的记录：同名异地、描述顺带提及、价格超限和已经下架。</p>
+    <table class="ktable">
+      <thead><tr><th>教学样本</th><th>城市 / 门票</th><th>与“西湖”的关系及状态</th></tr></thead>
+      <tbody>
+        <tr><td>杭州西湖</td><td>杭州 / 0 元</td><td>名称直接包含“西湖”，可游玩</td></tr>
+        <tr><td>湖畔茶园</td><td>杭州 / 80 元</td><td>描述写着“游览后可前往西湖”，可游玩</td></tr>
+        <tr><td>福州西湖</td><td>福州 / 0 元</td><td>同样包含“西湖”，可游玩</td></tr>
+        <tr><td>西湖夜游</td><td>杭州 / 260 元</td><td>名称包含“西湖”，可游玩</td></tr>
+        <tr><td>西湖旧展馆</td><td>杭州 / 60 元</td><td>名称包含“西湖”，已经下架</td></tr>
+      </tbody>
+    </table>
+    <p>一个粗糙方案可能只检查“名称或描述有没有西湖”，随后按价格排列。它找出了相关文字，却没有忠实执行游客的全部要求。下面保持<strong>同一批数据、同一个输入</strong>，比较这个粗糙方案与我们想做出的目标方案。</p>
+    <table class="ktable">
+      <thead><tr><th>同一输入</th><th>粗糙方案 · 设计示意</th><th>目标方案 · 设计示意</th></tr></thead>
+      <tbody><tr><td>西湖<br>杭州<br>门票 ≤ 200 元<br>可游玩<br>相关性排序</td><td>福州西湖、杭州西湖、西湖旧展馆、湖畔茶园、西湖夜游<br><br>只找到了文字，遗漏了硬条件；按价格排，也没有回应“最相关”的需求。</td><td>先看到杭州西湖，再看到湖畔茶园。<br><br>福州西湖被城市条件排除；夜游被预算排除；旧展馆被状态排除。名称直接命中优先于描述顺带提及。</td></tr></tbody>
+    </table>
+    <p>目标方案里，湖畔茶园可以成为较弱的候选，因为我们选择了同时搜索名称与描述。假如产品只允许找名称，茶园就应被排除。这提醒我们：<strong>哪些字段参与搜索、什么算相关，都是要明确设计的规则。</strong>ES 提供表达和执行这些规则的工具；它不会只凭“西湖”两个字自动知道你的产品意图。上面的次序是课程要验证的目标，尚未给出实际查询和分数。</p>
+    <p>旅行继续往下走，你还可能想知道符合条件的景点里有多少“园林”或“亲子”项目，或者找一家附近的酒店。酒店又带来更严格的问题：便宜的双床房和含早的大床房，不能拼成一间“便宜、双床、含早”的房。这些都属于搜索问题，但需要不同的数据和规则；后面的课程会逐一展开。</p>
+
+    <h2 id="what-is-es">2. ES 是什么：把“找得到”拆成四件事</h2>
+    <p><strong>Elasticsearch 是基于 Lucene 的分布式搜索与分析引擎。</strong>你可以把景点信息交给它，以文档的形式组织数据，再按文字和条件找出结果、决定次序、计算统计。“引擎”指负责处理这些工作的服务；“分布式”表示它能让多台服务器协作承载数据和请求。我们先在一台机器上学习，F28 才开始多节点实验。Lucene 是它使用的底层检索库，源码篇再研究内部实现。<a href="https://www.elastic.co/docs/manage-data/data-store" target="_blank" rel="noopener">官方数据存储说明</a>。</p>
+    <h3>先找出可能相关的内容：全文检索</h3>
+    <p>按编号查景点时，你已经知道目标是哪条记录。输入“西湖”时，你只给了一段文字：它可能在名称里，也可能在别名或介绍中。<strong>全文检索</strong>就是根据文本找相关内容。ES 会按配置把文本处理成适合检索的项，再依据查询规则匹配。它不等同于简单判断原文是否含有一段子串；怎样处理中文、别名和词序，会影响找得到哪些景点。</p>
+    <p>被选出来的记录叫<strong>候选</strong>。该出现的景点进了候选集合，后面才有机会排到前面；如果连候选都没进来，调排序也救不回来。后面把“找出候选”这件事称为<strong>召回</strong>。F02 先用样本推演，F13–F17 再系统处理中文表达导致的漏找与找错。</p>
+    <h3>判断是否允许出现：条件筛选</h3>
+    <p>“必须在杭州”“门票不得超过 200 元”“必须可游玩”有明确的通过与不通过。我们将这种要求称为<strong>硬条件</strong>：福州西湖即使名称再吻合，也没有满足本次城市条件。<strong>过滤</strong>用来表达这些条件，缩小可以返回的集合。不要把“便宜一点更好”与“超过预算就不能出现”写成同一种规则。<a href="https://www.elastic.co/docs/reference/query-languages/query-dsl/full-text-filter-tutorial" target="_blank" rel="noopener">官方全文检索与过滤入门</a>展示了这两种要求怎样组合。</p>
+    <h3>决定先看谁：相关性与显式排序</h3>
+    <p>杭州西湖和湖畔茶园都可能满足条件，但名称直接写着“西湖”的景点更符合这次意图。<strong>相关性</strong>描述内容与查询的匹配程度；我们会用查询规则和评分来表达这种偏好。相关性分数不是景点评价分，也不是一份自动得出的旅游推荐保证。</p>
+    <p>游客如果改选“价格从低到高”，网站就该按价格这把尺子排列；选“离我最近”，就该按距离排列。ES 支持这些排序，但应用必须明确当前使用哪种模式。名称权重、点评和热度怎样影响默认结果，要等有一批查询与对照样本后再调整，不能靠一个结果看起来顺眼就下结论。</p>
+    <h3>解释整个结果集合：聚合</h3>
+    <p>除了返回前几个景点，网站还想显示“园林有多少个”“门票在各个区间的有多少个”。把选定范围里的数据分组并计算数量、最小值等统计，叫<strong>聚合</strong>。它回答整个集合的问题。只数当前一页的卡片，无法代替对全部符合条件结果的统计；统计采用哪组筛选条件，也需要明确。F09 会专门修复筛选栏计数常见的范围错误。</p>
+    <p>这四件事可以组合起来：先明确要找什么文字、必须符合哪些条件，再决定展示次序和统计范围。这是理解搜索请求的第一步。ES 还用于日志检索等场景；这门课围绕旅游数据把这一条搜索路线学透。</p>
+
+    <h2 id="why-es">3. 为什么考虑 ES：需求值得，才承担额外成本</h2>
+    <p>假如你的页面只有几十个景点，游客按城市筛一下，点击列表进入详情，业务数据库通常就能承担这些查询。用户已经选中了景点编号，再根据编号读取名称、价格与状态，也属于很清楚的精确查找。数据库同样可以提供条件查询和全文搜索，具体能力取决于你选择的数据库与方案。</p>
+    <p>当旅游搜索不断增加名称、别名、描述匹配、中文表达、相关性、距离排序、筛选计数等要求时，ES 值得成为一个候选方案：它提供一套围绕检索与分析组织数据、表达查询的能力。是否采用，要用实际数据、查询、负载与团队能力验证。单凭“数据库数据多”或“ES 是搜索引擎”，无法推出所有查询都会更快。</p>
+    <p>引入它意味着多维护一份搜索数据。商家修改景点，搜索数据要跟上；服务需要部署、监控和恢复；字段或分词方式变化，旧数据可能需要重新组织。搜索质量也要用一批问题检查。这些工作有价值，也有成本。F28–F42 就是为了让你看清这些成本怎样发生和怎样处理。</p>
+    <p>因此，我们先问：现在查不好的到底是什么？是编号查找慢、表达方式匹配不到、结果次序不合理，还是复杂统计难维护？只有把问题说具体，才知道是否需要搜索系统，以及该评估哪种能力。对于“凭订单号查看一笔订单”“少量景点按城市列出”这样的需求，完全可以先用已有数据库解决。</p>
+
+    <h2 id="roles">4. ES 在网站哪里工作：查询与更新是两条路</h2>
+    <p>游客在浏览器输入“西湖”时，网页收集关键词、城市和预算。课程规划的 <strong>Java 搜索服务</strong>负责理解这些输入，将它们组织成 ES 查询；ES 返回符合规则的景点，Java 再把需要显示的字段交给浏览器。卡片由网页展示，候选、次序和统计由这条搜索链路产生。</p>
+    <figure class="fig d2-figure" id="fig-search-roles">
+      <div class="d2-shell"><div class="d2-tools"><strong>01 · 谁负责搜索，谁负责业务事实？</strong><a data-expand-d2 href="diagrams/f01/search-roles-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f01/search-roles-light.svg" data-d2-light="diagrams/f01/search-roles-light.svg" data-d2-dark="diagrams/f01/search-roles-dark.svg" alt="规划中的查询路径为浏览器、Java搜索接口、ES，再沿原路径返回结果；更新路径由固定样本或业务数据库，经导入流程或Java组织搜索文档后写入同一个ES"></div></div>
+      <figcaption>设计示意。查询箭头表示请求与结果返回；更新箭头表示搜索数据的传递，不表示与查询同时完成。前期使用固定样本，F36 起引入数据库更新；Java 与展示壳从 F07 开始建设。省略网络协议、同步中间件和 ES 内部实现，不能据此认定这些链路已经运行。静态图可局部滚动或展开；<a href="diagrams/f01/README.md">图源与生成记录</a>。</figcaption>
+    </figure>
+    <p>数据从哪里来，是另一件事。前期我们直接使用课程给出的固定景点样本，让每个人都能预测和核对结果。到了持续更新阶段，业务数据库记录景点、房型、价表等业务事实；Java 把适合一起搜索的信息整理成<strong>搜索文档</strong>，再交给 ES。比如名称、别名、城市和价格可能来自不同业务信息，搜索时却希望一次拿到。</p>
+    <p>本课程采用的分工是：<strong>数据库维护业务事实，Java 组织搜索数据与查询，ES 保存并检索搜索文档，网站展示结果。</strong>这是本案例的架构选择。ES 自身也存储数据；这里把它保存的内容当作供搜索使用的一份视图，便于与业务数据的职责区分。</p>
+    <p>假设商家把湖畔茶园的票价从 80 元改成 220 元。数据库里的修改确认后，搜索文档可能尚未更新；这里先有“数据库修改何时传到 ES”的同步延迟；即使文档写入 ES 已成功，也还要等新内容对搜索可见。后一段是 ES 内部的<strong>近实时搜索</strong>边界：ES 写入与搜索看见新内容之间可能有间隔，间隔取决于配置和运行情况，不能当成固定的时间保证。<a href="https://www.elastic.co/docs/manage-data/data-store/near-real-time-search" target="_blank" rel="noopener">官方近实时搜索说明</a>解释了这个边界。</p>
+    <p>因此，卡片上旧的 80 元不能证明现在仍能以这个价格购买；酒店卡片也不能证明此刻库存足够。真正涉及购买或预订时，要通过业务服务复核当前价格和库存。F12 先学写入与搜索可见的差别，F36–F42 再追踪数据库更新到搜索结果的全过程。本课程用这些情况学习搜索边界，不实现订单与扣库存。</p>
+
+    <h2 id="document">5. 认识一份搜索数据：景点、字段、索引和命中</h2>
+    <p>下面把“杭州西湖”整理成一份小 JSON。JSON 是用名称和值表达数据的格式；你可以先把它当成一张有明确栏目、容易交给程序读取的景点资料卡。<strong>这仍是设计样本，没有在本课写入 ES。</strong></p>
+    <pre class="code-block" data-label="JSON · 景点搜索文档设计样本"><code class="language-json">{
   "attraction_id": "a-hz-xihu",
   "name": "杭州西湖",
+  "aliases": ["西湖"],
   "city_code": "HZ",
-  "ticket_price_fen": 0
+  "ticket_price_fen": 0,
+  "currency": "CNY",
+  "status": "open",
+  "description": "杭州的湖泊景点，可沿湖游览。"
 }</code></pre>
-<pre class="code-block" data-label="Bash · 03-write.sh" data-source="projects/travel-search/labs/f01/03-write.sh" data-lines="5-8"><code class="language-bash">curl --fail-with-body -sS -X PUT \
-  "$ES_URL/tut-f01-attractions/_doc/a-hz-xihu?pretty" \
-  -H 'Content-Type: application/json' \
-  --data-binary @data/f01/xihu.json</code></pre>
-<pre class="code-block" data-label="JSON · 实际首次写入摘录" data-source="projects/travel-search/review/f01/outputs/write.json"><code class="language-json">{
-  "_index": "tut-f01-attractions",
-  "_id": "a-hz-xihu",
-  "_version": 1,
-  "result": "created"
-}</code></pre>
-<p><code>result=created</code> 表示这个 ID 首次写入；<code>_version=1</code> 是文档版本。没有把响应中的成功理解成“已经可被 search 看见”：写入确认和搜索视图可见是两个条件。下面显式刷新，不依赖你复制命令时恰好跨过自动刷新周期。</p><h2 id="search">5. 显式 refresh，然后按“西湖”搜索</h2><p>查询 JSON 不是景点数据。它告诉 ES：对 <code>name</code> 使用 <code>match</code> 查询，搜索文本为“西湖”；<code>operator=and</code> 要求分析后形成的查询项共同满足。<code>size=10</code> 限制返回命中数；<code>track_total_hits=true</code> 要求准确统计本次匹配总数，两者职责不同。</p>
-<pre class="code-block" data-label="JSON · search/f01/search-xihu.json" data-source="projects/travel-search/search/f01/search-xihu.json"><code class="language-json">{
-  "size": 10,
-  "track_total_hits": true,
-  "query": {
-    "match": {
-      "name": {
-        "query": "西湖",
-        "operator": "and"
-      }
-    }
-  }
-}</code></pre>
-<pre class="code-block" data-label="Bash · 04-search.sh（先刷新，再搜索）" data-source="projects/travel-search/labs/f01/04-search.sh" data-lines="5-11"><code class="language-bash">curl --fail-with-body -sS -X POST \
-  "$ES_URL/tut-f01-attractions/_refresh?pretty"
+    <p>一份这样的数据叫<strong>文档</strong>，里面的 <code>name</code>、<code>city_code</code> 等栏目叫<strong>字段</strong>。名称、别名和描述供文本搜索使用；<code>HZ</code> 是本课约定的杭州城市编码，供精确筛选使用；<code>open</code> 是教学样本中“可游玩”的状态值，不表示任何真实景区的实时营业情况。</p>
+    <p><code>ticket_price_fen</code> 用<strong>整数人民币分</strong>表示门票金额，<code>currency=CNY</code> 表示人民币。样本中的 <code>0</code> 是明确的零价，不能与“价格未知”混为一谈；游客输入的 200 元预算需要换算为 20000 分再比较。金额单位在显示、查询和数据里必须对应，不能看到一个数字就自行猜它是元还是分。</p>
+    <p>许多景点文档组织在一个<strong>索引</strong>里，例如我们可以把景点搜索数据的索引设计为 <code>travel-attractions</code>。索引名称指这一组数据及其字段处理规则；<code>a-hz-xihu</code> 则标识其中的一个景点。业务字段 <code>attraction_id</code> 和 ES 用来定位文档的 ID 怎样保持一致，F03 会明确说明。</p>
+    <p>游客的“西湖 + 杭州 + 预算 + 状态”会被表达成一份<strong>查询</strong>，也就是向这组数据提出的搜索要求。符合查询并返回的文档叫<strong>命中</strong>。索引、文档和查询由此连起来：选择在哪组数据中搜索，对每份资料的哪些字段提出要求，最后得到哪些命中。这里的 JSON 是被搜索的数据，查询则描述要怎样找它；两者可以采用同样的格式，含义仍然不同。</p>
+    <p>你现在还不知道 ES 怎样从这些文字中迅速找到候选，也不知道“名称比描述重要”具体怎样表达。F02 会用少量样本推演数据到结果的过程，F04 再学习怎样声明字段规则。先认清我们在处理什么，比提前背下一整份配置更有用。</p>
 
-curl --fail-with-body -sS -X POST \
-  "$ES_URL/tut-f01-attractions/_search?pretty" \
-  -H 'Content-Type: application/json' \
-  --data-binary @search/f01/search-xihu.json</code></pre>
-<p>第一条请求只刷新 <code>tut-f01-attractions</code>；第二条只在这个索引搜索。<a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-refresh" target="_blank" rel="noopener">refresh API</a>用于建立搜索可见性，本课为了观察明确调用一次；不要在实际批量写入时为每条文档强制刷新。它也不等同于数据备份。</p>
-<pre class="code-block" data-label="JSON · 实际首次搜索响应（完整）" data-source="projects/travel-search/review/f01/outputs/search.json"><code class="language-json">{
-  "took": 41,
-  "timed_out": false,
-  "_shards": {
-    "total": 1,
-    "successful": 1,
-    "skipped": 0,
-    "failed": 0
-  },
-  "hits": {
-    "total": {
-      "value": 1,
-      "relation": "eq"
-    },
-    "max_score": 0.5753642,
-    "hits": [
-      {
-        "_index": "tut-f01-attractions",
-        "_id": "a-hz-xihu",
-        "_score": 0.5753642,
-        "_source": {
-          "attraction_id": "a-hz-xihu",
-          "name": "杭州西湖",
-          "city_code": "HZ",
-          "ticket_price_fen": 0
-        }
-      }
-    ]
-  }
-}</code></pre>
-<p>先按三处核对：<code>timed_out=false</code> 且 <code>_shards.failed=0</code>；<code>hits.total</code> 是 <code>value=1 / relation=eq</code>；命中 ID 为 <code>a-hz-xihu</code>，<code>_source</code> 与固定样本一致。<code>took</code> 和 <code>_score</code> 是本次运行的测量结果，不作为跨环境固定断言。只有一个文档时，也不能用这个分数证明排序质量。</p><p><a href="https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-match-query" target="_blank" rel="noopener"><code>match</code></a>会分析查询文本，再与字段中已索引的项匹配；它不是 SQL 的子串 LIKE。本课 standard 足以完成这条样本的命中，不代表它已具备中文词典、旅游别名或同义词能力。分词对照与评分调优在后续专题里用更多样本检验。</p><details><summary>为什么不能用“等一秒”保证搜到？</summary><p>自动 refresh 是调度行为，实际可见时间还受配置、索引是否被搜索和运行负载影响。第一课不测这个延迟，直接 refresh 消除观察竞态。F03 会关掉自动 refresh，严格对照 GET 已可见和 search 未可见，再刷新验证。</p></details><h2 id="inspect">6. mapping、count、GET 分别回答什么？</h2>
-<pre class="code-block" data-label="Bash · 05-inspect.sh" data-source="projects/travel-search/labs/f01/05-inspect.sh" data-lines="5-7"><code class="language-bash">curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_mapping?pretty"
-curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_count?pretty"
-curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_doc/a-hz-xihu?pretty"</code></pre>
-<table class="ktable"><thead><tr><th>请求</th><th>核对点</th></tr></thead><tbody><tr><td><code>GET /{index}/_mapping</code></td><td>实际字段定义与 index.json 一致；不是景点内容</td></tr><tr><td><code>GET /{index}/_count</code></td><td>刷新后搜索视图中有 1 条文档；不是请求次数</td></tr><tr><td><code>GET /{index}/_doc/a-hz-xihu</code></td><td>按确定 ID 读文档，found=true，_source 为西湖样本</td></tr></tbody></table><p>GET 按 ID 读取，search 按条件检索；即使返回同一景点，也不是同一条读取路径。本课已经刷新后核对，因此不借这里的结果推断未刷新时也相同。完整实际响应保存在<a href="../projects/travel-search/review/f01/es-review.json">验收记录</a>。</p><h2 id="cases">7. C02 / C03：两个错误对照</h2><h3>C02：错误端口与未启动节点</h3><p>先保留 C01 的索引。下面访问一个未监听的端口，再停止本工程 ES 访问正确端口。它们都在网络连接阶段失败，本次实测 <code>curl exit=7</code>，没有得到 ES 的 HTTP 404。若 19299 已有服务，选择另一空闲端口再做对照。</p>
-<pre class="code-block" data-label="Bash · 手工复现连接拒绝与恢复"><code class="language-bash">curl -sS --connect-timeout 2 --max-time 5 http://127.0.0.1:19299/
-echo &quot;$?&quot;  # 本次连接拒绝为 7；只在上一条 curl 后立即查看
+    <h2 id="learn-through-site">6. 怎样通过网站学会：看结果，也能解释结果</h2>
+    <p>课程将提供一个在<strong>你本机运行的旅游搜索展示壳</strong>，包含景点搜索和酒店/房型搜索。你直接使用输入框、筛选项与结果卡片，关注它们对应的 ES 数据和查询。F07 才开始提供 Java 接口与展示壳；当前首课里的效果属于设计示意，后续实际交付与运行范围会逐课标明。</p>
+    <p>正在阅读的 Pages 是静态教程：承载正文、图解、示意、后续实验记录和代码入口。本机实验里的浏览器通过 Java 服务调用 ES。你会在本机观察真实搜索，也会在教程里对照规则与证据；只打开这篇网页不会启动业务搜索服务。</p>
+    <p>以后每次改进，我们都保留同一组数据和一个固定输入。比如这一课的“西湖 + 杭州 + 200 元预算”，基础阶段先修正城市、价格和状态，随后让名称、别名与描述合理参与匹配，再比较名称直接命中与描述提及的次序。改进前后都记录实际命中与次序，才知道新规则改变了什么；没有满足硬条件的记录，应一直被排除。</p>
+    <p>网站是观察窗口。看着卡片说“好多了”还不够，我们会沿同一次搜索看四件事：游客输入了什么；Java 发出了怎样的搜索要求；ES 返回了哪些 ID、次序、价格和数量；这些结果为何与旧版本不同。最初只看关键字段，等遇到中文、评分或房型问题，再展开相应解释。</p>
+    <p>执行课首先用 <strong>REST</strong> 观察 ES：通过 HTTP 接口直接向 ES 发出请求，便于看清每个参数的含义。其中描述搜索规则的一套表达叫 <strong>Query DSL</strong>，课程会用 JSON 逐段解释。F07 起再用 Java 写出对应实现，让同一个功能进入网站。应用基线是 Spring Boot 4、JDK 25 与官方 ES Java API Client；通用工程样板放到需要它的课，关键查询则在正文讲清。</p>
+    <p>酒店阶段会换成同一组入住日期、人数、床型与预算条件，核对价格是否来自真正合格的房型；运行阶段观察指定节点失效后数据与请求怎样恢复；更新阶段在数据库改价，追踪新值何时进入搜索。每次新增能力都有相应输入、数据和证据。即使展示界面暂时出了问题，你仍能通过对应的 REST 或 Java 结果核对搜索本身。</p>
 
-docker compose -f infra/single-node/compose.yaml stop es
-curl -sS --connect-timeout 2 --max-time 5 &quot;$ES_URL/&quot;
-echo &quot;$?&quot;
+    <h2 id="curriculum">7. 完整路线：先做对，再做得好，再让它持续运行</h2>
+    <p>45 课分成八个阶段，长度随问题而定。第一阶段先建立认识和数据；第二阶段做出基础景点搜索；接着改善中文匹配与结果质量，再处理房型、集群和持续更新；最后自己实现一个新需求，并带着实际问题进入源码篇。</p>
+    <figure class="fig d2-figure" id="fig-learning-route">
+      <div class="d2-shell"><div class="d2-tools"><strong>02 · 八阶段与三个独立结业点</strong><a data-expand-d2 href="diagrams/f01/learning-route-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f01/learning-route-light.svg" data-d2-light="diagrams/f01/learning-route-light.svg" data-d2-dark="diagrams/f01/learning-route-dark.svg" alt="F01到F45的八阶段学习路线，按认识与首搜、景点闭环、中文召回、评分质量、酒店房型、集群运行、持续更新、独立复现推进；F12、F22、F45为独立结业点"></div></div>
+      <figcaption>路线设计示意。按自上而下、每行从左到右的顺序阅读；行内箭头表示学习推进，四行合起来是一条八阶段路线。箭头不是软件调用，也不代表后续课程已经完成。F12、F22、F45 分别检查基础搜索、实用搜索质量与完整复现能力。静态图可展开查看；逐课问题在下面列出。</figcaption>
+    </figure>
+    <p>大纲里的标题都是之后要回答的具体问题。当前 F01 可以阅读，F02–F45 将沿这条路线逐课推进；到<a href="index.html">课程目录</a>查看各课进度。</p>
 
-docker compose -f infra/single-node/compose.yaml start es
-bash infra/single-node/wait.sh
-curl --fail-with-body -sS --retry 30 --retry-all-errors --retry-delay 1 \
-  --max-time 35 \
-  &quot;$ES_URL/_cluster/health/tut-f01-attractions?wait_for_status=green&amp;timeout=30s&amp;pretty&quot;
-bash labs/f01/04-search.sh</code></pre>
-<p>恢复后，数据卷保留了索引与景点。等待 HTTP 之后还要等待本课索引健康：本轮第一次实测中，HTTP 先可访问，紧接着刷新收到短暂的 <code>index_not_found_exception</code>，随后索引恢复；因此健康请求允许临时 404 重试。核对最终 <code>timed_out=false / green</code> 后，再搜索应仍命中同一 ID。</p><p>也可运行 <a href="../projects/travel-search/labs/f01/08-connection-errors.sh"><code>bash labs/f01/08-connection-errors.sh</code></a>，它额外用 EXIT trap 在中断时尝试恢复自己的 ES 服务。网络超时可能是 exit 28，HTTP 错误在启用 fail 选项后是 exit 22；按实际错误定位，不把所有失败都称“ES 没启动”。</p><h3>C03：重复建索引 ≠ 在索引里写文档</h3><p>再次发送相同创建请求。这个请求的资源还是索引，不会因为 JSON 相同就静默成功。</p>
-<pre class="code-block" data-label="Bash · 06-existing-index.sh（预期错误）" data-source="projects/travel-search/labs/f01/06-existing-index.sh" data-lines="5-8"><code class="language-bash"># 这里故意不加 --fail-with-body：保留预期 400 的正文供观察。
-curl -sS -X PUT "$ES_URL/tut-f01-attractions?pretty" \
-  -H 'Content-Type: application/json' \
-  --data-binary @search/f01/index.json</code></pre>
-<pre class="code-block" data-label="JSON · 实际重复创建错误摘录" data-source="projects/travel-search/review/f01/outputs/existing-index.json"><code class="language-json">{
-  "error": {
-    "type": "resource_already_exists_exception",
-    "reason": "index [tut-f01-attractions/KpVFkwUSRf2sRbRCNEjLuw] already exists"
-  },
-  "status": 400
-}</code></pre>
-<p>这里故意省略 fail 选项，好让你观察错误正文。curl 默认可能退出 0，但 HTTP 是 <code>400</code>，<code>error.type=resource_already_exists_exception</code>。不要只看 shell 退出码就判断请求成功。</p><p>现在重复发送 <code>PUT /{index}/_doc/a-hz-xihu</code>，再次写相同的完整文档：</p>
-<pre class="code-block" data-label="Bash · 07-write-again.sh" data-source="projects/travel-search/labs/f01/07-write-again.sh" data-lines="5-9"><code class="language-bash"># 相同索引、相同 _id、相同完整文档；不会多出第二条景点。
-bash labs/f01/03-write.sh
-curl --fail-with-body -sS -X POST "$ES_URL/tut-f01-attractions/_refresh?pretty"
-curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_count?pretty"
-curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_doc/a-hz-xihu?pretty"</code></pre>
-<pre class="code-block" data-label="JSON · 实际重复写入与计数摘录" data-source="projects/travel-search/review/f01/outputs/rewrite.json"><code class="language-json">{
-  "write": {
-    "_id": "a-hz-xihu",
-    "_version": 2,
-    "result": "updated"
-  },
-  "count_after_refresh": 1
-}</code></pre>
-<p>同一个索引里的同一个 <code>_id</code> 被完整覆盖，<code>result=updated</code>、版本变为 2，刷新后文档数仍为 1。再次重复写，版本还会增长；改成另一个 ID 则是另一条文档。这个 PUT 不是局部字段更新，后续 F03 再看 update 和并发冲突。</p><h2 id="repeat">8. 点名清理，再做一轮</h2><p>下面只删除 <code>tut-f01-attractions</code> 及其文档，保留本工程容器和数据卷。不要用通配符删除索引。</p>
-<pre class="code-block" data-label="Bash · cleanup.sh" data-source="projects/travel-search/labs/f01/cleanup.sh" data-lines="5-6"><code class="language-bash"># 只删除本课索引和里面的景点。不使用通配符，不删除数据卷。
-curl --fail-with-body -sS -X DELETE "$ES_URL/tut-f01-attractions?pretty"</code></pre>
-<pre class="code-block" data-label="Bash · 重做全部案例"><code class="language-bash">bash labs/f01/run.sh                  # C01：启动并执行 11 条主流程请求
-bash labs/f01/08-connection-errors.sh  # C02：错误端口 / 停机 / 恢复
-bash labs/f01/06-existing-index.sh     # C03：索引已存在
-bash labs/f01/07-write-again.sh        # C03：同 ID 覆盖，计数仍为 1
-bash labs/f01/cleanup.sh
-docker compose -f infra/single-node/compose.yaml stop es</code></pre>
-<p><code>run.sh</code> 不偷偷删除已存在的索引。重做前若未清理，创建步骤会按 C03 返回已存在错误；若索引本来不存在，cleanup 返回 HTTP 404，可直接重跑 C01。清理后再创建、首次写入应重新得到 <code>created / _version=1</code>。</p><div class="callout tip">本课三个案例已在真实 ES 9.4.0 上完成首次与点名清理后的第二轮，含停机恢复；索引最终已清理，专用容器已停止。<a href="../projects/travel-search/review/f01/README.md">实际验证范围与记录</a>。F02 的 Boot 4/JDK 25 构建、中文插件、多节点与 CDC 不属于本课验收。</div><details><summary>把本课现象带入源码篇</summary><p>现在能操作即可。以后带着“节点何时能接请求”进入 <a href="../chapters/ch03.html">ch03 启动</a>；带着“mapping 如何决定字段结构”进入 <a href="../chapters/ch11.html">ch11 映射</a>；带着“写入与搜索可见为什么分开”进入 <a href="../chapters/ch14.html">ch14 存储引擎</a>、<a href="../chapters/ch16.html">ch16 搜索流程</a>。</p></details></section>
-<section class="drills"><h2 id="drills">练习：根据输出判断</h2><details><summary>1. 创建索引成功，能否说明“西湖”已经能被搜到？</summary><p>不能。创建索引只建立配置和字段规则，还需写入景点文档；写入后要建立新搜索视图并执行查询。索引健康也不等于业务文档已导入。</p></details><details><summary>2. 相同 JSON 写两次，一定只有一条文档吗？</summary><p>要看索引与 _id。本课在同一索引使用相同 ID 完整覆盖，计数保持 1、版本增长。改用另一个 ID，即使 JSON 一样也会新增文档。JSON 中的 attraction_id 不自动决定 ES _id。</p></details><details><summary>3. curl exit 7、HTTP 400、短暂 HTTP 404 应怎样区分？</summary><p>exit 7 是连接阶段失败；本课重复建索引的 HTTP 400 是 ES 已收到请求并拒绝创建；重启后索引恢复前短暂 404 是 HTTP 已可访问但指定索引暂不可用。先读实际错误，再查端口/日志或等待对应资源。</p></details></section>
-<section class="pitfalls"><h2 id="pitfalls">本课陷阱</h2><div class="callout warn"><strong>创建请求与写入请求都用 PUT，含义取决于路径。</strong>索引路径重复创建会失败；带 /_doc/{id} 的路径写入该 ID，重复写入会完整覆盖。</div><div class="callout warn"><strong>整个集群 green，不代表景点查询正确。</strong>本课用限定索引的健康、实际搜索 ID、mapping、count 和 GET 分别核对。</div><div class="callout warn"><strong>写入成功与 HTTP 恢复都不是“搜索一定可用”的充分条件。</strong>写后显式 refresh；停机恢复后等待本课索引，再搜索。</div></section>
-<section class="recap"><h2 id="recap">速记</h2><table class="ktable"><thead><tr><th>动作</th><th>检查</th></tr></thead><tbody><tr><td>启动</td><td>本机 19200；版本 9.4.0；恢复时另等索引</td></tr><tr><td>建索引</td><td>settings / mappings；本课 1 主 / 0 副本</td></tr><tr><td>写文档</td><td>固定 _id；首次 created，再次 updated</td></tr><tr><td>刷新与搜索</td><td>无超时/分片失败；命中 a-hz-xihu；total=1</td></tr><tr><td>清理重做</td><td>点名删除本课索引；重建后文档 version 从 1 开始</td></tr></tbody></table><p>先声明索引，再写文档；让新搜索看见它，再用实际命中证明闭环。</p></section>
-<footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a class="btn" href="index.html">← 框架篇目录</a><span>下一课：F02 · Boot 4 / JDK 25 与 Java 客户端（待编写）</span></div><p><a href="../projects/travel-search/labs/f01/README.md">本机实验入口</a> · <a href="../docs/framework-lesson-prompt.md">后续逐课提示词</a></p></footer>
-</article></main><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>
+    <details open>
+      <summary>阶段一 · 先知道为什么学，再完成第一次搜索（F01–F04）</summary>
+      <p>你先能解释 ES 的位置，再亲手让固定景点进入搜索数据。F01/F02 不要求运行环境；F03 才安装启动，F04 把后续会用到的字段和样本准备好。</p>
+      <ul>
+        <li><strong>F01</strong> · Elasticsearch 是什么，我们为什么用它做旅游搜索？<span class="course-status">（本课）</span></li>
+        <li><strong>F02</strong> · 一份景点数据怎样变成搜索结果？</li>
+        <li><strong>F03</strong> · 让 ES 在本机运行，并查到第一条景点</li>
+        <li><strong>F04</strong> · 景点信息应该怎样存，才能支持后面的搜索？</li>
+      </ul>
+    </details>
+    <details>
+      <summary>阶段二 · 做出一个可解释的景点搜索服务（F05–F12）</summary>
+      <p>回到“西湖”查询：先把关键词与城市、预算等条件做对，再接入 Java 与展示壳，补上计数、排序和分页。最后用新样本独立完成一套景点搜索，并解释改价、下架后结果为何变化。</p>
+      <ul>
+        <li><strong>F05</strong> · “西湖”是在找名称，还是精确编码？</li>
+        <li><strong>F06</strong> · 怎样只找杭州、预算内、附近且可游玩的景点？</li>
+        <li><strong>F07</strong> · 网站输入怎样真正到达 ES？</li>
+        <li><strong>F08</strong> · 名称、别名和描述怎样一起搜，结果怎样让人看懂？</li>
+        <li><strong>F09</strong> · 筛选栏的数量为什么常常算错？</li>
+        <li><strong>F10</strong> · 价格、距离和默认相关性，应该按哪把尺子排序？</li>
+        <li><strong>F11</strong> · 翻到下一页，为什么会重复或漏掉景点？</li>
+        <li><strong>F12</strong> · 改价、下架与同时修改之后，搜索结果怎样才算正确？</li>
+      </ul>
+    </details>
+    <details>
+      <summary>阶段三 · 搜不到与搜错了：处理中文召回（F13–F17）</summary>
+      <p>“数据明明有，为什么没出现？”先观察文字怎样被处理，再比较分词、专有词、别名、同义词和输入提示。每次让更多正确结果出现，也要检查是否带进了不相关的结果。</p>
+      <ul>
+        <li><strong>F13</strong> · 明明有“北京故宫博物院”，为什么搜不到？</li>
+        <li><strong>F14</strong> · 不同中文分词器切出来的词，真的适合旅游吗？</li>
+        <li><strong>F15</strong> · 新酒店品牌和地名怎样进入搜索词典？</li>
+        <li><strong>F16</strong> · “紫禁城”和“故宫”怎样找到同一景点？</li>
+        <li><strong>F17</strong> · 输入一半、拼音或错字时，提示应该怎样给？</li>
+      </ul>
+    </details>
+    <details>
+      <summary>阶段四 · 找到了之后，谁应该排在前面？（F18–F22）</summary>
+      <p>候选找对了，再解决杭州西湖与湖畔茶园谁更靠前。你会解释相关性分数、名称权重与业务偏好，最后用一批查询检查改善与退步，避免为了一个查询牺牲其余结果。</p>
+      <ul>
+        <li><strong>F18</strong> · ES 的相关性分数究竟在衡量什么？</li>
+        <li><strong>F19</strong> · 怎样让名称真正命中，胜过描述中的顺带提及？</li>
+        <li><strong>F20</strong> · 热门与好评能加分，为什么不能一味加？</li>
+        <li><strong>F21</strong> · 附近、新鲜、便宜，与相关性怎样取舍？</li>
+        <li><strong>F22</strong> · 调了权重，怎样证明搜索真的变好了？</li>
+      </ul>
+    </details>
+    <details>
+      <summary>阶段五 · 从景点到酒店：复杂条件与价格（F23–F27）</summary>
+      <p>酒店有多个房型、多晚价格和库存。你要保证人数、床型、早餐与预算同时落在合格房型上，再说明列表价格与精确核对的范围。学习到这里，能够识别“每个条件都满足了，合起来却不存在”的错误。</p>
+      <ul>
+        <li><strong>F23</strong> · 一个酒店、多个房型，到底该建成几份文档？</li>
+        <li><strong>F24</strong> · “便宜”和“含早”为什么不能分别来自两个房型？</li>
+        <li><strong>F25</strong> · 连住两晚，怎样知道每晚都有房、总价是多少？</li>
+        <li><strong>F26</strong> · 酒店列表的“最低价”究竟是哪一种价格？</li>
+        <li><strong>F27</strong> · 酒店与房型各自怎样排序才符合用户意图？</li>
+      </ul>
+    </details>
+    <details>
+      <summary>阶段六 · 搜索服务怎样持续运行？（F28–F35）</summary>
+      <p>将已经理解的搜索放到多节点环境，观察数据分布、节点失效、索引升级和快照恢复。用命中与数据证据判断服务是否恢复，再补上受限权限的 Java 连接。</p>
+      <ul>
+        <li><strong>F28</strong> · 一台机器变三台，怎样知道它们组成了同一个集群？</li>
+        <li><strong>F29</strong> · 一份景点文档写到哪里，搜索又从哪里读？</li>
+        <li><strong>F30</strong> · 主节点或数据节点停了，搜索系统分别会怎样？</li>
+        <li><strong>F31</strong> · 加机器为什么未必解决未分配与容量问题？</li>
+        <li><strong>F32</strong> · 后端怎样不再写死具体索引名？</li>
+        <li><strong>F33</strong> · 字段或分词变了，怎样升级索引而不中断查询入口？</li>
+        <li><strong>F34</strong> · 副本都有了，为什么还必须练习备份恢复？</li>
+        <li><strong>F35</strong> · 旅游搜索接口需要哪些 ES 权限？</li>
+      </ul>
+    </details>
+    <details>
+      <summary>阶段七 · 商家改数据，搜索怎样跟上？（F36–F42）</summary>
+      <p>让景点与房型从固定样本走向持续更新。先沿 PostgreSQL 的变更打通一条链路，再在独立环境用 MySQL 对照；之后处理多表组织、重复消息、乱序、删除和重建。你要能指出旧价格停在哪一层。</p>
+      <ul>
+        <li><strong>F36</strong> · 数据库的表，为什么不能简单搬成一个个索引？</li>
+        <li><strong>F37</strong> · PostgreSQL 的一次增删改，怎样进入 ES？</li>
+        <li><strong>F38</strong> · 换成 MySQL，哪些同步条件和恢复证据不同？</li>
+        <li><strong>F39</strong> · 一个标签或房型改了，怎样更新正确的搜索文档？</li>
+        <li><strong>F40</strong> · 消息重复、乱序和部分写入失败，怎样避免旧数据复活？</li>
+        <li><strong>F41</strong> · 网站持续改价时，索引重建怎样追平再切换？</li>
+        <li><strong>F42</strong> · 显示了旧价格，怎样知道延迟在哪、数据是否丢了？</li>
+      </ul>
+    </details>
+    <details>
+      <summary>阶段八 · 能独立实现、诊断，再进入源码（F43–F45）</summary>
+      <p>扩大数据和请求，测量边界并按证据诊断。最后从空环境复现链路，自己完成一个新增搜索需求和受控故障恢复，再带着“为什么会这样”的问题走进源码。</p>
+      <ul>
+        <li><strong>F43</strong> · 数据和请求变多之后，怎样测量系统还能承受多少？</li>
+        <li><strong>F44</strong> · 搜索慢了或失败了，怎样沿证据找到原因？</li>
+        <li><strong>F45</strong> · 不看逐步答案，你能独立完成一个新搜索需求吗？</li>
+      </ul>
+    </details>
+
+    <h3>三个时候，停下来检验自己</h3>
+    <p><strong>F12 基础结业：</strong>给你一批新的景点数据，你能自己决定字段、写出关键词与城市/预算筛选，完成排序、分页与 Java 接口，并解释一次改价或下架后的搜索可见性。做到这里，已经能独立完成基础景点搜索，不必等到学完集群和数据同步才证明自己学会。</p>
+    <p><strong>F22 实用搜索结业：</strong>给你没有在正文出现过的查询，你能分清漏找、误找与次序不合理，提出修改，并在一批查询中报告改善和退步。评价依据来自固定数据和结果，不能只凭一个好看的页面。</p>
+    <p><strong>F45 完整结业：</strong>从空环境复现景点、酒店、集群和更新链路，完成一个新增需求与受控故障恢复，并说明数据、请求和结果之间的关系。三个结业点都将使用新任务，逐步答案留到事后复盘。</p>
+    <p>开始 F03 时再准备终端与运行环境；进入 F07 前补齐基础 Java 和 JSON 阅读能力；数据库与同步环境到 F36 再引入。每课先预测结果，再操作、核对和解释；环境怎么启动、实验怎么还原，由对应执行课给出完整步骤。学习路线里的能力逐步建设，不要求你在第一天同时掌握所有组件。</p>
+  </section>
+
+  <section class="drills">
+    <h2 id="drills">8. 合上正文，检查自己的理解</h2>
+    <p>这一课的检查不需要终端。先用自己的话回答，再展开对照；能讲清原因，就达到了导学课的目标。</p>
+    <details><summary>1. “西湖 + 杭州 + 门票 ≤ 200 元 + 可游玩”：哪些要求找候选，哪些要求排除结果？为什么茶园不能靠高热度突破预算？</summary><p>“西湖”表达文本意图，可按设计在名称、别名或描述中找候选；城市、价格和状态是硬条件，不符合就不能进入结果。相关性、热度等排序偏好用于排列允许出现的候选，不能把 220 元的茶园重新加进 200 元预算的结果。只有用户主动改变条件，允许集合才改变。</p></details>
+    <details><summary>2. 商家已经把茶园改为 220 元，网页仍显示 80 元。读图后，你会检查哪些位置？</summary><p>先核对业务数据库是否确实保存了新价，再查搜索文档的组织与传递是否完成、ES 是否已接收新值，以及新值是否已对搜索可见。如果 ES 返回新价而网页仍显示旧价，还应检查 Java 返回内容与页面显示。数据库修改确认不能替代整条链路的核对；搜索卡片中的旧价也不能作为购买凭证。</p></details>
+    <details><summary>3. 文档、索引、查询、命中怎样区分？刚才那份 JSON 属于哪一种？</summary><p>文档是一份景点数据，字段是其中的栏目；索引组织一组文档及其字段处理规则；查询表达要找什么；命中是符合查询而返回的文档。刚才的 JSON 是文档设计样本，不是一个已经执行的查询，也不是实际搜索响应。索引名 travel-attractions 与景点业务 ID a-hz-xihu 指向不同层次。</p></details>
+    <details><summary>4. 你接到五种问题：别名搜不到、描述命中排在名称前、房型条件串了、搜索旧价格、节点停机。分别回到哪个阶段？</summary><p>别名搜不到先看阶段三 F13–F17，检查文字处理与表达；名称/描述次序看阶段四 F18–F22，也要核对 F08 的字段选择；房型串条件看阶段五 F23–F27；旧价格先用 F12 区分写入与搜索可见，再用阶段七 F36–F42 跟踪更新链路；节点停机看阶段六，特别是 F30 的故障与恢复。现象可以跨层，阶段帮助你找到起点，最终仍以数据和请求证据定位。</p></details>
+    <details><summary>5. 一个只提供“按景点编号读详情”和“按城市列出几十条景点”的小应用，必须引入 ES 吗？怎样判断？</summary><p>无需因为它叫旅游网站就引入 ES。先检查现有数据库能否满足查询、规模和维护要求；如果已经足够，可继续使用。需要更复杂的文本匹配、相关性、统计或其他搜索能力时，再用实际样本评估 ES 的收益与额外数据同步、运行成本。没有测量，不能承诺换用 ES 后一定更快。</p></details>
+  </section>
+
+  <section class="pitfalls">
+    <h2 id="pitfalls">本课陷阱</h2>
+    <div class="callout warn"><strong>把“搜到了”当作“搜索正确”。</strong><p>“西湖”出现在五份数据里，并不表示五份都该返回。要同时检查城市、预算、状态、次序与统计范围；文本匹配只是搜索正确性的一部分。</p></div>
+    <div class="callout warn"><strong>把搜索卡片当作当前价格与库存的保证。</strong><p>业务修改、搜索文档更新、搜索可见和页面显示都有各自的时点。购买或预订前需要业务服务复核。酒店条件也必须落在同一份合格房型上，不能拼接不同房型的便宜、含早与床型。</p></div>
+    <div class="callout warn"><strong>以为换成 ES 就会自动理解游客的意图。</strong><p>名称与描述谁更重要、“紫禁城”是否对应“故宫”、城市和预算是否必须满足，都需要数据与查询规则支持。引入搜索引擎只是有了工具，还要用样本检验它是否执行了你的规则。</p></div>
+  </section>
+
+  <section class="recap">
+    <h2 id="recap">速记：先能解释，再开始运行</h2>
+    <table class="ktable">
+      <thead><tr><th>问题</th><th>这节课的回答</th></tr></thead>
+      <tbody>
+        <tr><td>ES 做什么？</td><td>组织搜索文档，按文字与条件检索，排列结果并计算聚合。</td></tr>
+        <tr><td>各自负责什么？</td><td>本案例中，数据库维护事实；Java 组织文档与查询；ES 提供搜索视图；网站展示结果。</td></tr>
+        <tr><td>何时考虑使用？</td><td>先明确现有查询难以满足的搜索需求，再评估效果与同步、运行成本。</td></tr>
+        <tr><td>怎样学会？</td><td>同样本、同输入，预测并核对实际命中、次序、价格与计数，解释改动带来的得失。</td></tr>
+        <tr><td>路线关键点？</td><td>F02 推演；F03 首搜；F07 Java/展示壳；F12、F22、F45 独立结业。</td></tr>
+      </tbody>
+    </table>
+    <p>你现在能描述一次正确的搜索，却还没有解释 ES 怎样从一组景点资料中找到候选。下一课<strong>“一份景点数据怎样变成搜索结果？”</strong>先用小样本推演这个过程，再到 F03 安装运行，把理解与真实结果对上。</p>
+  </section>
+
+  <footer class="ch-footer">
+    <button class="read-toggle" type="button">标记本课已读</button>
+    <div class="pager"><a class="btn" href="index.html">← 框架篇目录</a><span>下一课：F02 · 一份景点数据怎样变成搜索结果？（待编写）</span></div>
+  </footer>
+</article>
+</main>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/progress.js"></script>
+<script src="assets/course.js"></script>
+</body>
+</html>

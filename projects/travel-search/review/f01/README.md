@@ -1,6 +1,6 @@
-# F01 实际验收
+# 历史 F01 启动实验实际验收
 
-作者证据，读者按 [labs/f01](../../labs/f01/README.md) 操作即可。
+对应[历史启动课](../../../../framework/f01-startup-legacy.html)，不作为当前 F01 导学或新 F03 的完成证明。作者证据，读者按 [labs/f01](../../labs/f01/README.md) 操作即可。
 
 ## 真实 ES
 
@@ -23,7 +23,7 @@ python3 review/f01/verify.py
 
 ## 图解与阅读
 
-[D2 生成记录](../../../../framework/diagrams/f01/generation.json)与 [HTTP 检查脚本](http-review.py) / [实际记录](http-review.json)分别保留。HTTP 脚本需作者已有的 Playwright / Chromium，启动自己的临时静态服务，检查 `/es_web/` 前缀；这些依赖不进入读者实验工程。
+[D2 生成记录](../../../../framework/diagrams/f01/generation.json)与 [HTTP 检查脚本](http-review.py) / [实际记录](http-review.json)分别保留。原 HTTP 脚本保留原始验收版本：其中页面、目录与进度断言对应 [源提交 af670eb](https://github.com/socoo123/es_web/tree/af670eb)，重跑需使用该提交的独立 checkout。当前站点的新版 F01 验收另见 [导学阅读记录](../../../../docs/framework-review/20261014-f01-intro/README.md)，不会覆写本目录原始记录。作者工具依赖 Playwright / Chromium，不进入读者实验工程。
 
 阅读检查覆盖 1920 / 1440 / 1024 / 768 / 390 / 320px × 浅深主题、最大 880px 列、图/代码局部滚动、复制、展开图、目录、已读进度、file 预览与 reduced motion。截图实际审阅范围与结论写入 HTTP 记录，截图生成本身不算人工审阅。
 

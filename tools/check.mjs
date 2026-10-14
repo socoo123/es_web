@@ -197,7 +197,8 @@ if (existsSync(frameworkDir)) {
     const rel = `framework/${name}`;
     const html = readFileSync(path.join(ROOT, rel), 'utf8');
     const id = name.slice(0, 3);
-    for (const needle of [`data-ch="${id}"`, 'class="goal"', 'class="lesson"', 'class="drills"',
+    const progressId = id === 'f01' ? 'f01-v2' : id;
+    for (const needle of [`data-ch="${progressId}"`, 'class="goal"', 'class="lesson"', 'class="drills"',
       'class="pitfalls"', 'class="recap"', 'class="ch-footer"', 'read-toggle', 'assets/course.js']) {
       if (!html.includes(needle)) err(rel, `缺少 ${needle}`);
     }
@@ -207,7 +208,7 @@ if (existsSync(frameworkDir)) {
     const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
     if (new Set(ids).size !== ids.length) err(rel, '文档内 ID 重复');
   }
-  for (const rel of ['framework/index.html', ...lessons.map(f => `framework/${f}`)]) {
+  for (const rel of ['framework/index.html', ...lessons.map(f => `framework/${f}`), 'framework/f01-startup-legacy.html']) {
     const html = readFileSync(path.join(ROOT, rel), 'utf8');
     for (const m of html.matchAll(/(?:href|src|data-d2-light|data-d2-dark)="([^"]+)"/g)) {
       if (/^(https?:|#|data:|mailto:)/.test(m[1])) continue;

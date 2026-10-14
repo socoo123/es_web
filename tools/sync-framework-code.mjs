@@ -5,7 +5,7 @@ import path from 'node:path';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 const escape = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-for (const name of readdirSync(path.join(root, 'framework')).filter(f => /^f\d{2}\.html$/.test(f))) {
+for (const name of readdirSync(path.join(root, 'framework')).filter(f => /^f\d{2}(?:-startup-legacy)?\.html$/.test(f))) {
   const file = path.join(root, 'framework', name);
   const before = readFileSync(file, 'utf8');
   const after = before.replace(/(<pre\b[^>]*data-source="([^"]+)"[^>]*><code[^>]*>)([\s\S]*?)(<\/code><\/pre>)/g,

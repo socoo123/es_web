@@ -1,13 +1,15 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。当前保留的是**旧版 F01 启动实验**，无需前端、Java、数据库或 Kibana。新版课程已经重排：F01 导学、F02 概念、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。旧实验计划迁入 F03，但原路径/ID/真实验收保留，不能直接算作新 F03 已通过；新版课程与 Java/展示壳均未实施。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01 正文已重写；F02–F45、Java 与展示壳待实施，验收见 [STATUS.md](../../STATUS.md)。
 
-- [旧版 F01 启动实验正文](../../framework/f01.html)
-- [旧版 F01 手工步骤、案例与重做](labs/f01/README.md)
-- [旧版作者真实验收](review/f01/README.md)
-- [新版 45 课规划与迁移边界](../../FRAMEWORK_PLAN.md)
+当前可运行资产是历史启动实验，无需前端、Java、数据库或 Kibana；后续在 F03 复用时重新验收。原路径、资源与案例 ID 保留：
 
-下面命令仍对应旧版资源 `tut-f01-attractions` 与 `labs/f01`，本次规划没有改变实验配置和脚本。
+- [历史启动实验正文](../../framework/f01-startup-legacy.html)
+- [手工步骤、案例与重做](labs/f01/README.md)
+- [两轮真实 ES 验收](review/f01/README.md)
+- [45 课路线](../../FRAMEWORK_PLAN.md)
+
+下面命令对应历史资源 `tut-f01-attractions` 与 `labs/f01`，配置和脚本保持原实验约定。
 
 需要 Docker Engine/Desktop、Compose v2+、Bash 与 curl（7.76+，支持 `--fail-with-body`）。Docker Desktop 至少分配 4GB 内存；本课一个容器上限 1GB、堆 512MB。这是几条文档的教学配置；更多语料和多节点另做容量测量。Windows 可在 WSL2 中运行；当前实际验收为 macOS arm64 + Docker，未声称 Windows/Linux 全平台验收。
 

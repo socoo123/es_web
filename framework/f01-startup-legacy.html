@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>F01 · 启动 ES，完成第一次写入与搜索</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"></head>
+<body class="framework-page chapter-visual-page">
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><aside class="callout warn legacy-course-note"><strong>历史启动实验 · 原课号 F01</strong><p>这是旧版首课的存档，保留原文、工程与真实验收。当前课程从<a href="f01.html">新 F01：认识 ES 与学习路线</a>开始；这份启动实验将在 F03 重新核对与验收。以下旧课号和课程安排只属于历史版本。</p></aside><article class="chapter" id="f01" data-ch="f01">
+<header class="ch-header"><div class="ch-kicker">FRAMEWORK 01 · 启动、Java 连接与索引读写</div><h1>启动 ES，<br>完成第一次写入与搜索</h1><div class="meta-line">约 25 分钟 · 前置：终端 / Docker / JSON · 3 个案例 · 主流程 11 条 HTTP 操作 · 1 幅静态 D2 图 · 0 个机制播放器</div><p class="ch-intro">游客在你的旅游网站输入“西湖”，后端需要从搜索索引取回景点。这一课直接把“杭州西湖”写进 Elasticsearch，并查到它；从真实响应认识节点、索引、文档与搜索可见性。</p><div class="diagram-jumps"><a href="#fig-first-search"><span>01</span>四步闭环</a><a href="#create">建索引</a><a href="#search">执行搜索</a><a href="#cases">错误对照与重做</a></div></header>
+<section class="goal"><h2 id="goals">本课目标</h2><ol><li>启动隔离的 ES 9.4.0，确认节点版本，区分 HTTP 可访问与本课索引就绪。</li><li>显式创建索引、写入固定景点 ID，刷新后按名称搜索，核对命中、字段与计数。</li><li>复现连接拒绝和索引已存在错误，解释相同 ID 重复写入为什么不增加文档数，清理后重做。</li></ol><div class="callout tip">实验工程在 <a href="../projects/travel-search/README.md"><code>projects/travel-search/</code></a>，由你本机启动。本页用于阅读与复制代码。F02 再接入 <strong>Spring Boot 4 / JDK 25</strong> 的 Java 客户端；F01 无需安装应用 JDK。</div><details class="chapter-outline"><summary>展开本课目录</summary><nav><a href="#model">1. 索引、文档与搜索</a><a href="#start">2. 启动与观察节点</a><a href="#create">3. 创建景点索引</a><a href="#write">4. 写入一条景点</a><a href="#search">5. 刷新后搜索</a><a href="#inspect">6. 核对三种信息</a><a href="#cases">7. 错误对照</a><a href="#repeat">8. 清理与重做</a><a href="#drills">练习与速记</a></nav></details></section>
+<section class="lesson"><h2 id="model">1. 先分清：索引不是一条景点</h2>
+<p>本课的索引叫 <code>tut-f01-attractions</code>，它组织一组景点文档及其字段规则。每条景点是一份 JSON 文档，用 <code>_id</code> 定位；<code>settings</code> 描述主分片/副本等索引配置，<code>mappings</code> 描述字段如何索引。可以把它理解为搜索数据的容器，但不要据此把它等同于关系数据库表。</p><p>旅游网站的业务数据库以后可以产生这些文档。现在使用固定文件样本即可把搜索学明白：索引先创建好，再写文档，然后让新搜索视图看到写入，最后执行查询。无需先搭数据库或网站。</p>
+<figure class="fig d2-figure" id="fig-first-search"><div class="d2-shell"><div class="d2-tools"><strong>01 · 从空索引到一次命中</strong><a data-expand-d2 href="diagrams/f01/first-search-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f01/first-search-light.svg" data-d2-light="diagrams/f01/first-search-light.svg" data-d2-dark="diagrams/f01/first-search-dark.svg" alt="创建索引、写入景点、显式刷新、按名称搜索四步；箭头表示本课操作顺序"></div></div><figcaption>箭头表示本课的手工操作顺序，省略 ES 内部 action、分片与 Lucene 调用。本图是静态图；窄屏可在图内横向滚动或展开查看。<a href="diagrams/f01/README.md">图源与生成记录</a>。</figcaption></figure>
+<table class="ktable"><thead><tr><th>请求</th><th>作用</th></tr></thead><tbody><tr><td><code>PUT /tut-f01-attractions</code></td><td>创建索引，配置 settings / mappings</td></tr><tr><td><code>PUT /tut-f01-attractions/_doc/a-hz-xihu</code></td><td>写入或完整覆盖这个 ID 的文档</td></tr><tr><td><code>POST /tut-f01-attractions/_refresh</code></td><td>让此前写入对新搜索可见</td></tr><tr><td><code>POST /tut-f01-attractions/_search</code></td><td>在该索引执行查询，返回命中</td></tr></tbody></table>
+<h2 id="start">2. C01：启动自己的 ES 节点</h2><p>准备 Docker Engine/Desktop、Compose v2+、Bash 和 curl 7.76+。Windows 可使用 WSL2；本课实际验收环境是 macOS arm64 + Docker。<a href="https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-docker-basic" target="_blank" rel="noopener">官方 Docker 指南</a>要求 Docker Desktop 至少分配 4GB 内存。这里给单个教学容器 1GB 上限、512MB 堆，只用一条景点样本。</p><p>完整配置在 <a href="../projects/travel-search/infra/single-node/compose.yaml"><code>infra/single-node/compose.yaml</code></a>。宿主端口 <code>19200</code> 映射到容器 HTTP <code>9200</code>，不发布 transport 9300；Compose 项目和数据卷也与源码篇分离。</p>
+<pre class="code-block" data-label="YAML · 单节点实验配置" data-source="projects/travel-search/infra/single-node/compose.yaml"><code class="language-yaml">name: es-framework-single
+services:
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    environment:
+      cluster.name: travel-search-lab
+      node.name: travel-search-01
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:19200:9200"
+    mem_limit: 1g
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+volumes:
+  es-data:</code></pre>
+<p><code>discovery.type=single-node</code> 用于本课单节点；<code>xpack.security.enabled=false</code> 是显式选择，和官方默认的安全启动流程不同。端口只绑定本机，curl 不需要 CORS。<code>es-data</code> 挂在 ES 数据目录，停止/重启保留数据。ES 使用镜像自带 JVM，和 F02 的应用 JDK 25 是两回事。</p>
+<pre class="code-block" data-label="Bash · 从仓库根目录启动"><code class="language-bash">cd projects/travel-search
+docker compose -f infra/single-node/compose.yaml up -d
+bash infra/single-node/wait.sh
+export ES_URL=http://127.0.0.1:19200</code></pre>
+<p>后面的命令都在工程根目录执行。等待脚本最多探测 180 秒；它只确认 HTTP 入口可访问。首次拉镜像需要网络，失败时先区分拉取失败、容器退出与节点未就绪。</p>
+<pre class="code-block" data-label="Bash · 01-observe.sh（3 条请求）" data-source="projects/travel-search/labs/f01/01-observe.sh" data-lines="5-8"><code class="language-bash">curl --fail-with-body -sS "$ES_URL/?pretty"
+curl --fail-with-body -sS \
+  "$ES_URL/_cat/nodes?format=json&amp;h=name,ip,node.role,master"
+curl --fail-with-body -sS "$ES_URL/_cluster/health?pretty"</code></pre>
+<p><code>GET /</code> 返回版本与集群标识，不返回节点角色；角色由第二条 <code>_cat/nodes</code> 请求观察。第三条健康请求覆盖整个集群。</p>
+<pre class="code-block" data-label="JSON · 实际节点响应摘录" data-source="projects/travel-search/review/f01/outputs/node.json"><code class="language-json">{
+  "name": "travel-search-01",
+  "cluster_name": "travel-search-lab",
+  "version": {
+    "number": "9.4.0"
+  },
+  "nodes": [
+    {
+      "name": "travel-search-01",
+      "ip": "172.19.0.2",
+      "node.role": "cdfhilmrstw",
+      "master": "*"
+    }
+  ]
+}</code></pre>
+<p><code>master: "*"</code> 表示当前主节点，角色缩写不是业务字段。本实验没有单独配置角色列表。整个集群 <code>green</code> 只说明分配健康，不能证明景点已导入；集群还可能存在系统索引，主分片总数不等于本课景点索引的主分片数。后面把健康检查限定到本课索引。</p><details><summary>端口连不上时看什么？</summary><p>先看服务状态再看日志。若端口被占用，Compose 会报绑定失败；不要为本课停止已有业务服务。若容器退出 137，还需结合 OOMKilled / 日志判断是否内存不足。Linux 内核条件按日志和官方 Docker 运行要求核对。</p>
+<pre class="code-block" data-label="Bash · 排查容器"><code class="language-bash">docker info
+docker compose -f infra/single-node/compose.yaml ps -a
+docker compose -f infra/single-node/compose.yaml logs --tail=100 es</code></pre>
+</details><h2 id="create">3. 创建索引：先声明字段如何搜索</h2><p>下面的 <a href="../projects/travel-search/search/f01/index.json"><code>index.json</code></a> 是请求体。名称要参与全文检索，设为 <code>text</code> 并显式采用 <code>standard</code>；业务 ID 和城市编码设为 <code>keyword</code>；门票用整数分，<code>0</code> 是本课样本值，不是景区价格承诺。字段类型和中文分析链会在 F04 / F11–F14 继续对照。</p>
+<pre class="code-block" data-label="JSON · search/f01/index.json" data-source="projects/travel-search/search/f01/index.json"><code class="language-json">{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "properties": {
+      "attraction_id": { "type": "keyword" },
+      "name": { "type": "text", "analyzer": "standard" },
+      "city_code": { "type": "keyword" },
+      "ticket_price_fen": { "type": "integer" }
+    }
+  }
+}</code></pre>
+<p>索引有一个主分片、零副本。单节点不能把同一主分片的副本放回自己，因此本课不要求副本；零副本也意味着没有另一份在线副本提供冗余。这里的配置只为小样本实验服务。</p>
+<pre class="code-block" data-label="Bash · 02-create.sh（创建与限定健康）" data-source="projects/travel-search/labs/f01/02-create.sh" data-lines="5-11"><code class="language-bash">curl --fail-with-body -sS -X PUT \
+  "$ES_URL/tut-f01-attractions?pretty" \
+  -H 'Content-Type: application/json' \
+  --data-binary @search/f01/index.json
+
+curl --fail-with-body -sS \
+  "$ES_URL/_cluster/health/tut-f01-attractions?wait_for_status=green&amp;timeout=30s&amp;pretty"</code></pre>
+<p><code>--data-binary @文件</code> 把文件内容作为请求体发送；<code>Content-Type</code> 声明 JSON。<code>--fail-with-body</code> 让 HTTP 4xx/5xx 保留错误正文并返回非零退出码。URL 要加双引号，里面的 <code>&amp;</code> 才不会被 shell 当作后台执行符。</p>
+<pre class="code-block" data-label="JSON · 实际创建与索引健康摘录" data-source="projects/travel-search/review/f01/outputs/index-created.json"><code class="language-json">{
+  "create": {
+    "acknowledged": true,
+    "shards_acknowledged": true,
+    "index": "tut-f01-attractions"
+  },
+  "index_health": {
+    "status": "green",
+    "timed_out": false,
+    "active_primary_shards": 1,
+    "active_shards": 1
+  }
+}</code></pre>
+<p><code>acknowledged</code> 表示创建操作被确认；<code>shards_acknowledged</code> 表示等待的分片启动条件达成。随后请求显式等待本课索引 <code>green</code>，同时检查 <code>timed_out=false</code>、活动主分片和活动总分片均为 1。此时创建的是空索引，尚未写入西湖。</p><h2 id="write">4. 写入景点：ID 放在 URL，字段放在 JSON</h2><p>固定业务 ID 为 <code>a-hz-xihu</code>。JSON 中的 <code>attraction_id</code> 是普通字段；URL 最后一段才设置 ES 的 <code>_id</code>。两者保持相同是应用约定，ES 不会自动替你同步。</p>
+<pre class="code-block" data-label="JSON · data/f01/xihu.json" data-source="projects/travel-search/data/f01/xihu.json"><code class="language-json">{
+  "attraction_id": "a-hz-xihu",
+  "name": "杭州西湖",
+  "city_code": "HZ",
+  "ticket_price_fen": 0
+}</code></pre>
+<pre class="code-block" data-label="Bash · 03-write.sh" data-source="projects/travel-search/labs/f01/03-write.sh" data-lines="5-8"><code class="language-bash">curl --fail-with-body -sS -X PUT \
+  "$ES_URL/tut-f01-attractions/_doc/a-hz-xihu?pretty" \
+  -H 'Content-Type: application/json' \
+  --data-binary @data/f01/xihu.json</code></pre>
+<pre class="code-block" data-label="JSON · 实际首次写入摘录" data-source="projects/travel-search/review/f01/outputs/write.json"><code class="language-json">{
+  "_index": "tut-f01-attractions",
+  "_id": "a-hz-xihu",
+  "_version": 1,
+  "result": "created"
+}</code></pre>
+<p><code>result=created</code> 表示这个 ID 首次写入；<code>_version=1</code> 是文档版本。没有把响应中的成功理解成“已经可被 search 看见”：写入确认和搜索视图可见是两个条件。下面显式刷新，不依赖你复制命令时恰好跨过自动刷新周期。</p><h2 id="search">5. 显式 refresh，然后按“西湖”搜索</h2><p>查询 JSON 不是景点数据。它告诉 ES：对 <code>name</code> 使用 <code>match</code> 查询，搜索文本为“西湖”；<code>operator=and</code> 要求分析后形成的查询项共同满足。<code>size=10</code> 限制返回命中数；<code>track_total_hits=true</code> 要求准确统计本次匹配总数，两者职责不同。</p>
+<pre class="code-block" data-label="JSON · search/f01/search-xihu.json" data-source="projects/travel-search/search/f01/search-xihu.json"><code class="language-json">{
+  "size": 10,
+  "track_total_hits": true,
+  "query": {
+    "match": {
+      "name": {
+        "query": "西湖",
+        "operator": "and"
+      }
+    }
+  }
+}</code></pre>
+<pre class="code-block" data-label="Bash · 04-search.sh（先刷新，再搜索）" data-source="projects/travel-search/labs/f01/04-search.sh" data-lines="5-11"><code class="language-bash">curl --fail-with-body -sS -X POST \
+  "$ES_URL/tut-f01-attractions/_refresh?pretty"
+
+curl --fail-with-body -sS -X POST \
+  "$ES_URL/tut-f01-attractions/_search?pretty" \
+  -H 'Content-Type: application/json' \
+  --data-binary @search/f01/search-xihu.json</code></pre>
+<p>第一条请求只刷新 <code>tut-f01-attractions</code>；第二条只在这个索引搜索。<a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-refresh" target="_blank" rel="noopener">refresh API</a>用于建立搜索可见性，本课为了观察明确调用一次；不要在实际批量写入时为每条文档强制刷新。它也不等同于数据备份。</p>
+<pre class="code-block" data-label="JSON · 实际首次搜索响应（完整）" data-source="projects/travel-search/review/f01/outputs/search.json"><code class="language-json">{
+  "took": 41,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 1,
+      "relation": "eq"
+    },
+    "max_score": 0.5753642,
+    "hits": [
+      {
+        "_index": "tut-f01-attractions",
+        "_id": "a-hz-xihu",
+        "_score": 0.5753642,
+        "_source": {
+          "attraction_id": "a-hz-xihu",
+          "name": "杭州西湖",
+          "city_code": "HZ",
+          "ticket_price_fen": 0
+        }
+      }
+    ]
+  }
+}</code></pre>
+<p>先按三处核对：<code>timed_out=false</code> 且 <code>_shards.failed=0</code>；<code>hits.total</code> 是 <code>value=1 / relation=eq</code>；命中 ID 为 <code>a-hz-xihu</code>，<code>_source</code> 与固定样本一致。<code>took</code> 和 <code>_score</code> 是本次运行的测量结果，不作为跨环境固定断言。只有一个文档时，也不能用这个分数证明排序质量。</p><p><a href="https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-match-query" target="_blank" rel="noopener"><code>match</code></a>会分析查询文本，再与字段中已索引的项匹配；它不是 SQL 的子串 LIKE。本课 standard 足以完成这条样本的命中，不代表它已具备中文词典、旅游别名或同义词能力。分词对照与评分调优在后续专题里用更多样本检验。</p><details><summary>为什么不能用“等一秒”保证搜到？</summary><p>自动 refresh 是调度行为，实际可见时间还受配置、索引是否被搜索和运行负载影响。第一课不测这个延迟，直接 refresh 消除观察竞态。F03 会关掉自动 refresh，严格对照 GET 已可见和 search 未可见，再刷新验证。</p></details><h2 id="inspect">6. mapping、count、GET 分别回答什么？</h2>
+<pre class="code-block" data-label="Bash · 05-inspect.sh" data-source="projects/travel-search/labs/f01/05-inspect.sh" data-lines="5-7"><code class="language-bash">curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_mapping?pretty"
+curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_count?pretty"
+curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_doc/a-hz-xihu?pretty"</code></pre>
+<table class="ktable"><thead><tr><th>请求</th><th>核对点</th></tr></thead><tbody><tr><td><code>GET /{index}/_mapping</code></td><td>实际字段定义与 index.json 一致；不是景点内容</td></tr><tr><td><code>GET /{index}/_count</code></td><td>刷新后搜索视图中有 1 条文档；不是请求次数</td></tr><tr><td><code>GET /{index}/_doc/a-hz-xihu</code></td><td>按确定 ID 读文档，found=true，_source 为西湖样本</td></tr></tbody></table><p>GET 按 ID 读取，search 按条件检索；即使返回同一景点，也不是同一条读取路径。本课已经刷新后核对，因此不借这里的结果推断未刷新时也相同。完整实际响应保存在<a href="../projects/travel-search/review/f01/es-review.json">验收记录</a>。</p><h2 id="cases">7. C02 / C03：两个错误对照</h2><h3>C02：错误端口与未启动节点</h3><p>先保留 C01 的索引。下面访问一个未监听的端口，再停止本工程 ES 访问正确端口。它们都在网络连接阶段失败，本次实测 <code>curl exit=7</code>，没有得到 ES 的 HTTP 404。若 19299 已有服务，选择另一空闲端口再做对照。</p>
+<pre class="code-block" data-label="Bash · 手工复现连接拒绝与恢复"><code class="language-bash">curl -sS --connect-timeout 2 --max-time 5 http://127.0.0.1:19299/
+echo &quot;$?&quot;  # 本次连接拒绝为 7；只在上一条 curl 后立即查看
+
+docker compose -f infra/single-node/compose.yaml stop es
+curl -sS --connect-timeout 2 --max-time 5 &quot;$ES_URL/&quot;
+echo &quot;$?&quot;
+
+docker compose -f infra/single-node/compose.yaml start es
+bash infra/single-node/wait.sh
+curl --fail-with-body -sS --retry 30 --retry-all-errors --retry-delay 1 \
+  --max-time 35 \
+  &quot;$ES_URL/_cluster/health/tut-f01-attractions?wait_for_status=green&amp;timeout=30s&amp;pretty&quot;
+bash labs/f01/04-search.sh</code></pre>
+<p>恢复后，数据卷保留了索引与景点。等待 HTTP 之后还要等待本课索引健康：本轮第一次实测中，HTTP 先可访问，紧接着刷新收到短暂的 <code>index_not_found_exception</code>，随后索引恢复；因此健康请求允许临时 404 重试。核对最终 <code>timed_out=false / green</code> 后，再搜索应仍命中同一 ID。</p><p>也可运行 <a href="../projects/travel-search/labs/f01/08-connection-errors.sh"><code>bash labs/f01/08-connection-errors.sh</code></a>，它额外用 EXIT trap 在中断时尝试恢复自己的 ES 服务。网络超时可能是 exit 28，HTTP 错误在启用 fail 选项后是 exit 22；按实际错误定位，不把所有失败都称“ES 没启动”。</p><h3>C03：重复建索引 ≠ 在索引里写文档</h3><p>再次发送相同创建请求。这个请求的资源还是索引，不会因为 JSON 相同就静默成功。</p>
+<pre class="code-block" data-label="Bash · 06-existing-index.sh（预期错误）" data-source="projects/travel-search/labs/f01/06-existing-index.sh" data-lines="5-8"><code class="language-bash"># 这里故意不加 --fail-with-body：保留预期 400 的正文供观察。
+curl -sS -X PUT "$ES_URL/tut-f01-attractions?pretty" \
+  -H 'Content-Type: application/json' \
+  --data-binary @search/f01/index.json</code></pre>
+<pre class="code-block" data-label="JSON · 实际重复创建错误摘录" data-source="projects/travel-search/review/f01/outputs/existing-index.json"><code class="language-json">{
+  "error": {
+    "type": "resource_already_exists_exception",
+    "reason": "index [tut-f01-attractions/KpVFkwUSRf2sRbRCNEjLuw] already exists"
+  },
+  "status": 400
+}</code></pre>
+<p>这里故意省略 fail 选项，好让你观察错误正文。curl 默认可能退出 0，但 HTTP 是 <code>400</code>，<code>error.type=resource_already_exists_exception</code>。不要只看 shell 退出码就判断请求成功。</p><p>现在重复发送 <code>PUT /{index}/_doc/a-hz-xihu</code>，再次写相同的完整文档：</p>
+<pre class="code-block" data-label="Bash · 07-write-again.sh" data-source="projects/travel-search/labs/f01/07-write-again.sh" data-lines="5-9"><code class="language-bash"># 相同索引、相同 _id、相同完整文档；不会多出第二条景点。
+bash labs/f01/03-write.sh
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f01-attractions/_refresh?pretty"
+curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_count?pretty"
+curl --fail-with-body -sS "$ES_URL/tut-f01-attractions/_doc/a-hz-xihu?pretty"</code></pre>
+<pre class="code-block" data-label="JSON · 实际重复写入与计数摘录" data-source="projects/travel-search/review/f01/outputs/rewrite.json"><code class="language-json">{
+  "write": {
+    "_id": "a-hz-xihu",
+    "_version": 2,
+    "result": "updated"
+  },
+  "count_after_refresh": 1
+}</code></pre>
+<p>同一个索引里的同一个 <code>_id</code> 被完整覆盖，<code>result=updated</code>、版本变为 2，刷新后文档数仍为 1。再次重复写，版本还会增长；改成另一个 ID 则是另一条文档。这个 PUT 不是局部字段更新，后续 F03 再看 update 和并发冲突。</p><h2 id="repeat">8. 点名清理，再做一轮</h2><p>下面只删除 <code>tut-f01-attractions</code> 及其文档，保留本工程容器和数据卷。不要用通配符删除索引。</p>
+<pre class="code-block" data-label="Bash · cleanup.sh" data-source="projects/travel-search/labs/f01/cleanup.sh" data-lines="5-6"><code class="language-bash"># 只删除本课索引和里面的景点。不使用通配符，不删除数据卷。
+curl --fail-with-body -sS -X DELETE "$ES_URL/tut-f01-attractions?pretty"</code></pre>
+<pre class="code-block" data-label="Bash · 重做全部案例"><code class="language-bash">bash labs/f01/run.sh                  # C01：启动并执行 11 条主流程请求
+bash labs/f01/08-connection-errors.sh  # C02：错误端口 / 停机 / 恢复
+bash labs/f01/06-existing-index.sh     # C03：索引已存在
+bash labs/f01/07-write-again.sh        # C03：同 ID 覆盖，计数仍为 1
+bash labs/f01/cleanup.sh
+docker compose -f infra/single-node/compose.yaml stop es</code></pre>
+<p><code>run.sh</code> 不偷偷删除已存在的索引。重做前若未清理，创建步骤会按 C03 返回已存在错误；若索引本来不存在，cleanup 返回 HTTP 404，可直接重跑 C01。清理后再创建、首次写入应重新得到 <code>created / _version=1</code>。</p><div class="callout tip">本课三个案例已在真实 ES 9.4.0 上完成首次与点名清理后的第二轮，含停机恢复；索引最终已清理，专用容器已停止。<a href="../projects/travel-search/review/f01/README.md">实际验证范围与记录</a>。F02 的 Boot 4/JDK 25 构建、中文插件、多节点与 CDC 不属于本课验收。</div><details><summary>把本课现象带入源码篇</summary><p>现在能操作即可。以后带着“节点何时能接请求”进入 <a href="../chapters/ch03.html">ch03 启动</a>；带着“mapping 如何决定字段结构”进入 <a href="../chapters/ch11.html">ch11 映射</a>；带着“写入与搜索可见为什么分开”进入 <a href="../chapters/ch14.html">ch14 存储引擎</a>、<a href="../chapters/ch16.html">ch16 搜索流程</a>。</p></details></section>
+<section class="drills"><h2 id="drills">练习：根据输出判断</h2><details><summary>1. 创建索引成功，能否说明“西湖”已经能被搜到？</summary><p>不能。创建索引只建立配置和字段规则，还需写入景点文档；写入后要建立新搜索视图并执行查询。索引健康也不等于业务文档已导入。</p></details><details><summary>2. 相同 JSON 写两次，一定只有一条文档吗？</summary><p>要看索引与 _id。本课在同一索引使用相同 ID 完整覆盖，计数保持 1、版本增长。改用另一个 ID，即使 JSON 一样也会新增文档。JSON 中的 attraction_id 不自动决定 ES _id。</p></details><details><summary>3. curl exit 7、HTTP 400、短暂 HTTP 404 应怎样区分？</summary><p>exit 7 是连接阶段失败；本课重复建索引的 HTTP 400 是 ES 已收到请求并拒绝创建；重启后索引恢复前短暂 404 是 HTTP 已可访问但指定索引暂不可用。先读实际错误，再查端口/日志或等待对应资源。</p></details></section>
+<section class="pitfalls"><h2 id="pitfalls">本课陷阱</h2><div class="callout warn"><strong>创建请求与写入请求都用 PUT，含义取决于路径。</strong>索引路径重复创建会失败；带 /_doc/{id} 的路径写入该 ID，重复写入会完整覆盖。</div><div class="callout warn"><strong>整个集群 green，不代表景点查询正确。</strong>本课用限定索引的健康、实际搜索 ID、mapping、count 和 GET 分别核对。</div><div class="callout warn"><strong>写入成功与 HTTP 恢复都不是“搜索一定可用”的充分条件。</strong>写后显式 refresh；停机恢复后等待本课索引，再搜索。</div></section>
+<section class="recap"><h2 id="recap">速记</h2><table class="ktable"><thead><tr><th>动作</th><th>检查</th></tr></thead><tbody><tr><td>启动</td><td>本机 19200；版本 9.4.0；恢复时另等索引</td></tr><tr><td>建索引</td><td>settings / mappings；本课 1 主 / 0 副本</td></tr><tr><td>写文档</td><td>固定 _id；首次 created，再次 updated</td></tr><tr><td>刷新与搜索</td><td>无超时/分片失败；命中 a-hz-xihu；total=1</td></tr><tr><td>清理重做</td><td>点名删除本课索引；重建后文档 version 从 1 开始</td></tr></tbody></table><p>先声明索引，再写文档；让新搜索看见它，再用实际命中证明闭环。</p></section>
+<footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a class="btn" href="index.html">← 框架篇目录</a><span>下一课：F02 · Boot 4 / JDK 25 与 Java 客户端（待编写）</span></div><p><a href="../projects/travel-search/labs/f01/README.md">本机实验入口</a> · <a href="../docs/framework-lesson-prompt.md">后续逐课提示词</a></p></footer>
+</article></main><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>

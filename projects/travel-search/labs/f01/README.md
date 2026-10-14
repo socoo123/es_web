@@ -1,6 +1,6 @@
 # F01：启动 ES，第一次写入与搜索
 
-[阅读完整讲解](../../../../framework/f01.html)。下面是同一套可运行代码，手动复制正文命令或依次运行脚本均可。JSON/脚本与正文由 `node tools/sync-framework-code.mjs --check` 核对，不依赖教程页面执行网络请求。
+[阅读完整讲解](../../../../framework/f01-startup-legacy.html)。下面是同一套可运行代码，手动复制正文命令或依次运行脚本均可。JSON/脚本与正文由 `node tools/sync-framework-code.mjs --check` 核对，不依赖教程页面执行网络请求。
 
 ## 固定前提
 
