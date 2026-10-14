@@ -13,6 +13,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const errors = [];
@@ -187,6 +188,41 @@ const cheat = readFileSync(path.join(ROOT, 'cheatsheet.html'), 'utf8');
 const rootRow = cheat.split('\n').find((line) => line.includes('GET /</code>'));
 if (rootRow && /版本、集群名、角色/.test(rootRow)) err('cheatsheet.html', 'GET / 仍被写成能看角色');
 ok('版本锚点、Bulk 换行与深链凭据检查通过');
+
+/* ===== 已交付框架篇:阅读页面与本机工程，不依赖页面连接 ES ===== */
+const frameworkDir = path.join(ROOT, 'framework');
+if (existsSync(frameworkDir)) {
+  const lessons = readdirSync(frameworkDir).filter(f => /^f\d{2}\.html$/.test(f));
+  for (const name of lessons) {
+    const rel = `framework/${name}`;
+    const html = readFileSync(path.join(ROOT, rel), 'utf8');
+    const id = name.slice(0, 3);
+    for (const needle of [`data-ch="${id}"`, 'class="goal"', 'class="lesson"', 'class="drills"',
+      'class="pitfalls"', 'class="recap"', 'class="ch-footer"', 'read-toggle', 'assets/course.js']) {
+      if (!html.includes(needle)) err(rel, `缺少 ${needle}`);
+    }
+    if ((html.match(/<details\b/g) || []).length < 3) err(rel, '至少 3 个折叠区');
+    if ((html.match(/class="callout warn"/g) || []).length < 2) err(rel, '至少 2 条陷阱');
+    if (html.includes('projects/travel-portal') || /language-(tsx|jsx)/.test(html)) err(rel, '仍含旧门户/前端代码');
+    const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
+    if (new Set(ids).size !== ids.length) err(rel, '文档内 ID 重复');
+  }
+  for (const rel of ['framework/index.html', ...lessons.map(f => `framework/${f}`)]) {
+    const html = readFileSync(path.join(ROOT, rel), 'utf8');
+    for (const m of html.matchAll(/(?:href|src|data-d2-light|data-d2-dark)="([^"]+)"/g)) {
+      if (/^(https?:|#|data:|mailto:)/.test(m[1])) continue;
+      const target = path.resolve(ROOT, path.dirname(rel), m[1].split(/[?#]/)[0]);
+      if (!existsSync(target)) err(rel, `链接/资产不存在:${m[1]}`);
+    }
+  }
+  try {
+    execFileSync(process.execPath, [path.join(ROOT, 'tools/sync-framework-code.mjs'), '--check'], { stdio: 'pipe' });
+    new vm.Script(readFileSync(path.join(ROOT, 'framework/assets/course.js'), 'utf8'));
+  } catch (e) {
+    err('framework', `代码片段或 JS 检查失败:${e.stderr?.toString() || e.message}`);
+  }
+  ok(`框架篇:${lessons.length} 课结构、链接与工程片段已检查`);
+}
 
 /* ===== 汇总 ===== */
 if (warn.length) warn.forEach((w) => process.stdout.write('⚠ ' + w + '\n'));

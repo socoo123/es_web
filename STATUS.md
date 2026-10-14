@@ -8,15 +8,30 @@
 
 | 项目 | 当前状态 |
 | --- | --- |
-| 两部分课程规划、45 课目录与交付顺序 | ✅ 2026-10-14 重排为“用旅游搜索案例学 ES”；新增集群单元，替代完整门户方案；新版入口/课程待实现 |
+| 两部分课程规划、45 课目录与交付顺序 | ✅ 2026-10-14 重排为“用旅游搜索案例学 ES”；新增集群单元，替代完整门户方案；框架入口与 F01 已交付，其余课待实现 |
 | 框架篇代码与图解规范 | ✅ [FRAMEWORK_STANDARD](FRAMEWORK_STANDARD.md)：REST/DSL、Java、机制解释与反例；不贴前端，Pages 只读、本机实验；D2 优先；原完整门户总览改记历史资产 |
-| F01–F45 框架课程与项目实验 | 新规划待编写/实测；旧 F01 路由/Java 健康 API 样稿是未交付本地草稿，需按 ES 启动/写查目标重构 |
-| 155 个核心案例 | ✅ [案例设计清单](FRAMEWORK_CASES.md)已按新主线修订；全部为规划，代码/运行/验收待做 |
-| 本机旅游搜索实验工程 | 待按 Boot 4/JDK 25 重构；围绕景点/酒店/房型搜索，不安排门户/用户/订单开发；React 展示可选 |
+| F01–F45 框架课程与项目实验 | ✅ [F01](framework/f01.html)：ES 启动/建索引/写查/恢复，3 案例两轮通过；F02–F45 待实现，旧门户草稿不计 |
+| 155 个核心案例 | ✅ [案例设计清单](FRAMEWORK_CASES.md)已按新主线修订；F01 的 3 个案例已验收，其余 152 个待实现 |
+| 本机旅游搜索实验工程 | ✅ [travel-search](projects/travel-search/README.md)已交付 F01 单节点配置、mapping/查询/样本、手工步骤与验收；Boot 4/JDK 25 Java 从 F02 实现 |
 | ES 集群化与索引运行 | ✅ F26–F35 已规划多节点/角色/routing/分配/故障、模板/alias/重建/备份/性能/安全；未实测 |
 | PostgreSQL WAL / MySQL binlog → Kafka → Java → ES | 必修链路已规划；连接器、投影与故障恢复尚未实测 |
 | 中文分词对比、词典与同义词实验 | 已规划比较方法；插件安装与效果未实测 |
 | Java / Spring Boot 版本组合 | ✅ 应用目标 JDK 25 + Boot 4.x（候选 4.0.8）；官方兼容范围已核对，新组合/ES 客户端尚未构建或运行 |
+
+## 2026-10-14 · F01：启动 ES，完成第一次写入与搜索
+
+| 课次 | 内容 / 实验 | 图解 / 阅读 | 后续边界 |
+| --- | --- | --- | --- |
+| F01 | ✅ 11 条主流程 HTTP 请求；3 个案例，两轮真实 ES 9.4.0 验收 | ✅ 1 幅 D2 静态图，浅/深 SVG；880px，HTTP 12 组尺寸/主题、复制/展开/目录/进度、file 与 reduced motion | F02 Boot 4/JDK 25 未实现；不以 F01 代替 Java/插件/多节点/CDC 验收 |
+
+- 重写框架目录与 F01，旅游搜索是案例：节点观察→显式 mapping/1 主 0 副→固定西湖 ID 写入→refresh→match→mapping/count/GET；正文给完整配置、JSON、curl、实际响应及解释，不含前端代码。保留折叠练习/陷阱/速记与源码问题入口。
+- 新建 projects/travel-search/：ES 9.4.0、Compose project es-framework-single、127.0.0.1:19200、持久卷、1GB 容器/512MB 堆。只访问隔离实验端口，不启动旧门户、不发布 React，不操作源码篇 9200/9201。应用 Java 在 F02 实现；ES bundled JVM 实测 26.0.1，不等同于应用 JDK 25。
+- f01-c01 版本/节点、创建/健康、created、固定命中/字段/计数；f01-c02 错误端口与真实停机 curl exit 7、恢复后仍命中；f01-c03 重复建索引 400/resource_already_exists_exception、同 ID 写入 updated/version=2、计数仍 1。每轮点名删索引；第二轮文档重新 version=1；最终索引删除、专用容器停止，卷保留。真实响应与哈希见 [ES 验收](projects/travel-search/review/f01/es-review.json)。
+- 实测修正：初次恢复步骤只等 HTTP，立刻 refresh 短暂返回 index_not_found_exception。增加限定本课索引的健康等待/临时 404 重试；正文、脚本、案例说明同步，不把 HTTP 开启等同于索引已恢复。
+- D2 官方 v0.9.0 / ELK / 主题 4、201：fmt/validate/双产物生成通过，[生成记录](framework/diagrams/f01/generation.json)含哈希/版本，许可沿用仓库 Source Sans；不手改 SVG。本课无机制播放器、未采用 Archify，无其原生门禁项目。
+- 阅读验收经 HTTP /es_web/ 前缀：1920/1440/1024/768/390/320 × 双主题，列最大 880px、左右对齐、整页无横向溢出；代码/图局部滚动、复制、展开图、目录/答案、主题、读/取消及目录进度、相对链接、reduced motion 与 file 预览通过，无框架页面 Java/ES 请求或 JS 错误。实际审阅 8 张桌面/手机/图/代码浅深截图，见 [HTTP 记录](projects/travel-search/review/f01/http-review.json)。
+- [逐课提示词](docs/framework-lesson-prompt.md)已保存，只替换课号；复用工程/规范、限一课、折叠通用样板减少重复上下文，保留机制和反例。FRAMEWORK_PLAN/CASES 与 README 同步为 F01 完成、其余待实现；node tools/check.mjs 加入框架结构/链接/代码片段门禁，正文片段与工程一致。
+- 本轮只交付 F01、对应工程/图源产物/验收和入口。旧 travel-portal 与旧预览资产仍是未提交草稿，不纳入发布；不包含其他并行章节或预先存在的 .gitignore 修改。完成站点、JS/Bash/Python 语法与差异检查后，按持续授权提交推送 origin/main。
 
 ## 2026-10-14 · 规划校正：用旅游搜索学 ES
 

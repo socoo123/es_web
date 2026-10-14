@@ -1,0 +1,18 @@
+name: es-framework-single
+services:
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    environment:
+      cluster.name: travel-search-lab
+      node.name: travel-search-01
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:19200:9200"
+    mem_limit: 1g
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+volumes:
+  es-data:

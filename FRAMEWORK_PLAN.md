@@ -2,7 +2,7 @@
 
 修订日期：2026-10-14。学习对象是 **Elasticsearch 的使用、调优与集群运行**。旅游网站中的景点、酒店和房型搜索提供连续的业务问题与样本；本篇不要求读者重新创建一个门户网站。学完框架篇，再进入现有源码篇 ch01–ch30，解释已经亲手观察到的机制。
 
-本版保留 **45 课、155 个核心案例的设计规模**，重新安排内容与案例。全部是规划数，不代表已编写或已验收。旧 F01 的前端路由/Java 健康 API 样稿不满足本版目标，不能统计为完成；本轮只修订规划，课程重构另行推进。配套 [案例清单](FRAMEWORK_CASES.md)、[编写规范](FRAMEWORK_STANDARD.md)，实际进度见 [STATUS.md](STATUS.md)。
+本版保留 **45 课、155 个核心案例的设计规模**，重新安排内容与案例。规划数不代表完成数。2026-10-14 已交付 [F01](framework/f01.html)与本机 ES 实验，3 个案例两轮实测；其余 44 课待实现。旧前端路由/Java 健康 API 草稿不计入完成。配套 [案例清单](FRAMEWORK_CASES.md)、[编写规范](FRAMEWORK_STANDARD.md)，实际进度见 [STATUS.md](STATUS.md)。
 
 ## 1. 学习目标与范围
 
@@ -42,7 +42,7 @@
 
 F01 用最小样本完成闭环，不先建设数据库或前端。F02 的 Java 工程成为后续查询/评分/集群连接与 CDC 的公共入口；后续按需增加实现，不重复讲 Spring Boot 通用开发。
 
-F01 待重构的具体边界：说明容器/端口/数据目录和内存条件，启动隔离的 ES 9.4.0；读取节点版本；显式创建单主分片、零副本的本课索引与最小字段；写入固定景点 ID；显式 refresh 后按名称搜索；查看 mapping、计数与文档；点名删除索引后重做。说明“建索引”与“写文档”、“索引健康”与“整个集群健康”分别是什么；只观察本课资源，不假设读者节点没有其他索引。第一课验收的核心是 ES 实际请求与输出，不是启动一个 Java 自身健康接口。
+F01 的实施边界：说明容器/端口/数据目录和内存条件，启动隔离的 ES 9.4.0；读取节点版本；显式创建单主分片、零副本的本课索引与最小字段；写入固定景点 ID；显式 refresh 后按名称搜索；查看 mapping、计数与文档；点名删除索引后重做。说明“建索引”与“写文档”、“索引健康”与“整个集群健康”分别是什么；只观察本课资源，不假设读者节点没有其他索引。第一课验收的核心是 ES 实际请求与输出，不是启动一个 Java 自身健康接口。
 
 ### 单元二 · 查询、筛选、聚合与分页（F06–F10）
 
@@ -169,11 +169,11 @@ CDC 必须验证快照/增量、重复、跨表/跨 topic 乱序、删除后旧�
 | PG/MySQL/Kafka/Debezium | 首次实验锁定制品，记录快照/日志/恢复条件 |
 | React | 可选本机展示壳，不是正文或必修案例前置 |
 
-官方 [Boot 4.0 系统要求](https://docs.spring.io/spring-boot/4.0/system-requirements.html)说明 4.0.8 的兼容范围包含 Java 25；不替代本工程/ES 客户端实际构建验证。[Boot 升级入口](https://docs.spring.io/spring-boot/4.0/upgrading.html)、[Java 客户端安装](https://www.elastic.co/docs/reference/elasticsearch/clients/java/setup/installation)。本轮未升级/构建旧样稿，Boot 4/JDK 25 项目仍待实现与实测。
+官方 [Boot 4.0 系统要求](https://docs.spring.io/spring-boot/4.0/system-requirements.html)说明 4.0.8 的兼容范围包含 Java 25；不替代本工程/ES 客户端实际构建验证。[Boot 升级入口](https://docs.spring.io/spring-boot/4.0/upgrading.html)、[Java 客户端安装](https://www.elastic.co/docs/reference/elasticsearch/clients/java/setup/installation)。F01 不需要应用 JDK；Boot 4/JDK 25 工程在 F02 首次实现与实测。
 
 ## 6. 本机实验工程与 Pages
 
-拟定目录，尚未按此重构：
+工程结构；目前实现 F01 所需的 single-node / search / data / labs / review，其余目录按课次增加：
 
 ```text
 framework/index.html / f01.html … f45.html   # 阅读教程；只创建实际交付课次
@@ -189,7 +189,7 @@ projects/travel-search/                     # 本机 ES 实验工程
   frontend/                                # 可选本机展示壳
 ```
 
-现存 projects/travel-portal/ 与 framework/ 旧样稿属未交付草稿，项目重构时再迁移有用文件。旧 Java 21/Boot 3 的结果不能替代新基线验收。
+projects/travel-search/ 为已交付实验工程，framework/ 阅读入口已按 F01 搜索目标重写。旧 projects/travel-portal/ 为未提交草稿，不发布；Java 21/Boot 3 的旧结果不能替代 F02 新基线验收。
 
 **Pages 只发布教程、图解、代码说明与实验入口链接，不部署实验 React 应用，不要求页面连接本机 Java/ES，不计线上表单案例。**读者克隆工程后自己启动，通过 curl/Java/脚本或可选展示壳操作。现有源码篇控制台功能保留，新框架篇不依赖它完成学习。
 
@@ -233,7 +233,7 @@ projects/travel-search/                     # 本机 ES 实验工程
 
 | 阶段 | 范围 | 产物 |
 | --- | --- | --- |
-| S0 | 当前轮 | 修订 PLAN/CASE/STANDARD 与进度，旧样稿待重构 |
+| S0 | 已完成 | 修订 PLAN/CASE/STANDARD 与进度 |
 | S1 | F01–F05 | 单节点、Boot 4/JDK 25、小样本与索引 CRUD/Bulk |
 | S2 | F06–F10 | REST/Java 查询、过滤、聚合、分页 |
 | S3 | F11–F15 | 中文插件/分析链、词典/同义词/提示 |
@@ -244,4 +244,4 @@ projects/travel-search/                     # 本机 ES 实验工程
 | S8 | F36–F40 | PG/MySQL CDC 与 Java 投影/恢复 |
 | S9 | F41–F45 | 持续重建、对账/负载/诊断与源码问题清单 |
 
-规划修订后，再按用户指定范围重构 F01。第一课重点为“启动 ES→建索引→写文档→搜索→解释→清理重做”，不以 React 路由或 Java 自身健康 API 为目标。
+F01 已按上述边界交付；以后按用户指定课次推进。第一课重点为“启动 ES→建索引→写文档→搜索→解释→清理重做”，不以 React 路由或 Java 自身健康 API 为目标。

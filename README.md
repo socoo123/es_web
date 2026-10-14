@@ -15,7 +15,7 @@
 
 站点将分为「框架学习篇」和「ES 源码篇」。第一部分用旅游网站的搜索案例学会 ES，规划 F01–F45 / 155 个案例，涵盖启动与索引读写、查询/分词/评分排序、酒店房型、集群化、重建备份与 PG/MySQL 日志驱动 ES。课程不要求创建门户网站。应用采用 Spring Boot 4 + JDK 25，实验工程由读者在本机启动，Pages 只承载教程。现有源码 ch01–ch30 的编号与链接保留，学会使用后进入机制深读。
 
-完整目录、ES 学习目标、本机工程与同步链路见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，逐课案例见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。2026-10-14 本轮完成规划修订；旧 F01 页面路由样稿待重构，新基线课程/工程/案例尚未交付验收。
+完整目录、ES 学习目标、本机工程与同步链路见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，逐课案例见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。2026-10-14 已交付 [F01：启动 ES，第一次写入与搜索](framework/f01.html)和[本机实验工程](projects/travel-search/README.md)：3 个案例、两轮真实 ES 验收。其余 44 课与 Boot 4/JDK 25 工程尚待实现；[后续逐课提示词](docs/framework-lesson-prompt.md)只需替换课号。
 
 框架篇正文讲清 ES 原理、完整 REST/DSL 与 Java 实现、输出和反例，不贴前端代码，不以验收工具代替教程。图解优先 **D2**、可用 Mermaid，复杂机制可用 SVG；布局、双主题和重做方式参考源码篇。具体见 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。
 
