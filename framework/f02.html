@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F02 · 一份景点数据怎样变成搜索结果？</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/chapter-diagrams.css">
+  <link rel="stylesheet" href="assets/course.css">
+</head>
+<body class="framework-page chapter-visual-page">
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual">
+<article class="chapter" id="f02" data-ch="f02">
+  <header class="ch-header">
+    <div class="ch-kicker">FRAMEWORK 02 · 从数据到搜索结果</div>
+    <h1>一份景点数据<br>怎样变成搜索结果？</h1>
+    <div class="meta-line">约 30 分钟 · 前置：F01 的搜索职责与旅游情境 · 2 个概念案例 · 0 条 HTTP 操作 · 2 幅静态 D2 图 · 0 个机制播放器</div>
+    <p class="ch-intro">上一课知道了搜索应该满足什么要求。这一课走进 ES 的搜索数据：一份景点资料怎样被组织成可查找的内容，为什么“西湖”会找到五个候选却只返回两个，以及茶园改价后为什么搜索可能仍看到旧值。用纸笔就能完成，F03 再把这些认识交给真实 ES 验证。</p>
+    <div class="diagram-jumps"><a href="#scene">先看固定样本</a><a href="#fig-search-path"><span>01</span>数据与查询怎样相遇</a><a href="#fig-visibility"><span>02</span>写入与搜索可见</a><a href="#drills">独立推演</a></div>
+  </header>
+
+  <section class="goal">
+    <h2 id="goals">读完这一课，你能推演什么？</h2>
+    <ol>
+      <li>指认一份 JSON 的字段、文档 ID、所属索引与 mapping，解释它们各自决定什么。</li>
+      <li>用给定的手工词项列出倒排表，算出候选、过滤后的集合与两种排序，指出哪里由规则决定。</li>
+      <li>沿一次改价区分 ES 写入确认与搜索可见，并说明排序无法修复旧值或漏掉的候选。</li>
+    </ol>
+    <p>本课位于“Java 把搜索文档交给 ES，ES 按查询找结果”这一段。展示壳从 F07 开始交付；这里的表格、图和结果都是概念示意。无需安装环境，不要求执行 REST 或 Java。</p>
+    <details class="chapter-outline"><summary>展开本课目录</summary><nav><a href="#scene">1. 同一问题与五份样本</a><a href="#document">2. 文档、字段、索引与 ID</a><a href="#mapping">3. mapping 为什么必要</a><a href="#terms">4. 文字怎样成为词项</a><a href="#inverted">5. 从词项反查候选</a><a href="#results">6. 过滤、排序与命中</a><a href="#visibility">7. 改价与搜索可见</a><a href="#drills">8. 独立推演与重做</a><a href="#pitfalls">本课陷阱</a><a href="#recap">速记与下一课</a></nav></details>
+  </section>
+
+  <section class="lesson">
+    <h2 id="scene">1. 案例 f02-c01：同一份数据，为什么有不同结果？</h2>
+    <p>游客仍然输入<strong>“西湖”，城市选杭州，门票预算不超过 200 元，只看可游玩景点</strong>。搜索名称或描述，先按相关性排。沿用 F01 的五个教学景点，给每份资料加一个短标签，便于在纸上写集合。A–E 只用于阅读，不是 ES 自动生成的编号。</p>
+    <div class="callout tip"><strong>本课使用人工模型。</strong><p>景点价格、状态、词项、分数与结果均为教学设计，不代表真实旅游信息或 ES 实测输出。我们会明确给出模型规则；真实中文分析和评分可能得到不同结果。课程版本仍是 ES 9.4.0，这里没有运行节点、插件或 Java 服务。</p></div>
+    <table class="ktable" id="sample-table">
+      <thead><tr><th>标签 / name</th><th>city_code / ticket_price_fen / status</th><th>description</th></tr></thead>
+      <tbody>
+        <tr data-sample="A"><td>A · 杭州西湖</td><td>HZ / 0 / open</td><td>杭州的湖泊景点，可沿湖游览。</td></tr>
+        <tr data-sample="B"><td>B · 湖畔茶园</td><td>HZ / 8000 / open</td><td>游览后可前往西湖。</td></tr>
+        <tr data-sample="C"><td>C · 福州西湖</td><td>FZ / 0 / open</td><td>福州的湖泊景点。</td></tr>
+        <tr data-sample="D"><td>D · 西湖夜游</td><td>HZ / 26000 / open</td><td>西湖夜间游览项目。</td></tr>
+        <tr data-sample="E"><td>E · 西湖旧展馆</td><td>HZ / 6000 / offline</td><td>西湖主题展览。</td></tr>
+      </tbody>
+    </table>
+    <p>所有文档都有 <code>currency=CNY</code>。<code>HZ</code> / <code>FZ</code> 分别是本课程约定的杭州 / 福州编码；<code>open</code> / <code>offline</code> 表示样本的可游玩 / 下架状态。价格按整数人民币分保存，因此预算是 <strong>20000 分</strong>，B 是 80 元，D 是 260 元。A 和 C 的零价是明确的 0，不是价格未知。</p>
+    <p>只检查文字时，五份资料都与“西湖”有关系。加上硬条件后，C 城市不对、D 超预算、E 已下架，只剩 A 和 B。我们接下来要解释：ES 怎样表达这份资料、怎样从文字找到候选，以及 A 为什么能排在 B 前面。</p>
+
+    <h2 id="document">2. 资料卡是文档，栏目是字段，放进哪组数据由索引决定</h2>
+    <p>把 A 写成 JSON，就是下面这份<strong>文档设计样本</strong>。每个字段名后面是它的值：<code>name</code> 存名称，<code>ticket_price_fen</code> 存数值，<code>description</code> 存描述。字段不是一个景点；它是这份景点资料的一部分。本课只保留当前推演需要的字段，暂不使用 F01 中的别名。</p>
+    <pre class="code-block" data-label="JSON · A 的文档设计样本，未写入 ES" data-source="framework/data/f02/xihu.json"><code class="language-json">{
+  "attraction_id": "a-hz-xihu",
+  "name": "杭州西湖",
+  "city_code": "HZ",
+  "ticket_price_fen": 0,
+  "currency": "CNY",
+  "status": "open",
+  "description": "杭州的湖泊景点，可沿湖游览。"
+}</code></pre>
+    <p>我们计划把 A–E 放在名为 <code>travel-attractions</code> 的<strong>索引</strong>中。这个名字指定“在哪组搜索数据里找”；索引组织文档及其字段规则。它不是“西湖”这个词的名称，也不是某一份景点资料的编号。索引还会用适合检索的内部结构组织数据，稍后用倒排表解释其中一个概念。</p>
+    <p><code>attraction_id</code> 是这份数据里的<strong>业务 ID 字段</strong>；ES 另有用来定位文档的元数据 <code>_id</code>。两者不会因为拼写像 ID 就自动相等。我们约定后续写入时显式把业务 ID 用作 <code>_id</code>：A 为 <code>a-hz-xihu</code>，B 为 <code>a-hz-tea</code>，C 为 <code>a-fz-xihu</code>，D 为 <code>a-hz-night</code>，E 为 <code>a-hz-old</code>。在本课这一个索引内，指定索引名和对应 ID，就能指出我们谈的是哪份资料；实际写入方式在 F03 实现。</p>
+    <table class="ktable"><thead><tr><th>你指向什么？</th><th>本课的例子</th><th>它回答的问题</th></tr></thead><tbody><tr><td>索引</td><td>travel-attractions</td><td>在哪组数据里搜索？</td></tr><tr><td>文档与 _id</td><td>A / a-hz-xihu</td><td>具体是哪一份景点资料？</td></tr><tr><td>字段和值</td><td>name = 杭州西湖</td><td>这份资料的哪个栏目，写了什么？</td></tr><tr><td>查询</td><td>找“西湖”，同时满足杭州、预算、状态</td><td>从这组数据里怎样选出结果？</td></tr></tbody></table>
+
+    <h2 id="mapping">3. 都写在 JSON 里，为什么还要 mapping？</h2>
+    <p>名称 <code>杭州西湖</code> 和编码 <code>HZ</code> 在 JSON 中都是字符串，但用途不同：游客可能只记得名称的一部分；城市编码则应该按完整值精确筛选。价格 <code>8000</code> 要做数值比较，不能把它当作一段文字处理。<strong>mapping</strong> 就是索引中的字段规则，告诉 ES 各字段按什么类型、怎样建立可查询的数据。它不是某一份景点的内容，也不是“名称比描述重要”的排序规则。<a href="https://www.elastic.co/docs/manage-data/data-store/mapping" target="_blank" rel="noopener">官方 mapping 说明</a>。</p>
+    <table class="ktable" id="mapping-table"><thead><tr><th>字段</th><th>本课选择的类型</th><th>为什么这样分工？</th></tr></thead><tbody><tr><td>name / description</td><td>text</td><td>分析文字，按词项匹配文本意图。</td></tr><tr><td>attraction_id / city_code / currency / status</td><td>keyword</td><td>将编码作为完整值使用；本课不配置 normalizer。</td></tr><tr><td>ticket_price_fen</td><td>integer</td><td>整数分，按数值与预算比较。</td></tr></tbody></table>
+    <p>这张表是概念设计，还不是建索引请求。<code>text</code> 的文字分析会生成可检索的词项；<code>keyword</code> 适合本课的完整编码；数值字段支持大小关系。<a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/text" target="_blank" rel="noopener">text</a> 与 <a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/keyword" target="_blank" rel="noopener">keyword 官方说明</a>解释了它们的不同用途。字段名带 <code>_fen</code> 并不会让 ES 自动换算货币，应用与数据约定仍然负责单位。</p>
+    <p>ES 可以按新字段的值自动推断 mapping，称为<strong>动态映射</strong>；也可以提前声明，称为<strong>显式映射</strong>。自动推断方便开始，却不知道“这个整数其实是人民币分”或“这个字符串是城市编码”的业务意图。F03 先用最小显式规则完成首搜，F04 再讨论更多类型与错误边界。本课先抓住因果：<strong>资料内容相同，字段处理规则不同，可查询的东西也可能不同。</strong></p>
+
+    <h2 id="terms">4. 把文字变成可以对照的词项</h2>
+    <p>想查“西湖”，总不能只给每份资料贴一个“有文字”的标记。先把文字按规则切分、处理成小单元，这个过程叫<strong>文本分析</strong>；分析产生的单元常称 <strong>token</strong>，其中用于匹配的文本叫<strong>词项（term）</strong>。分析器 <code>analyzer</code> 是这一组处理规则，不是景点数据本身。</p>
+    <p>为了只观察“由文档到词项”的关系，我们<strong>人工指定</strong>下面的切分。本模型省略功能词和标点，不模拟 token 位置、词频或字符偏移；它不是默认 <code>standard</code> 分析器的输出，也不是任一中文插件的效果。真实分词在 F13–F17 用实际分析结果比较。</p>
+    <table class="ktable" id="terms-table"><thead><tr><th>文档</th><th>name 的手工词项</th><th>description 的手工词项</th></tr></thead><tbody><tr data-terms="A"><td>A</td><td>杭州 / 西湖</td><td>杭州 / 湖泊 / 景点 / 沿湖 / 游览</td></tr><tr data-terms="B"><td>B</td><td>湖畔 / 茶园</td><td>游览 / 前往 / 西湖</td></tr><tr data-terms="C"><td>C</td><td>福州 / 西湖</td><td>福州 / 湖泊 / 景点</td></tr><tr data-terms="D"><td>D</td><td>西湖 / 夜游</td><td>西湖 / 夜间 / 游览 / 项目</td></tr><tr data-terms="E"><td>E</td><td>西湖 / 旧 / 展馆</td><td>西湖 / 主题 / 展览</td></tr></tbody></table>
+    <p>查询文字也要变成可对照的形式：本模型将输入“西湖”处理为词项 <code>西湖</code>，随后在选定字段中查它。真实 ES 中，全文查询也有搜索时的分析规则；索引时和搜索时的规则需要配合，但不要求所有场景都用同一个分析器。<a href="https://www.elastic.co/docs/manage-data/data-store/text-analysis/index-search-analysis" target="_blank" rel="noopener">官方索引与搜索分析说明</a>。</p>
+    <p>为什么要强调规则？假设另一个模型只把 A 的名称记成一个完整词项 <code>杭州西湖</code>，查询却只产生 <code>西湖</code>，这两个词项就不相等。虽然肉眼在原名称里看到了子串，也不能按当前的词项查找规则认定命中。类似地，本模型没有“湖”这个独立词项，输入“湖”若只产生 <code>湖</code>，不会自动匹配 <code>西湖</code> 或 <code>湖泊</code>。这是模型的词项匹配边界；其他查询或分析设计可以有不同表现。</p>
+
+    <h2 id="inverted">5. 从“文档有哪些词”倒过来问“这个词在哪些文档”</h2>
+    <p>上表以文档为起点，列出它的词项。现在把方向倒过来：对每个字段中的词项，记下有哪些文档包含它。这样的“<strong>字段 + 词项 → 文档集合</strong>”叫<strong>倒排</strong>。遇到查询词项时，可以沿对应条目找到候选，不必把概念理解成每次扫描所有 JSON 原文。实际内部结构与优化不在本课展开。</p>
+    <table class="ktable" id="inverted-table"><thead><tr><th>字段</th><th>手工词项</th><th>包含它的文档 · 模型倒排表节选</th></tr></thead><tbody><tr data-inverted="name:西湖"><td>name</td><td>西湖</td><td>A、C、D、E</td></tr><tr data-inverted="description:西湖"><td>description</td><td>西湖</td><td>B、D、E</td></tr><tr data-inverted="name:茶园"><td>name</td><td>茶园</td><td>B</td></tr><tr data-inverted="description:游览"><td>description</td><td>游览</td><td>A、B、D</td></tr></tbody></table>
+    <p>本次规则是“<code>name</code> 或 <code>description</code> 包含查询词项”。于是拿到两个集合：名称里有 A、C、D、E，描述里有 B、D、E。取<strong>并集并去重</strong>，文本候选为 <strong>A、B、C、D、E</strong>。D、E 出现在两个字段中，仍各是一份文档，不变成两条景点结果；匹配多个字段可以影响评分，但不会凭此新增景点。</p>
+    <figure class="fig d2-figure" id="fig-search-path"><div class="d2-shell"><div class="d2-tools"><strong>01 · 数据与查询在哪里相遇？</strong><a data-expand-d2 href="diagrams/f02/search-path-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f02/search-path-light.svg" data-d2-light="diagrams/f02/search-path-light.svg" data-d2-dark="diagrams/f02/search-path-dark.svg" alt="文档按mapping处理得到字段倒排表；查询西湖查表得到A到E，硬条件留下A和B，按手工分数排为A再B"></div></div><figcaption>人工逻辑模型。自上而下，前段箭头表示字段处理与按词项找候选，后段表示过滤与排序的手算顺序；不是实际 ES 执行阶段或物理调用链。查询读取已可搜索的数据；名称、描述词项和评分都由本课指定。省略节点、分片、词频、词位置、数值内部结构与执行优化。静态图可局部滚动或展开；<a href="diagrams/f02/README.md">图源与生成记录</a>。</figcaption></figure>
+    <p>倒排表里的文档集合只是教学简化。真实文本索引还可以包含支持评分或短语查询的信息。<strong>名称和描述的同一个词项属于不同字段</strong>；本课也没有让城市、价格或别名参与这次文本检索。若规则改为“只搜名称”，B 就不再是候选。召回字段不同，即使原文一字未改，结果也会改变。</p>
+    <p>原始文档内容与用于检索的结构也要区分。常规存储模式下，<code>_source</code> 保留提交的文档内容，供取回和展示；倒排结构用于按词项查找。分析文字不等于把原资料中的 <code>name</code> 改写成词项数组。<a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/mapping-source-field" target="_blank" rel="noopener">官方 _source 说明</a>。这里仅建立用途上的区别，不展开其他 source 模式。</p>
+
+    <h2 id="results">6. 候选不等于最终命中，集合与次序要分别判断</h2>
+    <h3>先满足所有硬条件</h3>
+    <p>对 A–E 检查四条要求：<code>city_code=HZ</code>、<code>currency=CNY</code>、<code>ticket_price_fen ≤ 20000</code>、<code>status=open</code>。同一条文档必须全部满足；少一个就不允许返回。本模型所有价格都已知，后续遇到缺价时不能把缺失擅自当成 0。</p>
+    <table class="ktable" id="filter-table"><thead><tr><th>文本候选</th><th>城市 / 币种</th><th>价格 / 状态</th><th>能进入结果吗？</th></tr></thead><tbody><tr data-filter="A"><td>A</td><td>HZ / CNY ✓</td><td>0 ≤ 20000 / open ✓</td><td>保留</td></tr><tr data-filter="B"><td>B</td><td>HZ / CNY ✓</td><td>8000 ≤ 20000 / open ✓</td><td>保留</td></tr><tr data-filter="C"><td>C</td><td>FZ / CNY，城市不符</td><td>0 / open</td><td>排除：城市</td></tr><tr data-filter="D"><td>D</td><td>HZ / CNY ✓</td><td>26000 &gt; 20000 / open</td><td>排除：预算</td></tr><tr data-filter="E"><td>E</td><td>HZ / CNY ✓</td><td>6000 / offline</td><td>排除：状态</td></tr></tbody></table>
+    <p>集合可以写成“文本候选 ∩ 城市合格 ∩ 币种合格 ∩ 预算合格 ∩ 状态合格 = <strong>{A，B}</strong>”。这些条件判断是否允许出现，过滤本身不提供相关性加分。真实 ES 的查询与过滤上下文在 F05–F06 用 DSL 表达；<a href="https://www.elastic.co/docs/reference/query-languages/query-dsl/query-filter-context" target="_blank" rel="noopener">官方说明</a>区分了评分与是非判断。上述先后是方便手算的逻辑顺序，不意味着 ES 必须先收集全部文本候选再逐条过滤。</p>
+    <h3>再决定这些结果里先看谁</h3>
+    <p>给出一个<strong>手工评分规则</strong>：名称包含查询词项加 3 分，描述包含它加 1 分；每个字段只加一次，分数相加。同分时按 <code>attraction_id</code> 升序。A 名称命中而描述未命中，得 3 分；B 只在描述命中，得 1 分，相关性模型顺序为 <strong>A → B</strong>。这是一条为了看懂排序而设计的规则，<strong>不是 ES 默认评分，也不是 BM25 算式或实际 _score</strong>。</p>
+    <table class="ktable" id="score-table"><thead><tr><th>文档</th><th>名称分 + 描述分</th><th>手工总分</th><th>本次结果</th></tr></thead><tbody><tr data-score="A"><td>A</td><td>3 + 0</td><td>3</td><td>第 1</td></tr><tr data-score="B"><td>B</td><td>0 + 1</td><td>1</td><td>第 2</td></tr><tr data-score="C"><td>C</td><td>3 + 0</td><td>3</td><td>城市不符，排除</td></tr><tr data-score="D"><td>D</td><td>3 + 1</td><td>4</td><td>超预算，排除</td></tr><tr data-score="E"><td>E</td><td>3 + 1</td><td>4</td><td>已下架，排除</td></tr></tbody></table>
+    <p>把被排除的文档也算一遍，是为了看清一个反例：D、E 分数比 A 高，仍不能突破预算或状态。评分衡量本次查询下的匹配偏好，不是文档固定拥有的景点品质分。真实评分还取决于分析、查询、语料统计等条件；F18 再通过实际解释结果研究它。</p>
+    <p>游客若切换“价格从低到高”，就按 <code>ticket_price_fen</code> 升序、同价按 <code>attraction_id</code> 升序排列，相关性分数不再决定这条排序。A 为 0、B 为 8000，所以本例碰巧仍是 A → B。<strong>次序相同不表示排序规则相同。</strong>保持全部硬条件，将 B 的价格临时改为 0 做对照：两份同价，业务 ID 中 <code>a-hz-tea</code> 在 <code>a-hz-xihu</code> 前，价格排序变为 <strong>B → A</strong>；文本评分仍为 A → B。做完把 B 恢复到 8000 分。</p>
+    <p>最后取回相应文档字段，交给 Java 与网站形成卡片。符合本次查询并被搜索响应返回的文档叫<strong>命中（hit）</strong>。若一次只返回 1 条，相关性模型的第一页只有 A，却不代表 B 不符合查询；结果集合、排序与这一页返回的命中要分别看。具体返回窗口和分页在 F11 学习。</p>
+
+    <h2 id="visibility">7. 案例 f02-c02：已经写入新价，为什么还可能搜到旧价？</h2>
+    <p>恢复基础样本后，运营把 B 从 80 元改为 220 元：即 <code>8000 → 22000</code> 分。其余字段与查询都不变，新价超过 20000 分预算。现在不要换排序规则，而要问<strong>这一次搜索在读哪个时点的数据</strong>。</p>
+    <p>先隔离一个边界：本案例假设直接更新 ES 中同一份 B，ES 已确认这次更新；没有数据库同步、并发写入或旧分页视图。<strong>写入确认说明这次写操作完成了响应承诺，但不单独保证更新立即对搜索可见。</strong>ES 的搜索使用可搜索的视图，相关更新经过 <strong>refresh</strong> 才能进入新的搜索视图。这种写入与搜索可见存在间隔的性质称为<strong>近实时搜索</strong>。<a href="https://www.elastic.co/docs/manage-data/data-store/near-real-time-search" target="_blank" rel="noopener">官方近实时搜索说明</a>。</p>
+    <figure class="fig d2-figure" id="fig-visibility"><div class="d2-shell"><div class="d2-tools"><strong>02 · 同一份 B 的新旧值分别在哪里？</strong><a data-expand-d2 href="diagrams/f02/visibility-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f02/visibility-light.svg" data-d2-light="diagrams/f02/visibility-light.svg" data-d2-dark="diagrams/f02/visibility-dark.svg" alt="改价前B为8000分，预算查询返回A和B；ES确认22000分更新但尚未对搜索可见时仍可能返回旧价B；相关refresh后下一次普通搜索排除B，只返回A"></div></div><figcaption>可见性状态示意，箭头表示同一更新前后的状态变化，不是数据复制。中间状态只描述相关更新尚未对搜索可见时可能看到的结果；不保证你能靠快速操作捕捉它，也不承诺固定持续时间。假设相关更新已 refresh、无后续改动，最后一步指下一次普通搜索；不含 PIT、浏览器缓存、数据库同步、持久化与副本细节。静态图没有播放步骤；同样的判断见下表。</figcaption></figure>
+    <table class="ktable" id="visibility-table"><thead><tr><th>时点 · 模型状态</th><th>B 的写入值 / 搜索可见值</th><th>相同预算查询怎样判断？</th></tr></thead><tbody><tr><td>改价前</td><td>8000 / 8000</td><td>返回 A、B</td></tr><tr><td>ES 确认更新；相关更新尚未对搜索可见</td><td>22000 / 仍可能为 8000</td><td>仍可能返回旧价 B</td></tr><tr><td>相关更新已 refresh；再发普通搜索</td><td>22000 / 22000</td><td>B 超预算，只返回 A</td></tr></tbody></table>
+    <p>按 ID 取文档与搜索也可能读到不同状态：ES 的文档 GET 默认具有实时读取语义，不依赖搜索 refresh，不能用“按 ID 已读到新价”证明一次搜索也已读到新价。<a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get" target="_blank" rel="noopener">官方 GET 说明</a>。本课只理解边界，F12 再受控观察两者；refresh 是搜索可见的边界，不等于磁盘提交或备份完成。</p>
+    <p>真实运行中，自动刷新可能已经发生；写请求也可以选择等待相关更新对搜索可见。因此我们说“可能仍看到旧价”，不会把写入响应之后的旧搜索当作必经步骤。刷新调度与负载等都会影响时间，不能承诺“写完一秒内一定搜到”。F03 首搜会显式处理可见性，避免把操作速度当成实验前提。</p>
+    <p>再放回 F01 的完整网站：如果业务数据库改成 22000 分，而更新尚未传到 ES，搜索旧值首先属于<strong>数据库 → ES 的同步问题</strong>；ES 已接收新值后，搜索仍未看到则要另查搜索可见性。refresh 不能把还没传来的更新变出来。排序同样无法修复旧价：它只能排列当前查询看到的内容。持续同步在 F36–F42 学习。</p>
+  </section>
+
+  <section class="drills">
+    <h2 id="drills">8. 独立推演：先写集合与原因，再展开答案</h2>
+    <p>关掉答案，用纸笔完成。下面沿用本课词项与评分规则，不运行 ES。完成后要能说清“修改了什么、哪些结果变了、为什么”，而不只记住 A 排第一。</p>
+    <details><summary>1. “travel-attractions、a-hz-xihu、name、mapping”分别指什么？业务字段 attraction_id 会自动成为 _id 吗？</summary><p>travel-attractions 是计划中的索引名；a-hz-xihu 是 A 的业务 ID，并拟在写入时显式用作 ES _id；name 是文档字段；mapping 定义索引内字段的处理规则。业务字段不会自动变成元数据 _id。本课 JSON 是文档设计样本，不是查询或实际响应。</p></details>
+    <details><summary>2. 改为只查 name 中的“西湖”，保留杭州、预算、币种与状态条件。候选和最终集合各是什么？</summary><p>名称倒排条目是 {A，C，D，E}。B 的名称词项不含西湖，因此不进入文本候选。再按硬条件排除 C、D、E，结果集合只有 {A}。增加 B 的描述权重不会让它进入只查询名称的候选。</p></details>
+    <details><summary>3. 只把预算从 200 元改到 260 元，仍查名称或描述。哪些结果留下，手工评分顺序是什么？</summary><p>预算改为 26000 分且边界是“≤”，所以 D 合格。C 仍城市不符，E 仍下架。允许集合为 {A，B，D}；D 得 4 分、A 得 3 分、B 得 1 分，顺序为 D → A → B。按价格升序则为 A → B → D。同一集合可有不同次序，评分不代表旅游品质。</p></details>
+    <details><summary>4. 原文“杭州西湖”肉眼包含“西湖”，但索引侧只有词项“杭州西湖”，查询侧只有“西湖”。按这个词项模型会匹配吗？</summary><p>不会，两个词项不相等。先检查索引侧和查询侧的分析规则，不能靠提高排序权重制造不存在的候选。真实系统需要实际分析结果和具体查询来判断，不能把本课手工中文切分当成默认 ES 输出。</p></details>
+    <details><summary>5. B 从 8000 改为 22000 分，按 ID 已读到新价，相同搜索仍返回 8000。你能据此说更新失败吗？</summary><p>不能。按 ID 实时读到新值，与搜索视图仍使用旧值可以同时成立；要核对搜索可见性、所用视图及相关更新是否已经 refresh。在本案例的单一更新、无并发、下一次普通搜索前提下，相关更新可见后 B 因超预算而被排除。若只有数据库改价、ES 尚未接收，问题在同步环节，refresh 不能代替同步。</p></details>
+    <details><summary>6. 新增 F：名称词项只有“茶园”，描述词项含“西湖”，HZ / CNY / 5000 分 / open，业务 ID 为 a-hz-tea2。不改查询，求相关性模型与价格模式的顺序。</summary><p>F 通过描述进入候选，所有硬条件合格。手工分数 A=3、B=1、F=1；同分按业务 ID 升序，a-hz-tea 在 a-hz-tea2 前，所以相关性模型为 A → B → F。价格升序为 A（0）→ F（5000）→ B（8000）。这是未出现在主案例中的对照：集合相同，次序可以不同。</p></details>
+    <details><summary>怎样从头重做本课推演？</summary><p>先回到五份固定样本，恢复 B=8000 分、预算=20000 分、名称或描述检索；不保留同价、加预算或新增 F 的临时改动。重新列词项与倒排表，求候选并集，逐条核对四个硬条件，计算分数与排序。再单独把 B 改为 22000 分，分别写出改价前、相关更新尚未可搜索、相关更新可搜索后的判断。概念重做不包含启动或删除 ES 资源；F03 的真实实验会另给点名清理与重做流程。</p></details>
+  </section>
+
+  <section class="pitfalls">
+    <h2 id="pitfalls">本课陷阱</h2>
+    <div class="callout warn"><strong>把手工词项与 3+1 评分当成 ES 默认行为。</strong><p>它们是为了让你算清集合与次序而公开指定的规则。真实分析器可能切出不同词项，真实评分取决于具体查询与语料，后面要以实际观察校对。</p></div>
+    <div class="callout warn"><strong>看到原文有子串，就认定一定命中；漏召回后只调权重。</strong><p>先核对查询字段、索引词项、查询词项与条件。原文可见与可检索词项相等是不同判断；没进入候选的资料，排序无法挽回。</p></div>
+    <div class="callout warn"><strong>混淆城市、金额单位与缺值。</strong><p>HZ 是完整编码，200 元要转换为 20000 分。明确零价与缺价不同；keyword 和数值规则不应靠字段拼写或显示文本猜测。</p></div>
+    <div class="callout warn"><strong>把写入成功、按 ID 读到新值、搜索可见当成同一个时点。</strong><p>分别核对写操作、文档读取与搜索视图；数据库同步再单独检查。refresh 既不能传来未同步的数据，也不代表磁盘提交或备份。</p></div>
+  </section>
+
+  <section class="recap">
+    <h2 id="recap">速记：先看规则与集合，再看次序与时点</h2>
+    <table class="ktable"><thead><tr><th>概念</th><th>用本课样本解释</th></tr></thead><tbody><tr><td>文档 / 字段 / 索引</td><td>A 是景点资料，name 是栏目，travel-attractions 是拟搜索的数据组。</td></tr><tr><td>mapping</td><td>字段处理规则；text 分析文字，keyword 使用完整编码，integer 比较整数分。</td></tr><tr><td>分析 / 倒排</td><td>文档文字 → 字段词项；字段 + 词项 → 文档集合，查询侧也要形成可匹配的形式。</td></tr><tr><td>候选 / 过滤</td><td>文本候选 A–E；杭州、CNY、≤20000 分、open 的交集只留下 A、B。</td></tr><tr><td>排序 / 命中</td><td>手工相关性 A → B；显式价格有另一把尺子。返回页里的命中不等于全部合格集合。</td></tr><tr><td>写入 / 搜索可见</td><td>B=22000 已确认写入，不单独保证搜索已读新价；相关更新可见后普通搜索排除 B。</td></tr></tbody></table>
+    <p>你现在能从资料推演搜索，却还没有看到真实 ES 认可什么 mapping、产生什么结果。下一课 <strong>F03 · 让 ES 在本机运行，并查到第一条景点</strong>：启动隔离节点、声明最小字段、固定 ID 写入、处理可见性、核对真实命中，再清理重做。先完成一条真实搜索，不在第一轮同时加入所有中文和评分策略。</p>
+    <details><summary>本课资料、依据与实际验收</summary><p><a href="data/f02/README.md">固定文档与人工模型</a> · <a href="diagrams/f02/README.md">D2 图源及生成记录</a> · <a href="../docs/framework-review/20261014-f02-model/README.md">内容与 HTTP 阅读验收</a>。本课两案例是人工推演；ES / Java 执行验收不适用，没有启动实验后端。正文所引官方文档用于概念依据，当前版本特有的参数与默认值在后续执行课另行核验。</p></details>
+  </section>
+
+  <footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a class="btn" href="f01.html">← F01 · 认识 ES 与学习路线</a><a class="btn" href="index.html">框架篇目录</a><span>下一课：F03 · 本机运行与第一条搜索（待编写）</span></div></footer>
+</article>
+</main>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/progress.js"></script>
+<script src="assets/course.js"></script>
+</body>
+</html>

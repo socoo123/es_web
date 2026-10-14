@@ -1,0 +1,15 @@
+# 单一更新、无并发、普通新搜索；状态而非物理复制流程。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 160
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+before: "① 改价前\nB 已写入：8000 分\n搜索视图：8000 分\n20000 分预算：返回 A B" {class: item}
+written: "② ES 已确认更新\nB 已写入：22000 分\n相关更新尚未 refresh 时\n搜索仍可能返回旧价 B" {class: item}
+visible: "③ 相关更新已可搜索\nB 的搜索值：22000 分\n下一次普通搜索重新过滤\n20000 分预算：只返回 A" {class: item}
+before -> written: "直接更新 ES 中同一份 B"
+written -> visible: "refresh 使更新对搜索可见"

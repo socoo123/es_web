@@ -1,0 +1,19 @@
+# 人工逻辑模型；不是默认中文 analyzer、BM25 或真实执行阶段。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 120
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+docs: "景点索引：五份文档 A–E\nmapping 决定字段处理\n文本 / 编码 / 数字" {class: item}
+terms: "手工倒排：字段 + 词项\nname: 西湖 → A C D E\ndescription: 西湖 → B D E" {class: item}
+candidates: "查询 西湖 → 手工词项 西湖\n查 name 或 description\n取并集、去重 → A B C D E" {class: item}
+allowed: "硬条件留下 A B\n杭州 · CNY · open\n票价 ≤ 20000 分" {class: item}
+result: "手工评分：A → B\n名称 3 分 / 描述 1 分\n同分按 attraction_id 升序" {class: item}
+docs -> terms: "字段按规则处理"
+terms -> candidates: "查询词项与倒排表相遇"
+candidates -> allowed: "每条都满足硬条件"
+allowed -> result: "只对允许集合排次序"

@@ -1,0 +1,57 @@
+{
+  "reviewed_at": "2026-10-14T14:47:09.861505+00:00",
+  "scope": "F02 author content self-review; artificial concept model",
+  "reasoning": {
+    "requested": "xhigh",
+    "actual": "root session has no configurable/verifiable reasoning selector",
+    "independent_review": "not performed"
+  },
+  "checks": [
+    {
+      "topic": "Identity and mapping",
+      "result": "passed",
+      "evidence": "Index/document/field/_id are separated; business ID is explicitly proposed as _id, not automatic. text/keyword/integer are a design, no executed mapping is claimed."
+    },
+    {
+      "topic": "Chinese analysis boundary",
+      "result": "passed",
+      "evidence": "All terms are explicitly hand-assigned; no claim of default standard analyzer, plugin output, term positions or phrase matching."
+    },
+    {
+      "topic": "Candidates and filters",
+      "result": "passed",
+      "evidence": "name 西湖 => ACDE; description 西湖 => BDE; union ABCDE; HZ/CNY/<=20000/open => AB. Model recalculation and visible table checks are in http-review.json."
+    },
+    {
+      "topic": "Scores and order",
+      "result": "passed",
+      "evidence": "Hand scores A3/B1/C3/D4/E4 are explicitly not BM25 or actual _score; D/E remain excluded. Name-only, budget boundary, same price and unseen F exercise recalculated."
+    },
+    {
+      "topic": "Search visibility",
+      "result": "passed",
+      "evidence": "B 8000=>22000; old search state only possible before relevant update visible; subsequent ordinary search after refresh excludes B. No concurrency/PIT/DB sync; no fixed delay guarantee. Refresh is distinct from commit/backup."
+    },
+    {
+      "topic": "Lesson boundary",
+      "result": "passed",
+      "evidence": "2 conceptual cases, 6 questions plus reset fold, 4 pitfalls, 0 HTTP operations, 2 static D2 diagrams, 0 players. ES/Java execution N/A; F03 and F07 remain pending."
+    }
+  ],
+  "official_sources": {
+    "mapping": "https://www.elastic.co/docs/manage-data/data-store/mapping",
+    "text": "https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/text",
+    "keyword": "https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/keyword",
+    "analysis": "https://www.elastic.co/docs/manage-data/data-store/text-analysis/index-search-analysis",
+    "source": "https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/mapping-source-field",
+    "filter": "https://www.elastic.co/docs/reference/query-languages/query-dsl/query-filter-context",
+    "nrt": "https://www.elastic.co/docs/manage-data/data-store/near-real-time-search",
+    "get": "https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get"
+  },
+  "fixed_version_check": {
+    "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/action/get/GetRequest.java",
+    "download_sha256": "9dc66c5068a115485b3dc1368a2aba2f16d375ffd9d103d666f89dc2b0618702",
+    "evidence": "line 56 boolean realtime = true; source checked, API not executed"
+  },
+  "errata": "F02 is newly authored; no existing lesson original to correct. Prevented misunderstandings are recorded in STATUS."
+}

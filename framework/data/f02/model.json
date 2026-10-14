@@ -1,0 +1,154 @@
+{
+  "scope": "人工推演；不是 ES 查询、analyzer 配置、输出或 BM25",
+  "index_name": "travel-attractions",
+  "documents": [
+    {
+      "label": "A",
+      "proposed_es_id": "a-hz-xihu",
+      "document": {
+        "attraction_id": "a-hz-xihu",
+        "name": "杭州西湖",
+        "city_code": "HZ",
+        "ticket_price_fen": 0,
+        "currency": "CNY",
+        "status": "open",
+        "description": "杭州的湖泊景点，可沿湖游览。"
+      },
+      "hand_terms": {
+        "name": [
+          "杭州",
+          "西湖"
+        ],
+        "description": [
+          "杭州",
+          "湖泊",
+          "景点",
+          "沿湖",
+          "游览"
+        ]
+      }
+    },
+    {
+      "label": "B",
+      "proposed_es_id": "a-hz-tea",
+      "document": {
+        "attraction_id": "a-hz-tea",
+        "name": "湖畔茶园",
+        "city_code": "HZ",
+        "ticket_price_fen": 8000,
+        "currency": "CNY",
+        "status": "open",
+        "description": "游览后可前往西湖。"
+      },
+      "hand_terms": {
+        "name": [
+          "湖畔",
+          "茶园"
+        ],
+        "description": [
+          "游览",
+          "前往",
+          "西湖"
+        ]
+      }
+    },
+    {
+      "label": "C",
+      "proposed_es_id": "a-fz-xihu",
+      "document": {
+        "attraction_id": "a-fz-xihu",
+        "name": "福州西湖",
+        "city_code": "FZ",
+        "ticket_price_fen": 0,
+        "currency": "CNY",
+        "status": "open",
+        "description": "福州的湖泊景点。"
+      },
+      "hand_terms": {
+        "name": [
+          "福州",
+          "西湖"
+        ],
+        "description": [
+          "福州",
+          "湖泊",
+          "景点"
+        ]
+      }
+    },
+    {
+      "label": "D",
+      "proposed_es_id": "a-hz-night",
+      "document": {
+        "attraction_id": "a-hz-night",
+        "name": "西湖夜游",
+        "city_code": "HZ",
+        "ticket_price_fen": 26000,
+        "currency": "CNY",
+        "status": "open",
+        "description": "西湖夜间游览项目。"
+      },
+      "hand_terms": {
+        "name": [
+          "西湖",
+          "夜游"
+        ],
+        "description": [
+          "西湖",
+          "夜间",
+          "游览",
+          "项目"
+        ]
+      }
+    },
+    {
+      "label": "E",
+      "proposed_es_id": "a-hz-old",
+      "document": {
+        "attraction_id": "a-hz-old",
+        "name": "西湖旧展馆",
+        "city_code": "HZ",
+        "ticket_price_fen": 6000,
+        "currency": "CNY",
+        "status": "offline",
+        "description": "西湖主题展览。"
+      },
+      "hand_terms": {
+        "name": [
+          "西湖",
+          "旧",
+          "展馆"
+        ],
+        "description": [
+          "西湖",
+          "主题",
+          "展览"
+        ]
+      }
+    }
+  ],
+  "query": {
+    "text": "西湖",
+    "hand_query_terms": [
+      "西湖"
+    ],
+    "fields": [
+      "name",
+      "description"
+    ],
+    "city_code": "HZ",
+    "currency": "CNY",
+    "max_price_fen": 20000,
+    "status": "open"
+  },
+  "hand_score": {
+    "name_contains_term": 3,
+    "description_contains_term": 1,
+    "tie_break": "attraction_id ascending"
+  },
+  "update": {
+    "label": "B",
+    "from_price_fen": 8000,
+    "to_price_fen": 22000
+  }
+}
