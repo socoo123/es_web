@@ -1,6 +1,6 @@
 # 旅游搜索 ES 教学问题与案例设计清单
 
-配套 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md) 与 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)，修订日期：2026-10-14。**[F01 导学](framework/f01.html)与 [F02 概念推演](framework/f02.html)已完成，F03–F45 待实施**，实际验收见 [STATUS.md](STATUS.md)。下表确定各课需要覆盖的教学问题；案例按所需的正例、反例和恢复过程安排，在课次实施后统计实际数量。
+配套 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md) 与 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)，修订日期：2026-10-14。**[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成，F04–F45 待实施**，实际验收见 [STATUS.md](STATUS.md)。下表确定各课需要覆盖的教学问题；案例按所需的正例、反例和恢复过程安排，在课次实施后统计实际数量。
 
 旅游网站提供贯穿的游客需求、样本与观察窗口。网站展示壳由课程配套提供，读者在本机启动、观察搜索行为，不承担前端组件、路由或样式开发。Pages 承载教程、图解、示意与代码说明，不直接运行 Java/ES；示意结果明确标记，真实结果引用相应实验记录。REST/DSL 与 Java 解释搜索实现，页面变化帮助理解结果，不能只凭页面看起来正常判定 ES 实验通过。
 
@@ -83,3 +83,5 @@
 | `f01-c03` | 重复建索引报错、同 ID 覆盖、版本变化与计数保持，清理后重做 |
 
 原路径、ID 与原始证据继续保留。F03 迁移时使用新课次 ID，并以 `migrated_from` 或等价字段指向历史 ID；重新验证新正文、资源和环境，再记录 F03 的实际通过状态。
+
+F03 已于 2026-10-14 用新资源完成三个案例各两轮真实验收，[迁移 ID](projects/travel-search/labs/f03/cases.json)与[新响应](projects/travel-search/review/f03/README.md)单独保存；旧正文和证据继续保持原样。

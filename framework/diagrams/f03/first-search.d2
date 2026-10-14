@@ -1,0 +1,17 @@
+# 单个索引、固定 ID、无并发；箭头是手工操作顺序。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 140
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+create: "① 建立空索引\ntut-f03-attractions\n1 主分片 / 0 副本\n先搜索：total = 0" {class: item}
+write: "② 写入固定 ID\na-hz-xihu：杭州西湖\n首次 created / version = 1\n写入确认 ≠ 搜索可见" {class: item}
+refresh: "③ 显式 refresh\n仅刷新本课索引\n让此前写入可被新搜索看见\n不依赖复制命令的速度" {class: item}
+search: "④ 按 name 查 西湖\nmatch + operator: and\n命中 a-hz-xihu / total = 1\n再核对字段与计数" {class: item}
+create -> write: "规则已声明，还需写入资料"
+write -> refresh: "为本课建立确定的观察条件"
+refresh -> search: "用实际命中证明闭环"

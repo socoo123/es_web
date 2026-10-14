@@ -1,0 +1,17 @@
+# 停机恢复的检查顺序；不是源码调用链，也不承诺各阶段耗时。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 140
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+network: "① 连接到正确端口\n127.0.0.1:19200\n连接拒绝时没有 HTTP 响应\n检查端口、容器与日志" {class: item}
+http: "② ES HTTP 已响应\nGET /：版本 9.4.0\n核对节点与集群标识\n还不能证明索引已恢复" {class: item}
+index: "③ 本课索引已就绪\n限定索引的 health\ngreen 且 timed_out = false\n1 活动主分片 / 1 活动分片" {class: item}
+business: "④ 景点搜索正确\n刷新后按 西湖 搜索\n无超时 / 无分片失败\n命中 ID 与样本字段一致" {class: item}
+network -> http: "等 HTTP 入口可用"
+http -> index: "重启后另等持久索引恢复"
+index -> business: "集群颜色不能代替业务核对"

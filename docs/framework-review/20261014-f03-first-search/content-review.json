@@ -1,0 +1,109 @@
+{
+  "reviewed_at": "2026-10-14T15:20:12.368715+00:00",
+  "scope": "F03 author self-review; new lesson migrated from historical startup teaching assets",
+  "reasoning": {
+    "requested": "xhigh",
+    "actual": "not configurable or verifiable in root session",
+    "independent_agent": false
+  },
+  "cases": {
+    "lesson": "F03",
+    "index": "tut-f03-attractions",
+    "main_http_requests": 12,
+    "additional_request_attempts": 11,
+    "polls_and_retries": "not included; depend on startup/recovery",
+    "cases": [
+      {
+        "id": "f03-c01",
+        "migrated_from": "f01-c01",
+        "title": "空索引到真实首搜"
+      },
+      {
+        "id": "f03-c02",
+        "migrated_from": "f01-c02",
+        "title": "错误端口、停机与恢复"
+      },
+      {
+        "id": "f03-c03",
+        "migrated_from": "f01-c03",
+        "title": "重复创建与固定 ID 覆盖"
+      }
+    ]
+  },
+  "es_evidence": "projects/travel-search/review/f03/es-review.json",
+  "sources": [
+    {
+      "url": "https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-docker-basic",
+      "type": "official documentation read 2026-10-14; API behavior verified on ES 9.4.0"
+    },
+    {
+      "url": "https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-create",
+      "type": "official documentation read 2026-10-14; API behavior verified on ES 9.4.0"
+    },
+    {
+      "url": "https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-refresh",
+      "type": "official documentation read 2026-10-14; API behavior verified on ES 9.4.0"
+    },
+    {
+      "url": "https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-match-query",
+      "type": "official documentation read 2026-10-14; API behavior verified on ES 9.4.0"
+    }
+  ],
+  "checks": [
+    {
+      "item": "business location and capability",
+      "result": "one attraction REST first search; no city/price filters, no ranking-quality promise or delivered Java shell"
+    },
+    {
+      "item": "fields and units",
+      "result": "attraction_id and ES _id distinct; name text+standard, city/id keyword, integer RMB fen; zero is known sample value"
+    },
+    {
+      "item": "conditions",
+      "result": "9.4.0 single node; loopback 19200, no authentication, 1 primary/0 replicas; named F03 index; volume persists across stop/start"
+    },
+    {
+      "item": "request ordering and evidence",
+      "result": "empty search total=0; created version=1; refresh then total=1/eq, a-hz-xihu and exact source; mapping/count/GET distinct"
+    },
+    {
+      "item": "failure semantics",
+      "result": "curl exit=7 has no HTTP; duplicate index HTTP400; default curl exit may be0; health HTTP200 can time out so check body"
+    },
+    {
+      "item": "rewrite and repeat",
+      "result": "same index+ID PUT replaces complete doc, updated version=2 count=1; delete named index then created version=1; twice actually executed"
+    },
+    {
+      "item": "query and analysis boundary",
+      "result": "match analyzes query, and combines analyzed terms not phrase/filters; standard sample success is not Chinese dictionary evaluation; score not F02 hand score"
+    },
+    {
+      "item": "visibility and readiness",
+      "result": "refresh for controlled search visibility; no timing promises; HTTP, index recovery and business correctness separately checked"
+    },
+    {
+      "item": "exercise and diagrams",
+      "result": "5 answers, recap and two D2 diagrams correspond to same sample and conditions; static figures do not promise animation"
+    },
+    {
+      "item": "source snippets",
+      "result": "complete minimal mapping and DSL, scripts and actual selected/complete responses checked with sync-framework-code --check"
+    }
+  ],
+  "corrections_from_legacy": [
+    "Course references corrected: Java F07, controlled visibility/update/conflict F12, analysis F13–F17.",
+    "New resource/path/case IDs f03 / tut-f03-attractions; migrated_from preserves historical IDs, raw F01 evidence unchanged.",
+    "Old startup prose saying maximum180seconds replaced with90 bounded probes and2seconds wait; existing wait.sh retained.",
+    "Explicit empty-index search added, main requests11→12; additional attempts and variable polls separately counted."
+  ],
+  "limitations": [
+    "Author/root actual reasoning effort cannot be verified from this entrypoint",
+    "No independent content reviewer",
+    "Java/plugins/multi-node/DB/Kafka/CDC/shell not in F03 scope"
+  ],
+  "status": "passed within recorded scope",
+  "html_sha256": "f5db3714b4cc12516eae366faa6aa52c64f24e2c213a763c017fc1f2fdd3469d",
+  "reading_evidence": "docs/framework-review/20261014-f03-first-search/http-review.json",
+  "final_excerpt_correction": "Removed accidentally included earlier empty-search object from rewrite excerpt; kept actual write and count fields only; full HTTP rerun passed"
+}
