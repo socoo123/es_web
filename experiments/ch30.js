@@ -1,314 +1,82 @@
-/* experiments/ch30.js — 第 30 课:全景回顾自测清单 + 收官动画(六篇接到一次请求上) */
+/* ch30: fixed ES 9.4.0, reproducible search evidence and seven-step review. */
 (function () {
   'use strict';
+  window.ESEXPERIMENTS = window.ESEXPERIMENTS || {};
+  function exp(id, title, method, path, body, predict, expect) {
+    window.ESEXPERIMENTS[id] = { version: 1, id: id, title: title, method: method,
+      path: path, body: body, predict: predict, expect: expect,
+      endpoint: 'http://localhost:9200', auth: null };
+  }
+  exp('ch30-01-setup', 'A1 · 创建受控索引', 'PUT', '/tut-l30-docs', {
+    settings: { number_of_shards: 1, number_of_replicas: 0, refresh_interval: '-1', max_result_window: 10000 },
+    mappings: { dynamic: 'strict', properties: { title: { type: 'text', analyzer: 'standard' } } }
+  }, '为何同时固定 mapping、窗口与 refresh？',
+  '200，acknowledged=true。一主片零副本、strict title:text/standard；关闭定时 refresh。重复创建为400 resource_already_exists_exception；先用E1点名清理，再从A1重做。实验期间不要在其他窗口 refresh 或改本索引。');
+  exp('ch30-15-health', 'A2 · 等待本章主分片可用', 'GET', '/_cluster/health/tut-l30-docs?wait_for_status=green&timeout=10s', null,
+    '本索引 green 能代表整个集群吗？', '200，timed_out=false、status=green、active_primary_shards=1。仅判断 tut-l30-docs；其他索引可使整个集群仍 yellow。若超时，先解决分配，再继续。');
+  exp('ch30-02-doc1', 'A3 · 写 doc 1 并显式刷新', 'PUT', '/tut-l30-docs/_doc/1?refresh=true', { title: 'the quick brown fox' },
+    '写入响应完成后，下一次普通搜索是否可见？', '首次201 result=created、forced_refresh=true；重复写入200 updated。refresh=true 是本次写请求参数，未改 refresh_interval=-1；显式刷新后新搜索可见。');
+  exp('ch30-14-usage-before', 'A4 · 记录 search_action 基线 N', 'GET', '/_nodes/usage?filter_path=nodes.*.name,nodes.*.rest_actions.search_action', null,
+    '未用过搜索的节点会有零值 key 吗？', '200。按节点记录 N；未出现 search_action 时记0。计数是节点累计 REST usage，含其他流量；它不是动作注册表。单节点、无并发搜索时才能精确比较本课增量。');
+  exp('ch30-03-search-brown', 'A5 · match brown 得到 doc 1', 'POST', '/tut-l30-docs/_search?filter_path=hits.total,hits.hits._id,hits.hits._score', { query: { match: { title: 'brown' } } },
+    '这个响应能证明发生两次网络往返吗？', '200，hits.total.value=1、_id=1、正 _score。单个 brown token 可直接成为词项查询，不能推断一定生成 SHOULD BooleanQuery。本例默认 BM25 得分约0.13076457；响应不证明多节点或独立 Fetch 往返。');
+  exp('ch30-04-no-route', 'B1 · 无 handler 的路径', 'GET', '/tut-l30-docs/_not_a_real_endpoint', null,
+    '状态码和错误字段各是什么形状？', '400，顶层 error 是含 no handler found for uri 的字符串。此具体路径/方法无 handler；不要泛化所有未知 URL，其他路径可能撞上索引路由或得到405。');
+  exp('ch30-05-illegal-type', 'B2 · 非法 search_type 在解析时失败', 'POST', '/tut-l30-docs/_search?search_type=some_search_type', {},
+    '这次400会增加 search_action usage 吗？', '400，reason含 No search type for [some_search_type]。prepareRequest 抛异常，尚未到 usageCount.increment；不增加 search_action。与 RestSearchActionTests.testIllegalSearchType 的断言对照。');
+  exp('ch30-06-window', 'B3 · 10010 超过显式窗口10000', 'POST', '/tut-l30-docs/_search?from=10000&size=10&filter_path=error.type,error.root_cause,error.failed_shards,status', {},
+    '同为400，是否也发生在 REST 解析层？', '400，error.type=search_phase_execution_exception，failed_shards 指向 tut-l30-docs；reason含 [10000] but was [10010]。分片 DefaultSearchContext.preProcess 检查，主Query前失败；已通过REST准备，usage增加。rank等搜索不可无条件套用普通from+size公式。');
+  exp('ch30-07-doc2', 'C1 · 写 doc 2，不刷新', 'PUT', '/tut-l30-docs/_doc/2', { title: 'purple lion' },
+    '下一次搜索是否能看见？', '首次201 created，重复200 updated。固定mapping与关闭定时refresh，避免动态mapping或定时刷新干扰。本实验还要求无外部刷新；重做必须先清理，已刷新过的doc2不会自动退回不可见。');
+  exp('ch30-08-search-purple', 'C2 · 普通搜索 purple：0', 'POST', '/tut-l30-docs/_search?filter_path=hits.total', { query: { match: { title: 'purple' } } },
+    '这能证明文档没写成功吗？', '200，hits.total.value=0。新搜索取得的外部搜索读者尚未包含doc2；不意味着写入失败，也不意味着所有写入字节只在buffer内。');
+  exp('ch30-09-get-doc2', 'C3 · realtime GET：found=true', 'GET', '/tut-l30-docs/_doc/2?filter_path=found,_id,_source', null,
+    '相同索引的GET会与搜索一致吗？', '200，found=true、_id=2、_source.title=purple lion。默认realtime GET可读取尚未对普通搜索可见的写入；本例可走实时路径，但响应不能证明必从translog读取。');
+  exp('ch30-17-get-nrt', 'C4 · 非实时GET：found=false', 'GET', '/tut-l30-docs/_doc/2?realtime=false&filter_path=found,_id', null,
+    '只改这个请求的realtime，结果会怎样？', '404，found=false、_id=2。本次GET使用搜索可见视图；未改索引配置。refresh_interval=-1且无外部refresh时结果受控。下一张显式refresh后再搜索。');
+  exp('ch30-10-refresh', 'C5 · 显式刷新本索引', 'POST', '/tut-l30-docs/_refresh?filter_path=_shards', null,
+    '响应键是_shard还是_shards？', '200，_shards.total=1、successful=1、failed=0。是复数_shards；成功刷新后下一次新搜索可见doc2。不保证每次refresh都产生新段，也不是flush/持久化提交证明。');
+  exp('ch30-11-search-purple2', 'C6 · 同一查询：1', 'POST', '/tut-l30-docs/_search?filter_path=hits.total,hits.hits._id', { query: { match: { title: 'purple' } } },
+    '查询不变，哪个前提改变了？', '200，hits.total.value=1、_id=2。改变的是新搜索取得的读者视图；旧PIT等保留读者不会因此切换。本课未打开PIT。');
+  exp('ch30-18-count', 'D1 · 限定本索引的count', 'GET', '/tut-l30-docs/_count', null,
+    '调用内部搜索的REST入口名是否也算search_action？', '200，count=2。REST入口是count，不增加search_action；内部复用搜索机制与HTTP Handler usage是不同层。');
+  exp('ch30-16-default-search', 'D2 · 空body的普通搜索', 'POST', '/tut-l30-docs/_search', {},
+    '只有两篇文档能验证默认size=10吗？', '200，hits.total.value=2、两条hits。省略query按match_all；默认from=0、size=10由源码确认，两条hits不足以单独证明size上限。本卡增加search_action一次。');
+  exp('ch30-20-tasks', 'D3 · 采样搜索Task', 'GET', '/_tasks?actions=indices%3Adata%2Fread%2Fsearch%2A&detailed=true', null,
+    '空任务列表能证明搜索Action没注册吗？', '200；先前搜索已完成且无其他搜索时通常nodes={}。actions按通配匹配，星号包含分片相位；Task是运行中采样，空列表不是未注册或从未执行的证据。');
+  exp('ch30-12-usage', 'D4 · 对照usage：本课增量5', 'GET', '/_nodes/usage?filter_path=nodes.*.name,nodes.*.rest_actions.search_action', null,
+    'B2解析400、B3窗口400哪个被计入？', '200。单节点无其他搜索、每卡一次时为N+5：A5/B3/C2/C6/D2；B2 prepare失败不计，B1无handler不计，count也不计。计数点在REST准备与后置检查后、consumer执行前；无法由累计值推断成功数。');
+  exp('ch30-13-cleanup', 'E1 · 点名删除本章索引', 'DELETE', '/tut-l30-docs', null,
+    '删除会清零search_action吗？', '200 acknowledged=true。只删tut-l30-docs；不重置节点usage。清理后从A1按顺序重做，并重新记录基线N。');
+  exp('ch30-19-cleanup-again', 'E2 · 重复清理的预期404', 'DELETE', '/tut-l30-docs', null,
+    '这是清理失败，还是资源已不存在？', '404 index_not_found_exception，说明本章索引已经不存在。不使用通配删除，不掩盖这个预期错误；下一轮从A1重建。');
 
-  /* ===== 动画:一次 POST /_search 的全链回放(全站收官) ===== */
-  function rect(x, y, w, h, cls, anim) {
-    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="9" class="' + cls + (anim ? ' ' + anim : '') + '"/>';
-  }
-  function txt(x, y, s, cls, warn, anim) {
-    var st = warn ? ' style="fill: rgb(var(--warn))"' : '';
-    return '<text x="' + x + '" y="' + y + '" text-anchor="middle" class="' + cls + (anim ? ' ' + anim : '') + '"' + st + '>' + s + '</text>';
-  }
-  function defs(id) {
-    return '<defs><marker id="' + id + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-      + '<path d="M 0 0 L 10 5 L 0 10 z" class="fig-arrowhead"/></marker></defs>';
-  }
-  function bottom(title, sub) {
-    var s = rect(15, 240, 730, 48, 'fig-box-hot', 'fp-pop');
-    s += txt(380, 261, title, 'fig-name');
-    s += txt(380, 281, sub, 'fig-sub');
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function text(x, y, s, cls) { return '<text x="' + x + '" y="' + y + '" text-anchor="middle" class="' + cls + '">' + esc(s) + '</text>'; }
+  function box(x, title, lines, hot) {
+    var s = '<rect x="' + x + '" y="90" width="350" height="134" rx="10" class="' + (hot ? 'fig-box-hot' : 'fig-box') + '"/>';
+    s += text(x + 175, 115, title, 'fig-name');
+    lines.forEach(function (line, i) { s += text(x + 175, 140 + i * 23, line, 'fig-sub'); });
     return s;
   }
-
-  /* 步骤 1:这一次请求 */
-  function step1() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('f1');
-    s += rect(15, 15, 730, 56, 'fig-box-hot');
-    s += txt(380, 38, 'POST /tut-l30-docs/_search {"query":{"match":{"title":"brown"}}}', 'fig-name');
-    s += txt(380, 60, '收官不把 29 课贴成墙:六篇的职责全挂在这条链上', 'fig-sub');
-    s += rect(15, 88, 355, 76, 'fig-box');
-    s += txt(192, 112, '输入的前提', 'fig-name');
-    s += txt(192, 136, 'doc 1 已写入且已 refresh', 'fig-sub');
-    s += txt(192, 156, '1 分片 0 副本,refresh_interval=-1', 'fig-sub');
-    s += txt(192, 176, '(把运气冻住,只剩原理)', 'fig-sub');
-    s += rect(390, 88, 355, 76, 'fig-box');
-    s += txt(567, 112, '你将看到', 'fig-name');
-    s += txt(567, 136, '认证 → 路由 → 动作名', 'fig-sub');
-    s += txt(567, 156, '→ 快照选 shard → 两阶段', 'fig-sub');
-    s += txt(567, 176, '→ EXTERNAL searcher → hits', 'fig-sub');
-    s += rect(15, 180, 730, 44, 'fig-box');
-    s += txt(380, 200, '六篇不是 30 个并列目录,是同一条请求上的不同角色', 'fig-key');
-    s += txt(380, 217, '你还不会追的那一层,就是下一份要打开的模块', 'fig-sub');
-    s += bottom('一次请求,换几次身份、碰几块存储', '类名不进方块——每一格都是数据变成了什么');
-    return s + '</svg>';
-  }
-
-  /* 步骤 2:第 29/6/7 课:闸与门 */
-  function step2() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('f2');
-    s += rect(15, 15, 355, 96, 'fig-box');
-    s += txt(192, 39, '认证闸(第 29 课)', 'fig-name');
-    s += txt(192, 63, '开安全的节点:先 401 后 200', 'fig-sub');
-    s += txt(192, 83, '本站 9200:匿名直过', 'fig-sub');
-    s += txt(192, 103, '凭据过了才进 handler', 'fig-sub');
-    s += rect(390, 15, 355, 96, 'fig-box');
-    s += txt(567, 39, '路由门(第 6 课)', 'fig-name');
-    s += txt(567, 63, 'PathTrie 命中', 'fig-sub');
-    s += txt(567, 83, 'POST /{index}/_search', 'fig-sub');
-    s += txt(567, 103, '未注册路径 → 400 no handler', 'fig-sub');
-    s += rect(15, 128, 730, 92, 'fig-box');
-    s += txt(380, 152, '动作名接头(第 7 课)', 'fig-key');
-    s += txt(380, 176, 'execute(TransportSearchAction.TYPE) —— HTTP 层到协调层的桥是 ActionType', 'fig-sub');
-    s += txt(380, 196, '两套名字:rest usage 的 search_action ≠ action 的 indices:data/read/search', 'fig-sub', true);
-    s += txt(380, 216, '分片相位再挂后缀:[phase/query] 与 [phase/fetch/id]', 'fig-sub');
-    s += bottom('REST 只适配:把 JSON 填进 SearchRequest,不查 Lucene 不碰 Engine', 'HTTP 断开时 RestCancellableNodeClient 负责取消 task——仍是适配层职责');
-    return s + '</svg>';
-  }
-
-  /* 步骤 3:第 21/15 课:快照与 shard */
-  function step3() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('f3');
-    s += rect(15, 15, 730, 50, 'fig-box');
-    s += txt(380, 36, 'executeRequest 第一件事:clusterService.state() 拿快照', 'fig-name');
-    s += txt(380, 56, '读的是不可变 ClusterState(第 21 课),不是会原地改的黑板', 'fig-sub');
-    s += rect(15, 80, 355, 96, 'fig-box');
-    s += txt(192, 104, 'RoutingTable 列 shard', 'fig-name');
-    s += txt(192, 128, '本例:只有 s0(1 分片 0 副本)', 'fig-sub');
-    s += txt(192, 148, 'doc 1 当初怎么进的 s0?', 'fig-sub');
-    s += txt(192, 168, '第 15 课:hash(routing) % N', 'fig-sub');
-    s += rect(390, 80, 355, 96, 'fig-box');
-    s += txt(567, 104, '副本约束(第 22/23 课)', 'fig-name');
-    s += txt(567, 128, 'RoutingTable 是已 commit 的', 'fig-sub');
-    s += txt(567, 148, '共识产物(谁当 leader', 'fig-sub');
-    s += txt(567, 168, '决定了你读的是不是真理)', 'fig-sub');
-    s += rect(15, 192, 730, 34, 'fig-box');
-    s += txt(380, 212, '多分片时:副本不会与同号 primary 同节点——那是分配期(第 23 课)的事,搜索期不再决定', 'fig-sub');
-    s += bottom('协调节点拿一份快照,决定 Query 阶段打哪些 shard', '单节点扇出可能不出网——但模型仍是 Query Then Fetch');
-    return s + '</svg>';
-  }
-
-  /* 步骤 4:第 16/17 课:两阶段 */
-  function step4() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('f4');
-    s += rect(15, 15, 355, 96, 'fig-box');
-    s += txt(192, 39, 'QUERY 阶段', 'fig-name');
-    s += txt(192, 63, '各 shard 回 (docId, score)', 'fig-sub');
-    s += txt(192, 83, '每个 shard 回 from+size 条', 'fig-sub');
-    s += txt(192, 103, 'getTopDocsSize = 0+10 = 10', 'fig-sub');
-    s += rect(390, 15, 355, 96, 'fig-box');
-    s += txt(567, 39, 'FETCH 阶段', 'fig-name');
-    s += txt(567, 63, '协调节点先选全局 Top-N', 'fig-sub');
-    s += txt(567, 83, '只向持有者要 N 篇 _source', 'fig-sub');
-    s += txt(567, 103, 'fillDocIdsToLoad 分组(第 16 课)', 'fig-sub');
-    s += rect(15, 128, 730, 92, 'fig-box');
-    s += txt(380, 152, '防御性拒绝:from=10000&size=10 → 10010 撞窗', 'fig-key');
-    s += txt(380, 176, '实测 400:Result window is too large ... [10000] but was [10010]', 'fig-sub');
-    s += txt(380, 196, '那两个数字就是 getTopDocsSize 算出来的——窗口在扇出前就检查', 'fig-sub');
-    s += txt(380, 216, '聚合内存尖峰同理:熔断 429 杀请求不杀节点(第 25 课)', 'fig-sub');
-    s += bottom('先比分,再取正文——SEARCH 不是放大的 GET', '单 shard 可跳过第二次往返,但两阶段语义不变');
-    return s + '</svg>';
-  }
-
-  /* 步骤 5:第 14/10 课:数据节点这一跳 */
-  function step5() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('f5');
-    s += rect(15, 15, 730, 50, 'fig-box');
-    s += txt(380, 36, 'SearchService.executeQueryPhase(ShardSearchRequest, task, listener)', 'fig-name');
-    s += txt(380, 56, '返回值 void,结果从 listener 回去——等待不占线程(第 8 课的形状)', 'fig-sub');
-    s += rect(15, 80, 355, 96, 'fig-box-hot');
-    s += txt(192, 104, 'SEARCH 这条路', 'fig-name');
-    s += txt(192, 128, 'acquireSearcher 默认 EXTERNAL', 'fig-sub');
-    s += txt(192, 148, '只看见上次 refresh 的快照', 'fig-sub');
-    s += txt(192, 168, '未 refresh → 0 hits(实测)', 'fig-sub', true);
-    s += rect(390, 80, 355, 96, 'fig-box');
-    s += txt(567, 104, 'GET 那条路(第 10 课)', 'fig-name');
-    s += txt(567, 128, 'realtime:VersionMap → Translog', 'fig-sub');
-    s += txt(567, 148, '未 refresh 也立刻可见', 'fig-sub');
-    s += txt(567, 168, '不要去 InternalEngine.get 找 SEARCH', 'fig-sub', true);
-    s += rect(15, 192, 730, 34, 'fig-box');
-    s += txt(380, 212, '实验 7-11 的实测:doc2 未 refresh 时 SEARCH 0 hits、GET 200、refresh 后 SEARCH 1 hit', 'fig-sub');
-    s += bottom('同一份索引,两条请求读两个世界', 'Engine.acquireSearcher 的一个默认参数,就是近实时的全部秘密');
-    return s + '</svg>';
-  }
-
-  /* 步骤 6:第 3 步:测试钉不变量 */
-  function step6() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('f6');
-    s += rect(15, 15, 730, 50, 'fig-box');
-    s += txt(380, 36, '源码说「会怎么走」;测试说「作者认为怎样算对、必须怎样失败」', 'fig-name');
-    s += txt(380, 56, '按命名找,不全仓库瞎搜:生产类同包 *Tests;HTTP 契约找 yaml', 'fig-sub');
-    s += rect(15, 80, 355, 96, 'fig-box');
-    s += txt(192, 104, 'RestSearchActionTests', 'fig-name');
-    s += txt(192, 128, '.testIllegalSearchType', 'fig-sub');
-    s += txt(192, 148, '钉住:No search type for', 'fig-sub');
-    s += txt(192, 168, '[some_search_type](实测同文案)', 'fig-sub');
-    s += rect(390, 80, 355, 96, 'fig-box');
-    s += txt(567, 104, 'yaml search/30_limits.yml', 'fig-name');
-    s += txt(567, 128, 'catch: + from:10000', 'fig-sub');
-    s += txt(567, 148, '断言文案含 10010', 'fig-sub');
-    s += txt(567, 168, '找的是 catch 文案,不是 80 行 hits', 'fig-sub');
-    s += rect(15, 192, 730, 34, 'fig-box');
-    s += txt(380, 212, '测试基类分工:ESTestCase 单测 / ESSingleNode 单节点 / ESInteg 多节点 / yaml 走真实 HTTP', 'fig-sub');
-    s += bottom('看见 catch: 就知道它在钉错误文案', '补测试往往比改实现更接近第 3 步——也是贡献的起点');
-    return s + '</svg>';
-  }
-
-  /* 步骤 7:收官 */
-  function step7() {
-    var s = '<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">' + defs('f7');
-    s += rect(15, 15, 730, 50, 'fig-box-hot');
-    s += txt(380, 38, '阅读主链:REST → TransportAction → 测试', 'fig-name');
-    s += txt(380, 60, '入口永远是一条 HTTP 路径(RestXxxAction.routes()),不是一个包名', 'fig-sub');
-    s += rect(15, 80, 355, 96, 'fig-box');
-    s += txt(192, 104, '三个工具', 'fig-name');
-    s += txt(192, 128, '先接口后实现(Engine 抽象在前)', 'fig-sub');
-    s += txt(192, 148, '用命名跳文件(Rest/Transport/', 'fig-sub');
-    s += txt(192, 168, 'Service/Internal/Abstract)', 'fig-sub');
-    s += rect(390, 80, 355, 96, 'fig-box');
-    s += txt(567, 104, '哲学当过滤器', 'fig-name');
-    s += txt(567, 128, '分片最小执行 / 近实时 / 全异步', 'fig-sub');
-    s += txt(567, 148, '快照不可变 / 先过滤后平衡', 'fig-sub');
-    s += txt(567, 168, '防御性拒绝 / 可插拔', 'fig-sub');
-    s += rect(15, 192, 730, 34, 'fig-box');
-    s += txt(380, 212, '下一个模块:向量 kNN、ES|QL(POST /_query)、某个 x-pack——从一条真实路径走进去', 'fig-sub');
-    s += bottom('30 课收官:你已经能从 curl 追到倒排表', '迷路时问:这段代码在保护哪条不变量?');
-    return s + '</svg>';
-  }
-
+  var frames = [
+    ['从受控请求开始', 'A1–A5：明确数据与环境', ['ES 9.4.0 / Lucene 10.4.0', '一主片零副本；strict mapping', '定时refresh关闭；doc1显式刷新'], '先写可验证的笔记', ['路径 /tut-l30-docs/_search', '本例是单节点、单分片', '不能据此证明多节点网络两跳'], '证据先限定前提，再解释机制。'],
+    ['REST 接头：路径、TYPE 与三套名字', 'HTTP 适配', ['routes() 确认路径与方法', 'prepareRequest 构造内部请求', 'execute(TransportSearchAction.TYPE)'], '三套名字', ['REST usage：search_action', 'Action：indices:data/read/search', '相位：query / fetch 等后缀'], '安全开启时：HTTP认证与后续Action授权是不同边界。'],
+    ['协调入口：一份状态快照', '选本次搜索目标', ['clusterService.state()', '用取得的状态解析索引与分片', '快照不代表所有节点同时最新'], '单分片与多分片', ['搜索通常选每个目标分片一份副本', '本地执行不一定走网络', '普通单分片可在Query内完成Fetch'], '图1展示多分片职责；本课API只验证单分片响应。'],
+    ['同为400，发生位置不同', 'B2：解析失败', ['非法search_type', 'prepareRequest抛异常', '未到usage计数点'], 'B3：分片预处理失败', ['from+size=10010 > 10000', 'DefaultSearchContext.preProcess', '已通过REST准备，会增加usage'], '窗口检查在分片主Query前；不能写成协调扇出前。'],
+    ['Query 与 Fetch：保留目标，再取字段', '普通分页 Query', ['读取外部搜索视图', '分片候选受from+size等条件约束', '返回条数可少于窗口'], '协调归并与 Fetch', ['普通多分片归并候选', '按持有者分组目标docId', 'Fetch可取_source及其他字段'], 'void + listener表示结果协议，不单独保证换线程或非阻塞。'],
+    ['C1–C6：把可见性差异变成证据', '显式refresh前', ['SEARCH purple：0', '默认realtime GET：found=true', 'realtime=false GET：404'], '显式refresh后', ['_shards.successful=1', '新SEARCH purple：1', '查询不变，新读者视图改变'], 'GET响应不证明必从translog读；refresh不保证每次产生新段。'],
+    ['方法回放：源码、测试、API 各有用途', '查到约束', ['REST解析：RestSearchActionTests', 'HTTP窗口：search/30_limits.yml', '归并：SearchPhaseControllerTests'], '记录与重做', ['对照状态、error.type、失败分片', 'usage基线N → N+5', '点名清理；重建并重记N'], '看见差异，回到实际检查点；存在测试不等于已运行测试。']
+  ];
   window.ESFLOWS = window.ESFLOWS || {};
-  window.ESFLOWS['ch30-finale'] = {
-    version: 1,
-    id: 'ch30-finale',
-    title: '一次 POST /_search 的全链回放',
-    speed: 2400,
-    steps: [
-      { svg: step1(), note: '收官回放:索引已有 doc 1 且已 refresh,客户端发 POST /tut-l30-docs/_search。六篇不是 30 个并列目录,是同一条请求上的不同角色;你还不会追的那一层,就是下一份要打开的模块。' },
-      { svg: step2(), note: '第 29/6/7 课:凭据过闸才进 handler(9200 匿名直过、9201 世界里 401 在前);PathTrie 命中 POST /{index}/_search,未注册是 400 no handler;REST 只适配,把 JSON 填进 SearchRequest 交给 execute(TYPE)。' },
-      { svg: step3(), note: '第 21/15/22/23 课:executeRequest 开头拿不可变 ClusterState 快照,RoutingTable 列出 shard;doc 当初靠 hash(routing)%N 进的 s0;你读的是已 commit 的共识产物——分配约束在分配期就定了。' },
-      { svg: step4(), note: '第 16/17 课:QUERY 各 shard 回 from+size 条 (docId,score)(getTopDocsSize=0+10),协调选全局 Top-N 后 FETCH 只取 N 篇 _source。from=10000 → 10010 撞窗 400,数字就是 getTopDocsSize 算的。' },
-      { svg: step5(), note: '第 8/10/14 课:executeQueryPhase 返回 void、结果走 listener——等待不占线程。SEARCH 走 acquireSearcher 默认的 EXTERNAL(只看 refresh 后快照);realtime GET 走 VersionMap→Translog 是另一条路。实测:未 refresh 时 SEARCH 0 hits、GET 200。' },
-      { svg: step6(), note: '第 3 步:用测试钉不变量。同包 RestSearchActionTests.testIllegalSearchType 钉 No search type 文案(实测同款);yaml search/30_limits.yml 用 catch: 断言 10010——测试是约束清单,不是小说。' },
-      { svg: step7(), note: '收官:主链三步 REST → TransportAction → 测试;三个工具(先接口后实现、命名跳文件、哲学当过滤器)。下一个模块从一条真实 REST 路径走进去——入口永远是 routes(),不是包名。' }
-    ]
-  };
-
-  /* ===== 自测清单实验(9200,全链可复现) ===== */
-  window.ESEXPERIMENTS = window.ESEXPERIMENTS || {};
-
-  window.ESEXPERIMENTS['ch30-01-setup'] = {
-    version: 1, id: 'ch30-01-setup',
-    title: '实验 1 · 建 tut-l30-docs:refresh_interval=-1',
-    method: 'PUT', path: '/tut-l30-docs',
-    body: { settings: { number_of_shards: 1, number_of_replicas: 0, refresh_interval: '-1' } },
-    predict: '为什么收官清单要把自动 refresh 关掉?',
-    expect: 'acknowledged: true。默认约 1 秒的 refresh 会让「未 refresh 不可见」实验赌运气——第 16 课同款纪律:冻住自动 refresh,可见性就只剩原理。后面实验 7-11 依赖这一点做到零竞态。'
-  };
-
-  window.ESEXPERIMENTS['ch30-02-doc1'] = {
-    version: 1, id: 'ch30-02-doc1',
-    title: '实验 2 · 写 doc 1(brown fox),显式 refresh',
-    method: 'PUT', path: '/tut-l30-docs/_doc/1?refresh=true',
-    body: { title: 'the quick brown fox' },
-    predict: 'refresh=true 之后,SEARCH 立刻能看见它吗?',
-    expect: 'result: created,forced_refresh: true。能——SEARCH 看 EXTERNAL searcher,显式 refresh 把新段纳入快照(第 14 课)。这一次写入也走了完整写入路径:ingest(无管道)→ 路由 s0 → buffer → refresh 开段。'
-  };
-
-  window.ESEXPERIMENTS['ch30-03-search-brown'] = {
-    version: 1, id: 'ch30-03-search-brown',
-    title: '实验 3 · POST _search match brown:hits 1',
-    method: 'POST', path: '/tut-l30-docs/_search?filter_path=hits.total,hits.hits._id,hits.hits._score',
-    body: { query: { match: { title: 'brown' } } },
-    predict: 'hits.total 是几?_score 为什么不是 1.0?',
-    expect: '1 命中,_id=1。match 把 brown 切成单个 token 走 SHOULD(第 18 课),BM25 给出非 1 分(第 20 课)——这就是图 1 最底下那格:客户端拿到 hits。接下来整课追的都是这一次 POST。'
-  };
-
-  window.ESEXPERIMENTS['ch30-04-no-route'] = {
-    version: 1, id: 'ch30-04-no-route',
-    title: '实验 4 · 自测 1:未注册路径是 400,不是 404',
-    method: 'GET', path: '/tut-l30-docs/_not_a_real_endpoint',
-    body: null,
-    predict: '随手编的路径,回 404 还是 400?',
-    expect: '400 + no handler found for uri——PathTrie 一个 Handler 都配不上是「路由没认领」(第 6/7 课口径);404 留给「路由命中、资源不存在」(GET 不存在的索引/文档)。分清这两个,排障少绕一圈。'
-  };
-
-  window.ESEXPERIMENTS['ch30-05-illegal-type'] = {
-    version: 1, id: 'ch30-05-illegal-type',
-    title: '实验 5 · 自测 1:非法 search_type,REST 层就拒',
-    method: 'POST', path: '/tut-l30-docs/_search?search_type=some_search_type',
-    body: {},
-    predict: '这个胡写的参数会在哪一层被拒?文案是什么?',
-    expect: '400 + No search type for [some_search_type]——Handler 在 prepareRequest 里校验,还没到 Lucene。这正是 RestSearchActionTests.testIllegalSearchType 钉的同一条约束(测试与实测文案一字不差):解析边界在 REST 层。'
-  };
-
-  window.ESEXPERIMENTS['ch30-06-window'] = {
-    version: 1, id: 'ch30-06-window',
-    title: '实验 6 · 自测 4:from=10000 撞窗口,文案里有 10010',
-    method: 'POST', path: '/tut-l30-docs/_search?from=10000&size=10&filter_path=error.root_cause.reason',
-    body: {},
-    predict: 'from+size=10010 > max_result_window=10000,错误文案里会出现哪个数字?',
-    expect: '400:Result window is too large, from + size must be less than or equal to: [10000] but was [10010].——10010 正是 SearchPhaseController.getTopDocsSize 算出的「每个 shard 要回多少条」;窗口在扇出前检查。yaml search/30_limits.yml 的 catch: 钉的就是这条文案。'
-  };
-
-  window.ESEXPERIMENTS['ch30-07-doc2'] = {
-    version: 1, id: 'ch30-07-doc2',
-    title: '实验 7 · 写 doc 2(purple lion),这次不 refresh',
-    method: 'PUT', path: '/tut-l30-docs/_doc/2',
-    body: { title: 'purple lion' },
-    predict: '没有 refresh(且自动 refresh 已关),SEARCH 和 GET 分别能看见它吗?',
-    expect: 'result: created。文档进了 index buffer + translog(第 14 课),但还没进「已打开供搜索的段」——下面两个实验把 SEARCH 与 GET 的分道扬镳当场演一遍。'
-  };
-
-  window.ESEXPERIMENTS['ch30-08-search-purple'] = {
-    version: 1, id: 'ch30-08-search-purple',
-    title: '实验 8 · 立刻 SEARCH purple:0 hits',
-    method: 'POST', path: '/tut-l30-docs/_search?filter_path=hits.total',
-    body: { query: { match: { title: 'purple' } } },
-    predict: '几命中?为什么?',
-    expect: '0——acquireSearcher 默认 SearcherScope.EXTERNAL:只看见上次 refresh 后的快照,doc 2 还在 buffer 里。SEARCH 不是放大的 GET;近实时的「近」就在这一个默认参数上。'
-  };
-
-  window.ESEXPERIMENTS['ch30-09-get-doc2'] = {
-    version: 1, id: 'ch30-09-get-doc2',
-    title: '实验 9 · 同一瞬间 GET doc 2:200,立刻可见',
-    method: 'GET', path: '/tut-l30-docs/_doc/2?filter_path=found,_id,_source',
-    body: null,
-    predict: 'SEARCH 刚说看不见,GET 呢?',
-    expect: 'found: true,带 _source——realtime GET 走 VersionMap → Translog(第 10 课),根本不看 EXTERNAL searcher。同一毫秒、同一份索引、两条请求两个世界:不要把它们并进同一张调用链,也不要去 InternalEngine.get 里找 SEARCH。'
-  };
-
-  window.ESEXPERIMENTS['ch30-10-refresh'] = {
-    version: 1, id: 'ch30-10-refresh',
-    title: '实验 10 · 显式 refresh:把 doc 2 纳入快照',
-    method: 'POST', path: '/tut-l30-docs/_refresh?filter_path=_shard.successful,_shard.total',
-    body: null,
-    predict: 'refresh 会把整个 index buffer 开成新段——_shard 计数是几?',
-    expect: 'successful=1, total=1(单分片)。refresh 建议所有 shard 各开一次段(第 14 课写入全路径的分叉点);下一次 SEARCH 的 EXTERNAL searcher 将看见这份新快照。'
-  };
-
-  window.ESEXPERIMENTS['ch30-11-search-purple2'] = {
-    version: 1, id: 'ch30-11-search-purple2',
-    title: '实验 11 · 再 SEARCH purple:1 hit,闭环',
-    method: 'POST', path: '/tut-l30-docs/_search?filter_path=hits.total,hits.hits._id',
-    body: { query: { match: { title: 'purple' } } },
-    predict: '查询一字未改,这次几命中?',
-    expect: '1 命中(_id=2)。同一条查询 refresh 前后 0⇄1:变的不是查询,是 EXTERNAL searcher 脚下的快照。至此第 10/14/16 课的近实时三角(写入/GET/SEARCH)在一条时间线上闭环。'
-  };
-
-  window.ESEXPERIMENTS['ch30-12-usage'] = {
-    version: 1, id: 'ch30-12-usage',
-    title: '实验 12 · 自测 2:两套名字——rest_actions 里叫 search_action',
-    method: 'GET', path: '/_nodes/usage?filter_path=nodes.*.rest_actions.search_action',
-    body: null,
-    predict: '计数器下的 key 会是 indices:data/read/search 还是 search_action?它等于几次 _search?',
-    expect: 'key 是 search_action(RestSearchAction.getName() 的 REST usage 名),计数 ≥ 本课实验 3/5/6/8/11 的 _search 次数。另一套名字 indices:data/read/search 是 TransportSearchAction.TYPE.name(),出现在 _tasks 里;分片相位再挂 [phase/query] / [phase/fetch/id] 后缀。三套名字不混,追丢率减半。'
-  };
-
-  window.ESEXPERIMENTS['ch30-13-cleanup'] = {
-    version: 1, id: 'ch30-13-cleanup',
-    title: '清理 · 删 tut-l30-docs,30 课收官',
-    method: 'DELETE', path: '/tut-l30-docs',
-    predict: '一句话收官?',
-    expect: 'acknowledged: true。六篇接到一次请求上:认证 → REST 适配 → 快照选 shard → Query Then Fetch → EXTERNAL searcher → hits;阅读主链三步 REST → TransportAction → 测试;入口永远是一条 HTTP 路径,不是一个包名。下一个模块,从一条真实路径走进去。'
-  };
+  window.ESFLOWS['ch30-finale'] = { version: 1, id: 'ch30-finale', title: '一次搜索的职责与证据 · 七步回放', speed: 2400,
+    steps: frames.map(function (f, i) {
+      var id = 'ch30-finale-arrow-' + (i + 1);
+      var svg = '<svg viewBox="0 0 760 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="' + esc(f[0]) + '">';
+      svg += '<defs><marker id="' + id + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" class="fig-arrowhead"/></marker></defs>';
+      svg += '<rect x="20" y="14" width="720" height="56" rx="10" class="fig-box-hot"/>' + text(380, 47, f[0], 'fig-name');
+      svg += box(20, f[1], f[2], true) + box(390, f[3], f[4], false);
+      svg += '<rect x="20" y="244" width="720" height="48" rx="10" class="fig-box"/>' + text(380, 273, f[5], 'fig-sub');
+      return { svg: svg + '</svg>', note: f[5] + ' ' + f[2].join('；') + '。' };
+    }) };
 })();

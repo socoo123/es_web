@@ -1,0 +1,1570 @@
+{
+  "status": "pass",
+  "kind": "real-es-two-rounds",
+  "reviewedAt": "2026-10-14T08:51:56.542870+08:00",
+  "endpoint": "http://localhost:9200",
+  "auth": "anonymous",
+  "experimentSha256": "0ceb39c456ba5d38d608faa5db4e92a17fcff75b803d21dc9e627a0e2cce8eea",
+  "preflight": [
+    {
+      "method": "GET",
+      "path": "/",
+      "requestBody": null,
+      "status": 200,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "540"
+        ]
+      ],
+      "body": {
+        "name": "de11d253f59a",
+        "cluster_name": "docker-cluster",
+        "cluster_uuid": "z4NaUMjfQ-ani0stap2hZw",
+        "version": {
+          "number": "9.4.0",
+          "build_flavor": "default",
+          "build_type": "docker",
+          "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+          "build_date": "2026-04-30T15:05:34.751113474Z",
+          "build_snapshot": false,
+          "lucene_version": "10.4.0",
+          "minimum_wire_compatibility_version": "8.19.0",
+          "minimum_index_compatibility_version": "8.0.0"
+        },
+        "tagline": "You Know, for Search"
+      }
+    },
+    {
+      "method": "HEAD",
+      "path": "/tut-l30-docs",
+      "requestBody": null,
+      "status": 404,
+      "headers": [
+        [
+          "X-elastic-product",
+          "Elasticsearch"
+        ],
+        [
+          "content-type",
+          "application/json"
+        ],
+        [
+          "content-length",
+          "401"
+        ]
+      ],
+      "body": null
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "responses": [
+        {
+          "method": "PUT",
+          "path": "/tut-l30-docs",
+          "requestBody": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "refresh_interval": "-1",
+              "max_result_window": 10000
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "properties": {
+                "title": {
+                  "type": "text",
+                  "analyzer": "standard"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "71"
+            ]
+          ],
+          "body": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l30-docs"
+          },
+          "id": "ch30-01-setup",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/_cluster/health/tut-l30-docs?wait_for_status=green&timeout=10s",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "420"
+            ]
+          ],
+          "body": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "id": "ch30-15-health",
+          "assertions": "pass"
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l30-docs/_doc/1?refresh=true",
+          "requestBody": {
+            "title": "the quick brown fox"
+          },
+          "status": 201,
+          "headers": [
+            [
+              "Location",
+              "/tut-l30-docs/_doc/1"
+            ],
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "167"
+            ]
+          ],
+          "body": {
+            "_index": "tut-l30-docs",
+            "_id": "1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1
+          },
+          "id": "ch30-02-doc1",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/_nodes/usage?filter_path=nodes.*.name,nodes.*.rest_actions.search_action",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "75"
+            ]
+          ],
+          "body": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "rest_actions": {
+                  "search_action": 351
+                }
+              }
+            }
+          },
+          "id": "ch30-14-usage-before",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "requestBody": {
+            "query": {
+              "match": {
+                "title": "brown"
+              }
+            }
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.2876821
+                }
+              ]
+            }
+          },
+          "id": "ch30-03-search-brown",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l30-docs/_not_a_real_endpoint",
+          "requestBody": null,
+          "status": 400,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "90"
+            ]
+          ],
+          "body": {
+            "error": "no handler found for uri [/tut-l30-docs/_not_a_real_endpoint] and method [GET]"
+          },
+          "id": "ch30-04-no-route",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?search_type=some_search_type",
+          "requestBody": {},
+          "status": 400,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "211"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "illegal_argument_exception",
+                  "reason": "No search type for [some_search_type]"
+                }
+              ],
+              "type": "illegal_argument_exception",
+              "reason": "No search type for [some_search_type]"
+            },
+            "status": 400
+          },
+          "id": "ch30-05-illegal-type",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?from=10000&size=10&filter_path=error.type,error.root_cause,error.failed_shards,status",
+          "requestBody": {},
+          "status": 400,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "1467"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "illegal_argument_exception",
+                  "reason": "Result window is too large, from + size must be less than or equal to: [10000] but was [10010]. See the scroll api for a more efficient way to request large data sets. This limit can be set by changing the [index.max_result_window] index level setting."
+                }
+              ],
+              "type": "search_phase_execution_exception",
+              "reason": "all shards failed",
+              "phase": "query",
+              "grouped": true,
+              "failed_shards": [
+                {
+                  "shard": 0,
+                  "index": "tut-l30-docs",
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "reason": {
+                    "type": "illegal_argument_exception",
+                    "reason": "Result window is too large, from + size must be less than or equal to: [10000] but was [10010]. See the scroll api for a more efficient way to request large data sets. This limit can be set by changing the [index.max_result_window] index level setting."
+                  }
+                }
+              ],
+              "caused_by": {
+                "type": "illegal_argument_exception",
+                "reason": "Result window is too large, from + size must be less than or equal to: [10000] but was [10010]. See the scroll api for a more efficient way to request large data sets. This limit can be set by changing the [index.max_result_window] index level setting.",
+                "caused_by": {
+                  "type": "illegal_argument_exception",
+                  "reason": "Result window is too large, from + size must be less than or equal to: [10000] but was [10010]. See the scroll api for a more efficient way to request large data sets. This limit can be set by changing the [index.max_result_window] index level setting."
+                }
+              }
+            },
+            "status": 400
+          },
+          "id": "ch30-06-window",
+          "assertions": "pass"
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l30-docs/_doc/2",
+          "requestBody": {
+            "title": "purple lion"
+          },
+          "status": 201,
+          "headers": [
+            [
+              "Location",
+              "/tut-l30-docs/_doc/2"
+            ],
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "145"
+            ]
+          ],
+          "body": {
+            "_index": "tut-l30-docs",
+            "_id": "2",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 1,
+            "_primary_term": 1
+          },
+          "id": "ch30-07-doc2",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?filter_path=hits.total",
+          "requestBody": {
+            "query": {
+              "match": {
+                "title": "purple"
+              }
+            }
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          },
+          "id": "ch30-08-search-purple",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l30-docs/_doc/2?filter_path=found,_id,_source",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "58"
+            ]
+          ],
+          "body": {
+            "_id": "2",
+            "found": true,
+            "_source": {
+              "title": "purple lion"
+            }
+          },
+          "id": "ch30-09-get-doc2",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l30-docs/_doc/2?realtime=false&filter_path=found,_id",
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "25"
+            ]
+          ],
+          "body": {
+            "_id": "2",
+            "found": false
+          },
+          "id": "ch30-17-get-nrt",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_refresh?filter_path=_shards",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "49"
+            ]
+          ],
+          "body": {
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            }
+          },
+          "id": "ch30-10-refresh",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?filter_path=hits.total,hits.hits._id",
+          "requestBody": {
+            "query": {
+              "match": {
+                "title": "purple"
+              }
+            }
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2"
+                }
+              ]
+            }
+          },
+          "id": "ch30-11-search-purple2",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l30-docs/_count",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "71"
+            ]
+          ],
+          "body": {
+            "count": 2,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          },
+          "id": "ch30-18-count",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search",
+          "requestBody": {},
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "took": 0,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "max_score": 1.0,
+              "hits": [
+                {
+                  "_index": "tut-l30-docs",
+                  "_id": "1",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "the quick brown fox"
+                  }
+                },
+                {
+                  "_index": "tut-l30-docs",
+                  "_id": "2",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "purple lion"
+                  }
+                }
+              ]
+            }
+          },
+          "id": "ch30-16-default-search",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/_tasks?actions=indices%3Adata%2Fread%2Fsearch%2A&detailed=true",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "nodes": {}
+          },
+          "id": "ch30-20-tasks",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/_nodes/usage?filter_path=nodes.*.name,nodes.*.rest_actions.search_action",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "75"
+            ]
+          ],
+          "body": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "rest_actions": {
+                  "search_action": 356
+                }
+              }
+            }
+          },
+          "id": "ch30-12-usage",
+          "assertions": "pass"
+        },
+        {
+          "method": "DELETE",
+          "path": "/tut-l30-docs",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "21"
+            ]
+          ],
+          "body": {
+            "acknowledged": true
+          },
+          "id": "ch30-13-cleanup",
+          "assertions": "pass"
+        },
+        {
+          "method": "DELETE",
+          "path": "/tut-l30-docs",
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "401"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "index_not_found_exception",
+                  "reason": "no such index [tut-l30-docs]",
+                  "resource.type": "index_or_alias",
+                  "resource.id": "tut-l30-docs",
+                  "index_uuid": "_na_",
+                  "index": "tut-l30-docs"
+                }
+              ],
+              "type": "index_not_found_exception",
+              "reason": "no such index [tut-l30-docs]",
+              "resource.type": "index_or_alias",
+              "resource.id": "tut-l30-docs",
+              "index_uuid": "_na_",
+              "index": "tut-l30-docs"
+            },
+            "status": 404
+          },
+          "id": "ch30-19-cleanup-again",
+          "assertions": "pass"
+        }
+      ],
+      "searchActionDelta": {
+        "QSkpyRrVQ7SrCWvutWILMg": 5
+      }
+    },
+    {
+      "round": 2,
+      "responses": [
+        {
+          "method": "PUT",
+          "path": "/tut-l30-docs",
+          "requestBody": {
+            "settings": {
+              "number_of_shards": 1,
+              "number_of_replicas": 0,
+              "refresh_interval": "-1",
+              "max_result_window": 10000
+            },
+            "mappings": {
+              "dynamic": "strict",
+              "properties": {
+                "title": {
+                  "type": "text",
+                  "analyzer": "standard"
+                }
+              }
+            }
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "71"
+            ]
+          ],
+          "body": {
+            "acknowledged": true,
+            "shards_acknowledged": true,
+            "index": "tut-l30-docs"
+          },
+          "id": "ch30-01-setup",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/_cluster/health/tut-l30-docs?wait_for_status=green&timeout=10s",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "420"
+            ]
+          ],
+          "body": {
+            "cluster_name": "docker-cluster",
+            "status": "green",
+            "timed_out": false,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "active_primary_shards": 1,
+            "active_shards": 1,
+            "relocating_shards": 0,
+            "initializing_shards": 0,
+            "unassigned_shards": 0,
+            "unassigned_primary_shards": 0,
+            "delayed_unassigned_shards": 0,
+            "number_of_pending_tasks": 0,
+            "number_of_in_flight_fetch": 0,
+            "task_max_waiting_in_queue_millis": 0,
+            "active_shards_percent_as_number": 100.0
+          },
+          "id": "ch30-15-health",
+          "assertions": "pass"
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l30-docs/_doc/1?refresh=true",
+          "requestBody": {
+            "title": "the quick brown fox"
+          },
+          "status": 201,
+          "headers": [
+            [
+              "Location",
+              "/tut-l30-docs/_doc/1"
+            ],
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "167"
+            ]
+          ],
+          "body": {
+            "_index": "tut-l30-docs",
+            "_id": "1",
+            "_version": 1,
+            "result": "created",
+            "forced_refresh": true,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1
+          },
+          "id": "ch30-02-doc1",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/_nodes/usage?filter_path=nodes.*.name,nodes.*.rest_actions.search_action",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "75"
+            ]
+          ],
+          "body": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "rest_actions": {
+                  "search_action": 356
+                }
+              }
+            }
+          },
+          "id": "ch30-14-usage-before",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?filter_path=hits.total,hits.hits._id,hits.hits._score",
+          "requestBody": {
+            "query": {
+              "match": {
+                "title": "brown"
+              }
+            }
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "1",
+                  "_score": 0.2876821
+                }
+              ]
+            }
+          },
+          "id": "ch30-03-search-brown",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l30-docs/_not_a_real_endpoint",
+          "requestBody": null,
+          "status": 400,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "90"
+            ]
+          ],
+          "body": {
+            "error": "no handler found for uri [/tut-l30-docs/_not_a_real_endpoint] and method [GET]"
+          },
+          "id": "ch30-04-no-route",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?search_type=some_search_type",
+          "requestBody": {},
+          "status": 400,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "211"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "illegal_argument_exception",
+                  "reason": "No search type for [some_search_type]"
+                }
+              ],
+              "type": "illegal_argument_exception",
+              "reason": "No search type for [some_search_type]"
+            },
+            "status": 400
+          },
+          "id": "ch30-05-illegal-type",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?from=10000&size=10&filter_path=error.type,error.root_cause,error.failed_shards,status",
+          "requestBody": {},
+          "status": 400,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "1467"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "illegal_argument_exception",
+                  "reason": "Result window is too large, from + size must be less than or equal to: [10000] but was [10010]. See the scroll api for a more efficient way to request large data sets. This limit can be set by changing the [index.max_result_window] index level setting."
+                }
+              ],
+              "type": "search_phase_execution_exception",
+              "reason": "all shards failed",
+              "phase": "query",
+              "grouped": true,
+              "failed_shards": [
+                {
+                  "shard": 0,
+                  "index": "tut-l30-docs",
+                  "node": "QSkpyRrVQ7SrCWvutWILMg",
+                  "reason": {
+                    "type": "illegal_argument_exception",
+                    "reason": "Result window is too large, from + size must be less than or equal to: [10000] but was [10010]. See the scroll api for a more efficient way to request large data sets. This limit can be set by changing the [index.max_result_window] index level setting."
+                  }
+                }
+              ],
+              "caused_by": {
+                "type": "illegal_argument_exception",
+                "reason": "Result window is too large, from + size must be less than or equal to: [10000] but was [10010]. See the scroll api for a more efficient way to request large data sets. This limit can be set by changing the [index.max_result_window] index level setting.",
+                "caused_by": {
+                  "type": "illegal_argument_exception",
+                  "reason": "Result window is too large, from + size must be less than or equal to: [10000] but was [10010]. See the scroll api for a more efficient way to request large data sets. This limit can be set by changing the [index.max_result_window] index level setting."
+                }
+              }
+            },
+            "status": 400
+          },
+          "id": "ch30-06-window",
+          "assertions": "pass"
+        },
+        {
+          "method": "PUT",
+          "path": "/tut-l30-docs/_doc/2",
+          "requestBody": {
+            "title": "purple lion"
+          },
+          "status": 201,
+          "headers": [
+            [
+              "Location",
+              "/tut-l30-docs/_doc/2"
+            ],
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "145"
+            ]
+          ],
+          "body": {
+            "_index": "tut-l30-docs",
+            "_id": "2",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 1,
+            "_primary_term": 1
+          },
+          "id": "ch30-07-doc2",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?filter_path=hits.total",
+          "requestBody": {
+            "query": {
+              "match": {
+                "title": "purple"
+              }
+            }
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "hits": {
+              "total": {
+                "value": 0,
+                "relation": "eq"
+              }
+            }
+          },
+          "id": "ch30-08-search-purple",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l30-docs/_doc/2?filter_path=found,_id,_source",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "58"
+            ]
+          ],
+          "body": {
+            "_id": "2",
+            "found": true,
+            "_source": {
+              "title": "purple lion"
+            }
+          },
+          "id": "ch30-09-get-doc2",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l30-docs/_doc/2?realtime=false&filter_path=found,_id",
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "25"
+            ]
+          ],
+          "body": {
+            "_id": "2",
+            "found": false
+          },
+          "id": "ch30-17-get-nrt",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_refresh?filter_path=_shards",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "49"
+            ]
+          ],
+          "body": {
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            }
+          },
+          "id": "ch30-10-refresh",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search?filter_path=hits.total,hits.hits._id",
+          "requestBody": {
+            "query": {
+              "match": {
+                "title": "purple"
+              }
+            }
+          },
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "hits": {
+              "total": {
+                "value": 1,
+                "relation": "eq"
+              },
+              "hits": [
+                {
+                  "_id": "2"
+                }
+              ]
+            }
+          },
+          "id": "ch30-11-search-purple2",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/tut-l30-docs/_count",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "71"
+            ]
+          ],
+          "body": {
+            "count": 2,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            }
+          },
+          "id": "ch30-18-count",
+          "assertions": "pass"
+        },
+        {
+          "method": "POST",
+          "path": "/tut-l30-docs/_search",
+          "requestBody": {},
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "took": 0,
+            "timed_out": false,
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "hits": {
+              "total": {
+                "value": 2,
+                "relation": "eq"
+              },
+              "max_score": 1.0,
+              "hits": [
+                {
+                  "_index": "tut-l30-docs",
+                  "_id": "1",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "the quick brown fox"
+                  }
+                },
+                {
+                  "_index": "tut-l30-docs",
+                  "_id": "2",
+                  "_score": 1.0,
+                  "_source": {
+                    "title": "purple lion"
+                  }
+                }
+              ]
+            }
+          },
+          "id": "ch30-16-default-search",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/_tasks?actions=indices%3Adata%2Fread%2Fsearch%2A&detailed=true",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "Transfer-Encoding",
+              "chunked"
+            ]
+          ],
+          "body": {
+            "nodes": {}
+          },
+          "id": "ch30-20-tasks",
+          "assertions": "pass"
+        },
+        {
+          "method": "GET",
+          "path": "/_nodes/usage?filter_path=nodes.*.name,nodes.*.rest_actions.search_action",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "75"
+            ]
+          ],
+          "body": {
+            "nodes": {
+              "QSkpyRrVQ7SrCWvutWILMg": {
+                "rest_actions": {
+                  "search_action": 361
+                }
+              }
+            }
+          },
+          "id": "ch30-12-usage",
+          "assertions": "pass"
+        },
+        {
+          "method": "DELETE",
+          "path": "/tut-l30-docs",
+          "requestBody": null,
+          "status": 200,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "21"
+            ]
+          ],
+          "body": {
+            "acknowledged": true
+          },
+          "id": "ch30-13-cleanup",
+          "assertions": "pass"
+        },
+        {
+          "method": "DELETE",
+          "path": "/tut-l30-docs",
+          "requestBody": null,
+          "status": 404,
+          "headers": [
+            [
+              "X-elastic-product",
+              "Elasticsearch"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "content-length",
+              "401"
+            ]
+          ],
+          "body": {
+            "error": {
+              "root_cause": [
+                {
+                  "type": "index_not_found_exception",
+                  "reason": "no such index [tut-l30-docs]",
+                  "resource.type": "index_or_alias",
+                  "resource.id": "tut-l30-docs",
+                  "index_uuid": "_na_",
+                  "index": "tut-l30-docs"
+                }
+              ],
+              "type": "index_not_found_exception",
+              "reason": "no such index [tut-l30-docs]",
+              "resource.type": "index_or_alias",
+              "resource.id": "tut-l30-docs",
+              "index_uuid": "_na_",
+              "index": "tut-l30-docs"
+            },
+            "status": 404
+          },
+          "id": "ch30-19-cleanup-again",
+          "assertions": "pass"
+        }
+      ],
+      "searchActionDelta": {
+        "QSkpyRrVQ7SrCWvutWILMg": 5
+      }
+    }
+  ],
+  "operationCountPerRound": 20,
+  "indexAbsentAfter": {
+    "method": "HEAD",
+    "path": "/tut-l30-docs",
+    "requestBody": null,
+    "status": 404,
+    "headers": [
+      [
+        "X-elastic-product",
+        "Elasticsearch"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "content-length",
+        "401"
+      ]
+    ],
+    "body": null
+  },
+  "limitations": [
+    "single node/single shard; no network phase tracing",
+    "source tests read, Gradle not run",
+    "no concurrent search traffic during usage delta",
+    "no security-enabled, PIT, rank, kNN or cross-cluster API tests"
+  ]
+}

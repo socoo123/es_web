@@ -1,0 +1,240 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "普通多分片搜索：请求如何交接职责",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch30-search-handoffs-20261014-084552/search-handoffs.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "职责交接"
+        }
+      }
+    },
+    "repository": {
+      "url": "https://github.com/elastic/elasticsearch.git",
+      "revision": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "provider": "github",
+      "link_mode": "web"
+    }
+  },
+  "lanes": [
+    {
+      "id": "entry",
+      "label": "REST 适配与协调入口"
+    },
+    {
+      "id": "query",
+      "label": "分片 Query → 协调归并"
+    },
+    {
+      "id": "fetch",
+      "label": "按候选取回字段 → 组装响应"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "rest",
+      "lane": "entry",
+      "col": 2,
+      "type": "backend",
+      "label": "REST → SearchRequest",
+      "sublabel": "解析参数，再 execute(TYPE)",
+      "width": 420,
+      "height": 70,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/rest/action/search/RestSearchAction.java",
+          "line": 132,
+          "end_line": 148,
+          "label": "请求适配与动作调用"
+        }
+      ],
+      "yOffset": -55
+    },
+    {
+      "id": "action",
+      "lane": "entry",
+      "col": 2,
+      "type": "backend",
+      "label": "协调节点选择分片",
+      "sublabel": "读取 ClusterState；启动搜索相位",
+      "width": 420,
+      "height": 70,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/TransportSearchAction.java",
+          "line": 399,
+          "end_line": 409,
+          "label": "集群状态读取"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/TransportSearchAction.java",
+          "line": 2157,
+          "end_line": 2190,
+          "label": "Query Then Fetch 分支"
+        }
+      ],
+      "yOffset": 55
+    },
+    {
+      "id": "query",
+      "lane": "query",
+      "col": 2,
+      "type": "backend",
+      "label": "分片预处理与 Query",
+      "sublabel": "先检查窗口；使用已取得的搜索读者",
+      "width": 420,
+      "height": 70,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/SearchService.java",
+          "line": 977,
+          "end_line": 990,
+          "label": "先建上下文再执行 Query"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/search/DefaultSearchContext.java",
+          "line": 358,
+          "end_line": 383,
+          "label": "结果窗口检查"
+        }
+      ],
+      "yOffset": -55
+    },
+    {
+      "id": "reduce",
+      "lane": "query",
+      "col": 2,
+      "type": "backend",
+      "label": "协调归并候选",
+      "sublabel": "普通分页保留全局目标结果",
+      "width": 420,
+      "height": 70,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/FetchSearchPhase.java",
+          "line": 92,
+          "end_line": 99,
+          "label": "归并 Query 结果"
+        },
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/SearchPhaseController.java",
+          "line": 543,
+          "end_line": 555,
+          "label": "普通分页与 rank 分支"
+        }
+      ],
+      "yOffset": 55
+    },
+    {
+      "id": "fetch",
+      "lane": "fetch",
+      "col": 2,
+      "type": "backend",
+      "label": "Fetch 目标文档",
+      "sublabel": "按分片分组，只向持有者取字段",
+      "width": 420,
+      "height": 70,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/FetchSearchPhase.java",
+          "line": 130,
+          "end_line": 152,
+          "label": "目标 docId 分组与发送"
+        }
+      ],
+      "yOffset": -55
+    },
+    {
+      "id": "response",
+      "lane": "fetch",
+      "col": 2,
+      "type": "backend",
+      "label": "组装 SearchResponse",
+      "sublabel": "合并结果，交给下一相位",
+      "width": 420,
+      "height": 70,
+      "sources": [
+        {
+          "path": "server/src/main/java/org/elasticsearch/action/search/FetchSearchPhase.java",
+          "line": 268,
+          "end_line": 283,
+          "label": "Fetch 结果合并"
+        }
+      ],
+      "yOffset": 55
+    }
+  ],
+  "edges": [
+    {
+      "id": "rest-to-action",
+      "from": "rest",
+      "to": "action",
+      "label": "内部调用",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "action-to-query",
+      "from": "action",
+      "to": "query",
+      "label": "分片执行",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "query-to-reduce",
+      "from": "query",
+      "to": "reduce",
+      "label": "候选返回",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "reduce-to-fetch",
+      "from": "reduce",
+      "to": "fetch",
+      "label": "目标分组",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "fetch-to-response",
+      "from": "fetch",
+      "to": "response",
+      "label": "结果合并",
+      "variant": "emphasis",
+      "role": "main"
+    }
+  ],
+  "mainPath": [
+    "rest",
+    "action",
+    "query",
+    "reduce",
+    "fetch",
+    "response"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "图的适用范围",
+      "items": [
+        "固定 ES 9.4.0；普通多分片、按分数分页的职责图。箭头是处理与结果交接，不代表每条都走网络。",
+        "省略安全、rewrite、can-match、DFS、PIT、跨集群、rank、失败重试与提前归并。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "单分片实验的边界",
+      "items": [
+        "本课是一主片零副本；普通单分片无 rank 可在 Query 内执行 Fetch，不能用本课响应证明多节点网络两跳。",
+        "窗口检查发生在分片上下文 preProcess，进入主查询前；与协调归并的 from + size 算术是不同位置。"
+      ]
+    }
+  ]
+}

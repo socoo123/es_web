@@ -61,7 +61,7 @@
 | ch27 | 管道查询语言 | ✅ | 42 | 1(管道执行) | ✅ 管道计划与AVG中间态（2图，2路径动画）；API两轮通过 |
 | ch28 | 索引生命周期管理 | ✅ | 40 | 1(受控 rollover·7步) | ✅ 两种时钟与相缓存（2图，2路径动画）；API两轮通过 |
 | ch29 | 安全机制 | ✅ | 32 | 1(认证与授权·7步) | ✅ Basic入口与RBAC动作边界（2图，2路径动画）；API两轮通过 |
-| ch30 | 全景回顾与方法论 | ✅ | 13 | 1(全链回放) | 待改造 |
+| ch30 | 全景回顾与方法论 | ✅ | 20 | 1(职责与证据·7步) | ✅ 搜索职责与阅读验证（2图，2路径动画）；API两轮/原生浏览器通过 |
 
 转写状态与图解重构分别统计；重构已完成不代表真实 ES 实验或技能原生浏览器检查全部通过，具体结果见会话日志。
 
@@ -468,7 +468,29 @@
 | 重复删除用户/角色仍200；缓存残留后“下次完整认证必然失败” | 实测重复404 found=false；删除用户成功清理Realm缓存，本课新请求401，不推断在途请求/其他凭据失效 | [删除缓存](https://github.com/elastic/elasticsearch/blob/2e8528e92361c3399724226deaf2b46f933e925b/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/authc/esnative/NativeUsersStore.java#L579-L606)、[两轮清理与重做](.archify/review/ch29-es-review.json) |
 | 原实验只有拒绝，缺少read成功数据、重做语义；用户JSON密码进控制台URL | 19原ID保留，5组32卡，显式mapping/固定ID/refresh；允许/拒绝/权限自查及点名清理；用户卡控制台入口手动填写，密码不进URL | [注册表](experiments/ch29.js)、[验收](.archify/CH29-REVIEW.md) |
 
+## 第三十章重构校对（ES 9.4.0）
+
+| 旧说法 | 修正 | 依据 |
+|---|---|---|
+| from+size窗口在扇出前检查，10010是getTopDocsSize抛出的错误 | 分片DefaultSearchContext.preProcess读取窗口设置、主Query前检查；协调getTopDocsSize是归并窗口算术，rank有分支 | 固定源码与两轮400 failed_shards；[CH30-REVIEW](.archify/CH30-REVIEW.md) |
+| usage包含非法search_type次数，可当本课搜索/成功数 | prepareRequest和后置检查后、consumer前计数；非法类型不计，窗口失败计；无并发每卡一次时本课增量5 | BaseRestHandler.handleRequest；两轮N+5实测 |
+| _refresh用_shard过滤；每次刷新必开新段 | 返回复数_shards，实测1/1/0；刷新不保证每次创建新段，也不是flush提交证明 | 两轮真实_refresh；Engine与本课读取视图说明 |
+| listener意味着等待不占线程；RoutingTable必是所有节点同时最新的真理 | listener仅是结果协议，具体调度另查；本次读取一份状态快照，不保证全节点同时最新 | SearchService.executeQueryPhase、TransportSearchAction.executeRequest |
+| match单token必走SHOULD；每片固定回from+size；Fetch只取_source；单片能证明两跳 | 单token可直接词项查询；候选可少于窗口；Fetch也取其他字段；普通单片无rank可合并Query/Fetch | 固定源码、单节点单片响应边界 |
+| realtime GET根本不看searcher、必从translog读；关闭定时刷新保证所有结果绝对零竞态 | GET响应不证明读取来源；读者取得/保留及外部刷新影响结果，固定mapping并禁外部刷新；完整清理重建恢复前提 | 两轮SEARCH0/GET200/非实时GET404/refresh后SEARCH1 |
+| Painless、安全等全是另一入口，不在搜索链；catch文案永远不可改；入口永远只能HTTP | Painless可参与_search；认证与授权分层；测试断言保护具体条件，不等于本轮已执行；内部算法可沿已确认调用点深入 | 固定生产/测试源码与章节适用范围 |
+
 ## 会话日志
+
+### 2026-10-14（ch30 全景回顾与方法论重构）
+- 只处理ch30，保留原13实验ID与ch30-finale七步ID；按七段式重写并补齐条件/源码链接、目录/图解跳转、上下课/课程入口与已读进度。5组20卡，2交互图/2路径动画/1机制动画；统一880px阅读列与双主题。
+- 重点勘误见上表：窗口分片预处理位置、usage计数边界、_shards复数、单片优化/异步签名/读者视图/Painless参与搜索。固定ES commit核对13文件24范围；未运行Gradle源码测试。
+- 官方Archify3.0.1：当前搜索图review-4、方法图review-3；validate/deliver/strict check均showcase9/9、零错误/警告、零交叉绕行，native browser-check全部pass。只改JSON，正式CLI再生成；旧失败/布局证据保留。
+- 真实API：9200匿名单节点ES9.4.0/Lucene10.4.0，两轮20卡（共40次）均通过；usage均N+5，SEARCH0/实时GET200/非实时GET404/刷新后SEARCH1；最终本章索引不存在。未实测多节点网络、安全开启/PIT/rank/kNN/跨集群与性能。
+- 独立HTTP：两图各4桌面尺寸双主题；章节6宽度双主题，边界误差≤1px、图节点全部包含、页面/iframe无横向溢出；主题/探索/关闭/键盘/暂停后重播/reduced motion/七步播放器/进度/目录/20条深链/Pages前缀通过。ES请求在UI验证中明确abort，与真实API证据分开。
+- 实际查看31张最终截图/7联系表；手机图概览可探索/放大/展开，机制SVG和源码表局部滚动另在390/320双主题通过。记录与SHA-256绑定见[CH30-REVIEW](.archify/CH30-REVIEW.md)、review/ch30-artifacts.json。
+- node --check、展开机制快照figwidth、node tools/check.mjs通过，全站823操作/22机制动画。本轮代码、图源、产物及验收记录按授权提交并推送origin/main；Git结果与提交链接见交付。
+
 
 ### 2026-10-13（框架篇增加代码讲解、优先 D2）
 

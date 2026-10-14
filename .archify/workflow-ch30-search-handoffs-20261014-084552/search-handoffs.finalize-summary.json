@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch30-search-handoffs-20261014-084552/candidate.json",
+    "sha256": "25bd7a1e71fa7d690535ab7bcdf35bbd9ec77c7cce325a0aabd81d49e3cf13ab",
+    "bytes": 6145
+  },
+  "artifact": {
+    "path": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch30-search-handoffs-20261014-084552/search-handoffs.html"
+  },
+  "gates": {
+    "validate": "fail",
+    "deliver": "not-run",
+    "check": "not-run",
+    "browser-check": "not-run"
+  },
+  "failedStage": "validate",
+  "diagnostics": [
+    {
+      "code": "repository-evidence/line-out-of-range",
+      "severity": "error",
+      "message": "/nodes/5/sources/0 requests line 308, but server/src/main/java/org/elasticsearch/action/search/FetchSearchPhase.java has 288 lines at revision 2e8528e92361c3399724226deaf2b46f933e925b.",
+      "subject": {
+        "surface": "repository-evidence",
+        "path": "/nodes/5/sources/0",
+        "diagramType": "workflow",
+        "collection": "nodes",
+        "nodeId": "response"
+      },
+      "evidence": {
+        "sourcePath": "server/src/main/java/org/elasticsearch/action/search/FetchSearchPhase.java",
+        "requestedLine": 308,
+        "lineCount": 288,
+        "revision": "2e8528e92361c3399724226deaf2b46f933e925b"
+      },
+      "supportedFixes": [
+        "use a line range that exists at the pinned revision"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch30-search-handoffs-20261014-084552/search-handoffs.finalize.json",
+    "summaryReceipt": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch30-search-handoffs-20261014-084552/search-handoffs.finalize-summary.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.0.1",
+    "availableVersion": "3.0.1",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-13T13:31:47.113Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 329,
+  "nextAction": {
+    "action": "edit-in-place",
+    "candidate": "/Users/zy/ai_web_page/es_web/.archify/workflow-ch30-search-handoffs-20261014-084552/candidate.json",
+    "constraint": "Preserve unaffected semantics and geometry; do not replace the whole candidate.",
+    "then": "finalize-once"
+  }
+}

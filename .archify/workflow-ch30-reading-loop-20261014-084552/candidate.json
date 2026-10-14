@@ -1,0 +1,168 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "从一条 API 建立可验证的源码笔记",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "output": ".archify/workflow-ch30-reading-loop-20261014-084552/reading-loop.html",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "阅读与验证步骤"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "entry",
+      "label": "先确认 HTTP 路径与内部接头"
+    },
+    {
+      "id": "mechanism",
+      "label": "沿动作到执行点 · 标明分支与适用条件"
+    },
+    {
+      "id": "evidence",
+      "label": "定位测试约束 · 对照真实响应"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "route",
+      "lane": "entry",
+      "col": 2,
+      "type": "backend",
+      "label": "查 routes()",
+      "sublabel": "确认路径模板与 HTTP 方法",
+      "width": 420,
+      "height": 70,
+      "yOffset": -55
+    },
+    {
+      "id": "type",
+      "lane": "entry",
+      "col": 2,
+      "type": "backend",
+      "label": "抄 execute(TYPE)",
+      "sublabel": "分开 REST 名、Action 名、相位名",
+      "width": 420,
+      "height": 70,
+      "yOffset": 55
+    },
+    {
+      "id": "action",
+      "lane": "mechanism",
+      "col": 2,
+      "type": "backend",
+      "label": "找动作注册与 doExecute",
+      "sublabel": "先沿普通成功路径阅读",
+      "width": 420,
+      "height": 70,
+      "yOffset": -55
+    },
+    {
+      "id": "boundary",
+      "lane": "mechanism",
+      "col": 2,
+      "type": "backend",
+      "label": "停在实际执行或检查点",
+      "sublabel": "写清发生位置、输入与条件",
+      "width": 420,
+      "height": 70,
+      "yOffset": 55
+    },
+    {
+      "id": "tests",
+      "lane": "evidence",
+      "col": 2,
+      "type": "backend",
+      "label": "用问题定位测试",
+      "sublabel": "解析找单测；HTTP 契约找 YAML",
+      "width": 420,
+      "height": 70,
+      "yOffset": -55
+    },
+    {
+      "id": "api",
+      "lane": "evidence",
+      "col": 2,
+      "type": "backend",
+      "label": "运行请求并记录差异",
+      "sublabel": "清理重做；把差异反馈到笔记",
+      "width": 420,
+      "height": 70,
+      "yOffset": 55
+    }
+  ],
+  "edges": [
+    {
+      "id": "route-to-type",
+      "from": "route",
+      "to": "type",
+      "label": "内部接头",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "type-to-action",
+      "from": "type",
+      "to": "action",
+      "label": "动作入口",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "action-to-boundary",
+      "from": "action",
+      "to": "boundary",
+      "label": "执行边界",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "boundary-to-tests",
+      "from": "boundary",
+      "to": "tests",
+      "label": "约束定位",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "tests-to-api",
+      "from": "tests",
+      "to": "api",
+      "label": "响应对照",
+      "variant": "emphasis",
+      "role": "main"
+    }
+  ],
+  "mainPath": [
+    "route",
+    "type",
+    "action",
+    "boundary",
+    "tests",
+    "api"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "这是一张方法图",
+      "items": [
+        "箭头表示作者的阅读顺序，不是 Elasticsearch 的运行时调用链，也不保证每个类都有同名 Tests。",
+        "路径 → routes() → TYPE 是常用入口；模块内部算法可从已确认的调用点继续，不要求都有独立 REST 路径。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "三类证据各自回答什么",
+      "items": [
+        "源码定位检查在哪里发生；测试列出被保护的条件；API 给出当前环境的实际响应。",
+        "状态码相同不代表检查位置相同。测试存在也不等于本轮已经运行 Gradle 测试。"
+      ]
+    }
+  ]
+}
