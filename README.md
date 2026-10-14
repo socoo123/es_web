@@ -13,11 +13,11 @@
 
 ## 新增学习路线（规划中）
 
-站点将分为「框架学习篇」和「ES 源码篇」，第一部分为核心：F01–F45 从零搭建旅游门户，规划 155 个业务案例，贯穿 Vue 前台/后台、Java API、景点/酒店/房型评分排序、中文搜索，以及 PostgreSQL WAL / MySQL binlog → 消息队列 → ES 的变更链路。现有源码 Chapter 01–30 的编号与链接继续保留，逐章重构进度见 STATUS。
+站点将分为「框架学习篇」和「ES 源码篇」。第一部分用旅游网站的搜索案例学会 ES，规划 F01–F45 / 155 个案例，涵盖启动与索引读写、查询/分词/评分排序、酒店房型、集群化、重建备份与 PG/MySQL 日志驱动 ES。课程不要求创建门户网站。应用采用 Spring Boot 4 + JDK 25，实验工程由读者在本机启动，Pages 只承载教程。现有源码 ch01–ch30 的编号与链接保留，学会使用后进入机制深读。
 
-完整目录、前后端实验交付要求、数据模型与同步链路见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，逐课案例见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。目前新增部分仅有规划，课程页面、前后端工程和案例尚未实现或运行验收。
+完整目录、ES 学习目标、本机工程与同步链路见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，逐课案例见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。2026-10-14 本轮完成规划修订；旧 F01 页面路由样稿待重构，新基线课程/工程/案例尚未交付验收。
 
-框架篇正文以可运行代码、输入输出和反例为主，图解优先 **D2**、可用 Mermaid，复杂机制可用 SVG；阅读布局、双主题和实验重做方式参考源码篇。具体要求见 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。
+框架篇正文讲清 ES 原理、完整 REST/DSL 与 Java 实现、输出和反例，不贴前端代码，不以验收工具代替教程。图解优先 **D2**、可用 Mermaid，复杂机制可用 SVG；布局、双主题和重做方式参考源码篇。具体见 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。
 
 ## 快速开始
 
