@@ -11,13 +11,15 @@
 
 第一章已采用 [Archify 3.0.1](https://github.com/tt-a1i/archify) 重画倒排索引、分析链、分片副本三幅交互图，支持路径动画、暂停、重播和节点探索。[在线阅读第一章](https://socoo123.github.io/es_web/chapters/ch01.html)；可编辑图源、再生成方法和验证记录见 [.archify/README.md](.archify/README.md)。原有 11 个实验操作及近实时机制动画保留。
 
-## 新增学习路线（规划中）
+## 框架学习篇：课程重新规划
 
-站点将分为「框架学习篇」和「ES 源码篇」。第一部分用旅游网站的搜索案例学会 ES，规划 F01–F45 / 155 个案例，涵盖启动与索引读写、查询/分词/评分排序、酒店房型、集群化、重建备份与 PG/MySQL 日志驱动 ES。课程不要求创建门户网站。应用采用 Spring Boot 4 + JDK 25，实验工程由读者在本机启动，Pages 只承载教程。现有源码 ch01–ch30 的编号与链接保留，学会使用后进入机制深读。
+第一部分用同一个旅游搜索网站学习 ES，重新安排为 **八阶段、45 课**：认识 ES 与首搜 → 景点搜索 → 中文召回 → 评分排序 → 酒店房型 → 集群运行 → 数据同步 → 独立实现与诊断。先讲 ES 干什么、解决什么问题和与数据库的分工，再进入请求和代码。完整目录已直接展示在[框架篇入口](framework/index.html)。
 
-完整目录、ES 学习目标、本机工程与同步链路见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，逐课案例见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。2026-10-14 已交付 [F01：启动 ES，第一次写入与搜索](framework/f01.html)和[本机实验工程](projects/travel-search/README.md)：3 个案例、两轮真实 ES 验收。其余 44 课与 Boot 4/JDK 25 工程尚待实现；[后续逐课提示词](docs/framework-lesson-prompt.md)只需替换课号。
+新版 F01 做导学，F02 解释数据怎样成为结果，F03 才启动 ES；F07 用 Spring Boot 4/JDK 25 接入课程提供的本机搜索展示壳。网站帮助对照同样输入的命中、次序、计数和价格；正文讲 ES 概念、DSL、Java 与反例，读者不用开发前端。Pages 承载教程，真实实验与展示壳在本机运行。
 
-框架篇正文讲清 ES 原理、完整 REST/DSL 与 Java 实现、输出和反例，不贴前端代码，不以验收工具代替教程。图解优先 **D2**、可用 Mermaid，复杂机制可用 SVG；布局、双主题和重做方式参考源码篇。具体见 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。
+**F12 基础结业、F22 实用搜索结业、F45 完整复现**，各自有独立新样本/需求检验。取消固定 155 案例配额，按教学问题设计必要的对照。详情见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)、[FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)、[FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)与[新版逐课提示词](docs/framework-lesson-prompt.md)。
+
+本轮完成重新规划与入口同步，新版 45 课正文均待编写。[旧版 F01 启动实验](framework/f01.html)及[本机工程](projects/travel-search/README.md)的三个案例已有两轮真实 ES 验收，保留历史证据、计划迁入 F03；不代表新 F01 已完成。新版 Java、展示壳、多节点与 CDC 尚未交付。现有源码篇 ch01–ch30 保持原编号和链接。
 
 ## 快速开始
 

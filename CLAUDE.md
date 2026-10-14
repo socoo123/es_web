@@ -7,7 +7,7 @@
 
 1. **读 `STATUS.md`** — 知道做到哪了、上次留下什么
 2. **读 `PLAN.md` 与 `CHAPTER_STANDARD.md`** — 前者定义结构与注册表，后者定义后续章节内容校对、Archify 图解、布局和验收
-   框架篇 F01–F45 另读 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)：旅游搜索是学习 ES 的案例；正文讲 REST/DSL、Java 与原理，不贴前端或开发门户。应用基线 Boot 4/JDK 25，项目由读者本机启动，Pages 只承载教程；D2 优先，阅读与实验方式参考源码篇。
+   框架篇 F01–F45 另读 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)：旅游搜索是学习 ES 的案例；F01 先讲用途、职责和全程路线，F02 概念推演，F03 首搜、F07 Java；正文先解释概念与因果，再讲 REST/DSL、Java，不贴前端或开发门户。应用基线 Boot 4/JDK 25，项目由读者本机启动，Pages 只承载教程；D2 优先，阅读与实验方式参考源码篇。
 3. **做完就更新 `STATUS.md`,然后跑 `node tools/check.mjs`，提交并推送 GitHub** — 站点检查必须全绿；用户已授权每次章节重构后自动提交本轮代码、图源、产物与验收记录并推送 `origin/main`，无需逐次确认。交付 GitHub 提交链接；未执行的验证与推送失败须如实记录。
 
 ## 常用命令

@@ -4,7 +4,7 @@
 
 本文件是 [PLAN.md](PLAN.md) 的章节重构专项细则。原有实验与机制动画 schema 仍按 PLAN；重构的内容、图解、布局及验收按本文件。用户明确要求优先。本规范不代表其余章节已改造，进度记在 [STATUS.md](STATUS.md) 的「图解重构」列。
 
-2026-10-14 框架篇补充：F01–F45 用旅游搜索案例学习 ES，以 REST/DSL、Java、输入输出与机制解释为主；不贴前端代码或开发门户，应用用 Boot 4/JDK 25，实验工程由读者本机启动，Pages 只承载教程。D2 优先、Mermaid 可用、复杂机制可用 SVG，具体按 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。本文件的内容准确性、统一阅读列、实验重做与真实验收仍适用；Archify 的生成/查看器与原生门禁仅用于实际采用 Archify 的图解，框架篇不要求 Pages 直接调用 Java/ES。
+2026-10-14 框架篇补充：F01–F45 按八阶段用旅游搜索案例学习 ES；F01 导学、F02 概念推演、F03 首搜、F07 Java，先讲用途、概念和因果再进入 REST/DSL、Java 与真实输入输出；不贴前端代码或开发门户，应用用 Boot 4/JDK 25，实验工程由读者本机启动，Pages 只承载教程。D2 优先、Mermaid 可用、复杂机制可用 SVG，具体按 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。本文件的内容准确性、统一阅读列、实验重做与真实验收仍适用；Archify 的生成/查看器与原生门禁仅用于实际采用 Archify 的图解，框架篇不要求 Pages 直接调用 Java/ES。
 
 ## 1. 每章的阅读结构
 

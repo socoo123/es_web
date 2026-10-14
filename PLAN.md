@@ -4,9 +4,9 @@
 
 2026-10-10 补充：[CHAPTER_STANDARD.md](CHAPTER_STANDARD.md) 是后续章节重构的专项细则，采用用户已确认的第一章基线。章节内容、Archify 图解、宽度、动画交互与验收按专项细则；实验与旧机制动画 schema 仍按本文。转写进度与图解重构进度分别记录在 STATUS。
 
-2026-10-14 整体课程规划修订：[FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)、[FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。第一部分用旅游搜索案例学习 ES，规划 F01–F45 / 155 个案例：启动与索引读写、Java、查询、分词、评分排序、酒店房型、多节点集群、索引运行与 PG/MySQL CDC。替代旧“创建完整门户”方案，前端/用户/订单不占课程；应用采用 Boot 4/JDK 25，项目由读者本机启动，Pages 只承载教程。第二部分是现有源码篇 ch01–ch30，编号不变。新版仍为规划，旧 F01 样稿待重构；下述 30 课模板与 chNN 注册规则继续适用于源码篇。
+2026-10-14 框架学习篇重新编排：[FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)、[FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。保留 F01–F45 范围，改为八个阶段并取消 155 案例配额。F01 先讲 ES 用途、旅游搜索问题、数据库职责和全程路线；F02 用样本解释数据到结果；F03 才启动首搜，F07 引入 Boot 4/JDK 25 与课程提供的本机搜索展示壳。F12 基础结业、F22 实用搜索结业、F45 完整复现。新版正文均待编写，原 F01 是待迁移的已实测启动实验，不能算新 F01 导学完成；源码篇 ch01–ch30 编号不变。
 
-2026-10-14 框架篇写作要求更新：[FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)。正文先解释 ES 概念与条件，再展示完整 REST/DSL、Java、结果与反例；不贴前端代码，也不以测试工具代替教程。D2 优先、Mermaid 可用，复杂机制可用 SVG；阅读列/双主题/重做方式参考源码篇，框架篇不要求 Pages 连接本机 Java/ES。下文源码走读的「不贴大段源码、贴关键行」不限制框架篇展示完整关键实现。
+框架篇写作按 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)：先业务体验、定义/职责与因果，再展示本课需要的 REST/DSL、Java、结果和反例；F01/F02 允许无执行代码。网站贯穿教学，读者使用配套展示壳观察结果，不学习前端开发；浏览器经本机 Java 调用 ES，Pages 只承载教程。D2 优先、Mermaid 可用，复杂机制可用 SVG；阅读列/双主题/重做方式参考源码篇。下述模板与 chNN 注册规则继续适用于源码篇，框架执行课的完整关键实现不受源码走读篇幅限制。
 
 ## 1. 站点形态
 
