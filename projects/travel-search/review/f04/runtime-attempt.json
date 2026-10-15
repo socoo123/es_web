@@ -1,0 +1,46 @@
+{
+  "recorded_at": "2026-10-15T05:19:24.280082+00:00",
+  "status": "blocked_before_http",
+  "compose": "projects/travel-search/infra/single-node/compose.yaml",
+  "command": "docker compose -f projects/travel-search/infra/single-node/compose.yaml up -d",
+  "image": "docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+  "container_state": "exited exit=1 oom=false",
+  "proc_file_exists": false,
+  "errors": [
+    {
+      "@timestamp": "2026-10-15T05:12:00.500Z",
+      "log.level": "ERROR",
+      "message": "fatal exception while booting Elasticsearch",
+      "ecs.version": "1.2.0",
+      "service.name": "ES_ECS",
+      "event.dataset": "elasticsearch.server",
+      "process.thread.name": "main",
+      "log.logger": "org.elasticsearch.bootstrap.Elasticsearch",
+      "elasticsearch.node.name": "travel-search-01",
+      "elasticsearch.cluster.name": "travel-search-lab",
+      "error.type": "java.lang.RuntimeException",
+      "error.message": "Could not set coredump filter",
+      "error.stack_trace": "java.lang.RuntimeException: Could not set coredump filter\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.setCoredumpFilter(Elasticsearch.java:627)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.initializeNatives(Elasticsearch.java:500)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.initPhase2(Elasticsearch.java:188)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.main(Elasticsearch.java:100)\nCaused by: java.nio.file.NoSuchFileException: /proc/self/coredump_filter\n\tat java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:92)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:108)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:113)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newFileChannel(UnixFileSystemProvider.java:214)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newByteChannel(UnixFileSystemProvider.java:245)\n\tat java.base/java.nio.file.spi.FileSystemProvider.newOutputStream(FileSystemProvider.java:426)\n\tat java.base/java.nio.file.Files.newOutputStream(Files.java:215)\n\tat java.base/java.nio.file.Files.write(Files.java:3178)\n\tat java.base/java.nio.file.Files.writeString(Files.java:3372)\n\tat java.base/java.nio.file.Files.writeString(Files.java:3319)\n\tat org.elasticsearch.server@9.4.0/org.elasticsearch.bootstrap.Elasticsearch.setCoredumpFilter(Elasticsearch.java:625)\n\t... 3 more\n"
+    }
+  ],
+  "startup_log_sha256": "ff657827a0f425bf70407150c20387e96f03d5c764d737b39adc255b8d30737c",
+  "verifier": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "Traceback (most recent call last):\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/urllib/request.py\", line 1344, in do_open\n    h.request(req.get_method(), req.selector, req.data, headers,\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/client.py\", line 1386, in request\n    self._send_request(method, url, body, headers, encode_chunked)\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/client.py\", line 1432, in _send_request\n    self.endheaders(body, encode_chunked=encode_chunked)\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/client.py\", line 1381, in endheaders\n    self._send_output(message_body, encode_chunked=encode_chunked)\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/client.py\", line 1141, in _send_output\n    self.send(msg)\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/client.py\", line 1085, in send\n    self.connect()\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/client.py\", line 1051, in connect\n    self.sock = self._create_connection(\n                ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socket.py\", line 865, in create_connection\n    raise exceptions[0]\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socket.py\", line 850, in create_connection\n    sock.connect(sa)\nConnectionRefusedError: [Errno 111] Connection refused\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/workspace/es_web/projects/travel-search/review/f04/verify.py\", line 155, in <module>\n    run()\n  File \"/workspace/es_web/projects/travel-search/review/f04/verify.py\", line 63, in run\n    info = get('/')\n           ^^^^^^^^\n  File \"/workspace/es_web/projects/travel-search/review/f04/verify.py\", line 20, in get\n    with urllib.request.urlopen(BASE + path, timeout=35) as r:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/urllib/request.py\", line 215, in urlopen\n    return opener.open(url, data, timeout)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/urllib/request.py\", line 515, in open\n    response = self._open(req, data)\n               ^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/urllib/request.py\", line 532, in _open\n    result = self._call_chain(self.handle_open, protocol, protocol +\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/urllib/request.py\", line 492, in _call_chain\n    result = func(*args)\n             ^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/urllib/request.py\", line 1373, in http_open\n    return self.do_open(http.client.HTTPConnection, req)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/urllib/request.py\", line 1347, in do_open\n    raise URLError(err)\nurllib.error.URLError: <urlopen error [Errno 111] Connection refused>\n"
+  },
+  "mount_attempt": {
+    "command": "docker run --rm --entrypoint /bin/bash --mount type=bind,src=/workspace/scratch/f04-tools/coredump_filter,dst=/proc/self/coredump_filter docker.elastic.co/elasticsearch/elasticsearch:9.4.0 -c \"cat /proc/self/coredump_filter\"",
+    "exit": 125,
+    "error": "OCI runtime create failed: check proc-safety of /proc/self/coredump_filter mount: cannot be mounted because it is inside /proc",
+    "outcome": "no container started; no security policy or ES binary changes"
+  },
+  "fixed_source": {
+    "url": "https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java#L499",
+    "sha256": "9449fbcb693fd3fde6aa753112b48539bd0666b82c2d7917bed042b9acf39af3",
+    "finding": "Linux initializeNatives unconditionally calls setCoredumpFilter; write to absent proc path fails"
+  },
+  "actual_f04_requests": 0,
+  "rounds_completed": 0,
+  "outputs": "none; expected.json is prediction only"
+}

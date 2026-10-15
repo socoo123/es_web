@@ -1,0 +1,88 @@
+{
+  "reviewed_at": "2026-10-15T05:20:13.463982+00:00",
+  "scope": "F04 author self-review and offline consistency; runtime blocked",
+  "reasoning": {
+    "requested": "xhigh",
+    "actual": "not configurable or verifiable in current root entrypoint",
+    "independent_agent": false
+  },
+  "checks": {
+    "preserved_F02_business_fields": true,
+    "fixed_ids": [
+      "a-fz-xihu",
+      "a-hz-night",
+      "a-hz-old",
+      "a-hz-tea",
+      "a-hz-xihu"
+    ],
+    "valid_data_matches_ndjson": true,
+    "mixed_only_two_deliberate_errors": true,
+    "retry_contains_only_corrected_failed_items": true,
+    "http_requests": {
+      "02-mixed": 3,
+      "06-dynamic": 9,
+      "03-retry": 3,
+      "04-reimport": 4,
+      "cleanup": 1,
+      "01-create": 4,
+      "05-boundaries": 5,
+      "env": 0,
+      "run": 0
+    },
+    "teaching_total": 28,
+    "cleanup_total": 1,
+    "exercises": 6,
+    "code_blocks": 16,
+    "source_fields": 9,
+    "not_claiming_actual_ES": true
+  },
+  "fixed_version_sources": [
+    {
+      "file": "NumberFieldMapper.java",
+      "version": "v9.4.0",
+      "sha256": "8403676f8657872fb78617393b26496fa29bc7460d4a6fc62b693286ddd3d9c4",
+      "review_focus": "explicit coerce parameter default true; integer parser uses configured coerce; null_value default absent",
+      "url": "https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/NumberFieldMapper.java"
+    },
+    {
+      "file": "DocumentParser.java",
+      "version": "v9.4.0",
+      "sha256": "fa519c7249735ba8b406aa0fc31f0a2b3bb75a03cfc3d0d48c0304df8b3553d5",
+      "review_focus": "strict unknown-field exception; dynamic field parsing",
+      "url": "https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/DocumentParser.java"
+    },
+    {
+      "file": "DateFieldMapper.java",
+      "version": "v9.4.0",
+      "sha256": "326e208907b56449bb7c685258257f0d5e072aeddebc297168fe77805626e0f4",
+      "review_focus": "date format parameter and date parsing",
+      "url": "https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/DateFieldMapper.java"
+    },
+    {
+      "file": "GeoPointFieldMapper.java",
+      "version": "v9.4.0",
+      "sha256": "e0d70208635295a193d23de27ef49845f15f0708f4f59dcb0d4c970803645773",
+      "review_focus": "geo point parsing; ignore_malformed explicit option",
+      "url": "https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/GeoPointFieldMapper.java"
+    },
+    {
+      "file": "BulkRequest.java",
+      "version": "v9.4.0",
+      "sha256": "78d3b6180d6d05295f49f582602ba8cb99ec782e6f85b1e03c7f96b61281ccd6",
+      "review_focus": "multiple actions recorded independently; NDJSON delegated to parser",
+      "url": "https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/bulk/BulkRequest.java"
+    },
+    {
+      "file": "Elasticsearch.java",
+      "version": "v9.4.0",
+      "sha256": "9449fbcb693fd3fde6aa753112b48539bd0666b82c2d7917bed042b9acf39af3",
+      "review_focus": "Linux native initialization invokes coredump_filter write",
+      "url": "https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/bootstrap/Elasticsearch.java"
+    }
+  ],
+  "html_sha256": "e75b96ad37d2553cd42f9c09ec5aa8e286ad696e4fbb0a10861ec948eb4aa2d1",
+  "runtime": "projects/travel-search/review/f04/runtime-attempt.json; zero F04 requests executed",
+  "status": "content/static consistency passed; real API behavior unverified",
+  "reading": "HTTP passed; file blocked; see http-review.json and supplemental-checks.json",
+  "chinese_characters_in_html": 5515
+}

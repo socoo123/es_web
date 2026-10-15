@@ -19,7 +19,7 @@
 
 **F12 基础结业、F22 实用搜索结业、F45 完整复现**，各自有独立新样本/需求检验。详情见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)、[FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)、[FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)与[逐课提示词](docs/framework-lesson-prompt.md)。
 
-F01 导学、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成，F04–F45 待实施，实际验收范围见 [STATUS.md](STATUS.md)。Java、展示壳、多节点与 CDC 尚未交付。[历史启动实验](framework/f01-startup-legacy.html)与[工程验收记录](projects/travel-search/review/f01/README.md)保留；[F03 实测](projects/travel-search/review/f03/README.md)已用新资源独立执行两轮。现有源码篇 ch01–ch30 保持原编号和链接。
+F01 导学、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)可阅读、真实 ES 待验收，F05–F45 待实施，实际验收范围见 [STATUS.md](STATUS.md)。Java、展示壳、多节点与 CDC 尚未交付。[历史启动实验](framework/f01-startup-legacy.html)与[工程验收记录](projects/travel-search/review/f01/README.md)保留；[F03 实测](projects/travel-search/review/f03/README.md)已用新资源独立执行两轮。现有源码篇 ch01–ch30 保持原编号和链接。
 
 ## 快速开始
 

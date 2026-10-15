@@ -1,0 +1,17 @@
+# 同一固定数据集；箭头表示人工导入与恢复顺序。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 130
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+send: "1. 发送五组动作与资料\nNDJSON：一行一个 JSON\nindex 动作带固定 _id\n文件最后保留换行" {class: item}
+inspect: "2. HTTP 200 / errors=true\nA / C / D 成功，B / E 失败\n按 items 次序核对 ID 与原因\n刷新后只有三份资料" {class: item}
+retry: "3. 修复失败的 B / E\n八十元改为整数 8000 分\nstatuz 改回 status\n只重发两份完整文档" {class: item}
+verify: "4. 核对五份，再重导入\n刷新后 ID、字段与总数均一致\n完整重发：updated / version=2\n计数仍为 5，不生成重复 ID" {class: item}
+send -> inspect: "批请求不是五条全成或全败"
+inspect -> retry: "成功项保留，失败项才修复"
+retry -> verify: "不能只看 errors=false"

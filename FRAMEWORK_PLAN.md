@@ -6,7 +6,7 @@
 
 F01–F45 分为 **8 个长度不同的阶段**，章节与案例由要解决的问题决定。案例设计见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)，写作要求见 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)，进度以 [STATUS.md](STATUS.md) 为准。
 
-**[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成，F04–F45 待按本路线实施。**导学介绍 ES 的用途、职责与完整学习方式；实际验收范围见 STATUS。Java、网站展示壳、插件、多节点与 CDC 的后续阶段效果仍待交付。
+**[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)可阅读、真实 ES 待验收，F05–F45 待按本路线实施。**导学介绍 ES 的用途、职责与完整学习方式；实际验收范围见 STATUS。Java、网站展示壳、插件、多节点与 CDC 的后续阶段效果仍待交付。
 
 ## 1. 开篇先回答：ES 是什么，解决什么问题
 

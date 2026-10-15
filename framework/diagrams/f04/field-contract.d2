@@ -1,0 +1,17 @@
+# 箭头是建模决策的阅读顺序；不是 ES 执行链。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 130
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+text: "1. 名称要怎样使用？\nname：text + standard\nname.raw：keyword\n一份名称，两种索引表达" {class: item}
+exact: "2. 哪些值必须完整相等？\n城市 HZ / 币种 CNY\n状态 open / 业务 ID\n使用 keyword，不拆词" {class: item}
+typed: "3. 哪些值有量纲或结构？\n金额：integer，单位为分\n日期：strict_date\n坐标：geo_point / lat、lon" {class: item}
+boundary: "4. 类型校验有边界\nstrict：拒绝陌生字段\ncoerce=false：拒绝转换\n枚举、必填、非负另做校验" {class: item}
+text -> exact: "先问用途，再选类型"
+exact -> typed: "完整编码不能代替数值与坐标"
+typed -> boundary: "类型校验不等于业务校验"
