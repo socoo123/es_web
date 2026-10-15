@@ -1,0 +1,17 @@
+# 阅读顺序；不是 ES 线程或调用链。固定 standard / 无 normalizer。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 150
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+source: "1. 一份原始名称\n_source.name = 杭州西湖\n同一源值建立两个字段表达\nname 与 name.raw" {class: item}
+indexed: "2. 写入时的检索表达\nname：杭 / 州 / 西 / 湖\nname.raw：杭州西湖\n_source 仍保留完整名称" {class: item}
+query: "3. 读请求时先看字段与查询\nmatch(name, 西湖)：西、湖\nterm(name, 西湖)：一个词项\nterm(name.raw, 杭州西湖)" {class: item}
+result: "4. 本课预测对照\nmatch OR：A B C D E\nmatch AND：A C D E\n完整值相等：A" {class: item}
+source -> indexed: "字段规则决定怎样索引"
+indexed -> query: "查询也有自己的处理方式"
+query -> result: "按词项条件查，不猜游客意图"

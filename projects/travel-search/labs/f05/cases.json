@@ -1,0 +1,49 @@
+{
+  "lesson": "F05",
+  "index": "tut-f05-attractions",
+  "version": "9.4.0",
+  "teaching_http_requests": 22,
+  "cleanup_requests": 1,
+  "probes_and_author_reads": "separate",
+  "execution_status": "blocked_before_http",
+  "cases": [
+    {
+      "id": "f05-c01",
+      "question": "同一个西湖输入，term、match OR 与 AND 为什么不同？",
+      "steps": [
+        "01-prepare",
+        "02-keywords"
+      ],
+      "evidence": [
+        "显式 mapping",
+        "Bulk每项成功",
+        "analyze token/position",
+        "all/term-name/match-or/match-and 命中集合"
+      ]
+    },
+    {
+      "id": "f05-c02",
+      "question": "城市编码与完整名称怎样精确匹配？",
+      "steps": [
+        "03-exact"
+      ],
+      "evidence": [
+        "HZ/hz",
+        "name.raw 部分/完整值",
+        "text 字段已有单字词项的 term 正例"
+      ]
+    },
+    {
+      "id": "f05-c03",
+      "question": "都有西和湖，与西在湖前面是同一条件吗？",
+      "steps": [
+        "04-phrase"
+      ],
+      "evidence": [
+        "AND 逆序仍命中",
+        "slop=0 正序/逆序",
+        "长短语与完整值的边界"
+      ]
+    }
+  ]
+}

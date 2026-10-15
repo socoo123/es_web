@@ -1,0 +1,17 @@
+# 条件：本课 standard 单字词项，无同义词、slop=0。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 140
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+query: "1. 输入西湖\n查询词项：西(0)、湖(1)\nAND：两项都要出现\nphrase：还要相邻且同序" {class: item}
+a: "2. A：杭州西湖\n杭(0) 州(1) 西(2) 湖(3)\n西、湖的位置差仍为1\nAND 与 phrase 都命中" {class: item}
+b: "3. B：湖畔茶园\n湖(0) 畔(1) 茶(2) 园(3)\n只有湖，没有西\nOR 命中，AND / phrase 不命中" {class: item}
+reverse: "4. 把查询改成湖西\n湖(0)、西(1)，词项未少\nAND 仍命中 A C D E\nphrase 不命中任何样本" {class: item}
+query -> a: "位置比较是相对的"
+a -> b: "短语仍要求词项存在"
+b -> reverse: "换词序，检查另一种约束"

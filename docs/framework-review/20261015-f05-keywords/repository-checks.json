@@ -1,0 +1,192 @@
+{
+  "recorded_at": "2026-10-15T05:38:52.151020+00:00",
+  "status": "passed",
+  "checks": [
+    {
+      "check": "F04 correct source preserved byte-for-byte in independent F05 input",
+      "status": "passed",
+      "details": [
+        "data/attractions.json",
+        "data/attractions.ndjson",
+        "search/index.json"
+      ]
+    },
+    {
+      "check": "independent hand calculation of all 13 query sets",
+      "status": "passed",
+      "details": {
+        "scope": "hand model for current simple Han tokens corroborated by fixed source; not actual analyzer or ES output",
+        "query_sets": {
+          "all": [
+            "a-fz-xihu",
+            "a-hz-night",
+            "a-hz-old",
+            "a-hz-tea",
+            "a-hz-xihu"
+          ],
+          "term-name": [],
+          "match-or": [
+            "a-fz-xihu",
+            "a-hz-night",
+            "a-hz-old",
+            "a-hz-tea",
+            "a-hz-xihu"
+          ],
+          "match-and": [
+            "a-fz-xihu",
+            "a-hz-night",
+            "a-hz-old",
+            "a-hz-xihu"
+          ],
+          "term-city": [
+            "a-hz-night",
+            "a-hz-old",
+            "a-hz-tea",
+            "a-hz-xihu"
+          ],
+          "term-city-lower": [],
+          "term-name-raw": [],
+          "term-name-full": [
+            "a-hz-xihu"
+          ],
+          "term-name-token": [
+            "a-fz-xihu",
+            "a-hz-night",
+            "a-hz-old",
+            "a-hz-xihu"
+          ],
+          "match-and-reversed": [
+            "a-fz-xihu",
+            "a-hz-night",
+            "a-hz-old",
+            "a-hz-xihu"
+          ],
+          "phrase": [
+            "a-fz-xihu",
+            "a-hz-night",
+            "a-hz-old",
+            "a-hz-xihu"
+          ],
+          "phrase-reversed": [],
+          "phrase-full": [
+            "a-hz-xihu"
+          ]
+        }
+      }
+    },
+    {
+      "check": "new Bash/Python and chapter JavaScript syntax",
+      "status": "passed",
+      "details": [
+        "projects/travel-search/labs/f05/01-prepare.sh",
+        "projects/travel-search/labs/f05/04-phrase.sh",
+        "projects/travel-search/labs/f05/02-keywords.sh",
+        "projects/travel-search/labs/f05/03-exact.sh",
+        "projects/travel-search/labs/f05/cleanup.sh",
+        "projects/travel-search/labs/f05/env.sh",
+        "projects/travel-search/labs/f05/run.sh",
+        "projects/travel-search/review/f05/verify.py",
+        "docs/framework-review/20261015-f05-keywords/review.py",
+        "framework/diagrams/f05/generate.py",
+        "framework/assets/course.js"
+      ]
+    },
+    {
+      "check": "JSON/NDJSON protocol, IDs, source data",
+      "status": "passed",
+      "details": {
+        "parsed_json": [
+          "projects/travel-search/data/f05/attractions.json",
+          "projects/travel-search/search/f05/index.json",
+          "projects/travel-search/search/f05/phrase-reversed.json",
+          "projects/travel-search/search/f05/term-name.json",
+          "projects/travel-search/search/f05/term-city-lower.json",
+          "projects/travel-search/search/f05/phrase.json",
+          "projects/travel-search/search/f05/phrase-full.json",
+          "projects/travel-search/search/f05/match-and.json",
+          "projects/travel-search/search/f05/expected.json",
+          "projects/travel-search/search/f05/term-name-raw.json",
+          "projects/travel-search/search/f05/match-or.json",
+          "projects/travel-search/search/f05/analyze-tea.json",
+          "projects/travel-search/search/f05/term-name-token.json",
+          "projects/travel-search/search/f05/all.json",
+          "projects/travel-search/search/f05/analyze-name.json",
+          "projects/travel-search/search/f05/match-and-reversed.json",
+          "projects/travel-search/search/f05/term-name-full.json",
+          "projects/travel-search/search/f05/analyze-query.json",
+          "projects/travel-search/search/f05/term-city.json",
+          "projects/travel-search/labs/f05/cases.json",
+          "projects/travel-search/review/f05/es-review.json",
+          "projects/travel-search/review/f05/runtime-attempt.json"
+        ],
+        "ndjson_pairs": 5,
+        "trailing_newline": true
+      }
+    },
+    {
+      "check": "request inventory and complete script coverage",
+      "status": "passed",
+      "details": {
+        "01-prepare": 6,
+        "04-phrase": 4,
+        "02-keywords": 7,
+        "03-exact": 5,
+        "cleanup": 1,
+        "env": 0,
+        "run": 0
+      }
+    },
+    {
+      "check": "official D2 generation and current source/artifact hashes",
+      "status": "passed",
+      "details": {
+        "generator": "v0.9.0",
+        "checks": [
+          {
+            "command": "d2 fmt --check framework/diagrams/f05/field-query.d2",
+            "status": "passed"
+          },
+          {
+            "command": "d2 validate framework/diagrams/f05/field-query.d2",
+            "status": "passed"
+          },
+          {
+            "command": "d2 --layout=dagre --theme=4 --pad=24 --timeout=30 framework/diagrams/f05/field-query.d2 framework/diagrams/f05/field-query-light.svg",
+            "status": "passed"
+          },
+          {
+            "command": "d2 --layout=dagre --theme=201 --pad=24 --timeout=30 framework/diagrams/f05/field-query.d2 framework/diagrams/f05/field-query-dark.svg",
+            "status": "passed"
+          },
+          {
+            "command": "d2 fmt --check framework/diagrams/f05/phrase-position.d2",
+            "status": "passed"
+          },
+          {
+            "command": "d2 validate framework/diagrams/f05/phrase-position.d2",
+            "status": "passed"
+          },
+          {
+            "command": "d2 --layout=dagre --theme=4 --pad=24 --timeout=30 framework/diagrams/f05/phrase-position.d2 framework/diagrams/f05/phrase-position-light.svg",
+            "status": "passed"
+          },
+          {
+            "command": "d2 --layout=dagre --theme=201 --pad=24 --timeout=30 framework/diagrams/f05/phrase-position.d2 framework/diagrams/f05/phrase-position-dark.svg",
+            "status": "passed"
+          }
+        ],
+        "svg_parsed": [
+          "framework/diagrams/f05/field-query-dark.svg",
+          "framework/diagrams/f05/field-query-light.svg",
+          "framework/diagrams/f05/phrase-position-dark.svg",
+          "framework/diagrams/f05/phrase-position-light.svg"
+        ],
+        "all_hashes_match": true
+      }
+    }
+  ],
+  "limitations": [
+    "No real F05 ES response; source/model checks cannot substitute for runtime",
+    "Browser and visual review recorded separately"
+  ]
+}

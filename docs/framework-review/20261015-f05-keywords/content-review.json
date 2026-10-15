@@ -1,0 +1,330 @@
+{
+  "recorded_at": "2026-10-15T05:38:07.250947+00:00",
+  "scope": "F05 author content self-review; fixed-source corroboration and model checks, not actual ES API validation",
+  "status": "author_reviewed",
+  "reasoning": {
+    "requested": "xhigh",
+    "actual": "root runtime has no setting or confirmation mechanism",
+    "independent_review": "not performed; no subagent"
+  },
+  "lesson": {
+    "cases": 3,
+    "teaching_http_requests": 22,
+    "cleanup_requests": 1,
+    "static_diagrams": 2,
+    "players": 0,
+    "exercises": 6,
+    "code_blocks": 15,
+    "cjk_characters": 4331
+  },
+  "findings": [
+    {
+      "topic": "Field and query together",
+      "conclusion": "name text standard vs name.raw/city_code keyword; no search analyzer override or normalizer. _source remains original; _analyze applies field rules to input, not stored document tokens."
+    },
+    {
+      "topic": "match",
+      "conclusion": "9.4.0 MatchQueryBuilder.DEFAULT_OPERATOR=OR; doToQuery sets occur and parses BOOLEAN. No synonyms here, so OR accepts any token, AND requires all without order."
+    },
+    {
+      "topic": "term",
+      "conclusion": "TermQueryBuilder.doToQuery calls field mapper termQuery; text 西湖 absent but 西 present. Not a blanket ban on term for text or match for keyword."
+    },
+    {
+      "topic": "phrase",
+      "conclusion": "DEFAULT_PHRASE_SLOP=0 and phrase parser uses searchQuoteAnalyzer; no override here. Relative positions allow name prefix; reversed query rejects all current documents. Does not assert original string equality."
+    },
+    {
+      "topic": "Chinese tokens",
+      "conclusion": "Lucene10.4.0 StandardTokenizer HanEx yields single IDEOGRAPHIC tokens for these fixed characters. Predictions corroborated by tokenizer/analyzer sources; no actual _analyze response available."
+    },
+    {
+      "topic": "Evidence",
+      "conclusion": "Predicted13 query sets and3 token sequences only; verifier actual attempt blocked before HTTP. No scores/rank promises, source fields/currency/prices/status preserved."
+    },
+    {
+      "topic": "Boundary",
+      "conclusion": "All name searches target name only; B OR hit due 湖, not description. C/D/E prove keyword results do not enforce city/price/status. F06 bool, F07 Java, F13 analysis and F18 scoring stay pending."
+    },
+    {
+      "topic": "Repeat",
+      "conclusion": "F05 isolated index/data/mapping; prepare errors if exists, no initial auto-delete. Named cleanup only F05 index, no wildcard or volume removal. Planned two-round assertions preserve raw failures."
+    }
+  ],
+  "fixed_sources": [
+    {
+      "file": "MatchQueryBuilder.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/query/MatchQueryBuilder.java",
+      "sha256": "6f7e754729eb5db2c9a079e9765bb93df9e03a96159aea5330f503d4feba9ffd",
+      "bytes": 23945,
+      "status": "fetched"
+    },
+    {
+      "file": "MatchPhraseQueryBuilder.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/query/MatchPhraseQueryBuilder.java",
+      "sha256": "c43ae893ff786d1497703cbaff578a59b4090e93f543ce7ffedf656372d6b293",
+      "bytes": 12423,
+      "status": "fetched"
+    },
+    {
+      "file": "TermQueryBuilder.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/query/TermQueryBuilder.java",
+      "sha256": "2a988598a947d05b1074df55f0f64173682f147069dbff8e02d8a95f6a41a694",
+      "bytes": 10572,
+      "status": "fetched"
+    },
+    {
+      "file": "MatchQueryParser.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/search/MatchQueryParser.java",
+      "sha256": "bdadfcb837e62a871d1a9dec86de42f071857c071fef6480f8cfe65919538836",
+      "bytes": 34109,
+      "status": "fetched"
+    },
+    {
+      "file": "StandardAnalyzerProvider.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/analysis/StandardAnalyzerProvider.java",
+      "sha256": "3ec93acfdb009f2a0507ecf309277370f427f79cca0929640387ee9531e1a002",
+      "bytes": 1544,
+      "status": "fetched"
+    },
+    {
+      "file": "StandardAnalyzer.java",
+      "url": "https://raw.githubusercontent.com/apache/lucene/releases/lucene/10.4.0/lucene/core/src/java/org/apache/lucene/analysis/standard/StandardAnalyzer.java",
+      "sha256": "ad848b4c58a3df7318c7e187f3315aa4bcbae4132e171e475bcc1087ff76662d",
+      "bytes": 3360,
+      "status": "fetched"
+    },
+    {
+      "file": "StandardTokenizerImpl.jflex",
+      "url": "https://raw.githubusercontent.com/apache/lucene/releases/lucene/10.4.0/lucene/core/src/java/org/apache/lucene/analysis/standard/StandardTokenizerImpl.jflex",
+      "sha256": "5df6240022cd9403d6ea253f07f13d2c9cdf9855e5e5bdfd4f63f4aaa0debe28",
+      "bytes": 13347,
+      "status": "fetched"
+    },
+    {
+      "file": "TextFieldMapper.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/TextFieldMapper.java",
+      "sha256": "c78348b45246b551a6d5259b577335add1e1b4186d9f6d367c270ac7662f9537",
+      "bytes": 90318,
+      "status": "fetched"
+    },
+    {
+      "file": "KeywordFieldMapper.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/KeywordFieldMapper.java",
+      "sha256": "af8b75950ff1a9b86f3ad4eb33ec3c62a721b186c8489534eb7597e952776174",
+      "bytes": 71565,
+      "status": "fetched"
+    }
+  ],
+  "prediction": {
+    "status": "prediction_only_es_not_executed",
+    "conditions": {
+      "es": "9.4.0",
+      "index": "tut-f05-attractions",
+      "analyzer": "standard",
+      "shards": 1,
+      "replicas": 0,
+      "sort": "attraction_id asc for comparison only",
+      "currency": "CNY",
+      "price_unit": "fen"
+    },
+    "aliases": {
+      "A": "a-hz-xihu",
+      "B": "a-hz-tea",
+      "C": "a-fz-xihu",
+      "D": "a-hz-night",
+      "E": "a-hz-old"
+    },
+    "queries": {
+      "all": {
+        "letters": "ABCDE",
+        "ids": [
+          "a-fz-xihu",
+          "a-hz-night",
+          "a-hz-old",
+          "a-hz-tea",
+          "a-hz-xihu"
+        ],
+        "total": 5
+      },
+      "term-name": {
+        "letters": "",
+        "ids": [],
+        "total": 0
+      },
+      "match-or": {
+        "letters": "ABCDE",
+        "ids": [
+          "a-fz-xihu",
+          "a-hz-night",
+          "a-hz-old",
+          "a-hz-tea",
+          "a-hz-xihu"
+        ],
+        "total": 5
+      },
+      "match-and": {
+        "letters": "ACDE",
+        "ids": [
+          "a-fz-xihu",
+          "a-hz-night",
+          "a-hz-old",
+          "a-hz-xihu"
+        ],
+        "total": 4
+      },
+      "term-city": {
+        "letters": "ABDE",
+        "ids": [
+          "a-hz-night",
+          "a-hz-old",
+          "a-hz-tea",
+          "a-hz-xihu"
+        ],
+        "total": 4
+      },
+      "term-city-lower": {
+        "letters": "",
+        "ids": [],
+        "total": 0
+      },
+      "term-name-raw": {
+        "letters": "",
+        "ids": [],
+        "total": 0
+      },
+      "term-name-full": {
+        "letters": "A",
+        "ids": [
+          "a-hz-xihu"
+        ],
+        "total": 1
+      },
+      "term-name-token": {
+        "letters": "ACDE",
+        "ids": [
+          "a-fz-xihu",
+          "a-hz-night",
+          "a-hz-old",
+          "a-hz-xihu"
+        ],
+        "total": 4
+      },
+      "match-and-reversed": {
+        "letters": "ACDE",
+        "ids": [
+          "a-fz-xihu",
+          "a-hz-night",
+          "a-hz-old",
+          "a-hz-xihu"
+        ],
+        "total": 4
+      },
+      "phrase": {
+        "letters": "ACDE",
+        "ids": [
+          "a-fz-xihu",
+          "a-hz-night",
+          "a-hz-old",
+          "a-hz-xihu"
+        ],
+        "total": 4
+      },
+      "phrase-reversed": {
+        "letters": "",
+        "ids": [],
+        "total": 0
+      },
+      "phrase-full": {
+        "letters": "A",
+        "ids": [
+          "a-hz-xihu"
+        ],
+        "total": 1
+      }
+    },
+    "analyze": {
+      "query": [
+        {
+          "token": "西",
+          "position": 0,
+          "start_offset": 0,
+          "end_offset": 1
+        },
+        {
+          "token": "湖",
+          "position": 1,
+          "start_offset": 1,
+          "end_offset": 2
+        }
+      ],
+      "name": [
+        {
+          "token": "杭",
+          "position": 0,
+          "start_offset": 0,
+          "end_offset": 1
+        },
+        {
+          "token": "州",
+          "position": 1,
+          "start_offset": 1,
+          "end_offset": 2
+        },
+        {
+          "token": "西",
+          "position": 2,
+          "start_offset": 2,
+          "end_offset": 3
+        },
+        {
+          "token": "湖",
+          "position": 3,
+          "start_offset": 3,
+          "end_offset": 4
+        }
+      ],
+      "tea": [
+        {
+          "token": "湖",
+          "position": 0,
+          "start_offset": 0,
+          "end_offset": 1
+        },
+        {
+          "token": "畔",
+          "position": 1,
+          "start_offset": 1,
+          "end_offset": 2
+        },
+        {
+          "token": "茶",
+          "position": 2,
+          "start_offset": 2,
+          "end_offset": 3
+        },
+        {
+          "token": "园",
+          "position": 3,
+          "start_offset": 3,
+          "end_offset": 4
+        }
+      ]
+    },
+    "note": "固定源码与样本推导的预测；不是 ES 响应。实际验收仅见 review/f05。"
+  },
+  "execution": {
+    "status": "blocked_before_http",
+    "real_es_rounds": 0,
+    "successful_f05_api_requests": 0,
+    "evidence": "projects/travel-search/review/f05/runtime-attempt.json"
+  },
+  "source_sha256": {
+    "framework/f05.html": "286dd4bd4e986c24012bbab8decd99f3cb6756a6401c2f707a52a43502d889c0"
+  },
+  "limitations": [
+    "Actual ES API, _analyze and two-round runtime not verified",
+    "Actual xhigh not configurable/verifiable",
+    "No independent content reviewer"
+  ]
+}
