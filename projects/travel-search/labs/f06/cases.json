@@ -1,0 +1,51 @@
+{
+  "lesson": "F06",
+  "index": "tut-f06-attractions",
+  "version": "9.4.0",
+  "teaching_http_requests": 22,
+  "cleanup_requests": 1,
+  "probes_and_author_reads": "separate",
+  "execution_status": "blocked_before_http",
+  "cases": [
+    {
+      "id": "f06-c01",
+      "question": "名称相关，是否也满足城市、预算、开放和附近？",
+      "steps": [
+        "01-prepare",
+        "02-hard"
+      ],
+      "evidence": [
+        "mapping",
+        "12 Bulk items",
+        "12→11→7→5→3 ID sets",
+        "price and coordinate units"
+      ]
+    },
+    {
+      "id": "f06-c02",
+      "question": "边界价、免费、缺价与未知状态怎样区分？",
+      "steps": [
+        "03-boundaries"
+      ],
+      "evidence": [
+        "lte/lt",
+        "0 vs absent/null",
+        "must_not exists",
+        "not offline vs explicitly open"
+      ]
+    },
+    {
+      "id": "f06-c03",
+      "question": "should 是偏好还是必须，过滤是否参与评分？",
+      "steps": [
+        "04-should"
+      ],
+      "evidence": [
+        "optional/required phrase",
+        "default minimum_should_match 1→0",
+        "explicit minimum 1",
+        "filter-only score zero"
+      ]
+    }
+  ]
+}

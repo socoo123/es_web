@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>F06 · 怎样只找杭州、预算内、附近且可游玩的景点？</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"></head>
+<body class="framework-page chapter-visual-page">
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="f06" data-ch="f06">
+<header class="ch-header"><div class="ch-kicker">FRAMEWORK 06 · bool 与组合筛选</div><h1>怎样只找杭州、预算内、<br>附近且可游玩的景点？</h1><div class="meta-line">约 45 分钟 · 前置：F04 / F05 / JSON · 3 个执行案例 · 22 条教学 HTTP 请求（清理另计） · 2 幅静态 D2 · 0 个机制播放器</div><p class="ch-intro">名称里有“西湖”，仍可能在福州、超预算或已经下架。游客现在加上杭州、200元内、附近3公里、明确开放四个要求。ES 怎样把“名字相关”和“条件必须满足”放进同一次搜索？本课先逐层排除不合格资料，再看一个常见错误：把必选条件写成 should，页面有结果，要求却没生效。</p><div class="diagram-jumps"><a href="#scene">需求与固定样本</a><a href="#fig-hard-constraints"><span>01</span>硬条件取交集</a><a href="#fig-should-defaults"><span>02</span>should 的门槛</a><a href="#repeat">清理与重做</a></div></header>
+<section class="goal"><h2 id="goals">本课目标</h2><ol><li>写出名称、城市、币种、预算、状态和半径的完整 bool 查询，用命中 ID 与排除原因判断每条条件是否生效。</li><li>区分20000分边界、免费0、缺价/null、缺状态和缺坐标，解释 range、exists 与 must_not 的适用范围。</li><li>通过 should 对照解释同一层 bool 的默认 minimum_should_match，区分评分偏好和准入要求，并点名清理重做。</li></ol><p>本课把 F05 的名称搜索变成可用的条件组合，仍通过 REST 观察。本机展示壳与 Java 从 F07 开始；游客选择条件后卡片如何变化，现在是目标描述，尚未交付界面。Pages 只承载教程。</p><div class="callout warn"><strong>执行状态：F06 真实 ES 两轮验收尚未完成。</strong><p>本轮原 Compose 已重试，ES9.4.0 仍因云容器缺少 <code>/proc/self/coredump_filter</code>，在 HTTP 启动前退出。下文的集合、计数与分数性质是<strong>固定样本和固定版本语义的预测</strong>，不是实际响应。图解、源码校对和 HTTP 阅读分别记录，不能替代真实 API。<a href="../projects/travel-search/review/f06/README.md">启动证据与两轮验收入口</a>。</p></div><details class="chapter-outline"><summary>展开本课目录</summary><nav><a href="#scene">1. 先约定哪些条件不能放宽</a><a href="#prepare">2. 独立准备资料</a><a href="#bool">3. bool 怎样组织条件</a><a href="#hard">4. 一次搜索组合全部要求</a><a href="#response">5. 逐层核对集合</a><a href="#boundaries">6. 价格边界与缺值</a><a href="#negative">7. 未下架不等于开放</a><a href="#should">8. should 是偏好还是门槛</a><a href="#context">9. 查询与过滤的职责</a><a href="#repeat">10. 重做与能力检查</a><a href="#drills">练习</a><a href="#pitfalls">陷阱</a><a href="#recap">速记与下一课</a></nav></details></section>
+<section class="lesson"><h2 id="scene">1. 先约定哪些条件不能放宽</h2><p>游客输入“西湖”，名称仍沿用 F05 的 <code>match OR</code>：当前 standard 产生西、湖两个词项，含任一个即可。因此 B“湖畔茶园”仍可成为候选；它不是靠描述命中。城市、预算、开放和半径则是<strong>硬条件</strong>：再相关的名称也不能抵消超预算或下架。若产品要求名称两个词都出现，另将 match 改成 AND；本课保留 OR，专心验证组合条件。</p><p>金额统一用 CNY 整数分，200元写20000分，免费为0。“可游玩”在本课只表示 ES 当前快照里明确 <code>status=open</code>，不代表已核实实时营业、可售库存或能成功预约。坐标统一按 WGS84 经纬度解释，都是合成教学点；附近指以纬度30.25、经度120.15为圆心的3km球面距离，不是步行/驾车距离，也不替代城市编码。</p><table class="ktable"><thead><tr><th>样本 / 固定 ID</th><th>名称 / 城市</th><th>分 / 状态</th><th>位置条件</th></tr></thead><tbody><tr><td>A · a-hz-xihu</td><td>杭州西湖 / HZ</td><td>0 / open</td><td>圆心</td></tr><tr><td>B · a-hz-tea</td><td>湖畔茶园 / HZ</td><td>8000 / open</td><td>约1.47km</td></tr><tr><td>C · a-fz-xihu</td><td>福州西湖 / FZ</td><td>0 / open</td><td>半径外</td></tr><tr><td>D · a-hz-night</td><td>西湖夜游 / HZ</td><td>26000 / open</td><td>半径内</td></tr><tr><td>E · a-hz-old</td><td>西湖旧展馆 / HZ</td><td>6000 / offline</td><td>半径内</td></tr><tr><td>F · a-hz-boundary</td><td>西湖预算线 / HZ</td><td>20000 / open</td><td>半径内</td></tr><tr><td>G · a-hz-over</td><td>西湖超一分 / HZ</td><td>20001 / open</td><td>半径内</td></tr><tr><td>H · a-hz-missing-price</td><td>西湖待报价 / HZ</td><td>字段缺失 / open</td><td>半径内</td></tr><tr><td>I · a-hz-null-price</td><td>西湖空报价 / HZ</td><td>null / open</td><td>半径内</td></tr><tr><td>J · a-hz-far</td><td>西湖远处展馆 / HZ</td><td>1000 / open</td><td>约38.92km</td></tr><tr><td>K · a-hz-unknown-status</td><td>西湖待核状态 / HZ</td><td>0 / 字段缺失</td><td>半径内</td></tr><tr><td>L · a-hz-missing-location</td><td>西湖待定位 / HZ</td><td>1000 / open</td><td>location缺失</td></tr></tbody></table><p>A–E 的完整源文档逐字继承 F05；F–L 各暴露一种边界，不更改原资料来凑结果。全部币种为CNY，其他新增字段口径见<a href="../projects/travel-search/data/f06/attractions.json">固定JSON</a>。距离小数是球面公式的人工近似，供判断远近，未声称为 ES 返回值；没有把样本放在3km临界线上验证厘米精度。</p>
+<h2 id="prepare">2. f06-c01：在独立索引准备十二份资料</h2><p>使用 <code>tut-f06-attractions</code>、ES9.4.0、专用127.0.0.1:19200、1主0副本、无认证、持久卷；不复用源码篇9200/9201。<a href="../projects/travel-search/search/f06/index.json">完整 mapping</a>与 F05 一致：name=text/standard，城市、币种、状态=keyword，ticket_price_fen=integer且coerce=false，location=geo_point，dynamic=strict。没有价格 null_value；strict限制未知字段，不强制所有字段必填，也不校验金额非负或状态枚举。因此 H/I/K/L 能作为合法文档导入，业务语义仍由我们处理。</p><pre class="code-block" data-label="Bash · 从仓库根目录进入实验工程"><code class="language-bash">cd projects/travel-search
+docker compose -f infra/single-node/compose.yaml up -d
+bash infra/single-node/wait.sh
+export ES_URL=http://127.0.0.1:19200
+bash labs/f06/01-prepare.sh</code></pre><details><summary>展开准备阶段六条完整请求</summary><pre class="code-block" data-label="Bash · 01-prepare.sh：建索引、读mapping、Bulk与refresh" data-source="projects/travel-search/labs/f06/01-prepare.sh" data-lines="5-12"><code class="language-bash">curl --fail-with-body -sS "$ES_URL/?pretty"
+curl --fail-with-body -sS -X PUT "$ES_URL/tut-f06-attractions?pretty" \
+  -H 'Content-Type: application/json' --data-binary @search/f06/index.json
+curl --fail-with-body -sS "$ES_URL/_cluster/health/tut-f06-attractions?wait_for_status=green&amp;timeout=30s&amp;pretty"
+curl --fail-with-body -sS "$ES_URL/tut-f06-attractions/_mapping?pretty"
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f06-attractions/_bulk?pretty" \
+  -H 'Content-Type: application/x-ndjson' --data-binary @data/f06/attractions.ndjson
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f06-attractions/_refresh?pretty"</code></pre><p>先核对9.4.0 / travel-search-lab；创建已确认、限定索引健康green且timed_out=false。mapping与文件一致，Bulk须errors=false且12项均created，refresh须failed=0。已有同名索引时先停下来确认资料，再按末尾点名清理；不要跳过创建错误，把旧资料混入本课。F06可以独立准备，不依赖F04/F05已经执行成功。</p></details>
+<h2 id="bool">3. bool 把条件放进不同的职责</h2><p><strong>bool</strong> 是组合查询：它把多个子查询组织成“必须满足”“可以加分”和“必须排除”的逻辑。先看成员资格，再看评分，才不会误以为名字够相关就能突破预算。下面四种位置不是四种字段类型；term、match、range等子查询放在哪里，会决定其在这个组合中的职责。</p><table class="ktable"><thead><tr><th>位置</th><th>是否影响入选</th><th>是否贡献评分</th><th>本课用途</th></tr></thead><tbody><tr><td>must</td><td>每个子查询都必须满足</td><td>在评分上下文中参与</td><td>名称match</td></tr><tr><td>filter</td><td>每个子查询都必须满足</td><td>不贡献</td><td>城市/币种/价格/开放/附近</td></tr><tr><td>should</td><td>看 minimum_should_match</td><td>在评分上下文中可贡献</td><td>短语偏好或至少一项</td></tr><tr><td>must_not</td><td>满足任何排除项就淘汰</td><td>不贡献</td><td>排除offline；查缺价</td></tr></tbody></table><p>must与filter里的多个条件都取交集；must_not数组表示不能命中其中任何一项，不能误读成“只有全部排除项同时命中才淘汰”。should的“可选”有条件，第8节用实际请求对照。同一份DSL中外层位置也会影响评分：若整个bool被放进filter，其内部也不为外层贡献相关性分。</p>
+<h2 id="hard">4. 完整主查询：相关名称与硬要求同时成立</h2><p>运行 <code>bash labs/f06/02-hard.sh</code>。它按all→keyword→city→budget→open→near逐步加条件；这些是六次独立请求，便于解释变化。最终这份 <code>near.json</code> 已包含全部要求，不需要把上一条响应传给下一条。</p><pre class="code-block" data-label="JSON · near.json：完整主查询，预测A/B/F" data-source="projects/travel-search/search/f06/near.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": [
+    "attraction_id",
+    "name",
+    "city_code",
+    "ticket_price_fen",
+    "currency",
+    "status",
+    "location"
+  ],
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name": {
+              "query": "西湖",
+              "operator": "or"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "HZ"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "geo_distance": {
+            "distance": "3km",
+            "distance_type": "arc",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre><pre class="code-block" data-label="Bash · 单独执行完整主查询" data-source="projects/travel-search/labs/f06/02-hard.sh" data-lines="15-16"><code class="language-bash">curl --fail-with-body -sS -X POST "$ES_URL/tut-f06-attractions/_search?pretty" \
+  -H 'Content-Type: application/json' --data-binary @search/f06/near.json</code></pre><p>城市/币种用keyword精确条件；range的gte为大于等于、lte为小于等于，所以免费0和边界20000分都合格。下限0还明确拒绝负价格脏值，但不能代替写入时的业务校验。状态要求明确open。geo_distance选择location字段，以对象写lat/lon减少顺序混淆；若写数组，ES约定是经度在前、纬度在后。distance显式带km，distance_type显式arc，避免把数字误当成坐标角度或路程。</p><p>geo_distance只筛选“是否在半径内”，没有要求按距离从近到远排序；城市条件也不会从坐标自动推断。缺location的L没有可匹配的地理点，不能满足本查询。当前mapping已存在，缺字段值与字段完全未映射是两件事；不需要用ignore_unmapped来掩盖拼错字段。距离排序和缺值排序留到F10。</p><figure class="fig d2-figure" id="fig-hard-constraints"><div class="d2-shell"><div class="d2-tools"><strong>01 · 每个硬要求都可以排除一类候选</strong><a data-expand-d2 href="diagrams/f06/hard-constraints-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f06/hard-constraints-light.svg" data-d2-light="diagrams/f06/hard-constraints-light.svg" data-d2-dark="diagrams/f06/hard-constraints-dark.svg" alt="固定样本从名称候选12份，杭州币种11份，预算7份，明确开放5份，到3公里内A B F三份"></div></div><figcaption>箭头表示人工逐层取交集的解释顺序，不是ES按此顺序执行子查询。名称仍为OR，集合为预测；省略分片与评分。<a href="diagrams/f06/README.md">图源与生成记录</a>。</figcaption></figure>
+<h2 id="response">5. 看完整 ID 集合，解释每次少了谁</h2><table class="ktable"><thead><tr><th>请求文件</th><th>预测集合 / total</th><th>新增排除原因</th></tr></thead><tbody><tr><td>all / keyword</td><td>A–L / 12</td><td>本批都有西或湖；all用于确认导入</td></tr><tr><td>city</td><td>A B D E F G H I J K L / 11</td><td>C城市为FZ</td></tr><tr><td>budget</td><td>A B E F J K L / 7</td><td>D/G超预算；H/I无索引价格</td></tr><tr><td>open</td><td>A B F J L / 5</td><td>E下架；K没有明确open</td></tr><tr><td>near</td><td>A B F / 3</td><td>J半径外；L无坐标</td></tr></tbody></table><p>这是解释原因的分组，不表示C只违反城市条件；它也在半径外。验收需要同时看 <code>timed_out=false</code>、<code>_shards.failed=0</code>、<code>hits.total.relation=eq</code> 与全部hits的_id/_source。near应返回三个固定ID，B价格8000、F价格20000、A价格0；不能只看到total=3就认定合格。若结果为空，从版本、mapping、12条Bulk与每层集合逐项定位，不要直接去掉所有过滤碰运气。</p><p>所有查询都用size=20覆盖12份样本，track_total_hits=true得到明确总数，按attraction_id升序让核对稳定。这是作者/读者比较集合的次序，不是推荐顺序；字母A–L只是正文简称，与ID字典序不同。track_scores=true保留分数供后面对照，但不承诺具体BM25或排名。完整请求与预测集合见<a href="../projects/travel-search/labs/f06/README.md">文件表</a>。</p>
+<h2 id="boundaries">6. f06-c02：边界价、免费和不知道价格</h2><p>运行 <code>bash labs/f06/03-boundaries.sh</code>。第一条strict-upper把主查询的价格上限从 <code>lte:20000</code> 改成 <code>lt:20000</code>，预测只剩A/B，F恰好20000分被排除；G是20001分，两种上限都排除。第二条free把range替换为 <code>term(ticket_price_fen,0)</code>，其他硬条件不变，预测只剩A。查询空值不是查免费，0不是“没有价格”。<a href="../projects/travel-search/search/f06/strict-upper.json">严格上限完整DSL</a>、<a href="../projects/travel-search/search/f06/free.json">免费完整DSL</a>。</p><p><strong>exists</strong> 判断字段是否有可供查询的索引值，不是检查_source里有没有同名JSON键。当前integer没有null_value，H省略价格、I显式null，都没有索引价格，因此range都不命中；A的0有索引值，会命中exists。下面用must_not exists找出HZ/CNY里没有索引价格的资料，预测H/I。它没有把缺价当免费，也没有限定它们一定在附近。</p><pre class="code-block" data-label="JSON · missing-price.json：缺失和null，预测H/I" data-source="projects/travel-search/search/f06/missing-price.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": [
+    "attraction_id",
+    "name",
+    "city_code",
+    "ticket_price_fen",
+    "currency",
+    "status",
+    "location"
+  ],
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "city_code": "HZ"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "exists": {
+            "field": "ticket_price_fen"
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre><p>主查询已有数值range，无需再加exists才能排除H/I。单独的诊断请求帮助我们找待补数据；如果产品允许“预算内或待询价”，那是更宽的业务规则，应另写明确的OR组合并展示待询价，不能偷偷把null转成0。本课选择已知且合规的价格。上述结论只针对本课mapping：设置null_value后，显式null可能有替代索引值，不能推广成所有null永远不存在。</p>
+<h2 id="negative">7. 不在offline集合里，不等于明确open</h2><p>把主查询的 <code>filter term(status,open)</code> 移除，改用 <code>must_not term(status,offline)</code>，预测A/B/F/K。K没有status，当然不匹配offline，因此通过排除条件；它也不匹配open，所以主查询拒绝它。若将来有unknown、maintenance等其他值，同样不能因“不是offline”就当成开放。</p><details><summary>展开 not-offline.json 完整对照：其余条件仍保留</summary><pre class="code-block" data-label="JSON · not-offline.json：预测多出K，不能代替明确open" data-source="projects/travel-search/search/f06/not-offline.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": [
+    "attraction_id",
+    "name",
+    "city_code",
+    "ticket_price_fen",
+    "currency",
+    "status",
+    "location"
+  ],
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name": {
+              "query": "西湖",
+              "operator": "or"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "HZ"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "geo_distance": {
+            "distance": "3km",
+            "distance_type": "arc",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            }
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "term": {
+            "status": "offline"
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre></details><p>must_not适合表达真实的排除规则，例如“这些ID禁止展示”；这里用它暴露负条件与正向白名单的区别。若业务要求可游玩，就保留明确open。即使查询拒绝了K，也应在数据质量流程修复缺状态；搜索条件没有修复_source。</p>
+<h2 id="should">8. f06-c03：should 到底是偏好还是必须？</h2><p>运行 <code>bash labs/f06/04-should.sh</code>。先给完整主查询加一个should：名称还满足短语“西湖”时表达相关性偏好。A/F包含该短语，B只有湖；这个bool已经有must和filter，未写minimum_should_match时默认0，预测三份仍都入选。B不满足短语却能返回，是设计好的可选偏好，不是条件失效。</p><pre class="code-block" data-label="JSON · should-optional.json：不满足短语的B仍可入选" data-source="projects/travel-search/search/f06/should-optional.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": [
+    "attraction_id",
+    "name",
+    "city_code",
+    "ticket_price_fen",
+    "currency",
+    "status",
+    "location"
+  ],
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name": {
+              "query": "西湖",
+              "operator": "or"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "HZ"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "geo_distance": {
+            "distance": "3km",
+            "distance_type": "arc",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            }
+          }
+        }
+      ],
+      "should": [
+        {
+          "match_phrase": {
+            "name": {
+              "query": "西湖",
+              "slop": 0
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre><p><strong>minimum_should_match</strong> 规定<strong>这一层bool的should子查询</strong>至少命中几个。把它显式设为1，唯一should就成为准入要求，预测A/F，B被排除。它没有把match的OR改成AND，也不是要求输入中的汉字命中一个；子查询内部的词项组合仍按自己的规则工作。</p><details><summary>展开 should-required.json 完整请求：显式要求至少一个should</summary><pre class="code-block" data-label="JSON · should-required.json：minimum_should_match=1，预测A/F" data-source="projects/travel-search/search/f06/should-required.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": [
+    "attraction_id",
+    "name",
+    "city_code",
+    "ticket_price_fen",
+    "currency",
+    "status",
+    "location"
+  ],
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name": {
+              "query": "西湖",
+              "operator": "or"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "HZ"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "geo_distance": {
+            "distance": "3km",
+            "distance_type": "arc",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            }
+          }
+        }
+      ],
+      "should": [
+        {
+          "match_phrase": {
+            "name": {
+              "query": "西湖",
+              "slop": 0
+            }
+          }
+        }
+      ],
+      "minimum_should_match": 1
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre></details><p>更容易漏掉的变化发生在“勾选A或B”这个独立对照。下面只有两个should，没有must或filter，未写最低命中数时默认1，预测只返回A/B。</p><pre class="code-block" data-label="JSON · should-only.json：只有should，默认至少命中一个" data-source="projects/travel-search/search/f06/should-only.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": [
+    "attraction_id",
+    "name",
+    "city_code",
+    "ticket_price_fen",
+    "currency",
+    "status",
+    "location"
+  ],
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "term": {
+            "attraction_id": "a-hz-xihu"
+          }
+        },
+        {
+          "term": {
+            "attraction_id": "a-hz-tea"
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre><p>现在只增加城市filter，想表达“杭州里的A或B”，却仍未写minimum_should_match。因为同一层bool有了filter，默认变为0，should成了可选，预测返回全部11份HZ资料，连超预算、缺价和下架资料也在内：这条独立对照本来就没有那些硬要求。</p><pre class="code-block" data-label="JSON · should-filter-default.json：加城市后默认门槛变0" data-source="projects/travel-search/search/f06/should-filter-default.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": [
+    "attraction_id",
+    "name",
+    "city_code",
+    "ticket_price_fen",
+    "currency",
+    "status",
+    "location"
+  ],
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "city_code": "HZ"
+          }
+        }
+      ],
+      "should": [
+        {
+          "term": {
+            "attraction_id": "a-hz-xihu"
+          }
+        },
+        {
+          "term": {
+            "attraction_id": "a-hz-tea"
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre><p>修复是保留城市filter并显式写 <code>minimum_should_match:1</code>，<a href="../projects/travel-search/search/f06/should-filter-required.json">完整请求</a>预测恢复A/B。判断规则是：有should且同层没有must/filter，默认1；否则默认0。增加must也会产生同样的默认变化。嵌套bool各层分别判断；如果业务要求“至少选一项”，就显式表达，不让今后增加硬条件悄悄放宽集合。</p><figure class="fig d2-figure" id="fig-should-defaults"><div class="d2-shell"><div class="d2-tools"><strong>02 · 加了一条必选条件，另一组要求可能变可选</strong><a data-expand-d2 href="diagrams/f06/should-defaults-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f06/should-defaults-light.svg" data-d2-light="diagrams/f06/should-defaults-light.svg" data-d2-dark="diagrams/f06/should-defaults-dark.svg" alt="独立请求只有should选A或B时默认1；加城市filter后默认0返回11份；显式设1恢复A B；主查询的短语偏好默认不排除B"></div></div><figcaption>前三框比较独立的勾选请求，末框回到带全部硬条件的主查询；不是将四框串成一个请求。数字与集合为预测，省略具体分数。箭头表示修改请求后的对照。<a href="diagrams/f06/README.md">图源与生成记录</a>。</figcaption></figure>
+<h2 id="context">9. 查询相关性与过滤，职责不同</h2><p>城市放must也能要求相等，但这会让一个只关心是否合格的条件进入评分上下文。放filter明确表示“必须满足，且不给名称相关性加分”。反过来，match也能放filter；查询仍分析输入并判断词项，过滤上下文不会让match突然变成term。不能按“term只准放filter、match只准放must”机械分类。</p><p>最后的filter-only请求把主查询中的名称match也移入filter，其他硬条件保留，预测集合仍为A/B/F；这个bool没有任何评分子句，预测每条_score=0。near中的match在评分上下文中，当前命中文档预计为正分；分数大不大与能否突破预算没有关系。</p><details><summary>展开 filter-only.json：同样筛选，所有条件都不贡献分数</summary><pre class="code-block" data-label="JSON · filter-only.json：集合不变，预测_score均为0" data-source="projects/travel-search/search/f06/filter-only.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": [
+    "attraction_id",
+    "name",
+    "city_code",
+    "ticket_price_fen",
+    "currency",
+    "status",
+    "location"
+  ],
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "match": {
+            "name": {
+              "query": "西湖",
+              "operator": "or"
+            }
+          }
+        },
+        {
+          "term": {
+            "city_code": "HZ"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "geo_distance": {
+            "distance": "3km",
+            "distance_type": "arc",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre></details><p>should短语可以增加相关性贡献，但本课按ID排序，不能从返回次序判断偏好是否让A排到B前面；F10再切排序，F18再解释BM25。filter条件可能具备缓存资格，但并非每次都缓存，也不保证固定提速。图中逐层排除便于理解集合，ES可优化实际执行，不能据数组顺序推断先后或性能。</p>
+<h2 id="repeat">10. 清理、重做与能力检查</h2><p>首次从工程目录按下面顺序运行；也可用 <code>bash labs/f06/run.sh</code> 启动专用节点、等待并执行同样步骤。它不会先自动删索引。所有查询文件、ID表与16组预测见<a href="../projects/travel-search/labs/f06/README.md">实验说明</a>，完整查询可逐条复制对应curl。</p><pre class="code-block" data-label="Bash · 首次或点名清理后的完整教学顺序"><code class="language-bash">bash labs/f06/01-prepare.sh
+bash labs/f06/02-hard.sh
+bash labs/f06/03-boundaries.sh
+bash labs/f06/04-should.sh</code></pre><details><summary>确认本课资料可删后，怎样恢复并重做？</summary><p>仅删除tut-f06-attractions，不使用通配符，不触碰F03/F04/F05索引或其他业务资料，也不删除持久卷。</p><pre class="code-block" data-label="Bash · cleanup.sh：只删除本课索引" data-source="projects/travel-search/labs/f06/cleanup.sh" data-lines="5-6"><code class="language-bash"># 只删除 F06 景点索引；不会触碰 F03/F04/F05 或读者业务索引。
+curl --fail-with-body -sS -X DELETE "$ES_URL/tut-f06-attractions?ignore_unavailable=true&amp;pretty"</code></pre><p>执行 <code>bash labs/f06/cleanup.sh</code> 后，再按01→02→03→04重跑并核对相同集合。结束整个专用实验时，可手工 <code>docker compose -f infra/single-node/compose.yaml stop</code>，同一课程节点会停止，卷保留。读取失败现场前先保存响应；不要用清理隐藏错误。</p></details><p><strong>能力检查：</strong>独立重写“杭州、CNY、已知价0到20000分、明确open、3km内、名称相关”，逐项解释C/D/E/G/H/I/J/K/L为何落选。再去掉免费项，预测并核对剩B/F；最后将短语偏好改为必选，说明B为何消失。需要对照ID、字段与total，不只看HTTP200。<a href="../projects/travel-search/review/f06/verify.py">作者两轮脚本</a>使用同一批原样请求核对结果；读者不必学习验收工具。</p></section>
+<section class="drills"><h2 id="drills">练习：先判断集合，再展开原因</h2><details><summary>1. 200元内该用lte还是lt？20001分会怎样？</summary><p>若含200元，用lte:20000，F合格；lt:20000会排除F。G为20001分，两种都排除。数字单位是分，不能写200来表示200元。</p></details><details><summary>2. 在主查询里把价格下限gte:0改成gt:0，预测留下谁？</summary><p>B/F。A免费0不再满足；仍须保留上限、币种、开放、城市、半径与名称要求，不能只查gt:0就算完成组合。</p></details><details><summary>3. I的_source有价格键且值为null，为什么也出现在missing-price？</summary><p>exists看索引值。当前integer未配置null_value，null不建立价格索引值，和省略价格的H一起命中must_not exists。A的0是有效值，有索引值，不属于缺价。</p></details><details><summary>4. 原来只有should选A/B，增加城市filter后结果反而变多，如何修？</summary><p>同层没有must/filter时should默认最低命中1；加filter后默认0。保留城市条件，显式minimum_should_match:1。每层bool分别判断，不能靠条件数组的顺序修复。</p></details><details><summary>5. 只排除offline，能否把K作为可游玩景点？</summary><p>不能。K缺状态，不命中offline，所以排除条件放它通过；但它也不满足明确open。当前业务应采用filter term(status,open)，并另修缺状态资料。</p></details><details><summary>6. 新增一份HZ/open/1000分但没有坐标的资料，名称含西湖，是否在附近？</summary><p>不能证明在附近；geo_distance无地理点可匹配，主查询排除。HZ只表示城市编码，不提供点位。若产品允许无坐标，应另定义展示规则；不能把它当成距圆心0米。</p></details></section>
+<section class="pitfalls"><h2 id="pitfalls">本课陷阱</h2><div class="callout warn"><strong>把硬要求写成可选should。</strong>同层已有must/filter时，默认最低命中数为0；需要至少一项就显式写1。</div><div class="callout warn"><strong>把缺价当免费、把未下架当开放。</strong>0有价格语义，null/缺字段没有；排除offline不能代替确认open。</div><div class="callout warn"><strong>用城市代替距离，或用距离代替城市。</strong>行政编码与地理半径独立；经纬顺序和km单位也会改变条件。</div><div class="callout warn"><strong>把图解顺序和filter位置当性能承诺。</strong>过滤不贡献分数，实际执行可优化，缓存与耗时需另测。</div></section>
+<section class="recap"><h2 id="recap">速记与下一课</h2><table class="ktable"><thead><tr><th>需求</th><th>本课表达与判断</th></tr></thead><tbody><tr><td>名字相关且硬条件合格</td><td>must match + filter列表，完整集合A/B/F</td></tr><tr><td>0到200元且已知价</td><td>CNY + range gte0/lte20000；免费0合格，H/I不合格</td></tr><tr><td>明确开放且在附近</td><td>term open + geo_distance 3km/lat/lon/arc</td></tr><tr><td>至少一项，或只是偏好</td><td>minimum_should_match显式要求；默认取决于同层must/filter</td></tr><tr><td>排除规则</td><td>must_not拒绝匹配项；不把未匹配某状态当成已确认另一状态</td></tr><tr><td>证据</td><td>完整ID/total/投影/零超时与失败；清理后重做；预测不算实测</td></tr></tbody></table><p>先说清准入要求与未知值政策，再决定哪些条件需要评分。</p><p>现在能把游客的一组要求写成完整DSL。下一个问题是网站输入如何到达ES、连接失败如何返回：F07将建立Boot4/JDK25官方客户端与最小搜索接口，接入课程配套的本机展示壳，把同一条件与结果连起来。</p><details><summary>版本依据与适用条件</summary><p>ES9.4.0 / Lucene10.4.0，普通text/keyword/integer/geo_point，未设置价格null_value。固定tag源码已核对，API未实测；链接、方法与哈希见<a href="../docs/framework-review/20261015-f06-bool/content-review.json">内容自审</a>。</p><ul><li><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/query/BoolQueryBuilder.java#L305" target="_blank" rel="noopener">BoolQueryBuilder.doToQuery</a>：四种occur与最低命中数；<a href="https://github.com/apache/lucene/blob/releases/lucene/10.4.0/lucene/core/src/java/org/apache/lucene/search/BooleanQuery.java#L52" target="_blank" rel="noopener">Lucene BooleanQuery</a>：没有必选子句时的should要求与过滤上下文。</li><li><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/query/RangeQueryBuilder.java" target="_blank" rel="noopener">RangeQueryBuilder.fromXContent / doToQuery</a>：边界包含性；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/query/GeoDistanceQueryBuilder.java" target="_blank" rel="noopener">GeoDistanceQueryBuilder.fromXContent / doToQuery</a>：单位、圆心与地理字段。</li><li><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/query/ExistsQueryBuilder.java#L132" target="_blank" rel="noopener">ExistsQueryBuilder.newFilter</a>与<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/NumberFieldMapper.java" target="_blank" rel="noopener">NumberFieldMapper.parseCreateField</a>：查询索引值及null处理。</li></ul></details></section>
+<footer class="ch-footer"><button class="read-toggle" type="button">标记本课已读</button><div class="pager"><a class="btn" href="f05.html">← F05 · 关键词、精确值与短语</a><a class="btn" href="index.html">框架篇目录</a><span>下一课：F07 · Java 接口与本机展示壳（待编写）</span></div><p><a href="../projects/travel-search/labs/f06/README.md">本机实验与完整文件</a> · <a href="../projects/travel-search/review/f06/README.md">执行验收状态</a></p></footer>
+</article></main><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>

@@ -1,0 +1,19 @@
+# 集合推导顺序，不是 ES 内部执行顺序；固定样本的预测。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 120
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+keyword: "1. 名称 match OR\n西 或 湖\nA–L：12份候选" {class: item}
+city: "2. 杭州 / CNY\n排除 C 福州\n11份" {class: item}
+budget: "3. 0 ≤ 价格 ≤ 20000分\n排除 D、G、H、I\n剩 A B E F J K L" {class: item}
+status: "4. 明确 status=open\n排除 E 下架、K 未知\n剩 A B F J L" {class: item}
+radius: "5. 球面距离 3km 内\n排除 J 远处、L 无坐标\n剩 A B F" {class: item}
+keyword -> city: "硬条件取交集"
+city -> budget: "免费是0，缺价不是0"
+budget -> status: "未知不等于开放"
+status -> radius: "附近仍需坐标"

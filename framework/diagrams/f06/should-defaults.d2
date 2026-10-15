@@ -1,0 +1,17 @@
+# 三个独立请求的对照，不是一个请求内部的时间线。
+direction: down
+classes: {
+  item: {
+    width: 360
+    height: 140
+    style.border-radius: 10
+    style.font-size: 22
+  }
+}
+only: "1. 只有 should：选 A 或 B\n没有 must / filter\n未写最低命中数：默认1\n预测只返回 A B" {class: item}
+filter: "2. 加 filter：城市为 HZ\n仍选 A 或 B\n未写最低命中数：默认0\n预测返回全部11份 HZ" {class: item}
+explicit: "3. 显式规定最低命中数为1\nminimum_should_match=1\n两个 should 至少满足一个\n预测恢复 A B" {class: item}
+preference: "4. 回到完整主查询\nmust + filter 留 A B F\nshould 短语：A F 满足\nB 未满足，默认仍入选" {class: item}
+only -> filter: "增加必选条件会改变默认要求"
+filter -> explicit: "业务要求必须命中，就写明"
+explicit -> preference: "偏好和准入分别表达"

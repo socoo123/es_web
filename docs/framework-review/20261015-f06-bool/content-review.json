@@ -1,0 +1,173 @@
+{
+  "recorded_at": "2026-10-15T06:00:46.152169+00:00",
+  "lesson": "F06",
+  "status": "author_review_complete_api_unverified",
+  "reasoning": {
+    "requested": "xhigh",
+    "actual": "root session exposes no setting or verification; cannot confirm",
+    "reviewer": "author self-review",
+    "independent_agent": false
+  },
+  "scope": {
+    "cases": 3,
+    "teaching_http_requests": 22,
+    "cleanup_requests": 1,
+    "queries": 16,
+    "documents": 12,
+    "static_d2": 2,
+    "exercises": 6,
+    "mechanism_players": 0,
+    "cjk_characters_including_code": 4430,
+    "cjk_characters_excluding_pre": 4398
+  },
+  "fixed_sources": [
+    {
+      "file": "BoolQueryBuilder.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/query/BoolQueryBuilder.java",
+      "sha256": "c43f4159109b0f48d27c630346a39b382a624218a6f9b72b6abd4a6e4119a14b"
+    },
+    {
+      "file": "Queries.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/common/lucene/search/Queries.java",
+      "sha256": "4310afd3771be77db8ce43a0f6bdabac15d06d02170f5bb52d85059ad4334ee2"
+    },
+    {
+      "file": "RangeQueryBuilder.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/query/RangeQueryBuilder.java",
+      "sha256": "6ef69f045c6f9f8c08676d8d2c5e493edd8c74f48331902a160ec964a9eebba4"
+    },
+    {
+      "file": "GeoDistanceQueryBuilder.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/query/GeoDistanceQueryBuilder.java",
+      "sha256": "82ad3840f6f3732b9e075bad035bb99e421506bff9814ed6a7860c4fcd9bdbf5"
+    },
+    {
+      "file": "ExistsQueryBuilder.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/query/ExistsQueryBuilder.java",
+      "sha256": "08b722ed5c18bd59363d672d4965b28382683d239905f5b464464781b89a4f53"
+    },
+    {
+      "file": "NumberFieldMapper.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/NumberFieldMapper.java",
+      "sha256": "8403676f8657872fb78617393b26496fa29bc7460d4a6fc62b693286ddd3d9c4"
+    },
+    {
+      "file": "BooleanQuery.java",
+      "url": "https://raw.githubusercontent.com/apache/lucene/releases/lucene/10.4.0/lucene/core/src/java/org/apache/lucene/search/BooleanQuery.java",
+      "sha256": "00d7732056fb68161e833732e96c9d7010667f8b40f23fd945915225cbbe6315"
+    },
+    {
+      "file": "BooleanWeight.java",
+      "url": "https://raw.githubusercontent.com/apache/lucene/releases/lucene/10.4.0/lucene/core/src/java/org/apache/lucene/search/BooleanWeight.java",
+      "sha256": "5da408a1a3fe06115f92dfea011ed9d2130f61a54344ffe4129554da01782484"
+    },
+    {
+      "file": "GeoUtils.java",
+      "url": "https://raw.githubusercontent.com/elastic/elasticsearch/v9.4.0/server/src/main/java/org/elasticsearch/common/geo/GeoUtils.java",
+      "sha256": "2268991e99a8bb18ffb9e62d730cf14f3a454ee04e60e40bcf072cc116c6213d"
+    }
+  ],
+  "source_findings": [
+    {
+      "file": "BoolQueryBuilder.java",
+      "methods": [
+        "doToQuery"
+      ],
+      "finding": "must/filter/should/must_not map to corresponding Lucene Occur; applyMinimumShouldMatch handles explicit requirement; does not establish chronological execution"
+    },
+    {
+      "file": "Queries.java",
+      "methods": [
+        "applyMinimumShouldMatch"
+      ],
+      "finding": "Null explicit setting leaves BooleanQuery unchanged; explicit positive value sets min on optional clause count"
+    },
+    {
+      "file": "BooleanQuery.java",
+      "methods": [
+        "Builder.setMinimumNumberShouldMatch",
+        "rewriteNoScoring"
+      ],
+      "finding": "Optional clauses needed when no required clauses; filter counts as required; no-score rewrite preserves matching requirements and drops purely optional scoring clauses where legal"
+    },
+    {
+      "file": "BooleanWeight.java",
+      "methods": [
+        "constructor",
+        "explain",
+        "matches"
+      ],
+      "finding": "Non-scoring clauses use COMPLETE_NO_SCORES; FILTER has zero score contribution; required/prohibited/optional clauses checked separately"
+    },
+    {
+      "file": "RangeQueryBuilder.java",
+      "methods": [
+        "fromXContent",
+        "doToQuery"
+      ],
+      "finding": "gt/gte/lt/lte set lower/upper inclusion booleans; explicit numeric range in integer field"
+    },
+    {
+      "file": "GeoDistanceQueryBuilder.java",
+      "methods": [
+        "distance",
+        "fromXContent",
+        "doToQuery"
+      ],
+      "finding": "Explicit arc/unit/point parsed; validates lat/lon; builds Circle(lon,lat,distance); missing mapping throws unless ignore_unmapped; no claim of road distance or sorted result"
+    },
+    {
+      "file": "GeoUtils.java",
+      "methods": [
+        "parseGeoPoint"
+      ],
+      "finding": "Object accepts named lat/lon, coordinate array uses lon then lat"
+    },
+    {
+      "file": "ExistsQueryBuilder.java",
+      "methods": [
+        "newFilter"
+      ],
+      "finding": "Delegates to mapped field existsQuery, not _source key presence"
+    },
+    {
+      "file": "NumberFieldMapper.java",
+      "methods": [
+        "parseCreateField",
+        "value"
+      ],
+      "finding": "VALUE_NULL returns configured nullValue, default absent; only non-null values indexed; current mapping has no null_value"
+    }
+  ],
+  "content_checks": [
+    "A–E unchanged from F05; F–L distinguish budget boundary, 1-fen excess, absent/null price, far point, missing status/location",
+    "Name OR deliberately retained: B matches name token 湖, not description; city/price/status/geo do not fix name intent",
+    "Hard intersection predicted 12→11→7→5→3; C violates both city and distance, narrative does not claim exclusive cause",
+    "200元=20000分; CNY mandatory; free0 valid, gte0 excludes negative dirty values without claiming mapping rejects them",
+    "No null_value: absent/null price excluded by range; exists checks indexed values; explicit null source retained",
+    "not offline admits missing status K; explicit open excludes K; status snapshot is not availability or booking guarantee",
+    "Geo coordinates synthetic WGS84, lat/lon object, 3km arc; HZ independent, L no point, J far; no exact boundary precision test",
+    "Should default scope is same bool: 1 with should and no must/filter, otherwise0; explicit1; count child clauses not characters",
+    "Should-only/filter contrast intentionally lacks other hard criteria; main phrase optional retains B, required excludes B",
+    "filter-only has no scoring clauses, predicts score0; track_scores true with ID sort for audit; no BM25/ranking/cache/speed promise",
+    "No Java/client/showcase/UI implementation before F07; Pages makes no business requests",
+    "All displayed source snippets synchronized with source files; full query files linked for comparisons",
+    "Exercises/diagram labels/expected sets/narrative checked against same names, IDs, units and conditions"
+  ],
+  "real_api": {
+    "status": "blocked_before_http",
+    "successful_f06_requests": 0,
+    "completed_rounds": 0,
+    "evidence": "projects/travel-search/review/f06/runtime-attempt.json",
+    "note": "Source corroboration, manual model, generated SVG and browser screenshots do not substitute for ES execution"
+  },
+  "corrections_during_authoring": [
+    "Fixed missing D2 source brace and reserved near node name before successful generation; generated SVG never edited",
+    "Actual visual review found final should-defaults node label outside rectangle; shortened D2 source, regenerated official SVG and reran browser review; before evidence retained in visual-fix."
+  ],
+  "limitations": [
+    "No independent content agent",
+    "Actual xhigh cannot be configured or verified",
+    "Real ES runtime blocked; results are predictions only"
+  ]
+}

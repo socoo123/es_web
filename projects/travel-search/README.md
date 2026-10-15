@@ -1,6 +1,6 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模与 F05 关键词查询正文/脚本已交付，真实 ES 待验收；F06–F45、Java 与展示壳待实施，验收见 [STATUS.md](../../STATUS.md)。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07–F45、Java 与展示壳待实施，验收见 [STATUS.md](../../STATUS.md)。
 
 当前入口是 [F03 首搜](../../framework/f03.html)、[F03 手工实验](labs/f03/README.md)与[两轮真实 ES 记录](review/f03/README.md)，无需前端、Java、数据库或 Kibana。[F04 字段设计与 Bulk](../../framework/f04.html)及其[本机步骤](labs/f04/README.md)已提供；[执行状态](review/f04/README.md)明确记录本环境启动阻塞，尚未两轮实测。F04 从新资源独立开始，不依赖 F03 索引。历史文件、资源与案例 ID 保留：
 
@@ -11,7 +11,7 @@
 
 下面命令对应当前资源 `tut-f03-attractions` 与 `labs/f03`，配置和脚本保持原实验约定。
 
-需要 Docker Engine/Desktop、Compose v2+、Bash 与 curl（7.76+，支持 `--fail-with-body`）。Docker Desktop 至少分配 4GB 内存；本课一个容器上限 1GB、堆 512MB。这是几条文档的教学配置；更多语料和多节点另做容量测量。Windows 可在 WSL2 中运行；F03 实际 ES 验收为 macOS arm64 + Docker，F04/F05 本轮云环境启动受阻，未声称 Windows/Linux 全平台验收。
+需要 Docker Engine/Desktop、Compose v2+、Bash 与 curl（7.76+，支持 `--fail-with-body`）。Docker Desktop 至少分配 4GB 内存；本课一个容器上限 1GB、堆 512MB。这是几条文档的教学配置；更多语料和多节点另做容量测量。Windows 可在 WSL2 中运行；F03 实际 ES 验收为 macOS arm64 + Docker，F04/F05/F06 云环境启动受阻，未声称 Windows/Linux 全平台验收。
 
 在仓库根目录执行：
 
@@ -43,3 +43,14 @@ bash infra/single-node/wait.sh
 - [真实执行状态与两轮验收脚本](review/f05/README.md)
 
 正文、图解与阅读记录已交付；本轮云环境 ES9.4.0 在HTTP前因缺少 `/proc/self/coredump_filter` 退出，真实API/两轮未通过。预测不是响应，未交付本机展示壳或Java功能；F06将组合城市/预算/状态/距离条件。
+
+
+## F06 · bool 与组合筛选
+
+[F06 正文](../../framework/f06.html)将名称、城市、CNY预算、开放和3km组合起来；独立索引 `tut-f06-attractions`，保留原五份资料，新增七份边界，3案例、22条教学请求。
+
+- [固定12份资料](data/f06/attractions.json)、[16组查询与预测](search/f06/expected.json)
+- [本机步骤、完整请求与点名重做](labs/f06/README.md)
+- [真实执行状态与两轮脚本](review/f06/README.md)
+
+包含20000/20001分、免费/缺价/null、未知状态/无坐标、半径外，以及should默认门槛和过滤评分对照。正文与阅读可交付；云环境原Compose本轮仍在HTTP前启动失败，真实ES待验收。F07才引入Java与配套本机展示壳。
