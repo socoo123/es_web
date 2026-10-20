@@ -1,0 +1,10 @@
+direction: down
+start: "Java 应用启动\n创建一个 Client"
+reuse: "多个搜索请求\n复用 Client 与连接池"
+fail: "ES 暂时停止\n本次搜索返回503"
+retry: "ES 就绪后再请求\n同一 Client 可继续使用"
+close: "Java 应用关闭\nclose 释放连接资源"
+start -> reuse: "注入单例"
+reuse -> fail: "连接拒绝对照"
+fail -> retry: "恢复 ES 后重试"
+retry -> close: "应用生命周期结束"

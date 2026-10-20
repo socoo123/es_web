@@ -1,6 +1,6 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07–F45、Java 与展示壳待实施，验收见 [STATUS.md](../../STATUS.md)。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳已交付，F08–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
 
 当前入口是 [F03 首搜](../../framework/f03.html)、[F03 手工实验](labs/f03/README.md)与[两轮真实 ES 记录](review/f03/README.md)，无需前端、Java、数据库或 Kibana。[F04 字段设计与 Bulk](../../framework/f04.html)及其[本机步骤](labs/f04/README.md)已提供；[执行状态](review/f04/README.md)明确记录本环境启动阻塞，尚未两轮实测。F04 从新资源独立开始，不依赖 F03 索引。历史文件、资源与案例 ID 保留：
 
@@ -54,3 +54,13 @@ bash infra/single-node/wait.sh
 - [真实执行状态与两轮脚本](review/f06/README.md)
 
 包含20000/20001分、免费/缺价/null、未知状态/无坐标、半径外，以及should默认门槛和过滤评分对照。正文与阅读可交付；云环境原Compose本轮仍在HTTP前启动失败，真实ES待验收。F07才引入Java与配套本机展示壳。
+
+## F07 · Java接口与本机展示壳
+
+[F07正文](../../framework/f07.html)将F06已理解的条件接入Boot4.0.8 / JDK25 / 官方Java与Rest5 Client9.4.8。使用独立tut-f07-attractions，沿用十二份固定资料；浏览器只调用本机Java，Pages只承载教程。
+
+- [应用构建、版本与契约](backend/README.md)，同源展示壳随应用提供，默认127.0.0.1:18080
+- [三案例/17条教学请求与点名重做](labs/f07/README.md)，[完整输入与DSL](search/f07/near.json)
+- [ES/Java两轮、依赖树与制品](review/f07/README.md)，[本机展示壳与阅读验收](../../docs/framework-review/20261020-f07-java/README.md)
+
+REST/Java逐项核对ID、价格、total/relation与实际序列化DSL；200元→80元、空结果、非法输入、索引缺失、ES停机/同进程恢复分别验证。本课不提供多字段/高亮/聚合/分页；F04–F06历史云环境受阻状态不回填。

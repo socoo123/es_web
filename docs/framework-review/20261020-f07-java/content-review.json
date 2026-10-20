@@ -1,0 +1,78 @@
+{
+  "recorded_at": "2026-10-20T14:39:28.400099+00:00",
+  "lesson": "F07",
+  "reviewer": "author self-review; no independent agent",
+  "reasoning": {
+    "requested": "xhigh",
+    "actual": "no root entry point to set or verify"
+  },
+  "findings": [
+    {
+      "topic": "scope",
+      "result": "F07 only; no F08 functionality or frontend tutorial; Pages never connects to reader ES"
+    },
+    {
+      "topic": "search contract",
+      "result": "Same F06 twelve source documents/mapping, new F07 index; match OR/HZ/CNY/gte0/lte/explicit open/arc radius; ID ascending is verification order"
+    },
+    {
+      "topic": "money",
+      "result": "UI yuan→integer fen; 0 legitimate, null not free; server rejects fractional fen, negative/missing/out-of-range input"
+    },
+    {
+      "topic": "DTO",
+      "result": "ES metadata id and business ID checked; timeout/shard failure/total/source checked; esRequest serialized from actual request, no credentials; full original responses retained"
+    },
+    {
+      "topic": "HTTP errors",
+      "result": "input400, missing index502, connection503 and empty200 verified; health process only; no claim of real partial-shard/time-out acceptance"
+    },
+    {
+      "topic": "client lifecycle",
+      "result": "Spring singleton + request-local builders; destroyMethod close→ApiClient.close→Transport; same Java PID/Client recovers after ES restart; no claim for forced kill"
+    },
+    {
+      "topic": "dependencies",
+      "result": "Boot4.0.8 / JDK25.0.4.1+1 / Java+Rest5 9.4.8; Boot management property corrected and complete build+two real rounds repeated"
+    },
+    {
+      "topic": "cases and counts",
+      "result": "3 cases; 17 teaching requests=6 prepare+6 compare+5 diagnose; named cleanup and probes/browser/author extras counted separately"
+    },
+    {
+      "topic": "old state",
+      "result": "F04–F06 cloud-blocked evidence remains unchanged; F07 real execution not backfilled into earlier lessons"
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://docs.spring.io/spring-boot/4.0/system-requirements.html",
+      "used_for": "Boot4.0.8 supports JDK25; actual build required and performed"
+    },
+    {
+      "url": "https://www.elastic.co/docs/reference/elasticsearch/clients/java/transport",
+      "used_for": "Rest5/Jackson3 mapping choices"
+    },
+    {
+      "url": "https://www.elastic.co/docs/reference/elasticsearch/clients/java/api-conventions/object-lifecycles",
+      "used_for": "client reuse and request builders"
+    },
+    {
+      "url": "https://www.elastic.co/docs/reference/elasticsearch/clients/java/setup/connecting",
+      "used_for": "client close and typed search"
+    }
+  ],
+  "source_archive": {
+    "url": "https://repo.maven.apache.org/maven2/co/elastic/clients/elasticsearch-java/9.4.8/elasticsearch-java-9.4.8-sources.jar",
+    "sha256": "198bd78a78b1eb0f40fa2134b283d31ba916e53c086f9f24dde92d1aee407f5d",
+    "target_files": {
+      "co/elastic/clients/ApiClient.java": "55b6ddcc857bdd31c982deded81679d59e2438a9f85d2a20173067f0ca84f3cd",
+      "co/elastic/clients/transport/rest5_client/Rest5ClientTransport.java": "59712c9597cb411565a1ab6eff74fcb4f0cbc64e424c5d804134cc4cd60b3ae3",
+      "co/elastic/clients/json/jackson/Jackson3JsonpMapper.java": "a7a60764d3646e2107197eba7bb4b7048ffcd9df59e96f7973ad55c3f490278a",
+      "co/elastic/clients/transport/ElasticsearchTransportConfig.java": "a02d68044b08d2f483d5118df68e82504fa20505ab71c5d554ecadac5d21aa8c",
+      "co/elastic/clients/json/JsonpUtils.java": "01bb566b121034d77272134aee607335a324bf6cf3173e23af570b8f8e1b6508",
+      "co/elastic/clients/elasticsearch/_types/query_dsl/RangeQueryBase.java": "da50a0f7780738768849e74ffe9de0530f9c8461c920e0d42d87b3f87b9df1ee"
+    }
+  },
+  "status": "passed author content review; execution and browser results separate"
+}

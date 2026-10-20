@@ -8,22 +8,34 @@
 
 | 项目 | 当前状态 |
 | --- | --- |
-| 八阶段、45 课目录与教学路线 | ✅ 当前规划、覆盖清单与可见目录一致；F01–F06 可阅读；F04/F05/F06 真实 ES 验收受阻，F07–F45 待实施 |
+| 八阶段、45 课目录与教学路线 | ✅ 当前规划、覆盖清单与可见目录一致；F01–F07可阅读；F04/F05/F06真实ES验收受阻，F07 Java实连/本机展示壳通过，F08–F45待实施 |
 | F01 · ES 用途、职责与全程导学 | ✅ 正文、独立内容审阅与 HTTP 阅读通过；1 个导学情境、1 份小 JSON、5 道理解题；0 条执行请求 |
 | F02 · 数据到搜索结果的概念推演 | ✅ 正文、人工模型核对与 HTTP 阅读通过；2 个概念案例、6 道推演题、2 幅静态 D2；0 条执行请求 |
 | F03 · 本机运行与真实首搜 | ✅ 正文、图解、HTTP 阅读与真实 ES 三案例两轮通过；12 条主流程 HTTP 请求；实际限制见本轮记录 |
 | F04 · 字段设计与 Bulk | 正文/固定语料/三案例脚本/两幅 D2 已交付；HTTP阅读/图解/静态检查通过，真实 ES 两轮受云环境启动阻塞，未标通过 |
 | F05 · 关键词、精确值与短语 | 正文/固定语料/三案例脚本/两幅 D2 已交付；HTTP阅读/图解/静态检查通过，真实 ES 两轮受云环境启动阻塞，未标通过 |
 | F06 · bool 与组合筛选 | 正文/12份固定资料/三案例脚本/两幅D2已交付；HTTP阅读/视觉/静态检查通过，真实ES两轮受云环境启动阻塞，未标通过 |
-| F07–F45 正文与实验 | 待实施；下一课F07 Java/本机展示壳，其后按阶段推进 |
+| F07 · Java接口与本机展示壳 | ✅ 正文、两幅D2、HTTP阅读、Boot4/JDK25构建/实连、REST↔Java两轮与真实展示壳通过；未测分片部分失败/执行超时 |
+| F08–F45 正文与实验 | 待实施；下一课F08多字段/高亮，其后按阶段推进 |
 | 逐课教学问题与案例覆盖 | ✅ [覆盖清单](FRAMEWORK_CASES.md)按问题设计对照与判断证据；验收按课次实际记录 |
 | 历史启动实验 | [存档正文](framework/f01-startup-legacy.html)与原工程/三案例两轮实测记录保留；F03 已使用新资源独立两轮验收，旧文件与记录保留 |
-| 本机搜索展示壳与 Java | 规划 F07 开始提供；Boot 4/JDK 25/官方客户端与展示壳尚未构建/交付 |
+| 本机搜索展示壳与 Java | ✅ F07：Boot4.0.8 / JDK25.0.4.1+1 / Java与Rest5 Client9.4.8实际构建、实连；本机同源展示壳，后续多字段/高亮/聚合/分页待实现 |
 | 集群与索引运行 | F28–F35 规划；多节点/角色/routing/故障、分配、模板/alias/重建/恢复/安全尚未实测 |
 | PG WAL / MySQL binlog → Kafka → Java → ES | F36–F42 规划；两种独立环境串行学习，实际链路与恢复尚未验收 |
 | 中文召回与评分质量 | F13–F22 规划；插件/词典/同义词与查询集评估尚未实施 |
-| 图解重构进度 | ✅ F01–F06 共 12 幅静态 D2、浅深 24 SVG；F06 硬条件集合/should默认图生成、HTTP与视觉通过，真实API状态另列 |
-| 后续教程写作与内容审阅 | 用户指定 xhigh；F01 作者及独立审阅已实际设置。F02/F03/F04/F05/F06 当前根入口无法设置/确认，作者自审且未启动独立代理，限制分别记录 |
+| 图解重构进度 | ✅ F01–F07共14幅静态D2、浅深28 SVG；F07请求/返回与Client生命周期图生成、HTTP和视觉通过；真实运行分列 |
+| 后续教程写作与内容审阅 | 用户指定 xhigh；F01 作者及独立审阅已实际设置。F02/F03/F04/F05/F06/F07 当前根入口无法设置/确认，作者自审且未启动独立代理，限制分别记录 |
+
+## 2026-10-20 · F07 Java接口与本机展示壳：真实构建、两轮实连与阅读通过
+
+- 先将本地main从2416daf快进到远端4638411（F04–F06三个提交），保留原.gitignore、health-path、framework/experiments、framework/labs、projects/travel-portal草稿；随后仅实施下一课F07与必要F06导航/目录/当前摘要，提示词转F08。约4756中文字、七段式/880px/双主题/进度/复制保留，3执行案例、17条教学HTTP请求=准备6+REST/Java比较6+诊断5，清理/探活/作者附加测试另计；2静态D2、6理解题、0机制播放器。[正文](framework/f07.html)、[本机手工入口](projects/travel-search/labs/f07/README.md)。未推进F08，F04–F06原受阻验收不回填。
+- Java增量在projects/travel-search/backend：Boot4.0.8 / Temurin JDK25.0.4.1+1 / 官方Java与Rest5 Client9.4.8 / Jackson3 / Maven Wrapper3.3.4、Maven3.9.11，原样制品/Wrapper下载包SHA256与实际依赖树保留。明确应用JDK与ES bundled JVM不同。展示壳随Boot本机18080同源提供，浏览器→Java→19200 ES，不要求读者开发前端，Pages只承载教程。服务端固定open/CNY、输入校验、完整bool/geo、DTO、真实DSL观察、单例复用与正常close完整交付。
+- [ES/Java真实两轮](projects/travel-search/review/f07/README.md)：本机macOS arm64原Compose ES9.4.0成功运行，不改二进制/安全策略。新tut-f07-attractions继承F06十二份资料与mapping，独立创建/Bulk十二项created/refresh/count、点名清理404后重做；200元F/B/A、80元B/A、火星空集的完整ID次序、价格/币种/状态、total/relation、conditions及序列化DSL与REST逐项一致。每轮八种非法输入400（含小数分），另核缺索引502；ES停止时Java health200/search503，重启ES后同一Java进程/Client恢复三ID。实际clean package与依赖树通过，无单元测试，不用构建成功代替执行验收。
+- [真实本机展示壳](docs/framework-review/20261020-f07-java/shell-review.json)：1920/1440/1024/768/390/320×浅深12组，200元/80元/空集/1km/还原逐次真实调用Java，DOM卡片ID/价格、条件/DSL/响应逐项一致；主题重载、实际Tab焦点和无整页横溢通过。另做ES真实停机/503清空旧卡片/同进程恢复，浏览器直接访问ES请求0。7张原PNG：4张全图实际查看，另外3张查看顶部1500px可读裁切，4张全图中另2张也放大裁切核对；未单独视觉审阅的下方长JSON以DOM/API解析对照，范围如实列出。
+- 图解：官方D2 v0.9.0/dagre/主题4、201，2源/4SVG，fmt/validate/生成与哈希通过；只改.d2生成，没有手改SVG。[图源/命令/哈希](framework/diagrams/f07/generation.json)。无Archify/机制播放器，其门禁不适用。
+- [HTTP与视觉](docs/framework-review/20261020-f07-java/README.md)：12组课页、F06/目录24组必要回归、独立图16组、17锚点/组、10折叠/组、14段真实剪贴板逐字核对、已读/取消/旧键隔离、双图同步/真实展开、file双主题/reduced motion通过；最大880px、边界差≤1px、无整页横溢，长代码/表格局部可滚。26PNG实际查看20，其余6仅生成，逐张状态/哈希保留；JS/HTTP/请求失败/教程业务请求0。
+- 教学纠偏/工具修正：依赖树发现Boot把Rest5管理为9.2.9，改elasticsearch-client.version统一到9.4.8后重建并重跑两轮。REST原term简写与Java完整value对象语义相同但作者严格JSON比较失败，统一完整写法；重启探测补捕RemoteDisconnected、展示壳主题脚本不再每次重载覆盖存储，均为作者验收工具问题，失败记录保留。输入小数分显式拒绝，health仅进程、正常空集与400/502/503分开，ID排序不是推荐排名。[内容自审](docs/framework-review/20261020-f07-java/content-review.json)。
+- 当前入口无法设置/确认实际xhigh，作者自审，无独立代理。真实分片部分失败/ES执行超时只有代码分支，未造故障实测；未运行多节点、插件、TLS/权限、DB/Kafka/CDC或性能。本课索引已点名删除，Java已正常关闭；专用ES恢复本轮开始前的停止状态，持久卷与源码篇节点保留。站点结构、片段/JS/Python/Bash/JSON/SVG/NDJSON、图源哈希与差异检查通过；按持续授权提交推送origin/main，交付核对远端。
 
 ## 2026-10-15 · F06 bool 与组合筛选：正文交付，真实执行受阻
 
@@ -120,6 +132,7 @@
 
 | 课 | 原文说法 | 修正 | 依据 |
 |---|---|---|---|
+| F07（本轮实现校对） | 只锁Java Client9.4.8，Boot仍可把底层Rest5管理成9.2.9 | 同时覆盖Boot的elasticsearch-client.version为9.4.8，保存实际依赖树并重新构建/两轮实连；health进程正常不代表搜索就绪 | [依赖树](projects/travel-search/review/f07/dependency-tree.txt)、[真实两轮](projects/travel-search/review/f07/README.md) |
 | F04（新课教学边界） | 把 strict 当业务校验、HTTP200当整批成功、固定 ID 重导入当自动集合替换 | strict只拒绝未知字段；Bulk逐项判断；index完整替换同ID且不自动删缺席的旧ID；预测与实际执行分开记录 | [F04正文](framework/f04.html)、[固定数据与脚本](projects/travel-search/labs/f04/README.md)、[执行受阻](projects/travel-search/review/f04/README.md) |
 | F03（历史启动课迁移） | 旧课将 Java 放 F02、更新/可见性放 F03；等待脚本最多180秒；主流程11请求 | 当前 Java F07、更新/可见性 F12；等待器90次、每次curl≤2秒且失败后等待2秒，不承诺180秒总上限；新增空索引搜索后主流程12请求，原存档保持历史口径 | [F03 正文](framework/f03.html)、[两轮新实测](projects/travel-search/review/f03/README.md)、[wait.sh](projects/travel-search/infra/single-node/wait.sh) |
 | ch07 | 未知路由(如 `GET /_cat/actions`)回 404 | 9.4.0 回 **400** `no handler found for uri [...]`;404 留给「路由命中、资源不存在」 | 本地 9.4.0 实测 |

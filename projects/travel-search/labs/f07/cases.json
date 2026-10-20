@@ -1,0 +1,46 @@
+{
+  "lesson": "f07",
+  "index": "tut-f07-attractions",
+  "teaching_http_requests": 17,
+  "cleanup_requests": 1,
+  "cases": [
+    {
+      "id": "f07-c01",
+      "question": "同一条件的REST、Java和卡片一致吗",
+      "scripts": [
+        "01-prepare.sh",
+        "02-compare.sh"
+      ],
+      "checks": [
+        "near: A/B/F",
+        "budget-80: A/B",
+        "empty: 0",
+        "DTO and serialized DSL"
+      ]
+    },
+    {
+      "id": "f07-c02",
+      "question": "非法输入、Java进程与ES就绪怎样区分",
+      "scripts": [
+        "03-errors.sh"
+      ],
+      "checks": [
+        "400 INVALID_SEARCH_INPUT",
+        "ES停止而Java health=200",
+        "503 SEARCH_UNAVAILABLE",
+        "ES重启后同一client恢复"
+      ]
+    },
+    {
+      "id": "f07-c03",
+      "question": "本机展示壳是否真实调用Java",
+      "scripts": [],
+      "checks": [
+        "browser requests Java only",
+        "cards IDs/prices match",
+        "empty and failure clear cards",
+        "two themes and narrow screen"
+      ]
+    }
+  ]
+}

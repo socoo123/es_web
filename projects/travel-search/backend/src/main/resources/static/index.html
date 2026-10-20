@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>旅行之间 · 景点搜索实验</title><link rel="stylesheet" href="shell.css"></head>
+<body>
+<header><a class="brand" href="/">旅行之间 <span>SEARCH LAB / F07</span></a><button id="theme" type="button">切换深色</button></header>
+<main>
+  <section class="intro"><p class="eyebrow">一座城，一次新的发现</p><h1>下一站，去湖边。</h1><p>把想去的地方交给搜索，用预算与距离找到合适的一站。</p><div class="note">本机教学实验 · 固定合成资料 · 开放状态与价格来自搜索快照</div></section>
+  <form id="search-form">
+    <label class="wide">想找什么<input name="q" maxlength="60" value="西湖" required></label>
+    <label>目的地<select name="cityCode"><option value="HZ">杭州 · HZ</option><option value="FZ">福州 · FZ</option></select></label>
+    <label>预算上限（元）<input name="budget" type="number" min="0" max="1000000" step="0.01" value="200" required></label>
+    <label>附近半径（公里）<input name="radiusKm" type="number" min="0.1" max="100" step="0.1" value="3" required></label>
+    <button id="submit" type="submit">寻找景点 →</button>
+    <p class="form-note">固定圆心：北纬 30.25°、东经 120.15°；按直线球面距离筛选。仅展示 CNY、价格非负且明确开放的景点。</p>
+  </form>
+  <section class="results" aria-labelledby="result-title"><div class="result-heading"><h2 id="result-title">沿途的可能</h2><span>按景点 ID 核对 · 最多返回 20 条</span></div><p id="status" role="status" aria-live="polite">输入条件后，开始一次搜索。</p><div id="cards" class="cards"></div></section>
+  <details class="observe"><summary>观察这次搜索：条件、ES 请求与接口结果</summary><p>此处显示本次 Java 接口实际返回的查询与结果；失败时保留提交条件，清除旧命中。</p><h3>提交给 Java 的条件</h3><pre id="input-json">尚未提交</pre><h3>Java 序列化出的 ES 请求体</h3><pre id="dsl-json">尚无请求</pre><h3>Java 接口返回值</h3><pre id="result-json">尚无结果</pre></details>
+  <footer>F07 · 名称仍采用 match OR。示例“西湖”也可能命中“湖畔茶园”；这里按条件核对，不表示推荐排名。</footer>
+</main><script src="shell.js"></script>
+</body></html>

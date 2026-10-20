@@ -1,0 +1,716 @@
+{
+  "recorded_at": "2026-10-20T14:36:27.810500+00:00",
+  "scope": "F07 only; real ES9.4.0 and Boot4/JDK25, no mocks",
+  "requests": [
+    {
+      "label": "ES version",
+      "url": "http://127.0.0.1:19200/",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\n  \"name\" : \"travel-search-01\",\n  \"cluster_name\" : \"travel-search-lab\",\n  \"cluster_uuid\" : \"DlwGm716R6iph5GCe9Tucg\",\n  \"version\" : {\n    \"number\" : \"9.4.0\",\n    \"build_flavor\" : \"default\",\n    \"build_type\" : \"docker\",\n    \"build_hash\" : \"2e8528e92361c3399724226deaf2b46f933e925b\",\n    \"build_date\" : \"2026-04-30T15:05:34.751113474Z\",\n    \"build_snapshot\" : false,\n    \"lucene_version\" : \"10.4.0\",\n    \"minimum_wire_compatibility_version\" : \"8.19.0\",\n    \"minimum_index_compatibility_version\" : \"8.0.0\"\n  },\n  \"tagline\" : \"You Know, for Search\"\n}\n"
+    },
+    {
+      "label": "refuse existing index",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions",
+      "method": "GET",
+      "input": null,
+      "status": 404,
+      "raw_response": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f07-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f07-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f07-attractions\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f07-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f07-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f07-attractions\"},\"status\":404}"
+    },
+    {
+      "label": "missing lesson index",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 502,
+      "raw_response": "{\"code\":\"SEARCH_BACKEND_REJECTED\",\"message\":\"ES 拒绝搜索，请在本机核对本课索引、mapping 与服务端配置。\"}"
+    },
+    {
+      "label": "round-1 create",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions",
+      "method": "PUT",
+      "input": "{\"settings\": {\"number_of_shards\": 1, \"number_of_replicas\": 0}, \"mappings\": {\"dynamic\": \"strict\", \"properties\": {\"attraction_id\": {\"type\": \"keyword\"}, \"name\": {\"type\": \"text\", \"analyzer\": \"standard\", \"fields\": {\"raw\": {\"type\": \"keyword\"}}}, \"city_code\": {\"type\": \"keyword\"}, \"ticket_price_fen\": {\"type\": \"integer\", \"coerce\": false}, \"currency\": {\"type\": \"keyword\"}, \"status\": {\"type\": \"keyword\"}, \"description\": {\"type\": \"text\", \"analyzer\": \"standard\"}, \"published_on\": {\"type\": \"date\", \"format\": \"strict_date\"}, \"location\": {\"type\": \"geo_point\"}}}}",
+      "status": 200,
+      "raw_response": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-f07-attractions\"}"
+    },
+    {
+      "label": "round-1 index health",
+      "url": "http://127.0.0.1:19200/_cluster/health/tut-f07-attractions?wait_for_status=green&timeout=30s",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"cluster_name\":\"travel-search-lab\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}"
+    },
+    {
+      "label": "round-1 mapping",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_mapping",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"tut-f07-attractions\":{\"mappings\":{\"dynamic\":\"strict\",\"properties\":{\"attraction_id\":{\"type\":\"keyword\"},\"city_code\":{\"type\":\"keyword\"},\"currency\":{\"type\":\"keyword\"},\"description\":{\"type\":\"text\",\"analyzer\":\"standard\"},\"location\":{\"type\":\"geo_point\"},\"name\":{\"type\":\"text\",\"fields\":{\"raw\":{\"type\":\"keyword\"}},\"analyzer\":\"standard\"},\"published_on\":{\"type\":\"date\",\"format\":\"strict_date\"},\"status\":{\"type\":\"keyword\"},\"ticket_price_fen\":{\"type\":\"integer\",\"coerce\":false}}}}}"
+    },
+    {
+      "label": "round-1 bulk",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_bulk",
+      "method": "POST",
+      "input": "{\"index\": {\"_id\": \"a-hz-xihu\"}}\n{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":30.25,\"lon\":120.15}}\n{\"index\": {\"_id\": \"a-hz-tea\"}}\n{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"游览后可前往西湖。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":30.24,\"lon\":120.14}}\n{\"index\": {\"_id\": \"a-fz-xihu\"}}\n{\"attraction_id\":\"a-fz-xihu\",\"name\":\"福州西湖\",\"city_code\":\"FZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"福州的湖泊景点。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":26.1,\"lon\":119.28}}\n{\"index\": {\"_id\": \"a-hz-night\"}}\n{\"attraction_id\":\"a-hz-night\",\"name\":\"西湖夜游\",\"city_code\":\"HZ\",\"ticket_price_fen\":26000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"西湖夜间游览项目。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":30.26,\"lon\":120.16}}\n{\"index\": {\"_id\": \"a-hz-old\"}}\n{\"attraction_id\":\"a-hz-old\",\"name\":\"西湖旧展馆\",\"city_code\":\"HZ\",\"ticket_price_fen\":6000,\"currency\":\"CNY\",\"status\":\"offline\",\"description\":\"西湖主题展览。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":30.27,\"lon\":120.17}}\n{\"index\": {\"_id\": \"a-hz-boundary\"}}\n{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}}\n{\"index\": {\"_id\": \"a-hz-over\"}}\n{\"attraction_id\":\"a-hz-over\",\"name\":\"西湖超一分\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":20001,\"status\":\"open\",\"location\":{\"lat\":30.252,\"lon\":120.152}}\n{\"index\": {\"_id\": \"a-hz-missing-price\"}}\n{\"attraction_id\":\"a-hz-missing-price\",\"name\":\"西湖待报价\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"status\":\"open\",\"location\":{\"lat\":30.253,\"lon\":120.153}}\n{\"index\": {\"_id\": \"a-hz-null-price\"}}\n{\"attraction_id\":\"a-hz-null-price\",\"name\":\"西湖空报价\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":null,\"status\":\"open\",\"location\":{\"lat\":30.254,\"lon\":120.154}}\n{\"index\": {\"_id\": \"a-hz-far\"}}\n{\"attraction_id\":\"a-hz-far\",\"name\":\"西湖远处展馆\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":1000,\"status\":\"open\",\"location\":{\"lat\":30.6,\"lon\":120.15}}\n{\"index\": {\"_id\": \"a-hz-unknown-status\"}}\n{\"attraction_id\":\"a-hz-unknown-status\",\"name\":\"西湖待核状态\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":0,\"location\":{\"lat\":30.255,\"lon\":120.155}}\n{\"index\": {\"_id\": \"a-hz-missing-location\"}}\n{\"attraction_id\":\"a-hz-missing-location\",\"name\":\"西湖待定位\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":1000,\"status\":\"open\"}\n",
+      "status": 200,
+      "raw_response": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-xihu\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-tea\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-fz-xihu\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-night\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-old\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":4,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-boundary\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":5,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-over\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":6,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-missing-price\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":7,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-null-price\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":8,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-far\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":9,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-unknown-status\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":10,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-missing-location\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":11,\"_primary_term\":1,\"status\":201}}]}"
+    },
+    {
+      "label": "round-1 refresh",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_refresh",
+      "method": "POST",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0}}"
+    },
+    {
+      "label": "round-1 count",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_count",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"count\":12,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0}}"
+    },
+    {
+      "label": "round-1 REST near",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"name\": {\"query\": \"西湖\", \"operator\": \"or\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}]}",
+      "status": 200,
+      "raw_response": "{\"took\":60,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"max_score\":0.17410304,\"hits\":[{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.15957204,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-tea\",\"_score\":0.04219699,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.24,\"lon\":120.14}},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":0.17410304,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round-1 Java near",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":3,\"totalRelation\":\"eq\",\"esTookMs\":6,\"conditions\":{\"q\":\"西湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\"]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"match\":{\"name\":{\"operator\":\"or\",\"query\":\"西湖\"}}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"cityCode\":\"HZ\",\"ticketPriceFen\":20000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.15957204},{\"id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"cityCode\":\"HZ\",\"ticketPriceFen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.04219699},{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.17410304}]}"
+    },
+    {
+      "label": "round-1 REST budget-80",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"name\": {\"query\": \"西湖\", \"operator\": \"or\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 8000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}]}",
+      "status": 200,
+      "raw_response": "{\"took\":7,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":2,\"relation\":\"eq\"},\"max_score\":0.17410304,\"hits\":[{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-tea\",\"_score\":0.04219699,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.24,\"lon\":120.14}},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":0.17410304,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round-1 Java budget-80",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 8000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":2,\"totalRelation\":\"eq\",\"esTookMs\":6,\"conditions\":{\"q\":\"西湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":8000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\"]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":8000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"match\":{\"name\":{\"operator\":\"or\",\"query\":\"西湖\"}}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"cityCode\":\"HZ\",\"ticketPriceFen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.04219699},{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.17410304}]}"
+    },
+    {
+      "label": "round-1 REST empty",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"name\": {\"query\": \"火星\", \"operator\": \"or\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}]}",
+      "status": 200,
+      "raw_response": "{\"took\":2,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":0,\"relation\":\"eq\"},\"max_score\":null,\"hits\":[]}}"
+    },
+    {
+      "label": "round-1 Java empty",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"火星\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":0,\"totalRelation\":\"eq\",\"esTookMs\":3,\"conditions\":{\"q\":\"火星\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\"]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"match\":{\"name\":{\"operator\":\"or\",\"query\":\"火星\"}}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[]}"
+    },
+    {
+      "label": "round-1 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": -1, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-1 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \" \", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-1 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 91, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-1 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-1 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 1.5, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-1 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"hz\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-1 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-1 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{broken",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-1 health before stop",
+      "url": "http://127.0.0.1:18080/api/health",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"application\":\"up\",\"scope\":\"java-process-only\"}"
+    },
+    {
+      "label": "round-1 Java alive while ES stopped",
+      "url": "http://127.0.0.1:18080/api/health",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"application\":\"up\",\"scope\":\"java-process-only\"}"
+    },
+    {
+      "label": "round-1 ES unavailable",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 503,
+      "raw_response": "{\"code\":\"SEARCH_UNAVAILABLE\",\"message\":\"搜索连接暂不可用，请检查本机 ES 与服务端端点，再重试。\"}"
+    },
+    {
+      "label": "round-1 recovered index",
+      "url": "http://127.0.0.1:19200/_cluster/health/tut-f07-attractions?wait_for_status=green&timeout=30s",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"cluster_name\":\"travel-search-lab\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}"
+    },
+    {
+      "label": "round-1 same Java process recovery",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":3,\"totalRelation\":\"eq\",\"esTookMs\":81,\"conditions\":{\"q\":\"西湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\"]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"match\":{\"name\":{\"operator\":\"or\",\"query\":\"西湖\"}}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"cityCode\":\"HZ\",\"ticketPriceFen\":20000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.15957204},{\"id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"cityCode\":\"HZ\",\"ticketPriceFen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.04219699},{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.17410304}]}"
+    },
+    {
+      "label": "round-1 named cleanup",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions",
+      "method": "DELETE",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"acknowledged\":true}"
+    },
+    {
+      "label": "round-1 cleanup verified",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions",
+      "method": "GET",
+      "input": null,
+      "status": 404,
+      "raw_response": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f07-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f07-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f07-attractions\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f07-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f07-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f07-attractions\"},\"status\":404}"
+    },
+    {
+      "label": "round-2 create",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions",
+      "method": "PUT",
+      "input": "{\"settings\": {\"number_of_shards\": 1, \"number_of_replicas\": 0}, \"mappings\": {\"dynamic\": \"strict\", \"properties\": {\"attraction_id\": {\"type\": \"keyword\"}, \"name\": {\"type\": \"text\", \"analyzer\": \"standard\", \"fields\": {\"raw\": {\"type\": \"keyword\"}}}, \"city_code\": {\"type\": \"keyword\"}, \"ticket_price_fen\": {\"type\": \"integer\", \"coerce\": false}, \"currency\": {\"type\": \"keyword\"}, \"status\": {\"type\": \"keyword\"}, \"description\": {\"type\": \"text\", \"analyzer\": \"standard\"}, \"published_on\": {\"type\": \"date\", \"format\": \"strict_date\"}, \"location\": {\"type\": \"geo_point\"}}}}",
+      "status": 200,
+      "raw_response": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-f07-attractions\"}"
+    },
+    {
+      "label": "round-2 index health",
+      "url": "http://127.0.0.1:19200/_cluster/health/tut-f07-attractions?wait_for_status=green&timeout=30s",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"cluster_name\":\"travel-search-lab\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}"
+    },
+    {
+      "label": "round-2 mapping",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_mapping",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"tut-f07-attractions\":{\"mappings\":{\"dynamic\":\"strict\",\"properties\":{\"attraction_id\":{\"type\":\"keyword\"},\"city_code\":{\"type\":\"keyword\"},\"currency\":{\"type\":\"keyword\"},\"description\":{\"type\":\"text\",\"analyzer\":\"standard\"},\"location\":{\"type\":\"geo_point\"},\"name\":{\"type\":\"text\",\"fields\":{\"raw\":{\"type\":\"keyword\"}},\"analyzer\":\"standard\"},\"published_on\":{\"type\":\"date\",\"format\":\"strict_date\"},\"status\":{\"type\":\"keyword\"},\"ticket_price_fen\":{\"type\":\"integer\",\"coerce\":false}}}}}"
+    },
+    {
+      "label": "round-2 bulk",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_bulk",
+      "method": "POST",
+      "input": "{\"index\": {\"_id\": \"a-hz-xihu\"}}\n{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":30.25,\"lon\":120.15}}\n{\"index\": {\"_id\": \"a-hz-tea\"}}\n{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"游览后可前往西湖。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":30.24,\"lon\":120.14}}\n{\"index\": {\"_id\": \"a-fz-xihu\"}}\n{\"attraction_id\":\"a-fz-xihu\",\"name\":\"福州西湖\",\"city_code\":\"FZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"福州的湖泊景点。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":26.1,\"lon\":119.28}}\n{\"index\": {\"_id\": \"a-hz-night\"}}\n{\"attraction_id\":\"a-hz-night\",\"name\":\"西湖夜游\",\"city_code\":\"HZ\",\"ticket_price_fen\":26000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"西湖夜间游览项目。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":30.26,\"lon\":120.16}}\n{\"index\": {\"_id\": \"a-hz-old\"}}\n{\"attraction_id\":\"a-hz-old\",\"name\":\"西湖旧展馆\",\"city_code\":\"HZ\",\"ticket_price_fen\":6000,\"currency\":\"CNY\",\"status\":\"offline\",\"description\":\"西湖主题展览。\",\"published_on\":\"2026-10-01\",\"location\":{\"lat\":30.27,\"lon\":120.17}}\n{\"index\": {\"_id\": \"a-hz-boundary\"}}\n{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}}\n{\"index\": {\"_id\": \"a-hz-over\"}}\n{\"attraction_id\":\"a-hz-over\",\"name\":\"西湖超一分\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":20001,\"status\":\"open\",\"location\":{\"lat\":30.252,\"lon\":120.152}}\n{\"index\": {\"_id\": \"a-hz-missing-price\"}}\n{\"attraction_id\":\"a-hz-missing-price\",\"name\":\"西湖待报价\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"status\":\"open\",\"location\":{\"lat\":30.253,\"lon\":120.153}}\n{\"index\": {\"_id\": \"a-hz-null-price\"}}\n{\"attraction_id\":\"a-hz-null-price\",\"name\":\"西湖空报价\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":null,\"status\":\"open\",\"location\":{\"lat\":30.254,\"lon\":120.154}}\n{\"index\": {\"_id\": \"a-hz-far\"}}\n{\"attraction_id\":\"a-hz-far\",\"name\":\"西湖远处展馆\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":1000,\"status\":\"open\",\"location\":{\"lat\":30.6,\"lon\":120.15}}\n{\"index\": {\"_id\": \"a-hz-unknown-status\"}}\n{\"attraction_id\":\"a-hz-unknown-status\",\"name\":\"西湖待核状态\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":0,\"location\":{\"lat\":30.255,\"lon\":120.155}}\n{\"index\": {\"_id\": \"a-hz-missing-location\"}}\n{\"attraction_id\":\"a-hz-missing-location\",\"name\":\"西湖待定位\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"published_on\":\"2026-10-01\",\"ticket_price_fen\":1000,\"status\":\"open\"}\n",
+      "status": 200,
+      "raw_response": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-xihu\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-tea\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-fz-xihu\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-night\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-old\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":4,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-boundary\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":5,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-over\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":6,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-missing-price\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":7,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-null-price\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":8,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-far\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":9,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-unknown-status\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":10,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-missing-location\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":11,\"_primary_term\":1,\"status\":201}}]}"
+    },
+    {
+      "label": "round-2 refresh",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_refresh",
+      "method": "POST",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0}}"
+    },
+    {
+      "label": "round-2 count",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_count",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"count\":12,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0}}"
+    },
+    {
+      "label": "round-2 REST near",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"name\": {\"query\": \"西湖\", \"operator\": \"or\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}]}",
+      "status": 200,
+      "raw_response": "{\"took\":4,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"max_score\":0.17410304,\"hits\":[{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.15957204,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-tea\",\"_score\":0.04219699,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.24,\"lon\":120.14}},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":0.17410304,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round-2 Java near",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":3,\"totalRelation\":\"eq\",\"esTookMs\":6,\"conditions\":{\"q\":\"西湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\"]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"match\":{\"name\":{\"operator\":\"or\",\"query\":\"西湖\"}}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"cityCode\":\"HZ\",\"ticketPriceFen\":20000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.15957204},{\"id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"cityCode\":\"HZ\",\"ticketPriceFen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.04219699},{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.17410304}]}"
+    },
+    {
+      "label": "round-2 REST budget-80",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"name\": {\"query\": \"西湖\", \"operator\": \"or\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 8000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}]}",
+      "status": 200,
+      "raw_response": "{\"took\":6,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":2,\"relation\":\"eq\"},\"max_score\":0.17410304,\"hits\":[{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-tea\",\"_score\":0.04219699,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.24,\"lon\":120.14}},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f07-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":0.17410304,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round-2 Java budget-80",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 8000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":2,\"totalRelation\":\"eq\",\"esTookMs\":7,\"conditions\":{\"q\":\"西湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":8000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\"]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":8000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"match\":{\"name\":{\"operator\":\"or\",\"query\":\"西湖\"}}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"cityCode\":\"HZ\",\"ticketPriceFen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.04219699},{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.17410304}]}"
+    },
+    {
+      "label": "round-2 REST empty",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"name\": {\"query\": \"火星\", \"operator\": \"or\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}]}",
+      "status": 200,
+      "raw_response": "{\"took\":2,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":0,\"relation\":\"eq\"},\"max_score\":null,\"hits\":[]}}"
+    },
+    {
+      "label": "round-2 Java empty",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"火星\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":0,\"totalRelation\":\"eq\",\"esTookMs\":2,\"conditions\":{\"q\":\"火星\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\"]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"match\":{\"name\":{\"operator\":\"or\",\"query\":\"火星\"}}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[]}"
+    },
+    {
+      "label": "round-2 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": -1, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-2 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \" \", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-2 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 91, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-2 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-2 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 1.5, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-2 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"hz\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-2 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-2 invalid input",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{broken",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "round-2 health before stop",
+      "url": "http://127.0.0.1:18080/api/health",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"application\":\"up\",\"scope\":\"java-process-only\"}"
+    },
+    {
+      "label": "round-2 Java alive while ES stopped",
+      "url": "http://127.0.0.1:18080/api/health",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"application\":\"up\",\"scope\":\"java-process-only\"}"
+    },
+    {
+      "label": "round-2 ES unavailable",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 503,
+      "raw_response": "{\"code\":\"SEARCH_UNAVAILABLE\",\"message\":\"搜索连接暂不可用，请检查本机 ES 与服务端端点，再重试。\"}"
+    },
+    {
+      "label": "round-2 recovered index",
+      "url": "http://127.0.0.1:19200/_cluster/health/tut-f07-attractions?wait_for_status=green&timeout=30s",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"cluster_name\":\"travel-search-lab\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}"
+    },
+    {
+      "label": "round-2 same Java process recovery",
+      "url": "http://127.0.0.1:18080/api/attractions/search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":3,\"totalRelation\":\"eq\",\"esTookMs\":89,\"conditions\":{\"q\":\"西湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\"]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"match\":{\"name\":{\"operator\":\"or\",\"query\":\"西湖\"}}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"cityCode\":\"HZ\",\"ticketPriceFen\":20000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.15957204},{\"id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"cityCode\":\"HZ\",\"ticketPriceFen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.04219699},{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.17410304}]}"
+    },
+    {
+      "label": "round-2 named cleanup",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions",
+      "method": "DELETE",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"acknowledged\":true}"
+    },
+    {
+      "label": "round-2 cleanup verified",
+      "url": "http://127.0.0.1:19200/tut-f07-attractions",
+      "method": "GET",
+      "input": null,
+      "status": 404,
+      "raw_response": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f07-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f07-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f07-attractions\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f07-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f07-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f07-attractions\"},\"status\":404}"
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "status": "passed",
+      "comparisons": [
+        {
+          "input": "near",
+          "ids": [
+            "a-hz-boundary",
+            "a-hz-tea",
+            "a-hz-xihu"
+          ],
+          "total": 3,
+          "DTO": "verified",
+          "DSL": "exact parsed JSON match"
+        },
+        {
+          "input": "budget-80",
+          "ids": [
+            "a-hz-tea",
+            "a-hz-xihu"
+          ],
+          "total": 2,
+          "DTO": "verified",
+          "DSL": "exact parsed JSON match"
+        },
+        {
+          "input": "empty",
+          "ids": [],
+          "total": 0,
+          "DTO": "verified",
+          "DSL": "exact parsed JSON match"
+        }
+      ],
+      "invalid_input_cases": 8,
+      "failure": "ES stopped, Java health200 / search503",
+      "recovery": "same Java PID, same client, all three IDs",
+      "cleanup": "only tut-f07-attractions deleted and 404 verified"
+    },
+    {
+      "round": 2,
+      "status": "passed",
+      "comparisons": [
+        {
+          "input": "near",
+          "ids": [
+            "a-hz-boundary",
+            "a-hz-tea",
+            "a-hz-xihu"
+          ],
+          "total": 3,
+          "DTO": "verified",
+          "DSL": "exact parsed JSON match"
+        },
+        {
+          "input": "budget-80",
+          "ids": [
+            "a-hz-tea",
+            "a-hz-xihu"
+          ],
+          "total": 2,
+          "DTO": "verified",
+          "DSL": "exact parsed JSON match"
+        },
+        {
+          "input": "empty",
+          "ids": [],
+          "total": 0,
+          "DTO": "verified",
+          "DSL": "exact parsed JSON match"
+        }
+      ],
+      "invalid_input_cases": 8,
+      "failure": "ES stopped, Java health200 / search503",
+      "recovery": "same Java PID, same client, all three IDs",
+      "cleanup": "only tut-f07-attractions deleted and 404 verified"
+    }
+  ],
+  "commands": [
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/single-node/compose.yaml",
+        "up",
+        "-d",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-single-es-1 Running \n"
+    },
+    {
+      "args": [
+        "docker",
+        "version",
+        "--format",
+        "{{.Server.Version}}"
+      ],
+      "exit_code": 0,
+      "stdout": "29.5.2\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "version",
+        "--short"
+      ],
+      "exit_code": 0,
+      "stdout": "5.2.0\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "docker",
+        "image",
+        "inspect",
+        "docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+        "--format",
+        "{{json .RepoDigests}}"
+      ],
+      "exit_code": 0,
+      "stdout": "[\"docker.elastic.co/elasticsearch/elasticsearch@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\"]\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/single-node/compose.yaml",
+        "stop",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-single-es-1 Stopping \n Container es-framework-single-es-1 Stopped \n"
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/single-node/compose.yaml",
+        "up",
+        "-d",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-single-es-1 Starting \n Container es-framework-single-es-1 Started \n"
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/single-node/compose.yaml",
+        "stop",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-single-es-1 Stopping \n Container es-framework-single-es-1 Stopped \n"
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/single-node/compose.yaml",
+        "up",
+        "-d",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-single-es-1 Starting \n Container es-framework-single-es-1 Started \n"
+    }
+  ],
+  "environment": {
+    "java": "openjdk version \"25.0.4.1\" 2026-08-18 LTS\nOpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)\n",
+    "platform": "Darwin arm64\n",
+    "docker": "29.5.2\n",
+    "compose": "5.2.0\n",
+    "image": [
+      "docker.elastic.co/elasticsearch/elasticsearch@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84"
+    ],
+    "ES": {
+      "name": "travel-search-01",
+      "cluster_name": "travel-search-lab",
+      "cluster_uuid": "DlwGm716R6iph5GCe9Tucg",
+      "version": {
+        "number": "9.4.0",
+        "build_flavor": "default",
+        "build_type": "docker",
+        "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+        "build_date": "2026-04-30T15:05:34.751113474Z",
+        "build_snapshot": false,
+        "lucene_version": "10.4.0",
+        "minimum_wire_compatibility_version": "8.19.0",
+        "minimum_index_compatibility_version": "8.0.0"
+      },
+      "tagline": "You Know, for Search"
+    },
+    "jar_sha256": "e4211eb5d89a618210bd893bb2611eed1ecf61a41f96ba66daf60122e222a08b"
+  },
+  "inputs": {
+    "projects/travel-search/data/f07/attractions.json": "895a49967cd500914981264623869bd805542571834a4669370df8e8ee789ac7",
+    "projects/travel-search/data/f07/attractions.ndjson": "bcf9d25ed77bd678e1d26befcd2af1343ef0179632b3e3f4eba4ea04a20b1531",
+    "projects/travel-search/search/f07/empty.json": "ce395eee9e19da6f8ede9f704e47c4716fb3c5e9c0482d36c80eec0525e863e2",
+    "projects/travel-search/search/f07/near.json": "6744768a7503145b0831c18a7db527d2c1d0973f7e1c262cc4eee3f41ac34519",
+    "projects/travel-search/search/f07/input-budget-80.json": "974fb8a7ddbe41ff37c4d5c88f3f4a47c86d8ca27c3ab6641a9db1cecc3a821c",
+    "projects/travel-search/search/f07/input-near.json": "5715e2d6a485ac0bd586deb486303eff61ef53897234588618f7f49ac73971b6",
+    "projects/travel-search/search/f07/input-invalid.json": "e567b151de14b1d3ea67707ea280d73bafbaac4191936f5a45d239b1807b69a1",
+    "projects/travel-search/search/f07/budget-80.json": "24909f1c6dbdbb53de01d282241437f0aef4f77d7461c87706b47932631fb6e2",
+    "projects/travel-search/search/f07/index.json": "0851e4cf64f6c799f61c6417aeb860a509c370bdb060f318ce4640feaa6544e1",
+    "projects/travel-search/search/f07/input-empty.json": "616d859c40d222c065997bc3941702dbcbbebb751fb8e7e332c0fc6d67bab441",
+    "projects/travel-search/backend/src/main/resources/application.properties": "ed984be7547013d3c804f610ba6d293637ae14778f8a75cf87099c910b8d667a",
+    "projects/travel-search/backend/src/main/resources/static/shell.js": "d89dbc50ae0564f4f1d2c9d4d40db145c90d3af049a5c2d31e85f1474a45785c",
+    "projects/travel-search/backend/src/main/resources/static/index.html": "a8eb8dcc1b58359146a426655e30287e3ad77c3060a2febfd71613aaf5fd5579",
+    "projects/travel-search/backend/src/main/resources/static/shell.css": "41dff4c4f069b9d0f642a04cde9f00335c79f6a68a40e4791d92a2ee76d27618",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/Attraction.java": "9ad3d4c5ff7ee61e2481f6cad9711480c77030a24db7e8162bbc423f772794ff",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchResult.java": "550e695a27e4acc9ed0c7adcd4a4d9f9a49e786deb7771b67d8b44ae368b5928",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/AttractionSearchService.java": "d6ea82daf58a4dd95e06a281aff68ad2ce30f268a3c5a146cbfb10ae311c0d1e",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchController.java": "fe010375ef0d79107c4a7540eb23e32523e02803e77e72f06b37eefac63364c1",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/EsConfiguration.java": "18205ec3d65bd08412927dd82b0f6691837582b7afc7328c1741f75d75ba620b",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/TravelSearchApplication.java": "1ffe8c3e2e4c108901fd4cfa6ca927dcd8d069f75cc80bbb627e8d58459ca960",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchInput.java": "7775bf712607e43b6e3d6ce080af8be1c438597eb81d403f200da83d32e75566",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/ApiErrors.java": "6e08f1a84e9cbbcddc9f6e50d449e656dcde224caeb78cbcf64f63df7e282bd4",
+    "projects/travel-search/labs/f07/02-compare.sh": "5b24af45b01d4d9d75dffae068477db79b5be4a5cc3752db30066dac089b4d18",
+    "projects/travel-search/labs/f07/README.md": "b3de84dfb3ff00ebf78b8241deb184380fd7f16259e03ae30e44c0b8e85287c2",
+    "projects/travel-search/labs/f07/03-errors.sh": "860e21d032405755dd21aca9b5d8e104fb07098edda03e42e8ffa37ed980f5c2",
+    "projects/travel-search/labs/f07/cases.json": "c16cf41f906a2bcfdcaffb3f9d6d35a85077bdbe43ff62c79039801216529ad4",
+    "projects/travel-search/labs/f07/01-prepare.sh": "4fe181ea3f68c8f321f649ddf2e312f62d961a2bf912ea95796a78a35f857285",
+    "projects/travel-search/labs/f07/env.sh": "b7cc25acb4fd4bc21add47c866b923d76682925489f8b6419e321243a879a844",
+    "projects/travel-search/labs/f07/cleanup.sh": "fa54bcd94bf5efaff82c30cd4a9c992ebca422f13a1d797423cdf1e5b2f42193"
+  },
+  "java_pid": 69047,
+  "status": "passed",
+  "shutdown": {
+    "exit_code": 143,
+    "health_unreachable": true,
+    "client_close": "Spring bean destroyMethod=close; ApiClient.close closes transport"
+  },
+  "final": {
+    "lesson_index_exists": false,
+    "java_running": false,
+    "ES_running": true,
+    "volume": "preserved"
+  }
+}
