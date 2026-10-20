@@ -1,0 +1,69 @@
+{
+  "recorded_at": "2026-10-20T15:50:33.327333+00:00",
+  "before": "Initial observed inventory: framework ES Exited143; es-study-secure up; es-study Exited137; task started the framework ES only",
+  "operations": [
+    {
+      "command": [
+        "bash",
+        "projects/travel-search/labs/f09/cleanup.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "tut-f09-attractions: HTTP 200\ntut-f09-candidates: HTTP 200\n",
+      "stderr": ""
+    },
+    {
+      "index": "tut-f09-attractions",
+      "HTTP": 404,
+      "raw_response": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f09-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f09-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f09-attractions\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f09-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f09-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f09-attractions\"},\"status\":404}"
+    },
+    {
+      "index": "tut-f09-candidates",
+      "HTTP": 404,
+      "raw_response": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f09-candidates]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f09-candidates\",\"index_uuid\":\"_na_\",\"index\":\"tut-f09-candidates\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f09-candidates]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f09-candidates\",\"index_uuid\":\"_na_\",\"index\":\"tut-f09-candidates\"},\"status\":404}"
+    },
+    {
+      "java_pid": 91331,
+      "signal": "SIGTERM",
+      "status": "process exited; graceful shutdown recorded in java.log"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/single-node/compose.yaml",
+        "stop",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-single-es-1 Stopping \n Container es-framework-single-es-1 Stopped \n"
+    },
+    {
+      "command": [
+        "docker",
+        "ps",
+        "-a",
+        "--format",
+        "{{.Names}} {{.Status}} {{.Ports}}"
+      ],
+      "exit_code": 0,
+      "stdout": "es-framework-single-es-1 Exited (143) Less than a second ago \nes-study-secure Up 7 days (healthy) 9300/tcp, 127.0.0.1:9201->9200/tcp\nes-study Exited (137) 6 days ago \n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "inspect",
+        "es-framework-single-es-1",
+        "--format",
+        "{{.State.Status}} {{json .Mounts}}"
+      ],
+      "exit_code": 0,
+      "stdout": "exited [{\"Type\":\"volume\",\"Name\":\"es-framework-single_es-data\",\"Source\":\"/var/lib/docker/volumes/es-framework-single_es-data/_data\",\"Destination\":\"/usr/share/elasticsearch/data\",\"Driver\":\"local\",\"Mode\":\"rw\",\"RW\":true,\"Propagation\":\"\"}]\n",
+      "stderr": ""
+    }
+  ],
+  "status": "restored",
+  "volumes": "no volume removed; only the two named F09 indices deleted"
+}

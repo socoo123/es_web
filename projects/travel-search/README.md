@@ -1,6 +1,6 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳及F08多字段与高亮已交付，F09–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮及F09聚合与筛选计数已交付，F10–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
 
 当前入口是 [F03 首搜](../../framework/f03.html)、[F03 手工实验](labs/f03/README.md)与[两轮真实 ES 记录](review/f03/README.md)，无需前端、Java、数据库或 Kibana。[F04 字段设计与 Bulk](../../framework/f04.html)及其[本机步骤](labs/f04/README.md)已提供；[执行状态](review/f04/README.md)明确记录本环境启动阻塞，尚未两轮实测。F04 从新资源独立开始，不依赖 F03 索引。历史文件、资源与案例 ID 保留：
 
@@ -75,3 +75,15 @@ REST/Java逐项核对ID、价格、total/relation与实际序列化DSL；200元�
 - [ES/Java两轮](review/f08/README.md)、[真实浏览器/阅读/图解验收](../../docs/framework-review/20261020-f08-multifield/README.md)
 
 西湖多字段5条、钱塘湖别名1条、copy_to额外split、片段缺失回退、原文HTML纯文本显示分别核对；不把显示高亮当成评分解释或实体识别。F09再学习聚合计数。
+
+
+## F09 · 聚合与筛选计数
+
+[F09正文](../../framework/f09.html)使用独立tut-f09-attractions：继承F08十五份资料、补主题、加上海对照，共16份；全国候选浏览，显式移除附近半径。共同候选9份，选择HZ+lake或culture时命中4、城市范围6、主题范围7。query/post_filter/filter分支、同维OR/跨维AND、多值重叠/缺主题与range边界分别解释。
+
+- [手工实验与重做](labs/f09/README.md)：3案例、28条教学HTTP请求，清理2与探活/作者附加检查另计
+- `POST /api/attractions/facet-search`；本机观察页`http://127.0.0.1:18080/f09.html`，保留范围/桶/误差的DTO
+- 第二索引tut-f09-candidates只演示同节点双分片候选误差：小候选A5，完整C8/A6/B6
+- [真实两轮ES/Java记录](review/f09/README.md)、[HTTP与展示壳证据](../../docs/framework-review/20261020-f09-facets/README.md)
+
+F10再学习排序切换；不把本课ID次序当推荐排序，不把桶计数当库存或任意业务实体总数。

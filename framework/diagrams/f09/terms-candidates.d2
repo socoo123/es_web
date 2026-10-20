@@ -1,0 +1,8 @@
+direction: down
+distribution: "同节点 · 两主分片\n0：A 5 · C 4 · B 1\n1：B 5 · C 4 · A 1\nrouting a / b 分别进入 0 / 1"
+narrow: "size=1 / shard_size=1\n各报 A 5、B 5 → 返回 A 5\nA 桶上界 5；真正 C 8 未报"
+wide: "size=1 / shard_size=4\n报齐后返回 C 8\n桶上界 0；其他桶计数 12"
+complete: "size=3 / shard_size=4\nC 8 · A 6 · B 6\nsum_other_doc_count = 0"
+distribution -> narrow: "请求一：窄候选"
+narrow -> wide: "请求二：增大候选宽度"
+wide -> complete: "请求三：增大最终桶数"

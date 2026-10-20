@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>F09 · 聚合与筛选计数</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"></head>
+<body class="framework-page chapter-visual-page">
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="f09" data-ch="f09">
+<header class="ch-header"><div class="ch-kicker">FRAMEWORK 09 · 基础搜索闭环</div><h1>聚合与筛选计数：<br>数字究竟在数谁</h1><div class="meta-line">约 50 分钟 · 前置：F04–F08 · 3 个执行案例 · 28 条教学 HTTP 请求（探活/清理另计） · 2 幅静态 D2 · 0 个机制播放器</div><p class="ch-intro">F08 已经能在名称、别名和描述里找景点。游客接着勾选杭州，并选择湖泊或文化，筛选栏却可能只剩杭州，也可能继续显示没有条件的全国数字。本课让每个数字都有明确的候选范围，再用真实桶、Java DTO 和卡片对照。数字正确的第一步，是先说清它回答哪一个问题。</p><div class="diagram-jumps"><a href="#fig-facet-scopes">三个统计范围 ↓</a><a href="#fig-terms-candidates">分片候选误差 ↓</a><a href="../projects/travel-search/labs/f09/README.md">本机实验入口 ↗</a></div><details class="chapter-outline"><summary>本课目录</summary><ol><li><a href="#goals">本课目标</a></li><li><a href="#scene">筛选栏在问什么</a></li><li><a href="#samples">九个共同候选</a></li><li><a href="#prepare">准备独立索引</a></li><li><a href="#scope">query与post_filter</a></li><li><a href="#facets">排除自身维度</a></li><li><a href="#ranges">价格桶与文档数</a></li><li><a href="#java">Java与DTO</a></li><li><a href="#shell">展示壳与变化</a></li><li><a href="#candidates">候选截断误差</a></li><li><a href="#repeat">清理重做</a></li><li><a href="#drills">能力检查</a></li><li><a href="#pitfalls">陷阱</a></li><li><a href="#recap">速记与下一课</a></li></ol></details></header>
+<section class="goal"><h2 id="goals">本课目标</h2><ol><li>手工列出结果、城市栏、主题栏各自的候选集合，用 query、post_filter 与 filter 聚合复现范围。</li><li>解释同维 OR、跨维 AND、重叠主题、缺值与价格边界，对照 REST、Java DTO 和展示壳的完整 ID 与桶计数。</li><li>在同节点双分片实验中区分候选漏算、最终桶截断和文档总数，保留误差上界，判断哪些“总数”不能承诺。</li></ol></section>
+<section class="lesson"><h2 id="scene">1. 选了杭州，为什么还要看到福州</h2><p>筛选栏既能描述当前结果，也能帮助游客发现替代选项。若页面只说“城市”，数字就容易含糊：是当前结果里的城市分布，还是保留主题后各城市有多少候选？两种产品含义都成立，本课先约定后一种。城市栏保留当前主题、忽略城市选择；主题栏保留当前城市、忽略主题选择。选中的城市不应把其他城市的备选数字全部压掉。</p><p>Elasticsearch 是搜索与分析引擎。搜索返回一批文档，聚合则在指定文档范围里归类、计数。本课使用<strong>桶</strong>：例如把 city_code=HZ 的文档放在杭州桶，桶的 doc_count 是放入其中的文档数。Java负责固定允许的字段、条件与输出契约，展示壳说明数字含义；ES不会自行知道哪些条件应该暂时忽略。库存、订单或实时可售承诺仍由业务系统负责。</p><p>同一维度允许多选：杭州<strong>或</strong>福州，湖泊<strong>或</strong>文化；城市与主题之间同时满足。一个景点可以既是湖泊又适合步行，在两个主题桶各记一次，在命中结果里仍只有一份文档。因此筛选项的数字<strong>不是点击后的总数或新增数</strong>。已经选湖泊再加步行时，两个集合可能相交，不能直接相加。</p>
+<h2 id="samples">2. 先用九份资料把范围算清楚</h2><p>F09独立导入F08十五份资料，保留原字段和值，增加普通业务主题数组 themes；再加一份上海展览馆，共十六份合成资料。主题为 keyword，编码 lake/walk/garden/culture 分别表示湖泊/步行/园林/文化，不用中文分词后的text来做标签分桶。单文档可有多个主题；未填主题也不等于“没有候选”。</p><p>为了对照城市，场景改为<strong>全国浏览</strong>：移除F08固定杭州圆心与半径，也不固定HZ。仍用 multi_match/name^3,aliases^2,description/best_fields/AND/tie_breaker=0，保留CNY、明确open、价格gte0且lte20000分。这个共同候选集合记为B。“西湖远处展馆”和“西湖待定位”因此可以出现；这是距离条件改变的结果，不是聚合扩大了召回。这里不请求高亮，F08观察页仍保留原有能力。</p><table class="ktable"><thead><tr><th>业务 ID（候选B）</th><th>城市 / 主题</th><th>票价（分）</th></tr></thead><tbody><tr><td>a-hz-xihu</td><td>HZ / lake、walk</td><td>0</td></tr><tr><td>a-hz-tea</td><td>HZ / garden</td><td>8000</td></tr><tr><td>a-hz-boundary</td><td>HZ / culture</td><td>20000</td></tr><tr><td>a-hz-far</td><td>HZ / culture</td><td>1000</td></tr><tr><td>a-hz-missing-location</td><td>HZ / walk</td><td>1000</td></tr><tr><td>a-hz-guide</td><td>HZ / culture、walk</td><td>1000</td></tr><tr><td>a-hz-plain</td><td>HZ / 未填主题</td><td>1000</td></tr><tr><td>a-fz-xihu</td><td>FZ / lake、walk</td><td>0</td></tr><tr><td>a-sh-exhibit</td><td>SH / culture</td><td>10000</td></tr></tbody></table><p>九份候选不是全索引十六份：夜游与超一分超过预算，旧展馆下架，缺价/null价不满足range，待核状态不满足open，split不能把不同字段的“西”“湖”拼成每字段AND。完整<a href="../projects/travel-search/data/f09/attractions.json">固定资料</a>和<a href="../projects/travel-search/search/f09/index.json">mapping</a>都可离线查看。价格仍用整数分，免费是明确0，缺价不补0。</p><p>将选中城市记为C=HZ，主题记为T=lake或culture。结果取B∩C∩T：boundary、far、guide、xihu，共4份。城市栏取B∩T：多了福州西湖、上海展馆，共6份；主题栏取B∩C：杭州7份，包括未填主题的plain。先写集合，再决定DSL放在哪里。</p><figure class="fig d2-figure" id="fig-facet-scopes"><div class="d2-shell"><div class="d2-tools"><strong>01 · 结果、城市与主题分别数谁</strong><a data-expand-d2 href="diagrams/f09/facet-scopes-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f09/facet-scopes-light.svg" data-d2-light="diagrams/f09/facet-scopes-light.svg" data-d2-dark="diagrams/f09/facet-scopes-dark.svg" alt="共同九个候选分别进入结果四份、保留主题的城市六份、保留城市的主题七份"></div></div><figcaption>四张卡片对照独立统计范围，没有前后执行顺序。省略分片与收集器；隐形布局边只用于纵向排布。 静态图可展开；<a href="diagrams/f09/README.md">图源与生成记录</a>。</figcaption></figure><h2 id="prepare">3. f09-c01：准备后，先比较两种范围</h2><p>沿用现有工程：Spring Boot4.0.8 / JDK25（本轮Temurin25.0.4.1+1）/ 官方Java与Rest5 Client9.4.8 / Wrapper3.3.4、Maven3.9.11；ES9.4.0 / Lucene10.4.0。应用JDK与ES容器bundled JVM不同。先让本机JAVA_HOME/PATH指向JDK25；不依赖F08索引已存在，不使用旧travel-portal工程。</p><pre class="code-block" data-label="Bash · 仓库根目录开始"><code class="language-bash">cd projects/travel-search
+docker compose -f infra/single-node/compose.yaml up -d es
+bash infra/single-node/wait.sh
+bash labs/f09/01-prepare.sh
+bash labs/f09/02-scopes.sh</code></pre><p>准备只写 tut-f09-attractions，一主零副本、dynamic=strict。六条请求依次核对版本9.4.0、创建确认、索引green且未超时、Bulk十六项created且errors=false、refresh零失败、count16。脚本以HTTP错误停止，但HTTP200不保证Bulk每项或集群等待成功，仍须看这些字段。重复创建报已存在时先停止，按后文点名清理，不能把旧资料当新前提。</p><pre class="code-block" data-label="Bash · 完整准备请求" data-source="projects/travel-search/labs/f09/01-prepare.sh"><code class="language-bash">#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/env.sh"
+curl --fail-with-body -sS "$ES_URL/?pretty"
+curl --fail-with-body -sS -X PUT "$ES_URL/tut-f09-attractions?pretty" -H 'Content-Type: application/json' --data-binary @search/f09/index.json
+curl --fail-with-body -sS "$ES_URL/_cluster/health/tut-f09-attractions?wait_for_status=green&amp;timeout=30s&amp;pretty"
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f09-attractions/_bulk?pretty" -H 'Content-Type: application/x-ndjson' --data-binary @data/f09/attractions.ndjson
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f09-attractions/_refresh?pretty"
+curl --fail-with-body -sS "$ES_URL/tut-f09-attractions/_count?pretty"</code></pre><details><summary>完整索引配置：themes新增keyword，已有字段保持原类型</summary><pre class="code-block" data-label="JSON · PUT /tut-f09-attractions" data-source="projects/travel-search/search/f09/index.json"><code class="language-json">{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "standard",
+        "fields": {
+          "raw": {
+            "type": "keyword"
+          }
+        },
+        "copy_to": [
+          "search_text"
+        ]
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "ticket_price_fen": {
+        "type": "integer",
+        "coerce": false
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "standard",
+        "copy_to": [
+          "search_text"
+        ]
+      },
+      "published_on": {
+        "type": "date",
+        "format": "strict_date"
+      },
+      "location": {
+        "type": "geo_point"
+      },
+      "aliases": {
+        "type": "text",
+        "analyzer": "standard",
+        "copy_to": [
+          "search_text"
+        ]
+      },
+      "search_text": {
+        "type": "text",
+        "analyzer": "standard"
+      },
+      "themes": {
+        "type": "keyword"
+      }
+    }
+  }
+}</code></pre></details>
+<h2 id="scope">4. query影响两路，post_filter只收窄命中</h2><p>先把城市、主题和共同条件全部放进 query.bool.filter，再同时请求城市与主题terms聚合。四个命中没错，城市桶也只有HZ4；它正确描述了当前结果，却无法回答福州还有哪些备选。query先限定普通聚合与搜索命中的共同范围，桶不会自动把城市条件撤掉。</p><p>第二个请求把城市与主题一起移到 post_filter，query只保留B。四个命中不变，顶层城市桶变成HZ7/FZ1/SH1，主题culture4/walk4/lake2/garden1。post_filter作用于搜索命中及其total，不收窄聚合。它使统计范围更宽，但把两维都移出去之后，城市桶也忽略了主题；这仍不满足我们约定的“保留另一维”。<a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/filter-search-results">官方query/post_filter说明</a>与本轮实测分别作为语义依据和执行证据。</p><table class="ktable"><thead><tr><th>相同选择：HZ + lake或culture</th><th>命中</th><th>城市桶</th><th>主题桶</th></tr></thead><tbody><tr><td>all-query</td><td>4</td><td>HZ4</td><td>culture3 / walk2 / lake1</td></tr><tr><td>post-only</td><td>4</td><td>HZ7 / FZ1 / SH1</td><td>culture4 / walk4 / lake2 / garden1</td></tr><tr><td>本课按维度统计</td><td>4</td><td>HZ4 / FZ1 / SH1</td><td>culture3 / walk3 / garden1 / lake1</td></tr></tbody></table><details><summary>展开两条完整对照DSL；不是把单个filter字样替换成post_filter</summary><pre class="code-block" data-label="JSON · POST /tut-f09-attractions/_search：all-query" data-source="projects/travel-search/search/f09/all-query.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "themes"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "terms": {
+            "city_code": [
+              "HZ"
+            ]
+          }
+        },
+        {
+          "terms": {
+            "themes": [
+              "lake",
+              "culture"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "aggregations": {
+    "cities": {
+      "terms": {
+        "field": "city_code",
+        "size": 10,
+        "shard_size": 10,
+        "show_term_doc_count_error": true,
+        "order": [
+          {
+            "_count": "desc"
+          },
+          {
+            "_key": "asc"
+          }
+        ]
+      }
+    },
+    "themes": {
+      "terms": {
+        "field": "themes",
+        "size": 10,
+        "shard_size": 10,
+        "show_term_doc_count_error": true,
+        "order": [
+          {
+            "_count": "desc"
+          },
+          {
+            "_key": "asc"
+          }
+        ]
+      }
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre><pre class="code-block" data-label="JSON · POST /tut-f09-attractions/_search：post-only" data-source="projects/travel-search/search/f09/post-only.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "themes"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "post_filter": {
+    "bool": {
+      "filter": [
+        {
+          "terms": {
+            "city_code": [
+              "HZ"
+            ]
+          }
+        },
+        {
+          "terms": {
+            "themes": [
+              "lake",
+              "culture"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "aggregations": {
+    "cities": {
+      "terms": {
+        "field": "city_code",
+        "size": 10,
+        "shard_size": 10,
+        "show_term_doc_count_error": true,
+        "order": [
+          {
+            "_count": "desc"
+          },
+          {
+            "_key": "asc"
+          }
+        ]
+      }
+    },
+    "themes": {
+      "terms": {
+        "field": "themes",
+        "size": 10,
+        "shard_size": 10,
+        "show_term_doc_count_error": true,
+        "order": [
+          {
+            "_count": "desc"
+          },
+          {
+            "_key": "asc"
+          }
+        ]
+      }
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre></details><p>共同的货币、开放、有效价格和预算始终在query里，不能为了展示更多筛选数字而撤掉业务边界。真实系统若有权限条件，也必须作用到所需统计范围；post_filter不是权限边界。filter聚合只能在父范围中继续收窄，不能挽回已经被query排除的福州文档。</p>
+<h2 id="facets">5. f09-c02：每个维度，单独保留另一维</h2><p>现在先用query选B，用post_filter把C与T同时加给命中。城市聚合是一个filter桶，只加T，再在桶内按city_code分terms；主题聚合只加C，再按themes分terms。这就是“排除自身维度”的计数约定。filter聚合的doc_count表示该分支范围有多少文档，内部terms才表示每个标签包含多少。<a href="https://www.elastic.co/docs/reference/aggregations/search-aggregations-bucket-filter-aggregation">官方filter聚合说明</a>。</p><p>多选用一个terms查询表达任意一个值；两个维度各占bool.filter的一项，形成AND。不要把湖泊和文化拆成同层两个必选term，那会变成必须同时有两个标签。空数组表示该维度不限，Java转成match_all，避免空terms查询被误当作“不筛选”。聚合terms和查询terms同名，职责不同：前者分桶，后者筛文档。</p><pre class="code-block" data-label="JSON · POST /api/attractions/facet-search：输入" data-source="projects/travel-search/search/f09/input-selected.json"><code class="language-json">{
+  "q": "西湖",
+  "cityCodes": [
+    "HZ"
+  ],
+  "themes": [
+    "lake",
+    "culture"
+  ],
+  "maxPriceFen": 20000
+}</code></pre><pre class="code-block" data-label="JSON · POST /tut-f09-attractions/_search：完整主请求" data-source="projects/travel-search/search/f09/selected.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "themes"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "post_filter": {
+    "bool": {
+      "filter": [
+        {
+          "terms": {
+            "city_code": [
+              "HZ"
+            ]
+          }
+        },
+        {
+          "terms": {
+            "themes": [
+              "lake",
+              "culture"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "aggregations": {
+    "cities": {
+      "filter": {
+        "terms": {
+          "themes": [
+            "lake",
+            "culture"
+          ]
+        }
+      },
+      "aggregations": {
+        "values": {
+          "terms": {
+            "field": "city_code",
+            "size": 10,
+            "shard_size": 10,
+            "show_term_doc_count_error": true,
+            "order": [
+              {
+                "_count": "desc"
+              },
+              {
+                "_key": "asc"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "themes": {
+      "filter": {
+        "terms": {
+          "city_code": [
+            "HZ"
+          ]
+        }
+      },
+      "aggregations": {
+        "values": {
+          "terms": {
+            "field": "themes",
+            "size": 10,
+            "shard_size": 10,
+            "show_term_doc_count_error": true,
+            "order": [
+              {
+                "_count": "desc"
+              },
+              {
+                "_key": "asc"
+              }
+            ]
+          }
+        },
+        "missing_theme": {
+          "filter": {
+            "bool": {
+              "must_not": [
+                {
+                  "exists": {
+                    "field": "themes"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "prices": {
+      "filter": {
+        "bool": {
+          "filter": [
+            {
+              "terms": {
+                "city_code": [
+                  "HZ"
+                ]
+              }
+            },
+            {
+              "terms": {
+                "themes": [
+                  "lake",
+                  "culture"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "aggregations": {
+        "ranges": {
+          "range": {
+            "field": "ticket_price_fen",
+            "ranges": [
+              {
+                "key": "under-100",
+                "from": 0.0,
+                "to": 10000.0
+              },
+              {
+                "key": "100-to-200",
+                "from": 10000.0,
+                "to": 20000.0
+              },
+              {
+                "key": "200-plus",
+                "from": 20000.0
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre><p>本轮真实输出：按ID升序为a-hz-boundary、a-hz-far、a-hz-guide、a-hz-xihu，hits.total={value:4,relation:eq}。cities.doc_count=6，内部HZ4/FZ1/SH1；themes.doc_count=7，内部culture3/walk3/garden1/lake1，missing_theme.doc_count=1。两个terms分支整体与逐桶误差上界均0，sum_other_doc_count均0。原始响应见<a href="../projects/travel-search/review/f09/es-java-review.json">两轮记录</a>。</p><p>这里展示已知少量编码，terms显式size=10/shard_size=10；默认terms只返回前十个桶，而不是自动枚举全体值。默认min_doc_count=1，零命中的项通常不返回。展示壳持有本课完整选项表，只有桶完整且误差信息允许时才把缺桶显示0；未知词典或桶截断时应保留“未返回”，不能推断没有候选。</p>
+<h2 id="ranges">6. 一张卡片、一个桶和一个总数是三件事</h2><p>range聚合按数值区间归桶，from包含、to不包含。本课分为[0,10000)、[10000,20000)、[20000,+∞)分。第三个名字是“200元起”，但仍受到query中200元预算约束，所以这里只可能收进恰好20000分的文档。不能把它解释成统计了全部高价景点。价格分支保留全部城市/主题选择，是<strong>当前命中价格分布</strong>；本课没有实现可多选的价格筛选维度。</p><p>四个命中的价格是20000、1000、1000、0，三个桶依次3/0/1。取消全部城市与主题后，九个候选分为7/1/1；上海10000分进入中间桶，预算线20000分进入第三桶。本课单值价格、互斥区间、无缺价的共同候选使桶数相加等于对应范围文档数；若区间重叠或字段多值，就不能沿用这一结论。<a href="https://www.elastic.co/docs/reference/aggregations/search-aggregations-bucket-range-aggregation">官方range边界说明</a>。</p><p>主题范围里，xihu同时进入lake与walk，guide同时进入culture与walk；杭州主题桶之和是8，范围文档数却是7，而且plain未填主题、不进普通terms桶。缺失统计单独用must_not exists，不制造一个假的业务主题。这个例子既有重复归桶又有缺值，桶之和更不能当文档总数。</p><p>搜索size控制当前返回多少条hits，hits.total在track_total_hits=true且查询完整执行时报告匹配文档数，聚合通常统计其查询/父聚合限定的全部文档，并非只数当前页。作者另把主请求size改2与0核对：当前hits数组分别2条与空，total仍4，聚合完全相同。一个景点一份文档才使本课total等于景点数量；将来酒店一店多文档时不能把文档数叫酒店总数。</p>
+<h2 id="java">7. Java对应的是范围，不只是多一个数字字段</h2><p>新接口仍由同一个Spring单例Client调用ES，索引固定为tut-f09-attractions。输入是关键词、城市数组、主题数组、整数分预算；枚举限制与数组长度在进入服务前校验。以下查询、聚合、字段投影、DTO解析和不完整结果分支都是实际工程代码；不是用字符串拼一段未执行的DSL。</p><pre class="code-block" data-label="Java · 输入契约" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetInput.java"><code class="language-java">package dev.esweb.travel;
+
+import jakarta.validation.constraints.*;
+import java.util.List;
+
+public record FacetInput(
+        @NotBlank @Size(max = 60) String q,
+        @NotNull @Size(max = 3) List&lt;@NotNull @Pattern(regexp = "HZ|FZ|SH") String&gt; cityCodes,
+        @NotNull @Size(max = 4) List&lt;@NotNull @Pattern(regexp = "lake|walk|garden|culture") String&gt; themes,
+        @NotNull @Min(0) @Max(100000000) Integer maxPriceFen) {
+}</code></pre><pre class="code-block" data-label="Java · 完整请求、聚合投影与不完整结果分支" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetSearchService.java"><code class="language-java">package dev.esweb.travel;
+
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.json.JsonpUtils;
+import co.elastic.clients.util.NamedValue;
+import java.io.IOException;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.json.JsonMapper;
+
+@Service
+public class FacetSearchService {
+    private final ElasticsearchClient client;
+    private final String index;
+    private final JsonMapper json;
+
+    public FacetSearchService(ElasticsearchClient client,
+            @Value("${travel.f09-index:tut-f09-attractions}") String index, JsonMapper json) {
+        this.client = client; this.index = index; this.json = json;
+    }
+
+    private Query chosen(String field, List&lt;String&gt; values) {
+        if (values.isEmpty()) return Query.of(q -&gt; q.matchAll(m -&gt; m));
+        return Query.of(q -&gt; q.terms(t -&gt; t.field(field)
+                .terms(v -&gt; v.value(values.stream().map(FieldValue::of).toList()))));
+    }
+
+    private Aggregation values(String field) {
+        return Aggregation.of(a -&gt; a.terms(t -&gt; t.field(field).size(10).shardSize(10)
+                .showTermDocCountError(true)
+                .order(List.of(NamedValue.of("_count", SortOrder.Desc), NamedValue.of("_key", SortOrder.Asc)))));
+    }
+
+    public SearchRequest request(FacetInput input) {
+        Query cities = chosen("city_code", input.cityCodes());
+        Query themes = chosen("themes", input.themes());
+        Query selection = Query.of(q -&gt; q.bool(b -&gt; b.filter(List.of(cities, themes))));
+        return SearchRequest.of(s -&gt; s.index(index).size(20).trackTotalHits(t -&gt; t.enabled(true))
+                .source(src -&gt; src.filter(f -&gt; f.includes(List.of("attraction_id", "name", "city_code",
+                        "ticket_price_fen", "currency", "status", "themes"))))
+                .query(q -&gt; q.bool(b -&gt; b
+                        .must(m -&gt; m.multiMatch(t -&gt; t.query(input.q()).fields("name^3", "aliases^2", "description")
+                                .type(TextQueryType.BestFields).operator(Operator.And).tieBreaker(0.0)))
+                        .filter(f -&gt; f.term(t -&gt; t.field("currency").value("CNY")))
+                        .filter(f -&gt; f.range(r -&gt; r.number(n -&gt; n.field("ticket_price_fen")
+                                .gte(0.0).lte(input.maxPriceFen().doubleValue()))))
+                        .filter(f -&gt; f.term(t -&gt; t.field("status").value("open")))))
+                .postFilter(selection)
+                .aggregations("cities", a -&gt; a.filter(themes).aggregations("values", values("city_code")))
+                .aggregations("themes", a -&gt; a.filter(cities).aggregations("values", values("themes"))
+                        .aggregations("missing_theme", x -&gt; x.filter(f -&gt; f.bool(b -&gt; b
+                                .mustNot(n -&gt; n.exists(e -&gt; e.field("themes")))))))
+                .aggregations("prices", a -&gt; a.filter(selection).aggregations("ranges", x -&gt; x.range(r -&gt; r
+                        .field("ticket_price_fen")
+                        .ranges(v -&gt; v.key("under-100").from(0.0).to(10000.0))
+                        .ranges(v -&gt; v.key("100-to-200").from(10000.0).to(20000.0))
+                        .ranges(v -&gt; v.key("200-plus").from(20000.0)))))
+                .sort(sort -&gt; sort.field(f -&gt; f.field("attraction_id").order(SortOrder.Asc))));
+    }
+
+    private FacetResult.TermsFacet termsFacet(Aggregate aggregate, String scope) {
+        if (aggregate == null || !aggregate.isFilter()) throw new AttractionSearchService.IncompleteSearchException();
+        var group = aggregate.filter();
+        var value = group.aggregations().get("values");
+        if (value == null || !value.isSterms()) throw new AttractionSearchService.IncompleteSearchException();
+        var terms = value.sterms();
+        if (terms.docCountErrorUpperBound() == null || terms.sumOtherDocCount() == null
+                || !terms.buckets().isArray()) throw new AttractionSearchService.IncompleteSearchException();
+        var buckets = terms.buckets().array().stream().map(b -&gt; {
+            if (b.docCountErrorUpperBound() == null) throw new AttractionSearchService.IncompleteSearchException();
+            return new FacetResult.Bucket(b.key().stringValue(), b.docCount(), b.docCountErrorUpperBound());
+        }).toList();
+        return new FacetResult.TermsFacet(scope, group.docCount(), terms.docCountErrorUpperBound(),
+                terms.sumOtherDocCount(), buckets);
+    }
+
+    public FacetResult search(FacetInput input) throws IOException {
+        var request = request(input);
+        var response = client.search(request, FacetAttraction.class);
+        if (response.timedOut() || response.shards().failed().longValue() != 0 || response.hits().total() == null) {
+            throw new AttractionSearchService.IncompleteSearchException();
+        }
+        var items = response.hits().hits().stream().map(hit -&gt; {
+            var src = hit.source();
+            if (src == null || !hit.id().equals(src.attractionId()) || src.name() == null
+                    || src.ticketPriceFen() == null) throw new AttractionSearchService.IncompleteSearchException();
+            return new FacetResult.Card(hit.id(), src.name(), src.cityCode(), src.ticketPriceFen(),
+                    src.currency(), src.status(), src.themes() == null ? List.of() : src.themes());
+        }).toList();
+        var cities = termsFacet(response.aggregations().get("cities"), "base AND selected themes; city ignored");
+        var themes = termsFacet(response.aggregations().get("themes"), "base AND selected cities; theme ignored");
+        var missing = response.aggregations().get("themes").filter().aggregations().get("missing_theme");
+        var priceGroup = response.aggregations().get("prices");
+        if (missing == null || !missing.isFilter() || priceGroup == null || !priceGroup.isFilter()) {
+            throw new AttractionSearchService.IncompleteSearchException();
+        }
+        var ranges = priceGroup.filter().aggregations().get("ranges");
+        if (ranges == null || !ranges.isRange() || !ranges.range().buckets().isArray()) {
+            throw new AttractionSearchService.IncompleteSearchException();
+        }
+        var prices = ranges.range().buckets().array().stream().map(b -&gt;
+                new FacetResult.RangeBucket(b.key(), b.from(), b.to(), b.docCount())).toList();
+        String dsl = JsonpUtils.toJsonString(request, client._jsonpMapper());
+        return new FacetResult(response.hits().total().value(), response.hits().total().relation().jsonValue(),
+                response.took(), input, json.readTree(dsl), items, cities, themes, missing.filter().docCount(),
+                priceGroup.filter().docCount(), prices);
+    }
+}</code></pre><pre class="code-block" data-label="Java · 返回范围、桶、误差和卡片" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetResult.java"><code class="language-java">package dev.esweb.travel;
+
+import java.util.List;
+import tools.jackson.databind.JsonNode;
+
+public record FacetResult(long total, String totalRelation, long esTookMs,
+                          FacetInput conditions, JsonNode esRequest, List&lt;Card&gt; items,
+                          TermsFacet cities, TermsFacet themes, long missingThemeCount,
+                          long priceScopeTotal, List&lt;RangeBucket&gt; prices) {
+    public record Bucket(String key, long docCount, long docCountErrorUpperBound) {}
+    public record TermsFacet(String scope, long scopeTotal, long docCountErrorUpperBound,
+                             long sumOtherDocCount, List&lt;Bucket&gt; buckets) {}
+    public record RangeBucket(String key, Double fromFen, Double toFen, long docCount) {}
+    public record Card(String id, String name, String cityCode, Integer ticketPriceFen,
+                       String currency, String status, List&lt;String&gt; themes) {}
+}</code></pre><p>DTO保留scopeTotal、docCountErrorUpperBound、sumOtherDocCount及逐桶上界；不能只返回key/count后就宣称数字精确。价格单独给priceScopeTotal，开放上界用null表示。缺_source/ID不符/缺必需价格、缺聚合、超时或分片失败均走502 SEARCH_INCOMPLETE，避免把半份响应当完整数字。非法输入400、索引缺失502、连接不可用503；正常空集为200，terms空桶而range仍有三个0。真实超时与部分分片失败本轮未造故障。</p><pre class="code-block" data-label="Java · 本课入口与输入错误" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetController.java"><code class="language-java">package dev.esweb.travel;
+
+import jakarta.validation.Valid;
+import java.io.IOException;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.ResponseEntity;
+
+@RestController
+public class FacetController {
+    private final FacetSearchService service;
+    public FacetController(FacetSearchService service) { this.service = service; }
+
+    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
+    public ResponseEntity&lt;ApiErrors.ErrorBody&gt; invalidInput(Exception error) {
+        return ResponseEntity.badRequest().body(new ApiErrors.ErrorBody("INVALID_SEARCH_INPUT",
+                "请填写关键词、城市/主题数组和整数分预算；选项与金额须在本课允许范围内。"));
+    }
+
+    @PostMapping("/api/attractions/facet-search")
+    public FacetResult search(@Valid @RequestBody FacetInput input) throws IOException {
+        return service.search(input);
+    }
+}</code></pre><p>完整<a href="../projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetAttraction.java">源文档投影</a>、<a href="../projects/travel-search/backend/src/main/java/dev/esweb/travel/ApiErrors.java">共用502/503分支</a>、<a href="../projects/travel-search/backend/README.md">服务配置与生命周期</a>保留在工程。本轮REST↔Java逐项比较序列化DSL、提交条件、完整ID次序、价格与主题、total/relation、分支范围、每个桶与全部误差字段；Java运行成功不能替代这些契约核对。</p>
+<h2 id="shell">8. 从选择变化，反查真实请求</h2><p>你不用开发前端。构建后打开课程提供的本机观察页；路径为浏览器→Java→ES，Pages仍只承载教程，不连接读者服务，ES配置不会进入浏览器。旧F07根路径与F08页保留各自条件。</p><pre class="code-block" data-label="Bash · 另开终端，从仓库根目录启动Java"><code class="language-bash">cd projects/travel-search/backend
+./mvnw -version
+./mvnw -B -ntp clean package
+java -jar target/travel-search-0.7.0.jar</code></pre><pre class="code-block" data-label="Bash · 对照REST/Java与观察页"><code class="language-bash"># 第一终端仍在 projects/travel-search
+bash labs/f09/03-facets.sh
+bash labs/f09/04-java.sh
+# 浏览器打开 http://127.0.0.1:18080/f09.html</code></pre><table class="ktable"><thead><tr><th>提交选择</th><th>真实变化</th><th>能解释什么</th></tr></thead><tbody><tr><td>HZ + lake、culture</td><td>4→加选FZ后5；城市桶仍4/1/1</td><td>改变自身城市选择，不改变城市栏范围</td></tr><tr><td>HZ + lake、walk</td><td>guide/missing-location/xihu，共3</td><td>lake1与walk3有重叠，不能加成4</td></tr><tr><td>清空两维选择</td><td>9条；城市7/1/1；价格7/1/1</td><td>空数组表示不限，不是零结果</td></tr><tr><td>关键词火星</td><td>0条；terms空；range三个0</td><td>正常空集与请求失败分开</td></tr><tr><td>点名删本课索引，再重导</td><td>502清空卡片/数字，重导后恢复</td><td>失败不能沿用上次成功的数字</td></tr></tbody></table><p>页面先勾选、再点击“查看景点与计数”提交，观察区给出本次条件、Java实际请求与DTO。每次新搜索先清空旧卡片与数字；连接等待超时也不保留旧数字。预算、状态与货币仍约束所有分支，价格不是实时销售承诺。当前按ID核对顺序，排序选择留给F10。真实展示壳的尺寸/主题、计数/卡片与故障恢复记录见<a href="../docs/framework-review/20261020-f09-facets/shell-review.json">浏览器实连验收</a>。</p>
+<h2 id="candidates">9. f09-c03：候选没报上来，最大桶也会选错</h2><p>小单分片、完整低基数字典可以手算，不代表terms在任意规模都精确。按文档数降序找前几个桶时，各分片先报有限候选，协调方再归并。size决定最终返回桶数，shard_size决定每分片候选宽度。这里的分片候选与前文共同搜索候选B是不同层次，不能混用。</p><p>为实测候选误差，用独立tut-f09-candidates，两主零副本，仍在同一节点，不提前搭多节点。每份只有一个tag，共20份；routing=a/b分别落到主分片0/1，并用_search_shards确认。分片0为A5/C4/B1，分片1为B5/C4/A1，人工全量应C8/A6/B6。分片与routing先作实验前提，集群原理后续再展开。</p><figure class="fig d2-figure" id="fig-terms-candidates"><div class="d2-shell"><div class="d2-tools"><strong>02 · 候选宽度与最终桶数分别改变什么</strong><a data-expand-d2 href="diagrams/f09/terms-candidates-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f09/terms-candidates-light.svg" data-d2-light="diagrams/f09/terms-candidates-light.svg" data-d2-dark="diagrams/f09/terms-candidates-dark.svg" alt="双分片的A5C4B1与B5C4A1，窄候选错选A，放宽后C8，再返回完整三个桶"></div></div><figcaption>箭头表示三次独立请求的参数对照，不代表一次查询先返回A再改成C。图中的两主分片都在同一学习节点。 静态图可展开；<a href="diagrams/f09/README.md">图源与生成记录</a>。</figcaption></figure><pre class="code-block" data-label="JSON · POST /tut-f09-candidates/_search：窄候选" data-source="projects/travel-search/search/f09/candidate-small.json"><code class="language-json">{
+  "size": 0,
+  "track_total_hits": true,
+  "aggregations": {
+    "tags": {
+      "terms": {
+        "field": "tag",
+        "size": 1,
+        "shard_size": 1,
+        "show_term_doc_count_error": true
+      }
+    }
+  }
+}</code></pre><details><summary>展开双分片完整准备、routing检查与三次请求</summary><pre class="code-block" data-label="JSON · PUT /tut-f09-candidates" data-source="projects/travel-search/search/f09/candidates-index.json"><code class="language-json">{
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "tag": {
+        "type": "keyword"
+      }
+    }
+  }
+}</code></pre><pre class="code-block" data-label="Bash · 完整候选实验" data-source="projects/travel-search/labs/f09/05-candidates.sh"><code class="language-bash">#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/env.sh"
+curl --fail-with-body -sS -X PUT "$ES_URL/tut-f09-candidates?pretty" -H 'Content-Type: application/json' --data-binary @search/f09/candidates-index.json
+curl --fail-with-body -sS "$ES_URL/_cluster/health/tut-f09-candidates?wait_for_status=green&amp;timeout=30s&amp;pretty"
+# 对照两份响应的 shards[0][0].shard，a 与 b 必须落到不同主分片。
+curl --fail-with-body -sS "$ES_URL/tut-f09-candidates/_search_shards?routing=a&amp;pretty"
+curl --fail-with-body -sS "$ES_URL/tut-f09-candidates/_search_shards?routing=b&amp;pretty"
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f09-candidates/_bulk?pretty" -H 'Content-Type: application/x-ndjson' --data-binary @data/f09/candidates.ndjson
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f09-candidates/_refresh?pretty"
+curl --fail-with-body -sS "$ES_URL/tut-f09-candidates/_count?pretty"
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f09-candidates/_search?pretty" -H 'Content-Type: application/json' --data-binary @search/f09/candidate-small.json
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f09-candidates/_search?pretty" -H 'Content-Type: application/json' --data-binary @search/f09/candidate-wide.json
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f09-candidates/_search?pretty" -H 'Content-Type: application/json' --data-binary @search/f09/candidate-all.json</code></pre></details><p>运行05：核对创建/green、routing两份响应、Bulk20项created、refresh零失败、count20。三次search的size都为0，即不返回卡片；hits.total仍20。下面是本轮真实结果，不是从公式虚构的响应。</p><table class="ktable"><thead><tr><th>terms参数</th><th>返回桶</th><th>误差与截断</th></tr></thead><tbody><tr><td>size1 / shard_size1</td><td>A5；A/B同为局部5，键序决定A</td><td>整体误差上界10，A桶上界5；sum_other=15</td></tr><tr><td>size1 / shard_size4</td><td>C8</td><td>整体/逐桶上界0；sum_other=12，仍省略A、B</td></tr><tr><td>size3 / shard_size4</td><td>C8、A6、B6</td><td>整体/逐桶上界0；sum_other=0</td></tr></tbody></table><p>窄候选中，A实际6，少算1，小于等于其上界5；整体上界10不是A的实际误差，更不是文档总数。C在两边都排第二，根本未上报，所以真正最多的C8也会落选。放宽到4候选后，三种值都进入归并，返回C8。再把最终size增为3，才把A/B也展示出来。作者还实测shard_size恰好3时，计数虽完整，上界仍可能为正；上界是保守界限，不能反推必然少算多少。</p><p><code>sum_other_doc_count</code>说明未进入返回桶的计数，不是遗漏的不同景点数；本例tag单值，才可用20减返回桶数核对。主题多值时同一文档可贡献多个桶，不能照搬减法。即使返回桶的误差上界0，也可能因最终size而省略其他桶；有些排序无法提供有效计数上界，会以-1表示未知。本课候选实验明确按_count降序，不把这些性质推广到任意子聚合排序。增加shard_size有额外内存与传输成本，也不是普遍精确保证；需要完整高基数遍历时应另选方案。<a href="https://www.elastic.co/docs/reference/aggregations/search-aggregations-bucket-terms-aggregation">官方terms范围、候选与误差说明</a>。</p>
+<h2 id="repeat">10. 点名清理，然后从空索引重做</h2><pre class="code-block" data-label="Bash · 仅删除本课两个索引" data-source="projects/travel-search/labs/f09/cleanup.sh"><code class="language-bash">#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/env.sh"
+# 只删除本课两个索引；404 表示已经清理，不使用通配符。
+for index in tut-f09-attractions tut-f09-candidates; do
+  code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "$ES_URL/$index")
+  case "$code" in 200|404) printf '%s: HTTP %s\n' "$index" "$code";; *) printf '清理失败: %s HTTP %s\n' "$index" "$code" &gt;&amp;2; exit 1;; esac
+done</code></pre><p>清理只删除tut-f09-attractions和tut-f09-candidates；200为已删除、404为已经不存在。再次从01→02→03→04→05完整执行，两个Bulk应重新created，不能把updated当作空环境重做。Java进程可以复用。停止自己启动的Java；若本课开始前专用ES已停止，用同一compose的stop es恢复，不删除卷，也不触碰源码篇节点。</p><p>本课3个案例、28条教学HTTP请求：准备6+范围对照2+主搜索5+Java5+候选实验10；点名清理2、启动探活、作者附加校验/错误输入和浏览器重复调用另计。curl不会自动核对JSON语义。作者已完成初次与点名清理后第二轮，原始请求/响应与断言在<a href="../projects/travel-search/review/f09/README.md">真实ES/Java记录</a>；正文、图解与<a href="../docs/framework-review/20261020-f09-facets/README.md">HTTP阅读/视觉验收</a>分开记录。</p><details><summary>本课依据与本轮限制</summary><p>默认行为参考上述官方REST/聚合文档，版本敏感实现核对固定<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollector.java#L286">QueryPhaseCollector.CompositeLeafCollector.collect</a>、<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregationBuilder.java#L55">TermsAggregationBuilder.DEFAULT_BUCKET_COUNT_THRESHOLDS</a>、<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/search/aggregations/bucket/terms/TermsAggregator.java#L91">TermsAggregator.BucketCountThresholds.ensureValidity</a>、<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/search/aggregations/bucket/range/RangeAggregator.java#L719">RangeAggregator.NoOverlap.collect</a>。本轮本机ES9.4.0执行结果优先；源码哈希与内容自审见<a href="../docs/framework-review/20261020-f09-facets/content-review.json">自审记录</a>。当前入口无法设置或核验实际xhigh，未启动独立代理。未测高基数成本、并发数据变化、真实部分分片失败/执行超时、多节点/TLS/权限/插件或数据库链路；不以两轮小样本认定生产计数与性能。</p></details></section>
+<section class="drills"><h2 id="drills">能力检查：脱离脚本也能解释</h2><details><summary>1. 同样命中4份，all-query与post-only为什么城市桶不同？</summary><p>前者query已限制到HZ且主题满足，普通聚合只能在这4份里统计。后者query是全国共同候选B，post_filter只过滤命中，城市桶统计9份；并没有保留主题。若要城市栏保留主题，必须在城市聚合分支再加T。</p></details><details><summary>2. 给当前HZ+lake或culture加选FZ，哪些范围改变？</summary><p>结果从4变5，新增a-fz-xihu。城市栏仍忽略城市选择，因此范围6、HZ4/FZ1/SH1不变。主题栏保留选中城市，范围7变8，walk4/culture3/lake2/garden1；缺主题仍1。</p></details><details><summary>3. HZ下lake1、walk3，为什么选lake或walk只命中3？</summary><p>a-hz-xihu同时有lake和walk，已包含在walk的3份里。并集是guide、missing-location、xihu，不能把重叠文档算两遍；数字也不能解释成点选后增加的数量。</p></details><details><summary>4. 10000分与20000分各进哪个桶？删掉预算会怎样？</summary><p>range含from不含to，所以10000进[10000,20000)，20000进[20000,+∞)。本课query预算lte20000；删掉它会改变共同候选与所有分支，原有高价反例可能进入，不能沿用原计数。</p></details><details><summary>5. size=0、hits.total=20、返回C8，上界0且sum_other=12，能说总共8份吗？</summary><p>不能。size0只是不返回命中卡片；total20是匹配文档数。C8是一个tag桶，上界0表示该桶计数没有这类候选漏算，sum_other12说明其他桶未展示。本例单值、完整计数时可核对8+12=20，多值主题不能照搬。</p></details><details><summary>6. 独立验收：不选城市/主题，再输入火星，最后制造缺索引；三次看什么？</summary><p>不限时9份，城市7/1/1，主题culture4/walk4/lake2/garden1且缺主题1，价格7/1/1。火星200正常空集、空terms、三个range0。仅删本课索引后502，页面清除旧卡片与计数；重新01导入后恢复，不能把失败当零结果。</p></details></section><section class="pitfalls"><h2 id="pitfalls">容易把数字读错的地方</h2><div class="callout warn"><b>只移到post_filter，就当所有筛选项都正确。</b>它只保证聚合不受这部分命中筛选限制。多维页面还要逐分支保留其他维度；已在query中排除的资料，filter子聚合无法找回。</div><div class="callout warn"><b>主题桶相加，或拿筛选项数字当点击后总数。</b>数组多值导致桶重叠，缺值又可能不进桶。当前命中、单项候选和新增候选是三个不同集合。</div><div class="callout warn"><b>上界0就等于所有桶齐全。</b>size仍会截掉其他桶；同时查看sum_other、允许选项表和统计范围。负上界是未知，不是零误差。</div><div class="callout warn"><b>为了看全国城市，悄悄取消硬约束。</b>本课显式从附近搜索切换全国浏览，但CNY/open/有效价格/预算仍约束所有分支。范围变化要解释，不能用聚合掩盖。</div></section>
+<section class="recap"><h2 id="recap">速记与下一课</h2><table class="ktable"><thead><tr><th>要回答的问题</th><th>本课做法</th></tr></thead><tbody><tr><td>共同候选是谁</td><td>query：关键词 + CNY/open + 非负票价/预算</td></tr><tr><td>当前命中是谁</td><td>post_filter：城市内OR，主题内OR，跨维AND</td></tr><tr><td>某城市还有多少</td><td>城市filter聚合保留主题，忽略城市；再terms</td></tr><tr><td>某主题还有多少</td><td>主题filter聚合保留城市，忽略主题；缺值单记</td></tr><tr><td>当前价格分布</td><td>保留两维与预算，range含from不含to</td></tr><tr><td>数字能否相加</td><td>先看单/多值、重叠、缺失与同一统计范围</td></tr><tr><td>terms是否完整</td><td>同时看size/shard_size、逐桶/整体误差与sum_other</td></tr><tr><td>文档数是否业务总数</td><td>先核对一实体一文档契约与完整搜索状态</td></tr></tbody></table><p><strong>先圈出被统计的文档，再解释桶上的数字。</strong>现在能筛选并解释数量，但游客仍不能按便宜或距离选择排列。F10将学习显式排序、缺值和稳定第二键；本课只按ID核对，未实现下一课的排序切换。</p></section>
+<footer class="ch-footer"><button class="read-toggle" data-ch="f09" type="button">标记已读</button><div class="pager"><a class="btn" href="f08.html">← F08 多字段与高亮</a><a class="btn" href="index.html">框架篇目录</a><span>下一课：F10 显式排序（待编写） →</span></div></footer>
+</article></main><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>

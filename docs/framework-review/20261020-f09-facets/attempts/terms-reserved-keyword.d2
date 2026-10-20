@@ -1,0 +1,15 @@
+direction: down
+source: "同一节点，两个主分片\n每份文档只有一个 tag"
+left: "分片 0：A 5 · C 4 · B 1"
+right: "分片 1：B 5 · C 4 · A 1"
+small: "size=1 / shard_size=1\n各报 A 5、B 5 → 返回 A 5\nA 的误差上界 5；真正 C 8 被漏掉"
+wide: "size=1 / shard_size=4\n两边报齐 → 返回 C 8\n桶误差上界 0，仍只展示一个桶"
+all: "size=3 / shard_size=4\nC 8 · A 6 · B 6\nsum_other_doc_count = 0"
+source -> left: "routing=a"
+left -> right: {
+  style.opacity: 0
+}
+source -> right: "routing=b"
+right -> small: "候选截断对照"
+small -> wide: "增大每分片候选"
+wide -> all: "再增大最终桶数"

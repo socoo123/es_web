@@ -1,0 +1,109 @@
+{
+  "scope": "author smoke observation before final teaching request used shard_size=4",
+  "checks": [
+    {
+      "request": {
+        "size": 0,
+        "track_total_hits": true,
+        "aggregations": {
+          "tags": {
+            "terms": {
+              "field": "tag",
+              "size": 1,
+              "shard_size": 4,
+              "show_term_doc_count_error": true
+            }
+          }
+        }
+      },
+      "response": {
+        "took": 3,
+        "timed_out": false,
+        "_shards": {
+          "total": 2,
+          "successful": 2,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 20,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": []
+        },
+        "aggregations": {
+          "tags": {
+            "doc_count_error_upper_bound": 2,
+            "sum_other_doc_count": 12,
+            "buckets": [
+              {
+                "key": "C",
+                "doc_count": 8,
+                "doc_count_error_upper_bound": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "size": 0,
+        "track_total_hits": true,
+        "aggregations": {
+          "tags": {
+            "terms": {
+              "field": "tag",
+              "size": 3,
+              "shard_size": 4,
+              "show_term_doc_count_error": true
+            }
+          }
+        }
+      },
+      "response": {
+        "took": 6,
+        "timed_out": false,
+        "_shards": {
+          "total": 2,
+          "successful": 2,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 20,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": []
+        },
+        "aggregations": {
+          "tags": {
+            "doc_count_error_upper_bound": 2,
+            "sum_other_doc_count": 0,
+            "buckets": [
+              {
+                "key": "C",
+                "doc_count": 8,
+                "doc_count_error_upper_bound": 1
+              },
+              {
+                "key": "A",
+                "doc_count": 6,
+                "doc_count_error_upper_bound": 1
+              },
+              {
+                "key": "B",
+                "doc_count": 6,
+                "doc_count_error_upper_bound": 1
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

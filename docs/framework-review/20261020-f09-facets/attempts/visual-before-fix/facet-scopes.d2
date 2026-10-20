@@ -1,0 +1,16 @@
+direction: down
+base: "共同候选 B：9 份\n西湖 · CNY · 开放 · 0–20000 分"
+choices: "选择 C=HZ；T=lake 或 culture\n城市内 OR · 主题内 OR · 跨维 AND"
+hits: "结果与价格分布\nB ∩ C ∩ T = 4 份"
+cities: "城市栏：忽略 C，保留 T\nB ∩ T = 6 份\nHZ 4 · FZ 1 · SH 1"
+themes: "主题栏：忽略 T，保留 C\nB ∩ C = 7 份\nculture 3 · walk 3\ngarden 1 · lake 1；缺值 1"
+base -> choices: "先固定共同边界"
+choices -> hits: "post_filter / prices.filter"
+hits -> cities: {
+  style.opacity: 0
+}
+base -> cities: "cities.filter 只加 T"
+cities -> themes: {
+  style.opacity: 0
+}
+base -> themes: "themes.filter 只加 C"

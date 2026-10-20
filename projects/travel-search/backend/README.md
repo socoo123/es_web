@@ -1,4 +1,4 @@
-# F07–F08 · 本机旅游搜索服务
+# F07–F09 · 本机旅游搜索服务
 
 本工程实现 F07 的输入校验、官方 Java Client、最小搜索接口与课程提供的展示壳。只学习已在 F06 解释的名称、城市、预算、开放、半径条件；无需开发前端。Pages 不运行这个应用。
 
@@ -62,3 +62,12 @@ java -jar target/travel-search-0.7.0.jar
 沿用本工程/版本/构建命令。按[本机F08步骤](../labs/f08/README.md)准备独立索引，启动同一个jar，打开`http://127.0.0.1:18080/f08.html`。根路径和`/api/attractions/search`保留F07契约；新`/api/attractions/multi-search`使用相同SearchInput，服务端索引默认为`tut-f08-attractions`（Spring环境变量TRAVEL_F08_INDEX覆盖）。两个课次分别配置索引，不能用F07数据冒充F08验收。
 
 F08固定multi_match/name^3,aliases^2,description/best_fields/AND/tie_breaker0；完整硬条件与ID升序保留。MultiFieldResult每卡增加snippets：field/highlighted/segments[{text,matched}]。高亮先encoder=html，Java先拆固定mark边界再按段解码；缺片段回退_source，缺别名/描述显示明确占位。展示壳只用textContent放入mark/span，不解析任意HTML。Java与REST精确DSL/DTO、原文标签与回退见[两轮真实记录](../review/f08/README.md)。
+
+
+## F09 增量
+
+沿用版本与构建命令。[F09本机实验](../labs/f09/README.md)准备tut-f09-attractions与独立双分片候选索引；新接口`POST /api/attractions/facet-search`，观察页`http://127.0.0.1:18080/f09.html`。服务端默认tut-f09-attractions，TRAVEL_F09_INDEX可在启动前覆盖。F07/F08接口、索引配置与观察页保留。
+
+FacetInput：q非空最长60；cityCodes与themes数组必填，空数组不限；城市允许HZ/FZ/SH，最多3项；主题允许lake/walk/garden/culture，最多4项；maxPriceFen整数分0–100000000，不截断小数。各维度内OR，跨维AND。全国浏览移除F08圆心/半径；query保留multi_match/best_fields/AND/CNY/open/非负价格/预算，post_filter应用全部选择。城市filter聚合只加主题，主题filter聚合只加城市，价格filter聚合保留两维，range含from不含to。仍按ID升序核对，最多20卡；不请求高亮。
+
+DTO保存scope/scopeTotal、整体/逐桶docCountErrorUpperBound、sumOtherDocCount、missingThemeCount及价格分布/priceScopeTotal；不把未返回的桶自动当0。缺必要聚合/源字段或搜索不完整502；输入400、后端拒绝502、连接不可用503沿用错误代码。本课Controller提供适配数组输入的400说明。无CORS代理或任意DSL入口。范围/桶/误差与REST精确比较、非法输入和删除索引恢复见[真实验收](../review/f09/README.md)。

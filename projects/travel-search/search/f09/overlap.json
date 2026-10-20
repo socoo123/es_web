@@ -1,0 +1,202 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "themes"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "post_filter": {
+    "bool": {
+      "filter": [
+        {
+          "terms": {
+            "city_code": [
+              "HZ"
+            ]
+          }
+        },
+        {
+          "terms": {
+            "themes": [
+              "lake",
+              "walk"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "aggregations": {
+    "cities": {
+      "filter": {
+        "terms": {
+          "themes": [
+            "lake",
+            "walk"
+          ]
+        }
+      },
+      "aggregations": {
+        "values": {
+          "terms": {
+            "field": "city_code",
+            "size": 10,
+            "shard_size": 10,
+            "show_term_doc_count_error": true,
+            "order": [
+              {
+                "_count": "desc"
+              },
+              {
+                "_key": "asc"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "themes": {
+      "filter": {
+        "terms": {
+          "city_code": [
+            "HZ"
+          ]
+        }
+      },
+      "aggregations": {
+        "values": {
+          "terms": {
+            "field": "themes",
+            "size": 10,
+            "shard_size": 10,
+            "show_term_doc_count_error": true,
+            "order": [
+              {
+                "_count": "desc"
+              },
+              {
+                "_key": "asc"
+              }
+            ]
+          }
+        },
+        "missing_theme": {
+          "filter": {
+            "bool": {
+              "must_not": [
+                {
+                  "exists": {
+                    "field": "themes"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "prices": {
+      "filter": {
+        "bool": {
+          "filter": [
+            {
+              "terms": {
+                "city_code": [
+                  "HZ"
+                ]
+              }
+            },
+            {
+              "terms": {
+                "themes": [
+                  "lake",
+                  "walk"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "aggregations": {
+        "ranges": {
+          "range": {
+            "field": "ticket_price_fen",
+            "ranges": [
+              {
+                "key": "under-100",
+                "from": 0.0,
+                "to": 10000.0
+              },
+              {
+                "key": "100-to-200",
+                "from": 10000.0,
+                "to": 20000.0
+              },
+              {
+                "key": "200-plus",
+                "from": 20000.0
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}
