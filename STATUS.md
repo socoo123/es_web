@@ -26,6 +26,13 @@
 | 图解重构进度 | ✅ F01–F07共14幅静态D2、浅深28 SVG；F07请求/返回与Client生命周期图生成、HTTP和视觉通过；真实运行分列 |
 | 后续教程写作与内容审阅 | 用户指定 xhigh；F01 作者及独立审阅已实际设置。F02/F03/F04/F05/F06/F07 当前根入口无法设置/确认，作者自审且未启动独立代理，限制分别记录 |
 
+## 2026-10-20 · 一并保存剩余本地草稿
+
+- 按用户“一起提交”的要求，将此前保留的 `.gitignore` 中 `learn-code/` 排除项、F01 health-path D2/浅深 SVG、旧实验注册表、门户静态产物及 `projects/travel-portal` 工程/历史验收记录一起纳入版本管理。`node_modules`、`target`、`dist` 等本机构建缓存继续忽略。
+- 门户草稿仍使用 Boot 3/JDK 21，已补充历史说明及缺失的验收说明入口；当前课程继续使用 F07 的 `travel-search` Boot 4/JDK 25 工程，不变更课次完成状态，也不把旧 health-path 计入现行图解验收进度。原 JSON/截图/运行日志保留；旧记录的视觉审阅仍 pending，F01 HTML 哈希已随现行导学变化，其余列出的文件哈希一致。
+- 本次实际通过：旧门户 TypeScript/Vite 生产构建、临时目录 lesson 构建与现存 3 产物逐字节比较、JDK 21 Maven clean package（无单元测试）、JS/Python 语法、JSON/XML/SVG 解析、站点结构与片段同步检查。不重跑旧浏览器/Java 健康实验，不将历史证据当成本次验收；具体范围见 [草稿验收说明](projects/travel-portal/review/f01/README.md)。
+- 提交前获取远端，main 与 origin/main 一致、无未合并文件；本次保存后按用户授权提交并推送 origin/main，交付核对实际远端提交。
+
 ## 2026-10-20 · F07 Java接口与本机展示壳：真实构建、两轮实连与阅读通过
 
 - 先将本地main从2416daf快进到远端4638411（F04–F06三个提交），保留原.gitignore、health-path、framework/experiments、framework/labs、projects/travel-portal草稿；随后仅实施下一课F07与必要F06导航/目录/当前摘要，提示词转F08。约4756中文字、七段式/880px/双主题/进度/复制保留，3执行案例、17条教学HTTP请求=准备6+REST/Java比较6+诊断5，清理/探活/作者附加测试另计；2静态D2、6理解题、0机制播放器。[正文](framework/f07.html)、[本机手工入口](projects/travel-search/labs/f07/README.md)。未推进F08，F04–F06原受阻验收不回填。
