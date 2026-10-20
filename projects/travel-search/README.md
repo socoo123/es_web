@@ -1,6 +1,6 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳已交付，F08–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳及F08多字段与高亮已交付，F09–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
 
 当前入口是 [F03 首搜](../../framework/f03.html)、[F03 手工实验](labs/f03/README.md)与[两轮真实 ES 记录](review/f03/README.md)，无需前端、Java、数据库或 Kibana。[F04 字段设计与 Bulk](../../framework/f04.html)及其[本机步骤](labs/f04/README.md)已提供；[执行状态](review/f04/README.md)明确记录本环境启动阻塞，尚未两轮实测。F04 从新资源独立开始，不依赖 F03 索引。历史文件、资源与案例 ID 保留：
 
@@ -64,3 +64,14 @@ bash infra/single-node/wait.sh
 - [ES/Java两轮、依赖树与制品](review/f07/README.md)，[本机展示壳与阅读验收](../../docs/framework-review/20261020-f07-java/README.md)
 
 REST/Java逐项核对ID、价格、total/relation与实际序列化DSL；200元→80元、空结果、非法输入、索引缺失、ES停机/同进程恢复分别验证。本课不提供多字段/高亮/聚合/分页；F04–F06历史云环境受阻状态不回填。
+
+
+## F08 · 多字段与高亮
+
+[F08正文](../../framework/f08.html)在同一F07工程增加普通业务aliases字段、multi_match/best_fields AND、copy_to对照与安全文本段DTO。独立tut-f08-attractions，保留十二份原资料并补别名，新增三份边界，共十五份。
+
+- [三案例/15条教学请求、启动与重做](labs/f08/README.md)，[固定资料](data/f08/attractions.json)、[主DSL](search/f08/multi.json)
+- 新接口`POST /api/attractions/multi-search`，展示壳`http://127.0.0.1:18080/f08.html`；原F07接口与根路径保留
+- [ES/Java两轮](review/f08/README.md)、[真实浏览器/阅读/图解验收](../../docs/framework-review/20261020-f08-multifield/README.md)
+
+西湖多字段5条、钱塘湖别名1条、copy_to额外split、片段缺失回退、原文HTML纯文本显示分别核对；不把显示高亮当成评分解释或实体识别。F09再学习聚合计数。

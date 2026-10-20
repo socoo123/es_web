@@ -1,0 +1,21 @@
+direction: down
+main: "主服务：查询时保留字段" {
+  direction: down
+  values: "name · aliases · description"
+  query: "multi_match / best_fields\n每个字段内部 AND"
+  five: "西湖 → 五个候选\n描述提及 ≠ 就是该景点"
+  values -> query: "分别搜索"
+  query -> five: "合并候选"
+}
+comparison: "对照：写入时复制值" {
+  direction: down
+  values: "name · aliases · description"
+  group: "copy_to → search_text\n原始值再分析"
+  six: "统一字段 match AND\n额外命中 a-hz-split"
+  values -> group: "写入时复制"
+  group -> six: "西和湖可跨来源满足"
+}
+# Invisible edge controls vertical layout only; it is not a data or query path.
+main -> comparison: {
+  style.opacity: 0
+}

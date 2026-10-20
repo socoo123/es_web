@@ -1,6 +1,6 @@
 # 旅游搜索 ES 教学问题与案例设计清单
 
-配套 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md) 与 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)，修订日期：2026-10-14。**[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)已交付，F08–F45待实施**，实际验收见 [STATUS.md](STATUS.md)。下表确定各课需要覆盖的教学问题；案例按所需的正例、反例和恢复过程安排，在课次实施后统计实际数量。
+配套 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md) 与 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)，修订日期：2026-10-14。**[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)与[F08 多字段与高亮](framework/f08.html)已交付，F09–F45待实施**，实际验收见 [STATUS.md](STATUS.md)。下表确定各课需要覆盖的教学问题；案例按所需的正例、反例和恢复过程安排，在课次实施后统计实际数量。
 
 旅游网站提供贯穿的游客需求、样本与观察窗口。网站展示壳由课程配套提供，读者在本机启动、观察搜索行为，不承担前端组件、路由或样式开发。Pages 承载教程、图解、示意与代码说明，不直接运行 Java/ES；示意结果明确标记，真实结果引用相应实验记录。REST/DSL 与 Java 解释搜索实现，页面变化帮助理解结果，不能只凭页面看起来正常判定 ES 实验通过。
 

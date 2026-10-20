@@ -1,4 +1,4 @@
-# F07 · 本机旅游搜索服务
+# F07–F08 · 本机旅游搜索服务
 
 本工程实现 F07 的输入校验、官方 Java Client、最小搜索接口与课程提供的展示壳。只学习已在 F06 解释的名称、城市、预算、开放、半径条件；无需开发前端。Pages 不运行这个应用。
 
@@ -55,3 +55,10 @@ java -jar target/travel-search-0.7.0.jar
 请求级别构造SearchRequest；Spring管理单例ElasticsearchClient，正常关闭时close释放Transport。源名称与JSON用textContent展示。前端10秒等待截止只控制本次页面等待，不等于ES执行时限或取消服务端任务。
 
 本机 [实验与点名重做](../labs/f07/README.md)，课程 [F07正文](../../../framework/f07.html)。
+
+
+## F08 增量
+
+沿用本工程/版本/构建命令。按[本机F08步骤](../labs/f08/README.md)准备独立索引，启动同一个jar，打开`http://127.0.0.1:18080/f08.html`。根路径和`/api/attractions/search`保留F07契约；新`/api/attractions/multi-search`使用相同SearchInput，服务端索引默认为`tut-f08-attractions`（Spring环境变量TRAVEL_F08_INDEX覆盖）。两个课次分别配置索引，不能用F07数据冒充F08验收。
+
+F08固定multi_match/name^3,aliases^2,description/best_fields/AND/tie_breaker0；完整硬条件与ID升序保留。MultiFieldResult每卡增加snippets：field/highlighted/segments[{text,matched}]。高亮先encoder=html，Java先拆固定mark边界再按段解码；缺片段回退_source，缺别名/描述显示明确占位。展示壳只用textContent放入mark/span，不解析任意HTML。Java与REST精确DSL/DTO、原文标签与回退见[两轮真实记录](../review/f08/README.md)。

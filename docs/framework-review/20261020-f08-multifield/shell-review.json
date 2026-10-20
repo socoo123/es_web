@@ -1,0 +1,6747 @@
+{
+  "recorded_at": "2026-10-20T15:14:44.799023+00:00",
+  "scope": "real browser→Java→ES, F08 only",
+  "matrix": [
+    {
+      "width": 1920,
+      "theme": "light",
+      "page_width": 1920,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "page_width": 1920,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 1440,
+      "theme": "light",
+      "page_width": 1440,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 1440,
+      "theme": "dark",
+      "page_width": 1440,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "page_width": 1024,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "page_width": 1024,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 768,
+      "theme": "light",
+      "page_width": 768,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 768,
+      "theme": "dark",
+      "page_width": 768,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "page_width": 390,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "page_width": 390,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "page_width": 320,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    },
+    {
+      "width": 320,
+      "theme": "dark",
+      "page_width": 320,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 10,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 9,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 9,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 7,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 6,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 8,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 7,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 7,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 10,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "钱塘湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 1,
+        "totalRelation": "eq",
+        "esTookMs": 4,
+        "conditions": {
+          "q": "钱塘湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "钱塘湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 4.417021,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州西湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "钱",
+                    "matched": true
+                  },
+                  {
+                    "text": "塘",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "火星",
+      "budget": "200",
+      "status": 200,
+      "ids": [],
+      "DTO": {
+        "total": 0,
+        "totalRelation": "eq",
+        "esTookMs": 1,
+        "conditions": {
+          "q": "火星",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "火星",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": []
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "80",
+      "status": 200,
+      "ids": [
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 4,
+        "totalRelation": "eq",
+        "esTookMs": 10,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 8000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 8000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 7,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 502,
+      "ids": [],
+      "DTO": {
+        "code": "SEARCH_BACKEND_REJECTED",
+        "message": "ES 拒绝搜索，请在本机核对本课索引、mapping 与服务端配置。"
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 6,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 8,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 5,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    },
+    {
+      "q": "西湖",
+      "budget": "200",
+      "status": 200,
+      "ids": [
+        "a-hz-boundary",
+        "a-hz-guide",
+        "a-hz-plain",
+        "a-hz-tea",
+        "a-hz-xihu"
+      ],
+      "DTO": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 8,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location",
+              "aliases",
+              "description"
+            ]
+          },
+          "highlight": {
+            "type": "unified",
+            "post_tags": [
+              "</mark>"
+            ],
+            "pre_tags": [
+              "<mark>"
+            ],
+            "require_field_match": true,
+            "encoder": "html",
+            "fields": [
+              {
+                "name": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "aliases": {
+                  "number_of_fragments": 0
+                }
+              },
+              {
+                "description": {
+                  "fragment_size": 120,
+                  "number_of_fragments": 1
+                }
+              }
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 20000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.9904524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "预算线",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "F06 组合筛选的合成教学对照，不代表真实经营资料。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.6118875,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "步行驿站",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "从此处步行可到",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。<img src=x onerror=\"window.__f08_xss=1\"> & <mark>原文标签</mark>",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 1000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "步道",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "未提供别名",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "暂无描述",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 8000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 2.3595524,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "湖畔茶园",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "茶香小院",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "游览后可前往",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  },
+                  {
+                    "text": "。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 1.082667,
+            "snippets": [
+              {
+                "field": "name",
+                "highlighted": true,
+                "segments": [
+                  {
+                    "text": "杭州",
+                    "matched": false
+                  },
+                  {
+                    "text": "西",
+                    "matched": true
+                  },
+                  {
+                    "text": "湖",
+                    "matched": true
+                  }
+                ]
+              },
+              {
+                "field": "aliases",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "钱塘湖",
+                    "matched": false
+                  }
+                ]
+              },
+              {
+                "field": "description",
+                "highlighted": false,
+                "segments": [
+                  {
+                    "text": "杭州的湖泊景点，可沿湖游览。",
+                    "matched": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "dom": "all segments/mark/text/price/DSL/response exactly checked",
+      "xss": "no img/script nodes, no event execution"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "docs/framework-review/20261020-f08-multifield/screenshots/shell-1440-light-results.png",
+      "sha256": "b0761b864ce856c27950074cd6e5b2448f63ac157b00d8d84484cbc0f79b8fdf",
+      "visual_review": "viewed",
+      "visual_scope": "Whole screenshot composition inspected through view_image. Code images show the current horizontal scroll viewport; complete text/long JSON is verified by source/clipboard/DOM comparisons, not claimed visually character by character."
+    },
+    {
+      "path": "docs/framework-review/20261020-f08-multifield/screenshots/shell-1440-dark-results.png",
+      "sha256": "3667bf9d61c76e11409368933adf9f27f8ad67e72522c39d17c886e5851618dd",
+      "visual_review": "viewed",
+      "visual_scope": "Whole screenshot composition inspected through view_image. Code images show the current horizontal scroll viewport; complete text/long JSON is verified by source/clipboard/DOM comparisons, not claimed visually character by character."
+    },
+    {
+      "path": "docs/framework-review/20261020-f08-multifield/screenshots/shell-390-light-results.png",
+      "sha256": "93d35569c2019762ab8a7c932436a5bb2700c5e99401520639b3b99afc4d2e28",
+      "visual_review": "viewed",
+      "visual_scope": "Whole screenshot composition inspected through view_image. Code images show the current horizontal scroll viewport; complete text/long JSON is verified by source/clipboard/DOM comparisons, not claimed visually character by character."
+    },
+    {
+      "path": "docs/framework-review/20261020-f08-multifield/screenshots/shell-390-light-alias.png",
+      "sha256": "aa9c6cc99bfbf7afdcff13471425455ef034ae80d8bad02d0fcad2839160093d",
+      "visual_review": "viewed",
+      "visual_scope": "Whole screenshot composition inspected through view_image. Code images show the current horizontal scroll viewport; complete text/long JSON is verified by source/clipboard/DOM comparisons, not claimed visually character by character."
+    },
+    {
+      "path": "docs/framework-review/20261020-f08-multifield/screenshots/shell-390-light-empty.png",
+      "sha256": "82d8a665c40bfcbed1cedcb0253d856213dca03e6d03b96cd9da4f2b6acafe2e",
+      "visual_review": "viewed",
+      "visual_scope": "Whole screenshot composition inspected through view_image. Code images show the current horizontal scroll viewport; complete text/long JSON is verified by source/clipboard/DOM comparisons, not claimed visually character by character."
+    },
+    {
+      "path": "docs/framework-review/20261020-f08-multifield/screenshots/shell-390-light-missing-index.png",
+      "sha256": "ebf7682a41ff8a51a656a49e0cb0fe28e583265d122dcb2c0b76414b2b5f8f59",
+      "visual_review": "viewed",
+      "visual_scope": "Whole screenshot composition inspected through view_image. Code images show the current horizontal scroll viewport; complete text/long JSON is verified by source/clipboard/DOM comparisons, not claimed visually character by character."
+    },
+    {
+      "path": "docs/framework-review/20261020-f08-multifield/screenshots/shell-390-light-recovered.png",
+      "sha256": "93d35569c2019762ab8a7c932436a5bb2700c5e99401520639b3b99afc4d2e28",
+      "visual_review": "viewed",
+      "visual_scope": "Whole screenshot composition inspected through view_image. Code images show the current horizontal scroll viewport; complete text/long JSON is verified by source/clipboard/DOM comparisons, not claimed visually character by character."
+    },
+    {
+      "path": "docs/framework-review/20261020-f08-multifield/screenshots/shell-390-dark-results.png",
+      "sha256": "72bf747fca1de627bc1432456c482a1202c751ccd1600ec29c7a0ebecd6ad592",
+      "visual_review": "viewed",
+      "visual_scope": "Whole screenshot composition inspected through view_image. Code images show the current horizontal scroll viewport; complete text/long JSON is verified by source/clipboard/DOM comparisons, not claimed visually character by character."
+    }
+  ],
+  "requests": [
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    },
+    {
+      "url": "http://127.0.0.1:18080/f08.html",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.css",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/shell-f08.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST"
+    }
+  ],
+  "js_errors": [],
+  "browser": "147.0.7727.15",
+  "status": "passed",
+  "interactions": [
+    "theme switch/reload",
+    "actual Tab focus",
+    "80 yuan migration",
+    "missing index502 clears cards",
+    "same Java process recovers after reprepare"
+  ],
+  "inputs": {
+    "projects/travel-search/backend/src/main/resources/application.properties": "ed984be7547013d3c804f610ba6d293637ae14778f8a75cf87099c910b8d667a",
+    "projects/travel-search/backend/src/main/resources/static/shell.js": "d89dbc50ae0564f4f1d2c9d4d40db145c90d3af049a5c2d31e85f1474a45785c",
+    "projects/travel-search/backend/src/main/resources/static/index.html": "a8eb8dcc1b58359146a426655e30287e3ad77c3060a2febfd71613aaf5fd5579",
+    "projects/travel-search/backend/src/main/resources/static/shell-f08.css": "f865139daafa37092ab25ee2cdef57ec4466e62874269a1047a14ba6f6b5c7ff",
+    "projects/travel-search/backend/src/main/resources/static/f08.html": "5dbfc52a76940d5b40d2a718696482d70c338c92cb11dcf56f798994545033b3",
+    "projects/travel-search/backend/src/main/resources/static/shell.css": "41dff4c4f069b9d0f642a04cde9f00335c79f6a68a40e4791d92a2ee76d27618",
+    "projects/travel-search/backend/src/main/resources/static/shell-f08.js": "88bb8dcea8658a67168fe04fa3f0e0bbf0524fa1e8c64d2ccd3d5edab9696aee",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/HighlightSegments.java": "04b29aab68b438db04c035dbbdec0cca0ccff9a305f6fb5018b8cc90d223d3f0",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldAttraction.java": "3ee6f11b8cf0ef657e71d2a633b4c2307436d346bf0dc2dee9f82fd6b0fd98f8",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/Attraction.java": "9ad3d4c5ff7ee61e2481f6cad9711480c77030a24db7e8162bbc423f772794ff",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchResult.java": "550e695a27e4acc9ed0c7adcd4a4d9f9a49e786deb7771b67d8b44ae368b5928",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/AttractionSearchService.java": "d6ea82daf58a4dd95e06a281aff68ad2ce30f268a3c5a146cbfb10ae311c0d1e",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchController.java": "20babeb98585c26dd1d48fae1a047ee6bf307b8c0f674ac4013ef01f779c327f",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/EsConfiguration.java": "18205ec3d65bd08412927dd82b0f6691837582b7afc7328c1741f75d75ba620b",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/TravelSearchApplication.java": "1ffe8c3e2e4c108901fd4cfa6ca927dcd8d069f75cc80bbb627e8d58459ca960",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchInput.java": "7775bf712607e43b6e3d6ce080af8be1c438597eb81d403f200da83d32e75566",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldSearchService.java": "fc059606f9fc476b9833402a11bdc109580a7d3ceddb03632b0cafc4b092ffca",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/ApiErrors.java": "6e08f1a84e9cbbcddc9f6e50d449e656dcde224caeb78cbcf64f63df7e282bd4",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldResult.java": "24e96157534072d8d6558f75e14f1228389d9c24ec91de13298a7dde7328b0f7"
+  },
+  "visual_review": {
+    "recorded_at": "2026-10-20T15:23:15.504313+00:00",
+    "viewed": 8,
+    "generated_only": 0,
+    "findings": "Current desktop/narrow light/dark opening, diagrams, code viewport, exercises and shell state screenshots checked; no clipping of diagram labels.320px diagram labels smaller but complete with working expand. Shell HTML source is visible as text, fallback and alias/empty/failure/recovery states consistent."
+  }
+}

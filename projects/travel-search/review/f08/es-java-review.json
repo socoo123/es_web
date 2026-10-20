@@ -1,0 +1,504 @@
+{
+  "recorded_at": "2026-10-20T15:18:31.326198+00:00",
+  "requests": [
+    {
+      "label": "version",
+      "url": "http://127.0.0.1:19200/",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\n  \"name\" : \"travel-search-01\",\n  \"cluster_name\" : \"travel-search-lab\",\n  \"cluster_uuid\" : \"DlwGm716R6iph5GCe9Tucg\",\n  \"version\" : {\n    \"number\" : \"9.4.0\",\n    \"build_flavor\" : \"default\",\n    \"build_type\" : \"docker\",\n    \"build_hash\" : \"2e8528e92361c3399724226deaf2b46f933e925b\",\n    \"build_date\" : \"2026-04-30T15:05:34.751113474Z\",\n    \"build_snapshot\" : false,\n    \"lucene_version\" : \"10.4.0\",\n    \"minimum_wire_compatibility_version\" : \"8.19.0\",\n    \"minimum_index_compatibility_version\" : \"8.0.0\"\n  },\n  \"tagline\" : \"You Know, for Search\"\n}\n"
+    },
+    {
+      "label": "refuse existing index",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions",
+      "method": "GET",
+      "input": null,
+      "status": 404,
+      "raw_response": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f08-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f08-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f08-attractions\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f08-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f08-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f08-attractions\"},\"status\":404}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions",
+      "method": "PUT",
+      "input": "{\"settings\": {\"number_of_shards\": 1, \"number_of_replicas\": 0}, \"mappings\": {\"dynamic\": \"strict\", \"properties\": {\"attraction_id\": {\"type\": \"keyword\"}, \"name\": {\"type\": \"text\", \"analyzer\": \"standard\", \"fields\": {\"raw\": {\"type\": \"keyword\"}}, \"copy_to\": [\"search_text\"]}, \"city_code\": {\"type\": \"keyword\"}, \"ticket_price_fen\": {\"type\": \"integer\", \"coerce\": false}, \"currency\": {\"type\": \"keyword\"}, \"status\": {\"type\": \"keyword\"}, \"description\": {\"type\": \"text\", \"analyzer\": \"standard\", \"copy_to\": [\"search_text\"]}, \"published_on\": {\"type\": \"date\", \"format\": \"strict_date\"}, \"location\": {\"type\": \"geo_point\"}, \"aliases\": {\"type\": \"text\", \"analyzer\": \"standard\", \"copy_to\": [\"search_text\"]}, \"search_text\": {\"type\": \"text\", \"analyzer\": \"standard\"}}}}",
+      "status": 200,
+      "raw_response": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-f08-attractions\"}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/_cluster/health/tut-f08-attractions?wait_for_status=green&timeout=30s",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"cluster_name\":\"travel-search-lab\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_mapping",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"tut-f08-attractions\":{\"mappings\":{\"dynamic\":\"strict\",\"properties\":{\"aliases\":{\"type\":\"text\",\"copy_to\":[\"search_text\"],\"analyzer\":\"standard\"},\"attraction_id\":{\"type\":\"keyword\"},\"city_code\":{\"type\":\"keyword\"},\"currency\":{\"type\":\"keyword\"},\"description\":{\"type\":\"text\",\"copy_to\":[\"search_text\"],\"analyzer\":\"standard\"},\"location\":{\"type\":\"geo_point\"},\"name\":{\"type\":\"text\",\"fields\":{\"raw\":{\"type\":\"keyword\"}},\"copy_to\":[\"search_text\"],\"analyzer\":\"standard\"},\"published_on\":{\"type\":\"date\",\"format\":\"strict_date\"},\"search_text\":{\"type\":\"text\",\"analyzer\":\"standard\"},\"status\":{\"type\":\"keyword\"},\"ticket_price_fen\":{\"type\":\"integer\",\"coerce\":false}}}}}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_bulk",
+      "method": "POST",
+      "input": "{\"index\": {\"_id\": \"a-hz-xihu\"}}\n{\"attraction_id\": \"a-hz-xihu\", \"name\": \"杭州西湖\", \"city_code\": \"HZ\", \"ticket_price_fen\": 0, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"杭州的湖泊景点，可沿湖游览。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"aliases\": [\"钱塘湖\"]}\n{\"index\": {\"_id\": \"a-hz-tea\"}}\n{\"attraction_id\": \"a-hz-tea\", \"name\": \"湖畔茶园\", \"city_code\": \"HZ\", \"ticket_price_fen\": 8000, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"游览后可前往西湖。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.24, \"lon\": 120.14}, \"aliases\": [\"茶香小院\"]}\n{\"index\": {\"_id\": \"a-fz-xihu\"}}\n{\"attraction_id\": \"a-fz-xihu\", \"name\": \"福州西湖\", \"city_code\": \"FZ\", \"ticket_price_fen\": 0, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"福州的湖泊景点。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 26.1, \"lon\": 119.28}}\n{\"index\": {\"_id\": \"a-hz-night\"}}\n{\"attraction_id\": \"a-hz-night\", \"name\": \"西湖夜游\", \"city_code\": \"HZ\", \"ticket_price_fen\": 26000, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"西湖夜间游览项目。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.26, \"lon\": 120.16}}\n{\"index\": {\"_id\": \"a-hz-old\"}}\n{\"attraction_id\": \"a-hz-old\", \"name\": \"西湖旧展馆\", \"city_code\": \"HZ\", \"ticket_price_fen\": 6000, \"currency\": \"CNY\", \"status\": \"offline\", \"description\": \"西湖主题展览。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.27, \"lon\": 120.17}}\n{\"index\": {\"_id\": \"a-hz-boundary\"}}\n{\"attraction_id\": \"a-hz-boundary\", \"name\": \"西湖预算线\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 20000, \"status\": \"open\", \"location\": {\"lat\": 30.251, \"lon\": 120.151}}\n{\"index\": {\"_id\": \"a-hz-over\"}}\n{\"attraction_id\": \"a-hz-over\", \"name\": \"西湖超一分\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 20001, \"status\": \"open\", \"location\": {\"lat\": 30.252, \"lon\": 120.152}}\n{\"index\": {\"_id\": \"a-hz-missing-price\"}}\n{\"attraction_id\": \"a-hz-missing-price\", \"name\": \"西湖待报价\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"status\": \"open\", \"location\": {\"lat\": 30.253, \"lon\": 120.153}}\n{\"index\": {\"_id\": \"a-hz-null-price\"}}\n{\"attraction_id\": \"a-hz-null-price\", \"name\": \"西湖空报价\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": null, \"status\": \"open\", \"location\": {\"lat\": 30.254, \"lon\": 120.154}}\n{\"index\": {\"_id\": \"a-hz-far\"}}\n{\"attraction_id\": \"a-hz-far\", \"name\": \"西湖远处展馆\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 1000, \"status\": \"open\", \"location\": {\"lat\": 30.6, \"lon\": 120.15}}\n{\"index\": {\"_id\": \"a-hz-unknown-status\"}}\n{\"attraction_id\": \"a-hz-unknown-status\", \"name\": \"西湖待核状态\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 0, \"location\": {\"lat\": 30.255, \"lon\": 120.155}}\n{\"index\": {\"_id\": \"a-hz-missing-location\"}}\n{\"attraction_id\": \"a-hz-missing-location\", \"name\": \"西湖待定位\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 1000, \"status\": \"open\"}\n{\"index\": {\"_id\": \"a-hz-guide\"}}\n{\"attraction_id\": \"a-hz-guide\", \"name\": \"步行驿站\", \"city_code\": \"HZ\", \"ticket_price_fen\": 1000, \"currency\": \"CNY\", \"status\": \"open\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"description\": \"从此处步行可到西湖。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\"}\n{\"index\": {\"_id\": \"a-hz-split\"}}\n{\"attraction_id\": \"a-hz-split\", \"name\": \"西岸步道\", \"city_code\": \"HZ\", \"ticket_price_fen\": 1000, \"currency\": \"CNY\", \"status\": \"open\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"description\": \"湖边休息区。\"}\n{\"index\": {\"_id\": \"a-hz-plain\"}}\n{\"attraction_id\": \"a-hz-plain\", \"name\": \"西湖步道\", \"city_code\": \"HZ\", \"ticket_price_fen\": 1000, \"currency\": \"CNY\", \"status\": \"open\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}\n",
+      "status": 200,
+      "raw_response": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-tea\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-fz-xihu\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-night\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-old\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":4,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":5,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-over\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":6,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-missing-price\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":7,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-null-price\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":8,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-far\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":9,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-unknown-status\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":10,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-missing-location\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":11,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-guide\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":12,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-split\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":13,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":14,\"_primary_term\":1,\"status\":201}}]}"
+    },
+    {
+      "label": "unfiltered source after copy_to",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_doc/a-hz-xihu",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_version\":1,\"_seq_no\":0,\"_primary_term\":1,\"found\":true,\"_source\":{\"attraction_id\": \"a-hz-xihu\", \"name\": \"杭州西湖\", \"city_code\": \"HZ\", \"ticket_price_fen\": 0, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"杭州的湖泊景点，可沿湖游览。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"aliases\": [\"钱塘湖\"]}}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_refresh",
+      "method": "POST",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0}}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_count",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"count\":15,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0}}"
+    },
+    {
+      "label": "round1 REST name-only",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"name\": {\"query\": \"西湖\", \"operator\": \"and\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":5,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"max_score\":0.36088896,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.33015075,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"highlight\":{\"name\":[\"<mark>西</mark><mark>湖</mark>预算线\"]},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_score\":0.36088896,\"_source\":{\"attraction_id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"highlight\":{\"name\":[\"<mark>西</mark><mark>湖</mark>步道\"]},\"sort\":[\"a-hz-plain\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":0.36088896,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"highlight\":{\"name\":[\"杭州<mark>西</mark><mark>湖</mark>\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round1 REST multi",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"multi_match\": {\"query\": \"西湖\", \"fields\": [\"name^3\", \"aliases^2\", \"description\"], \"type\": \"best_fields\", \"operator\": \"and\", \"tie_breaker\": 0.0}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":5,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":5,\"relation\":\"eq\"},\"max_score\":2.3595524,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.9904524,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"highlight\":{\"name\":[\"<mark>西</mark><mark>湖</mark>预算线\"]},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-guide\",\"_score\":1.6118875,\"_source\":{\"attraction_id\":\"a-hz-guide\",\"name\":\"步行驿站\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"description\":\"从此处步行可到西湖。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\"},\"highlight\":{\"description\":[\"从此处步行可到<mark>西</mark><mark>湖</mark>。&lt;img src=x onerror=&quot;window.__f08_xss=1&quot;&gt; &amp; &lt;mark&gt;原文标签&lt;&#x2F;mark&gt;\"]},\"sort\":[\"a-hz-guide\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_score\":1.082667,\"_source\":{\"attraction_id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"highlight\":{\"name\":[\"<mark>西</mark><mark>湖</mark>步道\"]},\"sort\":[\"a-hz-plain\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-tea\",\"_score\":2.3595524,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"游览后可前往西湖。\",\"location\":{\"lat\":30.24,\"lon\":120.14},\"aliases\":[\"茶香小院\"]},\"highlight\":{\"description\":[\"游览后可前往<mark>西</mark><mark>湖</mark>。\"]},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":1.082667,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"highlight\":{\"name\":[\"杭州<mark>西</mark><mark>湖</mark>\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round1 REST alias",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"multi_match\": {\"query\": \"钱塘湖\", \"fields\": [\"name^3\", \"aliases^2\", \"description\"], \"type\": \"best_fields\", \"operator\": \"and\", \"tie_breaker\": 0.0}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":3,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":1,\"relation\":\"eq\"},\"max_score\":4.417021,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":4.417021,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"highlight\":{\"aliases\":[\"<mark>钱</mark><mark>塘</mark><mark>湖</mark>\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round1 REST copy",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"search_text\": {\"query\": \"西湖\", \"operator\": \"and\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":1,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":6,\"relation\":\"eq\"},\"max_score\":0.09407456,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.05583182,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-guide\",\"_score\":0.05583182,\"_source\":{\"attraction_id\":\"a-hz-guide\",\"name\":\"步行驿站\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"description\":\"从此处步行可到西湖。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\"},\"sort\":[\"a-hz-guide\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_score\":0.09407456,\"_source\":{\"attraction_id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"sort\":[\"a-hz-plain\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-split\",\"_score\":0.08140237,\"_source\":{\"attraction_id\":\"a-hz-split\",\"name\":\"西岸步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"description\":\"湖边休息区。\"},\"sort\":[\"a-hz-split\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-tea\",\"_score\":0.08019959,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"游览后可前往西湖。\",\"location\":{\"lat\":30.24,\"lon\":120.14},\"aliases\":[\"茶香小院\"]},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":0.08601556,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round1 REST no-highlight",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"multi_match\": {\"query\": \"西湖\", \"fields\": [\"name^3\", \"aliases^2\", \"description\"], \"type\": \"best_fields\", \"operator\": \"and\", \"tie_breaker\": 0.0}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}]}",
+      "status": 200,
+      "raw_response": "{\"took\":2,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":5,\"relation\":\"eq\"},\"max_score\":2.3595524,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.9904524,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-guide\",\"_score\":1.6118875,\"_source\":{\"attraction_id\":\"a-hz-guide\",\"name\":\"步行驿站\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"description\":\"从此处步行可到西湖。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\"},\"sort\":[\"a-hz-guide\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_score\":1.082667,\"_source\":{\"attraction_id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"sort\":[\"a-hz-plain\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-tea\",\"_score\":2.3595524,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"游览后可前往西湖。\",\"location\":{\"lat\":30.24,\"lon\":120.14},\"aliases\":[\"茶香小院\"]},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":1.082667,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round1 REST empty",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"multi_match\": {\"query\": \"火星\", \"fields\": [\"name^3\", \"aliases^2\", \"description\"], \"type\": \"best_fields\", \"operator\": \"and\", \"tie_breaker\": 0.0}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":2,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":0,\"relation\":\"eq\"},\"max_score\":null,\"hits\":[]}}"
+    },
+    {
+      "label": "round1 Java multi",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":5,\"totalRelation\":\"eq\",\"esTookMs\":4,\"conditions\":{\"q\":\"西湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\",\"aliases\",\"description\"]},\"highlight\":{\"type\":\"unified\",\"post_tags\":[\"</mark>\"],\"pre_tags\":[\"<mark>\"],\"require_field_match\":true,\"encoder\":\"html\",\"fields\":[{\"name\":{\"number_of_fragments\":0}},{\"aliases\":{\"number_of_fragments\":0}},{\"description\":{\"fragment_size\":120,\"number_of_fragments\":1}}]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"multi_match\":{\"fields\":[\"name^3\",\"aliases^2\",\"description\"],\"operator\":\"and\",\"query\":\"西湖\",\"tie_breaker\":0.0,\"type\":\"best_fields\"}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"cityCode\":\"HZ\",\"ticketPriceFen\":20000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.9904524,\"snippets\":[{\"field\":\"name\",\"highlighted\":true,\"segments\":[{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true},{\"text\":\"预算线\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"未提供别名\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":false,\"segments\":[{\"text\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"matched\":false}]}]},{\"id\":\"a-hz-guide\",\"name\":\"步行驿站\",\"cityCode\":\"HZ\",\"ticketPriceFen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":1.6118875,\"snippets\":[{\"field\":\"name\",\"highlighted\":false,\"segments\":[{\"text\":\"步行驿站\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"未提供别名\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":true,\"segments\":[{\"text\":\"从此处步行可到\",\"matched\":false},{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true},{\"text\":\"。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\",\"matched\":false}]}]},{\"id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"cityCode\":\"HZ\",\"ticketPriceFen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":1.082667,\"snippets\":[{\"field\":\"name\",\"highlighted\":true,\"segments\":[{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true},{\"text\":\"步道\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"未提供别名\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":false,\"segments\":[{\"text\":\"暂无描述\",\"matched\":false}]}]},{\"id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"cityCode\":\"HZ\",\"ticketPriceFen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":2.3595524,\"snippets\":[{\"field\":\"name\",\"highlighted\":false,\"segments\":[{\"text\":\"湖畔茶园\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"茶香小院\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":true,\"segments\":[{\"text\":\"游览后可前往\",\"matched\":false},{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true},{\"text\":\"。\",\"matched\":false}]}]},{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":1.082667,\"snippets\":[{\"field\":\"name\",\"highlighted\":true,\"segments\":[{\"text\":\"杭州\",\"matched\":false},{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"钱塘湖\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":false,\"segments\":[{\"text\":\"杭州的湖泊景点，可沿湖游览。\",\"matched\":false}]}]}]}"
+    },
+    {
+      "label": "round1 Java alias",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"钱塘湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":1,\"totalRelation\":\"eq\",\"esTookMs\":2,\"conditions\":{\"q\":\"钱塘湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\",\"aliases\",\"description\"]},\"highlight\":{\"type\":\"unified\",\"post_tags\":[\"</mark>\"],\"pre_tags\":[\"<mark>\"],\"require_field_match\":true,\"encoder\":\"html\",\"fields\":[{\"name\":{\"number_of_fragments\":0}},{\"aliases\":{\"number_of_fragments\":0}},{\"description\":{\"fragment_size\":120,\"number_of_fragments\":1}}]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"multi_match\":{\"fields\":[\"name^3\",\"aliases^2\",\"description\"],\"operator\":\"and\",\"query\":\"钱塘湖\",\"tie_breaker\":0.0,\"type\":\"best_fields\"}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":4.417021,\"snippets\":[{\"field\":\"name\",\"highlighted\":false,\"segments\":[{\"text\":\"杭州西湖\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":true,\"segments\":[{\"text\":\"钱\",\"matched\":true},{\"text\":\"塘\",\"matched\":true},{\"text\":\"湖\",\"matched\":true}]},{\"field\":\"description\",\"highlighted\":false,\"segments\":[{\"text\":\"杭州的湖泊景点，可沿湖游览。\",\"matched\":false}]}]}]}"
+    },
+    {
+      "label": "round1 Java empty",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"火星\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":0,\"totalRelation\":\"eq\",\"esTookMs\":1,\"conditions\":{\"q\":\"火星\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\",\"aliases\",\"description\"]},\"highlight\":{\"type\":\"unified\",\"post_tags\":[\"</mark>\"],\"pre_tags\":[\"<mark>\"],\"require_field_match\":true,\"encoder\":\"html\",\"fields\":[{\"name\":{\"number_of_fragments\":0}},{\"aliases\":{\"number_of_fragments\":0}},{\"description\":{\"fragment_size\":120,\"number_of_fragments\":1}}]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"multi_match\":{\"fields\":[\"name^3\",\"aliases^2\",\"description\"],\"operator\":\"and\",\"query\":\"火星\",\"tie_breaker\":0.0,\"type\":\"best_fields\"}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[]}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": -1, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions",
+      "method": "DELETE",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"acknowledged\":true}"
+    },
+    {
+      "label": "cleanup verified",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions",
+      "method": "GET",
+      "input": null,
+      "status": 404,
+      "raw_response": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f08-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f08-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f08-attractions\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f08-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f08-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f08-attractions\"},\"status\":404}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 502,
+      "raw_response": "{\"code\":\"SEARCH_BACKEND_REJECTED\",\"message\":\"ES 拒绝搜索，请在本机核对本课索引、mapping 与服务端配置。\"}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions",
+      "method": "PUT",
+      "input": "{\"settings\": {\"number_of_shards\": 1, \"number_of_replicas\": 0}, \"mappings\": {\"dynamic\": \"strict\", \"properties\": {\"attraction_id\": {\"type\": \"keyword\"}, \"name\": {\"type\": \"text\", \"analyzer\": \"standard\", \"fields\": {\"raw\": {\"type\": \"keyword\"}}, \"copy_to\": [\"search_text\"]}, \"city_code\": {\"type\": \"keyword\"}, \"ticket_price_fen\": {\"type\": \"integer\", \"coerce\": false}, \"currency\": {\"type\": \"keyword\"}, \"status\": {\"type\": \"keyword\"}, \"description\": {\"type\": \"text\", \"analyzer\": \"standard\", \"copy_to\": [\"search_text\"]}, \"published_on\": {\"type\": \"date\", \"format\": \"strict_date\"}, \"location\": {\"type\": \"geo_point\"}, \"aliases\": {\"type\": \"text\", \"analyzer\": \"standard\", \"copy_to\": [\"search_text\"]}, \"search_text\": {\"type\": \"text\", \"analyzer\": \"standard\"}}}}",
+      "status": 200,
+      "raw_response": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-f08-attractions\"}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/_cluster/health/tut-f08-attractions?wait_for_status=green&timeout=30s",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"cluster_name\":\"travel-search-lab\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_mapping",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"tut-f08-attractions\":{\"mappings\":{\"dynamic\":\"strict\",\"properties\":{\"aliases\":{\"type\":\"text\",\"copy_to\":[\"search_text\"],\"analyzer\":\"standard\"},\"attraction_id\":{\"type\":\"keyword\"},\"city_code\":{\"type\":\"keyword\"},\"currency\":{\"type\":\"keyword\"},\"description\":{\"type\":\"text\",\"copy_to\":[\"search_text\"],\"analyzer\":\"standard\"},\"location\":{\"type\":\"geo_point\"},\"name\":{\"type\":\"text\",\"fields\":{\"raw\":{\"type\":\"keyword\"}},\"copy_to\":[\"search_text\"],\"analyzer\":\"standard\"},\"published_on\":{\"type\":\"date\",\"format\":\"strict_date\"},\"search_text\":{\"type\":\"text\",\"analyzer\":\"standard\"},\"status\":{\"type\":\"keyword\"},\"ticket_price_fen\":{\"type\":\"integer\",\"coerce\":false}}}}}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_bulk",
+      "method": "POST",
+      "input": "{\"index\": {\"_id\": \"a-hz-xihu\"}}\n{\"attraction_id\": \"a-hz-xihu\", \"name\": \"杭州西湖\", \"city_code\": \"HZ\", \"ticket_price_fen\": 0, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"杭州的湖泊景点，可沿湖游览。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"aliases\": [\"钱塘湖\"]}\n{\"index\": {\"_id\": \"a-hz-tea\"}}\n{\"attraction_id\": \"a-hz-tea\", \"name\": \"湖畔茶园\", \"city_code\": \"HZ\", \"ticket_price_fen\": 8000, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"游览后可前往西湖。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.24, \"lon\": 120.14}, \"aliases\": [\"茶香小院\"]}\n{\"index\": {\"_id\": \"a-fz-xihu\"}}\n{\"attraction_id\": \"a-fz-xihu\", \"name\": \"福州西湖\", \"city_code\": \"FZ\", \"ticket_price_fen\": 0, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"福州的湖泊景点。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 26.1, \"lon\": 119.28}}\n{\"index\": {\"_id\": \"a-hz-night\"}}\n{\"attraction_id\": \"a-hz-night\", \"name\": \"西湖夜游\", \"city_code\": \"HZ\", \"ticket_price_fen\": 26000, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"西湖夜间游览项目。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.26, \"lon\": 120.16}}\n{\"index\": {\"_id\": \"a-hz-old\"}}\n{\"attraction_id\": \"a-hz-old\", \"name\": \"西湖旧展馆\", \"city_code\": \"HZ\", \"ticket_price_fen\": 6000, \"currency\": \"CNY\", \"status\": \"offline\", \"description\": \"西湖主题展览。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.27, \"lon\": 120.17}}\n{\"index\": {\"_id\": \"a-hz-boundary\"}}\n{\"attraction_id\": \"a-hz-boundary\", \"name\": \"西湖预算线\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 20000, \"status\": \"open\", \"location\": {\"lat\": 30.251, \"lon\": 120.151}}\n{\"index\": {\"_id\": \"a-hz-over\"}}\n{\"attraction_id\": \"a-hz-over\", \"name\": \"西湖超一分\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 20001, \"status\": \"open\", \"location\": {\"lat\": 30.252, \"lon\": 120.152}}\n{\"index\": {\"_id\": \"a-hz-missing-price\"}}\n{\"attraction_id\": \"a-hz-missing-price\", \"name\": \"西湖待报价\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"status\": \"open\", \"location\": {\"lat\": 30.253, \"lon\": 120.153}}\n{\"index\": {\"_id\": \"a-hz-null-price\"}}\n{\"attraction_id\": \"a-hz-null-price\", \"name\": \"西湖空报价\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": null, \"status\": \"open\", \"location\": {\"lat\": 30.254, \"lon\": 120.154}}\n{\"index\": {\"_id\": \"a-hz-far\"}}\n{\"attraction_id\": \"a-hz-far\", \"name\": \"西湖远处展馆\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 1000, \"status\": \"open\", \"location\": {\"lat\": 30.6, \"lon\": 120.15}}\n{\"index\": {\"_id\": \"a-hz-unknown-status\"}}\n{\"attraction_id\": \"a-hz-unknown-status\", \"name\": \"西湖待核状态\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 0, \"location\": {\"lat\": 30.255, \"lon\": 120.155}}\n{\"index\": {\"_id\": \"a-hz-missing-location\"}}\n{\"attraction_id\": \"a-hz-missing-location\", \"name\": \"西湖待定位\", \"city_code\": \"HZ\", \"currency\": \"CNY\", \"description\": \"F06 组合筛选的合成教学对照，不代表真实经营资料。\", \"published_on\": \"2026-10-01\", \"ticket_price_fen\": 1000, \"status\": \"open\"}\n{\"index\": {\"_id\": \"a-hz-guide\"}}\n{\"attraction_id\": \"a-hz-guide\", \"name\": \"步行驿站\", \"city_code\": \"HZ\", \"ticket_price_fen\": 1000, \"currency\": \"CNY\", \"status\": \"open\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"description\": \"从此处步行可到西湖。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\"}\n{\"index\": {\"_id\": \"a-hz-split\"}}\n{\"attraction_id\": \"a-hz-split\", \"name\": \"西岸步道\", \"city_code\": \"HZ\", \"ticket_price_fen\": 1000, \"currency\": \"CNY\", \"status\": \"open\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"description\": \"湖边休息区。\"}\n{\"index\": {\"_id\": \"a-hz-plain\"}}\n{\"attraction_id\": \"a-hz-plain\", \"name\": \"西湖步道\", \"city_code\": \"HZ\", \"ticket_price_fen\": 1000, \"currency\": \"CNY\", \"status\": \"open\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}\n",
+      "status": 200,
+      "raw_response": "{\"errors\":false,\"took\":0,\"items\":[{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-tea\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":1,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-fz-xihu\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":2,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-night\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":3,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-old\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":4,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":5,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-over\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":6,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-missing-price\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":7,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-null-price\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":8,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-far\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":9,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-unknown-status\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":10,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-missing-location\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":11,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-guide\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":12,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-split\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":13,\"_primary_term\":1,\"status\":201}},{\"index\":{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":14,\"_primary_term\":1,\"status\":201}}]}"
+    },
+    {
+      "label": "unfiltered source after copy_to",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_doc/a-hz-xihu",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_version\":1,\"_seq_no\":0,\"_primary_term\":1,\"found\":true,\"_source\":{\"attraction_id\": \"a-hz-xihu\", \"name\": \"杭州西湖\", \"city_code\": \"HZ\", \"ticket_price_fen\": 0, \"currency\": \"CNY\", \"status\": \"open\", \"description\": \"杭州的湖泊景点，可沿湖游览。\", \"published_on\": \"2026-10-01\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"aliases\": [\"钱塘湖\"]}}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_refresh",
+      "method": "POST",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0}}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_count",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"count\":15,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0}}"
+    },
+    {
+      "label": "round2 REST name-only",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"name\": {\"query\": \"西湖\", \"operator\": \"and\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":2,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":3,\"relation\":\"eq\"},\"max_score\":0.36088896,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.33015075,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"highlight\":{\"name\":[\"<mark>西</mark><mark>湖</mark>预算线\"]},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_score\":0.36088896,\"_source\":{\"attraction_id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"highlight\":{\"name\":[\"<mark>西</mark><mark>湖</mark>步道\"]},\"sort\":[\"a-hz-plain\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":0.36088896,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"highlight\":{\"name\":[\"杭州<mark>西</mark><mark>湖</mark>\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round2 REST multi",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"multi_match\": {\"query\": \"西湖\", \"fields\": [\"name^3\", \"aliases^2\", \"description\"], \"type\": \"best_fields\", \"operator\": \"and\", \"tie_breaker\": 0.0}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":4,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":5,\"relation\":\"eq\"},\"max_score\":2.3595524,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.9904524,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"highlight\":{\"name\":[\"<mark>西</mark><mark>湖</mark>预算线\"]},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-guide\",\"_score\":1.6118875,\"_source\":{\"attraction_id\":\"a-hz-guide\",\"name\":\"步行驿站\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"description\":\"从此处步行可到西湖。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\"},\"highlight\":{\"description\":[\"从此处步行可到<mark>西</mark><mark>湖</mark>。&lt;img src=x onerror=&quot;window.__f08_xss=1&quot;&gt; &amp; &lt;mark&gt;原文标签&lt;&#x2F;mark&gt;\"]},\"sort\":[\"a-hz-guide\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_score\":1.082667,\"_source\":{\"attraction_id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"highlight\":{\"name\":[\"<mark>西</mark><mark>湖</mark>步道\"]},\"sort\":[\"a-hz-plain\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-tea\",\"_score\":2.3595524,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"游览后可前往西湖。\",\"location\":{\"lat\":30.24,\"lon\":120.14},\"aliases\":[\"茶香小院\"]},\"highlight\":{\"description\":[\"游览后可前往<mark>西</mark><mark>湖</mark>。\"]},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":1.082667,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"highlight\":{\"name\":[\"杭州<mark>西</mark><mark>湖</mark>\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round2 REST alias",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"multi_match\": {\"query\": \"钱塘湖\", \"fields\": [\"name^3\", \"aliases^2\", \"description\"], \"type\": \"best_fields\", \"operator\": \"and\", \"tie_breaker\": 0.0}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":3,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":1,\"relation\":\"eq\"},\"max_score\":4.417021,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":4.417021,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"highlight\":{\"aliases\":[\"<mark>钱</mark><mark>塘</mark><mark>湖</mark>\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round2 REST copy",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"match\": {\"search_text\": {\"query\": \"西湖\", \"operator\": \"and\"}}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":2,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":6,\"relation\":\"eq\"},\"max_score\":0.09407456,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.05583182,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-guide\",\"_score\":0.05583182,\"_source\":{\"attraction_id\":\"a-hz-guide\",\"name\":\"步行驿站\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"description\":\"从此处步行可到西湖。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\"},\"sort\":[\"a-hz-guide\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_score\":0.09407456,\"_source\":{\"attraction_id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"sort\":[\"a-hz-plain\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-split\",\"_score\":0.08140237,\"_source\":{\"attraction_id\":\"a-hz-split\",\"name\":\"西岸步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"description\":\"湖边休息区。\"},\"sort\":[\"a-hz-split\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-tea\",\"_score\":0.08019959,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"游览后可前往西湖。\",\"location\":{\"lat\":30.24,\"lon\":120.14},\"aliases\":[\"茶香小院\"]},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":0.08601556,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round2 REST no-highlight",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"multi_match\": {\"query\": \"西湖\", \"fields\": [\"name^3\", \"aliases^2\", \"description\"], \"type\": \"best_fields\", \"operator\": \"and\", \"tie_breaker\": 0.0}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}]}",
+      "status": 200,
+      "raw_response": "{\"took\":2,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":5,\"relation\":\"eq\"},\"max_score\":2.3595524,\"hits\":[{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-boundary\",\"_score\":0.9904524,\"_source\":{\"attraction_id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"city_code\":\"HZ\",\"currency\":\"CNY\",\"description\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"ticket_price_fen\":20000,\"status\":\"open\",\"location\":{\"lat\":30.251,\"lon\":120.151}},\"sort\":[\"a-hz-boundary\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-guide\",\"_score\":1.6118875,\"_source\":{\"attraction_id\":\"a-hz-guide\",\"name\":\"步行驿站\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"description\":\"从此处步行可到西湖。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\"},\"sort\":[\"a-hz-guide\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-plain\",\"_score\":1.082667,\"_source\":{\"attraction_id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"city_code\":\"HZ\",\"ticket_price_fen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"location\":{\"lat\":30.25,\"lon\":120.15}},\"sort\":[\"a-hz-plain\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-tea\",\"_score\":2.3595524,\"_source\":{\"attraction_id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"city_code\":\"HZ\",\"ticket_price_fen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"游览后可前往西湖。\",\"location\":{\"lat\":30.24,\"lon\":120.14},\"aliases\":[\"茶香小院\"]},\"sort\":[\"a-hz-tea\"]},{\"_index\":\"tut-f08-attractions\",\"_id\":\"a-hz-xihu\",\"_score\":1.082667,\"_source\":{\"attraction_id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"city_code\":\"HZ\",\"ticket_price_fen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"description\":\"杭州的湖泊景点，可沿湖游览。\",\"location\":{\"lat\":30.25,\"lon\":120.15},\"aliases\":[\"钱塘湖\"]},\"sort\":[\"a-hz-xihu\"]}]}}"
+    },
+    {
+      "label": "round2 REST empty",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_search",
+      "method": "POST",
+      "input": "{\"size\": 20, \"track_total_hits\": true, \"track_scores\": true, \"_source\": {\"includes\": [\"attraction_id\", \"name\", \"city_code\", \"ticket_price_fen\", \"currency\", \"status\", \"location\", \"aliases\", \"description\"]}, \"query\": {\"bool\": {\"must\": [{\"multi_match\": {\"query\": \"火星\", \"fields\": [\"name^3\", \"aliases^2\", \"description\"], \"type\": \"best_fields\", \"operator\": \"and\", \"tie_breaker\": 0.0}}], \"filter\": [{\"term\": {\"city_code\": {\"value\": \"HZ\"}}}, {\"term\": {\"currency\": {\"value\": \"CNY\"}}}, {\"range\": {\"ticket_price_fen\": {\"gte\": 0, \"lte\": 20000}}}, {\"term\": {\"status\": {\"value\": \"open\"}}}, {\"geo_distance\": {\"distance\": \"3.0km\", \"distance_type\": \"arc\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}}}]}}, \"sort\": [{\"attraction_id\": {\"order\": \"asc\"}}], \"highlight\": {\"type\": \"unified\", \"encoder\": \"html\", \"pre_tags\": [\"<mark>\"], \"post_tags\": [\"</mark>\"], \"require_field_match\": true, \"fields\": [{\"name\": {\"number_of_fragments\": 0}}, {\"aliases\": {\"number_of_fragments\": 0}}, {\"description\": {\"fragment_size\": 120, \"number_of_fragments\": 1}}]}}",
+      "status": 200,
+      "raw_response": "{\"took\":2,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":0,\"relation\":\"eq\"},\"max_score\":null,\"hits\":[]}}"
+    },
+    {
+      "label": "round2 Java multi",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":5,\"totalRelation\":\"eq\",\"esTookMs\":7,\"conditions\":{\"q\":\"西湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\",\"aliases\",\"description\"]},\"highlight\":{\"type\":\"unified\",\"post_tags\":[\"</mark>\"],\"pre_tags\":[\"<mark>\"],\"require_field_match\":true,\"encoder\":\"html\",\"fields\":[{\"name\":{\"number_of_fragments\":0}},{\"aliases\":{\"number_of_fragments\":0}},{\"description\":{\"fragment_size\":120,\"number_of_fragments\":1}}]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"multi_match\":{\"fields\":[\"name^3\",\"aliases^2\",\"description\"],\"operator\":\"and\",\"query\":\"西湖\",\"tie_breaker\":0.0,\"type\":\"best_fields\"}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-boundary\",\"name\":\"西湖预算线\",\"cityCode\":\"HZ\",\"ticketPriceFen\":20000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":0.9904524,\"snippets\":[{\"field\":\"name\",\"highlighted\":true,\"segments\":[{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true},{\"text\":\"预算线\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"未提供别名\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":false,\"segments\":[{\"text\":\"F06 组合筛选的合成教学对照，不代表真实经营资料。\",\"matched\":false}]}]},{\"id\":\"a-hz-guide\",\"name\":\"步行驿站\",\"cityCode\":\"HZ\",\"ticketPriceFen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":1.6118875,\"snippets\":[{\"field\":\"name\",\"highlighted\":false,\"segments\":[{\"text\":\"步行驿站\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"未提供别名\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":true,\"segments\":[{\"text\":\"从此处步行可到\",\"matched\":false},{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true},{\"text\":\"。<img src=x onerror=\\\"window.__f08_xss=1\\\"> & <mark>原文标签</mark>\",\"matched\":false}]}]},{\"id\":\"a-hz-plain\",\"name\":\"西湖步道\",\"cityCode\":\"HZ\",\"ticketPriceFen\":1000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":1.082667,\"snippets\":[{\"field\":\"name\",\"highlighted\":true,\"segments\":[{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true},{\"text\":\"步道\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"未提供别名\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":false,\"segments\":[{\"text\":\"暂无描述\",\"matched\":false}]}]},{\"id\":\"a-hz-tea\",\"name\":\"湖畔茶园\",\"cityCode\":\"HZ\",\"ticketPriceFen\":8000,\"currency\":\"CNY\",\"status\":\"open\",\"score\":2.3595524,\"snippets\":[{\"field\":\"name\",\"highlighted\":false,\"segments\":[{\"text\":\"湖畔茶园\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"茶香小院\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":true,\"segments\":[{\"text\":\"游览后可前往\",\"matched\":false},{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true},{\"text\":\"。\",\"matched\":false}]}]},{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":1.082667,\"snippets\":[{\"field\":\"name\",\"highlighted\":true,\"segments\":[{\"text\":\"杭州\",\"matched\":false},{\"text\":\"西\",\"matched\":true},{\"text\":\"湖\",\"matched\":true}]},{\"field\":\"aliases\",\"highlighted\":false,\"segments\":[{\"text\":\"钱塘湖\",\"matched\":false}]},{\"field\":\"description\",\"highlighted\":false,\"segments\":[{\"text\":\"杭州的湖泊景点，可沿湖游览。\",\"matched\":false}]}]}]}"
+    },
+    {
+      "label": "round2 Java alias",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"钱塘湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":1,\"totalRelation\":\"eq\",\"esTookMs\":2,\"conditions\":{\"q\":\"钱塘湖\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\",\"aliases\",\"description\"]},\"highlight\":{\"type\":\"unified\",\"post_tags\":[\"</mark>\"],\"pre_tags\":[\"<mark>\"],\"require_field_match\":true,\"encoder\":\"html\",\"fields\":[{\"name\":{\"number_of_fragments\":0}},{\"aliases\":{\"number_of_fragments\":0}},{\"description\":{\"fragment_size\":120,\"number_of_fragments\":1}}]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"multi_match\":{\"fields\":[\"name^3\",\"aliases^2\",\"description\"],\"operator\":\"and\",\"query\":\"钱塘湖\",\"tie_breaker\":0.0,\"type\":\"best_fields\"}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[{\"id\":\"a-hz-xihu\",\"name\":\"杭州西湖\",\"cityCode\":\"HZ\",\"ticketPriceFen\":0,\"currency\":\"CNY\",\"status\":\"open\",\"score\":4.417021,\"snippets\":[{\"field\":\"name\",\"highlighted\":false,\"segments\":[{\"text\":\"杭州西湖\",\"matched\":false}]},{\"field\":\"aliases\",\"highlighted\":true,\"segments\":[{\"text\":\"钱\",\"matched\":true},{\"text\":\"塘\",\"matched\":true},{\"text\":\"湖\",\"matched\":true}]},{\"field\":\"description\",\"highlighted\":false,\"segments\":[{\"text\":\"杭州的湖泊景点，可沿湖游览。\",\"matched\":false}]}]}]}"
+    },
+    {
+      "label": "round2 Java empty",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"火星\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 200,
+      "raw_response": "{\"total\":0,\"totalRelation\":\"eq\",\"esTookMs\":0,\"conditions\":{\"q\":\"火星\",\"cityCode\":\"HZ\",\"maxPriceFen\":20000,\"latitude\":30.25,\"longitude\":120.15,\"radiusKm\":3.0},\"esRequest\":{\"_source\":{\"includes\":[\"attraction_id\",\"name\",\"city_code\",\"ticket_price_fen\",\"currency\",\"status\",\"location\",\"aliases\",\"description\"]},\"highlight\":{\"type\":\"unified\",\"post_tags\":[\"</mark>\"],\"pre_tags\":[\"<mark>\"],\"require_field_match\":true,\"encoder\":\"html\",\"fields\":[{\"name\":{\"number_of_fragments\":0}},{\"aliases\":{\"number_of_fragments\":0}},{\"description\":{\"fragment_size\":120,\"number_of_fragments\":1}}]},\"query\":{\"bool\":{\"filter\":[{\"term\":{\"city_code\":{\"value\":\"HZ\"}}},{\"term\":{\"currency\":{\"value\":\"CNY\"}}},{\"range\":{\"ticket_price_fen\":{\"gte\":0.0,\"lte\":20000.0}}},{\"term\":{\"status\":{\"value\":\"open\"}}},{\"geo_distance\":{\"location\":{\"lat\":30.25,\"lon\":120.15},\"distance\":\"3.0km\",\"distance_type\":\"arc\"}}],\"must\":[{\"multi_match\":{\"fields\":[\"name^3\",\"aliases^2\",\"description\"],\"operator\":\"and\",\"query\":\"火星\",\"tie_breaker\":0.0,\"type\":\"best_fields\"}}]}},\"size\":20,\"sort\":[{\"attraction_id\":{\"order\":\"asc\"}}],\"track_scores\":true,\"track_total_hits\":true},\"items\":[]}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": -1, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 400,
+      "raw_response": "{\"code\":\"INVALID_SEARCH_INPUT\",\"message\":\"请检查关键词、两位大写城市编码、整数分预算和坐标/半径；所有字段必填。\"}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions",
+      "method": "DELETE",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"acknowledged\":true}"
+    },
+    {
+      "label": "cleanup verified",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions",
+      "method": "GET",
+      "input": null,
+      "status": 404,
+      "raw_response": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f08-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f08-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f08-attractions\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f08-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f08-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f08-attractions\"},\"status\":404}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:18080/api/attractions/multi-search",
+      "method": "POST",
+      "input": "{\"q\": \"西湖\", \"cityCode\": \"HZ\", \"maxPriceFen\": 20000, \"latitude\": 30.25, \"longitude\": 120.15, \"radiusKm\": 3.0}",
+      "status": 502,
+      "raw_response": "{\"code\":\"SEARCH_BACKEND_REJECTED\",\"message\":\"ES 拒绝搜索，请在本机核对本课索引、mapping 与服务端配置。\"}"
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "status": "passed",
+      "ids": {
+        "name-only": [
+          "a-hz-boundary",
+          "a-hz-plain",
+          "a-hz-xihu"
+        ],
+        "multi": [
+          "a-hz-boundary",
+          "a-hz-guide",
+          "a-hz-plain",
+          "a-hz-tea",
+          "a-hz-xihu"
+        ],
+        "alias": [
+          "a-hz-xihu"
+        ],
+        "copy": [
+          "a-hz-boundary",
+          "a-hz-guide",
+          "a-hz-plain",
+          "a-hz-split",
+          "a-hz-tea",
+          "a-hz-xihu"
+        ],
+        "no-highlight": [
+          "a-hz-boundary",
+          "a-hz-guide",
+          "a-hz-plain",
+          "a-hz-tea",
+          "a-hz-xihu"
+        ],
+        "empty": []
+      },
+      "checks": [
+        "mapping",
+        "15 created Bulk items",
+        "refresh/count",
+        "full ID order/total/relation",
+        "exact REST↔Java DSL",
+        "prices/source",
+        "all highlight segments and fallbacks",
+        "HTML literal roundtrip",
+        "400/502",
+        "named DELETE and 404"
+      ]
+    },
+    {
+      "round": 2,
+      "status": "passed",
+      "ids": {
+        "name-only": [
+          "a-hz-boundary",
+          "a-hz-plain",
+          "a-hz-xihu"
+        ],
+        "multi": [
+          "a-hz-boundary",
+          "a-hz-guide",
+          "a-hz-plain",
+          "a-hz-tea",
+          "a-hz-xihu"
+        ],
+        "alias": [
+          "a-hz-xihu"
+        ],
+        "copy": [
+          "a-hz-boundary",
+          "a-hz-guide",
+          "a-hz-plain",
+          "a-hz-split",
+          "a-hz-tea",
+          "a-hz-xihu"
+        ],
+        "no-highlight": [
+          "a-hz-boundary",
+          "a-hz-guide",
+          "a-hz-plain",
+          "a-hz-tea",
+          "a-hz-xihu"
+        ],
+        "empty": []
+      },
+      "checks": [
+        "mapping",
+        "15 created Bulk items",
+        "refresh/count",
+        "full ID order/total/relation",
+        "exact REST↔Java DSL",
+        "prices/source",
+        "all highlight segments and fallbacks",
+        "HTML literal roundtrip",
+        "400/502",
+        "named DELETE and 404"
+      ]
+    }
+  ],
+  "environment": {
+    "ES": {
+      "name": "travel-search-01",
+      "cluster_name": "travel-search-lab",
+      "cluster_uuid": "DlwGm716R6iph5GCe9Tucg",
+      "version": {
+        "number": "9.4.0",
+        "build_flavor": "default",
+        "build_type": "docker",
+        "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+        "build_date": "2026-04-30T15:05:34.751113474Z",
+        "build_snapshot": false,
+        "lucene_version": "10.4.0",
+        "minimum_wire_compatibility_version": "8.19.0",
+        "minimum_index_compatibility_version": "8.0.0"
+      },
+      "tagline": "You Know, for Search"
+    },
+    "application": "Spring Boot4.0.8 / Java Client & Rest5 9.4.8; real HTTP",
+    "platform": "Darwin arm64\n"
+  },
+  "inputs": {
+    "projects/travel-search/data/f08/attractions.json": "0de5a8e67ce279459ae50643da91775b168d2ccd9eb8f2141a32cd04990a55bd",
+    "projects/travel-search/data/f08/attractions.ndjson": "100a2ed0f96551f58511a6da02ab608c852b2105349a863d4a127005b8cf028e",
+    "projects/travel-search/search/f08/no-highlight.json": "8b19320d36194909f001f1d1ff90d5e28a4999855f8459c553b9228d96cd15d3",
+    "projects/travel-search/search/f08/empty.json": "a17d0b09b46a81c17220983e695b712179dc08044ea7b1b27669070849a90ffb",
+    "projects/travel-search/search/f08/input-alias.json": "761717953edff1137bf36269e20af300211af041280f5d0666e2c430b063c102",
+    "projects/travel-search/search/f08/copy.json": "daabb3ce53faa47ff13b7dc06ac3d3dc0f5c7d2743899a1b6f3d20a3af7e77ef",
+    "projects/travel-search/search/f08/input-multi.json": "5715e2d6a485ac0bd586deb486303eff61ef53897234588618f7f49ac73971b6",
+    "projects/travel-search/search/f08/name-only.json": "651c344bba96b233a84edb876d15b3af8589945ab9830a50b048adfaa757922b",
+    "projects/travel-search/search/f08/multi.json": "8cc3a52393004838b13b6bf32d50734866fa15d135469d5cdd83402fc3161b5c",
+    "projects/travel-search/search/f08/alias.json": "56dad8645503d4def0fd9c9349259ea8c91b489f751d54b5dc9598b351a74bfb",
+    "projects/travel-search/search/f08/index.json": "6adb88bae9b0e02a2a78b88f31bdbecc6f222f5d163cf7a037936dc56574b172",
+    "projects/travel-search/search/f08/input-empty.json": "616d859c40d222c065997bc3941702dbcbbebb751fb8e7e332c0fc6d67bab441",
+    "projects/travel-search/labs/f08/02-fields.sh": "6e18ad56a840cd13a10399b88a9d2844f777c3e537b0ff605f83048b048eb2e5",
+    "projects/travel-search/labs/f08/04-java.sh": "fb613a8efec7e8a17be4b8437263183e38fe6dcd69533dfc558bd06596e27381",
+    "projects/travel-search/labs/f08/README.md": "d9b200e46c4f392eeeb93592caf6635674f9609fcae9f536442102ef64121c2e",
+    "projects/travel-search/labs/f08/03-copy.sh": "84ea3835790bf959e42689dc826f8e106620d1f753a67eebd64668739f73a7c4",
+    "projects/travel-search/labs/f08/cases.json": "f4c5e7c15f90a3f0a7eca8ac494ccc7df24b864bfc7721c56ab3e8b059cd9bea",
+    "projects/travel-search/labs/f08/01-prepare.sh": "2043189b4fdd1ceb8eb1354effd492f5b4e7a62686f7af9d9ff77babad190dda",
+    "projects/travel-search/labs/f08/env.sh": "61d869fe2bc089cc2b5849ff335cdcb633ee6f1633e027977036cd2132b52aef",
+    "projects/travel-search/labs/f08/cleanup.sh": "04ab47e32275dbaa2f720f02917455ab0f8155fd3667c7cb62d46b0195286de8",
+    "projects/travel-search/backend/src/main/resources/application.properties": "ed984be7547013d3c804f610ba6d293637ae14778f8a75cf87099c910b8d667a",
+    "projects/travel-search/backend/src/main/resources/static/shell.js": "d89dbc50ae0564f4f1d2c9d4d40db145c90d3af049a5c2d31e85f1474a45785c",
+    "projects/travel-search/backend/src/main/resources/static/index.html": "a8eb8dcc1b58359146a426655e30287e3ad77c3060a2febfd71613aaf5fd5579",
+    "projects/travel-search/backend/src/main/resources/static/shell-f08.css": "f865139daafa37092ab25ee2cdef57ec4466e62874269a1047a14ba6f6b5c7ff",
+    "projects/travel-search/backend/src/main/resources/static/f08.html": "5dbfc52a76940d5b40d2a718696482d70c338c92cb11dcf56f798994545033b3",
+    "projects/travel-search/backend/src/main/resources/static/shell.css": "41dff4c4f069b9d0f642a04cde9f00335c79f6a68a40e4791d92a2ee76d27618",
+    "projects/travel-search/backend/src/main/resources/static/shell-f08.js": "88bb8dcea8658a67168fe04fa3f0e0bbf0524fa1e8c64d2ccd3d5edab9696aee",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/HighlightSegments.java": "04b29aab68b438db04c035dbbdec0cca0ccff9a305f6fb5018b8cc90d223d3f0",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldAttraction.java": "3ee6f11b8cf0ef657e71d2a633b4c2307436d346bf0dc2dee9f82fd6b0fd98f8",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/Attraction.java": "9ad3d4c5ff7ee61e2481f6cad9711480c77030a24db7e8162bbc423f772794ff",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchResult.java": "550e695a27e4acc9ed0c7adcd4a4d9f9a49e786deb7771b67d8b44ae368b5928",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/AttractionSearchService.java": "d6ea82daf58a4dd95e06a281aff68ad2ce30f268a3c5a146cbfb10ae311c0d1e",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchController.java": "20babeb98585c26dd1d48fae1a047ee6bf307b8c0f674ac4013ef01f779c327f",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/EsConfiguration.java": "18205ec3d65bd08412927dd82b0f6691837582b7afc7328c1741f75d75ba620b",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/TravelSearchApplication.java": "1ffe8c3e2e4c108901fd4cfa6ca927dcd8d069f75cc80bbb627e8d58459ca960",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchInput.java": "7775bf712607e43b6e3d6ce080af8be1c438597eb81d403f200da83d32e75566",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldSearchService.java": "fc059606f9fc476b9833402a11bdc109580a7d3ceddb03632b0cafc4b092ffca",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/ApiErrors.java": "6e08f1a84e9cbbcddc9f6e50d449e656dcde224caeb78cbcf64f63df7e282bd4",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldResult.java": "24e96157534072d8d6558f75e14f1228389d9c24ec91de13298a7dde7328b0f7"
+  },
+  "status": "passed"
+}

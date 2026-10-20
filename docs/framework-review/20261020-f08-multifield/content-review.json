@@ -1,0 +1,83 @@
+{
+  "recorded_at": "2026-10-20T15:18:31.767651+00:00",
+  "scope": "F08 author content review only; no independent agent",
+  "reasoning": {
+    "requested": "xhigh",
+    "actual": "root entry has no setting/verification control; cannot confirm xhigh"
+  },
+  "lesson": {
+    "cases": 3,
+    "teaching_http_requests": 15,
+    "counting": "prepare6 + fields3 + copy/no-highlight/empty3 + Java3; named cleanup1 and probes/browser repetition/author extras excluded",
+    "D2_diagrams": 2,
+    "players": 0,
+    "exercises": 6,
+    "Chinese_characters_outside_code": 4682
+  },
+  "checks": [
+    {
+      "topic": "business and causality",
+      "result": "passed",
+      "evidence": "name-only misses explicit alias/description; ES/Java/shell roles explained before APIs; description mention not entity identity"
+    },
+    {
+      "topic": "field semantics",
+      "result": "passed",
+      "evidence": "ordinary aliases vs name.raw multi-field vs field/index alias vs synonyms separated; original 12 F07 documents unchanged except added alias fields"
+    },
+    {
+      "topic": "operator and scoring",
+      "result": "passed",
+      "evidence": "F07 OR → F08 AND explicit; same-index name-only AND comparison; best_fields per-field AND, tie_breaker0, weights vs explicit ID sort; no ranking/performance promise"
+    },
+    {
+      "topic": "copy_to",
+      "result": "passed",
+      "evidence": "fixed v9.4.0 source and real REST; original values reanalyzed, unfiltered source unchanged, split extra ID, no original-field highlights under require_field_match=true"
+    },
+    {
+      "topic": "highlights",
+      "result": "passed",
+      "evidence": "separate hits/score/display; fragment size not hard cutoff; arrays, missing highlight fallback and missing fields explicit; no-highlight same scores verified"
+    },
+    {
+      "topic": "safe DTO",
+      "result": "passed",
+      "evidence": "encoder html → split fixed literal mark boundaries → per-segment entity decode → text/matched; source img/mark remains DOM text in real browser; no arbitrary HTML parser"
+    },
+    {
+      "topic": "REST Java source",
+      "result": "passed",
+      "evidence": "data-source snippets checked; full query/filter/projection/DTO/error guard/fallback/parser visible; F07 service and result unchanged; real input validation and missing index checked"
+    },
+    {
+      "topic": "results and repeats",
+      "result": "passed",
+      "evidence": "two clean rounds of six REST/three Java cases, exact DSL/IDs/prices/scores/segments; safe sample and fallback; scripted and browser observations separated"
+    },
+    {
+      "topic": "version anchors",
+      "result": "passed",
+      "evidence": "ES9.4.0/Lucene10.4.0; Boot4.0.8/JDK25.0.4.1+1/Java & Rest5 Client9.4.8; 4 local source files exactly match official v9.4.0 download in sources.json"
+    },
+    {
+      "topic": "scope",
+      "result": "passed",
+      "evidence": "F08 only, related navigation/current summary; no frontend code in lesson, no travel-portal or F09 implementation"
+    }
+  ],
+  "corrections": [
+    "Initial Client highlight.fields(String,lambda) does not compile in9.4.8: use NamedValue<HighlightField> list, preserve failure log, rebuild",
+    "copy_to string and ES canonical array are semantically equal; request now uses array for strict JSON comparison",
+    "F08 figure min-width inherited700px, added scoped responsive rule; re-laid first figure vertically for readable narrow labels; source regenerated only",
+    "Visual opening review found custom topbar wrapper and adjacent meta spans; restored baseline topbar and explicit meta separators before final rerun"
+  ],
+  "limitations": [
+    "no actual xhigh configuration verification",
+    "no independent content reviewer",
+    "no ranking quality/performance/long-field test",
+    "no actual shard partial failure/ES execution timeout or malformed-highlight protocol injection",
+    "no plugins/TLS/multinode/DB/CDC"
+  ],
+  "lesson_sha256": "7094f9a013b5a7fbe3a65b6bd8194e4078969e9a21ce85bbfadb51b60857e50b"
+}

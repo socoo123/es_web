@@ -1,0 +1,109 @@
+{
+  "recorded_at": "2026-10-20T15:08:23.372178+00:00",
+  "requests": [
+    {
+      "label": "version",
+      "url": "http://127.0.0.1:19200/",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\n  \"name\" : \"travel-search-01\",\n  \"cluster_name\" : \"travel-search-lab\",\n  \"cluster_uuid\" : \"DlwGm716R6iph5GCe9Tucg\",\n  \"version\" : {\n    \"number\" : \"9.4.0\",\n    \"build_flavor\" : \"default\",\n    \"build_type\" : \"docker\",\n    \"build_hash\" : \"2e8528e92361c3399724226deaf2b46f933e925b\",\n    \"build_date\" : \"2026-04-30T15:05:34.751113474Z\",\n    \"build_snapshot\" : false,\n    \"lucene_version\" : \"10.4.0\",\n    \"minimum_wire_compatibility_version\" : \"8.19.0\",\n    \"minimum_index_compatibility_version\" : \"8.0.0\"\n  },\n  \"tagline\" : \"You Know, for Search\"\n}\n"
+    },
+    {
+      "label": "refuse existing index",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions",
+      "method": "GET",
+      "input": null,
+      "status": 404,
+      "raw_response": "{\"error\":{\"root_cause\":[{\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f08-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f08-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f08-attractions\"}],\"type\":\"index_not_found_exception\",\"reason\":\"no such index [tut-f08-attractions]\",\"resource.type\":\"index_or_alias\",\"resource.id\":\"tut-f08-attractions\",\"index_uuid\":\"_na_\",\"index\":\"tut-f08-attractions\"},\"status\":404}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions",
+      "method": "PUT",
+      "input": "{\"settings\": {\"number_of_shards\": 1, \"number_of_replicas\": 0}, \"mappings\": {\"dynamic\": \"strict\", \"properties\": {\"attraction_id\": {\"type\": \"keyword\"}, \"name\": {\"type\": \"text\", \"analyzer\": \"standard\", \"fields\": {\"raw\": {\"type\": \"keyword\"}}, \"copy_to\": \"search_text\"}, \"city_code\": {\"type\": \"keyword\"}, \"ticket_price_fen\": {\"type\": \"integer\", \"coerce\": false}, \"currency\": {\"type\": \"keyword\"}, \"status\": {\"type\": \"keyword\"}, \"description\": {\"type\": \"text\", \"analyzer\": \"standard\", \"copy_to\": \"search_text\"}, \"published_on\": {\"type\": \"date\", \"format\": \"strict_date\"}, \"location\": {\"type\": \"geo_point\"}, \"aliases\": {\"type\": \"text\", \"analyzer\": \"standard\", \"copy_to\": \"search_text\"}, \"search_text\": {\"type\": \"text\", \"analyzer\": \"standard\"}}}}",
+      "status": 200,
+      "raw_response": "{\"acknowledged\":true,\"shards_acknowledged\":true,\"index\":\"tut-f08-attractions\"}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/_cluster/health/tut-f08-attractions?wait_for_status=green&timeout=30s",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"cluster_name\":\"travel-search-lab\",\"status\":\"green\",\"timed_out\":false,\"number_of_nodes\":1,\"number_of_data_nodes\":1,\"active_primary_shards\":1,\"active_shards\":1,\"relocating_shards\":0,\"initializing_shards\":0,\"unassigned_shards\":0,\"unassigned_primary_shards\":0,\"delayed_unassigned_shards\":0,\"number_of_pending_tasks\":0,\"number_of_in_flight_fetch\":0,\"task_max_waiting_in_queue_millis\":0,\"active_shards_percent_as_number\":100.0}"
+    },
+    {
+      "label": "",
+      "url": "http://127.0.0.1:19200/tut-f08-attractions/_mapping",
+      "method": "GET",
+      "input": null,
+      "status": 200,
+      "raw_response": "{\"tut-f08-attractions\":{\"mappings\":{\"dynamic\":\"strict\",\"properties\":{\"aliases\":{\"type\":\"text\",\"copy_to\":[\"search_text\"],\"analyzer\":\"standard\"},\"attraction_id\":{\"type\":\"keyword\"},\"city_code\":{\"type\":\"keyword\"},\"currency\":{\"type\":\"keyword\"},\"description\":{\"type\":\"text\",\"copy_to\":[\"search_text\"],\"analyzer\":\"standard\"},\"location\":{\"type\":\"geo_point\"},\"name\":{\"type\":\"text\",\"fields\":{\"raw\":{\"type\":\"keyword\"}},\"copy_to\":[\"search_text\"],\"analyzer\":\"standard\"},\"published_on\":{\"type\":\"date\",\"format\":\"strict_date\"},\"search_text\":{\"type\":\"text\",\"analyzer\":\"standard\"},\"status\":{\"type\":\"keyword\"},\"ticket_price_fen\":{\"type\":\"integer\",\"coerce\":false}}}}}"
+    }
+  ],
+  "rounds": [],
+  "environment": {
+    "ES": {
+      "name": "travel-search-01",
+      "cluster_name": "travel-search-lab",
+      "cluster_uuid": "DlwGm716R6iph5GCe9Tucg",
+      "version": {
+        "number": "9.4.0",
+        "build_flavor": "default",
+        "build_type": "docker",
+        "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+        "build_date": "2026-04-30T15:05:34.751113474Z",
+        "build_snapshot": false,
+        "lucene_version": "10.4.0",
+        "minimum_wire_compatibility_version": "8.19.0",
+        "minimum_index_compatibility_version": "8.0.0"
+      },
+      "tagline": "You Know, for Search"
+    },
+    "application": "Spring Boot4.0.8 / Java Client & Rest5 9.4.8; real HTTP",
+    "platform": "Darwin arm64\n"
+  },
+  "inputs": {
+    "projects/travel-search/data/f08/attractions.json": "0de5a8e67ce279459ae50643da91775b168d2ccd9eb8f2141a32cd04990a55bd",
+    "projects/travel-search/data/f08/attractions.ndjson": "100a2ed0f96551f58511a6da02ab608c852b2105349a863d4a127005b8cf028e",
+    "projects/travel-search/search/f08/no-highlight.json": "8b19320d36194909f001f1d1ff90d5e28a4999855f8459c553b9228d96cd15d3",
+    "projects/travel-search/search/f08/empty.json": "a17d0b09b46a81c17220983e695b712179dc08044ea7b1b27669070849a90ffb",
+    "projects/travel-search/search/f08/input-alias.json": "761717953edff1137bf36269e20af300211af041280f5d0666e2c430b063c102",
+    "projects/travel-search/search/f08/copy.json": "daabb3ce53faa47ff13b7dc06ac3d3dc0f5c7d2743899a1b6f3d20a3af7e77ef",
+    "projects/travel-search/search/f08/input-multi.json": "5715e2d6a485ac0bd586deb486303eff61ef53897234588618f7f49ac73971b6",
+    "projects/travel-search/search/f08/name-only.json": "651c344bba96b233a84edb876d15b3af8589945ab9830a50b048adfaa757922b",
+    "projects/travel-search/search/f08/multi.json": "8cc3a52393004838b13b6bf32d50734866fa15d135469d5cdd83402fc3161b5c",
+    "projects/travel-search/search/f08/alias.json": "56dad8645503d4def0fd9c9349259ea8c91b489f751d54b5dc9598b351a74bfb",
+    "projects/travel-search/search/f08/index.json": "18fbd4eed937d7283971637f7e84e542422044f97ba5e7204eafab59dc3b82e0",
+    "projects/travel-search/search/f08/input-empty.json": "616d859c40d222c065997bc3941702dbcbbebb751fb8e7e332c0fc6d67bab441",
+    "projects/travel-search/labs/f08/02-fields.sh": "6e18ad56a840cd13a10399b88a9d2844f777c3e537b0ff605f83048b048eb2e5",
+    "projects/travel-search/labs/f08/04-java.sh": "fb613a8efec7e8a17be4b8437263183e38fe6dcd69533dfc558bd06596e27381",
+    "projects/travel-search/labs/f08/03-copy.sh": "84ea3835790bf959e42689dc826f8e106620d1f753a67eebd64668739f73a7c4",
+    "projects/travel-search/labs/f08/cases.json": "f4c5e7c15f90a3f0a7eca8ac494ccc7df24b864bfc7721c56ab3e8b059cd9bea",
+    "projects/travel-search/labs/f08/01-prepare.sh": "2043189b4fdd1ceb8eb1354effd492f5b4e7a62686f7af9d9ff77babad190dda",
+    "projects/travel-search/labs/f08/env.sh": "61d869fe2bc089cc2b5849ff335cdcb633ee6f1633e027977036cd2132b52aef",
+    "projects/travel-search/labs/f08/cleanup.sh": "04ab47e32275dbaa2f720f02917455ab0f8155fd3667c7cb62d46b0195286de8",
+    "projects/travel-search/backend/src/main/resources/application.properties": "ed984be7547013d3c804f610ba6d293637ae14778f8a75cf87099c910b8d667a",
+    "projects/travel-search/backend/src/main/resources/static/shell.js": "d89dbc50ae0564f4f1d2c9d4d40db145c90d3af049a5c2d31e85f1474a45785c",
+    "projects/travel-search/backend/src/main/resources/static/index.html": "a8eb8dcc1b58359146a426655e30287e3ad77c3060a2febfd71613aaf5fd5579",
+    "projects/travel-search/backend/src/main/resources/static/shell-f08.css": "f865139daafa37092ab25ee2cdef57ec4466e62874269a1047a14ba6f6b5c7ff",
+    "projects/travel-search/backend/src/main/resources/static/f08.html": "5dbfc52a76940d5b40d2a718696482d70c338c92cb11dcf56f798994545033b3",
+    "projects/travel-search/backend/src/main/resources/static/shell.css": "41dff4c4f069b9d0f642a04cde9f00335c79f6a68a40e4791d92a2ee76d27618",
+    "projects/travel-search/backend/src/main/resources/static/shell-f08.js": "88bb8dcea8658a67168fe04fa3f0e0bbf0524fa1e8c64d2ccd3d5edab9696aee",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/HighlightSegments.java": "04b29aab68b438db04c035dbbdec0cca0ccff9a305f6fb5018b8cc90d223d3f0",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldAttraction.java": "3ee6f11b8cf0ef657e71d2a633b4c2307436d346bf0dc2dee9f82fd6b0fd98f8",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/Attraction.java": "9ad3d4c5ff7ee61e2481f6cad9711480c77030a24db7e8162bbc423f772794ff",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchResult.java": "550e695a27e4acc9ed0c7adcd4a4d9f9a49e786deb7771b67d8b44ae368b5928",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/AttractionSearchService.java": "d6ea82daf58a4dd95e06a281aff68ad2ce30f268a3c5a146cbfb10ae311c0d1e",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchController.java": "20babeb98585c26dd1d48fae1a047ee6bf307b8c0f674ac4013ef01f779c327f",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/EsConfiguration.java": "18205ec3d65bd08412927dd82b0f6691837582b7afc7328c1741f75d75ba620b",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/TravelSearchApplication.java": "1ffe8c3e2e4c108901fd4cfa6ca927dcd8d069f75cc80bbb627e8d58459ca960",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchInput.java": "7775bf712607e43b6e3d6ce080af8be1c438597eb81d403f200da83d32e75566",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldSearchService.java": "fc059606f9fc476b9833402a11bdc109580a7d3ceddb03632b0cafc4b092ffca",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/ApiErrors.java": "6e08f1a84e9cbbcddc9f6e50d449e656dcde224caeb78cbcf64f63df7e282bd4",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldResult.java": "24e96157534072d8d6558f75e14f1228389d9c24ec91de13298a7dde7328b0f7"
+  },
+  "status": "failed",
+  "failure": "AssertionError({'tut-f08-attractions': {'mappings': {'dynamic': 'strict', 'properties': {'aliases': {'type': 'text', 'copy_to': ['search_text'], 'analyzer': 'standard'}, 'attraction_id': {'type': 'keyword'}, 'city_code': {'type': 'keyword'}, 'currency': {'type': 'keyword'}, 'description': {'type': 'text', 'copy_to': ['search_text'], 'analyzer': 'standard'}, 'location': {'type': 'geo_point'}, 'name': {'type': 'text', 'fields': {'raw': {'type': 'keyword'}}, 'copy_to': ['search_text'], 'analyzer': 'standard'}, 'published_on': {'type': 'date', 'format': 'strict_date'}, 'search_text': {'type': 'text', 'analyzer': 'standard'}, 'status': {'type': 'keyword'}, 'ticket_price_fen': {'type': 'integer', 'coerce': False}}}}})"
+}

@@ -1,0 +1,114 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "location",
+      "aliases",
+      "description"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "钱塘湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 20000
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "geo_distance": {
+            "distance": "3.0km",
+            "distance_type": "arc",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ],
+  "highlight": {
+    "type": "unified",
+    "encoder": "html",
+    "pre_tags": [
+      "<mark>"
+    ],
+    "post_tags": [
+      "</mark>"
+    ],
+    "require_field_match": true,
+    "fields": [
+      {
+        "name": {
+          "number_of_fragments": 0
+        }
+      },
+      {
+        "aliases": {
+          "number_of_fragments": 0
+        }
+      },
+      {
+        "description": {
+          "fragment_size": 120,
+          "number_of_fragments": 1
+        }
+      }
+    ]
+  }
+}

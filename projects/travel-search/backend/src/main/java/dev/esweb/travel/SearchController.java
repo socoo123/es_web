@@ -11,14 +11,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class SearchController {
     private final AttractionSearchService search;
+    private final MultiFieldSearchService multiSearch;
 
-    public SearchController(AttractionSearchService search) {
+    public SearchController(AttractionSearchService search, MultiFieldSearchService multiSearch) {
         this.search = search;
+        this.multiSearch = multiSearch;
     }
 
     @GetMapping("/api/health")
     public Map<String, String> health() {
         return Map.of("application", "up", "scope", "java-process-only");
+    }
+
+    @PostMapping("/api/attractions/multi-search")
+    public MultiFieldResult multiSearch(@Valid @RequestBody SearchInput input) throws IOException {
+        return multiSearch.search(input);
     }
 
     @PostMapping("/api/attractions/search")

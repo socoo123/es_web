@@ -1,0 +1,10 @@
+direction: down
+source: "一份景点的三个来源\nname · aliases · description"
+query: "查询时分别搜索\nmulti_match / best_fields / AND"
+source -> query: "保留字段身份"
+query -> result: "每字段满足全部词项，再合并候选"
+result: "西湖 → 五个候选\n描述提到它 ≠ 就是该景点"
+source -> group: "写入时 copy_to 原始值"
+group: "search_text 再分析\n统一的检索字段"
+group -> extra: "match AND 可跨来源满足"
+extra: "西岸步道 ＋ 湖边休息区\n额外命中 a-hz-split"
