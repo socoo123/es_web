@@ -1,0 +1,2001 @@
+{
+  "scenario": "graduation",
+  "requests": 28,
+  "operations": [
+    {
+      "started_at": "2026-10-21T01:09:50.629660+00:00",
+      "method": "GET",
+      "path": "/",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "name": "travel-search-01",
+        "cluster_name": "travel-search-lab",
+        "cluster_uuid": "DlwGm716R6iph5GCe9Tucg",
+        "version": {
+          "number": "9.4.0",
+          "build_flavor": "default",
+          "build_type": "docker",
+          "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+          "build_date": "2026-04-30T15:05:34.751113474Z",
+          "build_snapshot": false,
+          "lucene_version": "10.4.0",
+          "minimum_wire_compatibility_version": "8.19.0",
+          "minimum_index_compatibility_version": "8.0.0"
+        },
+        "tagline": "You Know, for Search"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.635655+00:00",
+      "method": "PUT",
+      "path": "/tut-f12-graduation",
+      "target": "ES",
+      "request": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "refresh_interval": "-1"
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "properties": {
+            "attraction_id": {
+              "type": "keyword"
+            },
+            "name": {
+              "type": "text",
+              "analyzer": "standard",
+              "fields": {
+                "raw": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "aliases": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "description": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "city_code": {
+              "type": "keyword"
+            },
+            "ticket_price_fen": {
+              "type": "integer",
+              "coerce": false
+            },
+            "currency": {
+              "type": "keyword"
+            },
+            "status": {
+              "type": "keyword"
+            },
+            "location": {
+              "type": "geo_point"
+            }
+          }
+        }
+      },
+      "status": 200,
+      "response": {
+        "acknowledged": true,
+        "shards_acknowledged": true,
+        "index": "tut-f12-graduation"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.692187+00:00",
+      "method": "GET",
+      "path": "/_cluster/health/tut-f12-graduation?wait_for_status=green&timeout=30s",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "cluster_name": "travel-search-lab",
+        "status": "green",
+        "timed_out": false,
+        "number_of_nodes": 1,
+        "number_of_data_nodes": 1,
+        "active_primary_shards": 1,
+        "active_shards": 1,
+        "relocating_shards": 0,
+        "initializing_shards": 0,
+        "unassigned_shards": 0,
+        "unassigned_primary_shards": 0,
+        "delayed_unassigned_shards": 0,
+        "number_of_pending_tasks": 1,
+        "number_of_in_flight_fetch": 0,
+        "task_max_waiting_in_queue_millis": 0,
+        "active_shards_percent_as_number": 100.0
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.695520+00:00",
+      "method": "POST",
+      "path": "/tut-f12-graduation/_bulk",
+      "target": "ES",
+      "request": "data/f12/graduation.ndjson",
+      "status": 200,
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-free",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 0,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-garden",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 1,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-museum",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 2,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-night",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 3,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-closed",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 4,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-sh-park",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 5,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-other",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 6,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-usd",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 7,
+              "_primary_term": 1,
+              "status": 201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.702308+00:00",
+      "method": "POST",
+      "path": "/tut-f12-graduation/_refresh",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "failed": 0
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.710121+00:00",
+      "method": "GET",
+      "path": "/tut-f12-graduation/_count",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "count": 8,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.713376+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/start",
+      "target": "graduation-Java",
+      "request": {
+        "search": {
+          "q": "星湾",
+          "cityCode": "HZ",
+          "maxPriceFen": 6000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "35f8347b-e016-4b40-a710-1e0da0acbb2c",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 3,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "星湾",
+            "cityCode": "HZ",
+            "maxPriceFen": 6000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFBZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 6000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "星湾",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "g-hz-free",
+            "name": "星湾湖畔步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "g-hz-free",
+              0
+            ]
+          },
+          {
+            "id": "g-hz-garden",
+            "name": "星湾花园",
+            "ticketPriceFen": 4500,
+            "score": null,
+            "sortValues": [
+              4500,
+              "g-hz-garden",
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.938891+00:00",
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFBZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 6000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "星湾",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "size": 2,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFBZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+        "took": 2,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 3,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-free",
+              "_score": null,
+              "_source": {
+                "attraction_id": "g-hz-free",
+                "name": "星湾湖畔步道",
+                "city_code": "HZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0,
+                "g-hz-free",
+                0
+              ]
+            },
+            {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-garden",
+              "_score": null,
+              "_source": {
+                "attraction_id": "g-hz-garden",
+                "name": "星湾花园",
+                "city_code": "HZ",
+                "ticket_price_fen": 4500,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                4500,
+                "g-hz-garden",
+                1
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.944108+00:00",
+      "method": "GET",
+      "path": "/api/attractions/changes/g-hz-garden",
+      "target": "graduation-Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "g-hz-garden",
+        "seqNo": 1,
+        "primaryTerm": 1,
+        "document": {
+          "attraction_id": "g-hz-garden",
+          "name": "星湾花园",
+          "aliases": [],
+          "description": "星湾花园，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 4500,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.960259+00:00",
+      "method": "PATCH",
+      "path": "/api/attractions/changes/g-hz-garden",
+      "target": "graduation-Java",
+      "request": {
+        "seqNo": 1,
+        "primaryTerm": 1,
+        "ticketPriceFen": 7000
+      },
+      "status": 200,
+      "response": {
+        "id": "g-hz-garden",
+        "result": "updated",
+        "seqNo": 8,
+        "primaryTerm": 1
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.978514+00:00",
+      "method": "GET",
+      "path": "/tut-f12-graduation/_doc/g-hz-garden",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "_index": "tut-f12-graduation",
+        "_id": "g-hz-garden",
+        "_version": 2,
+        "_seq_no": 8,
+        "_primary_term": 1,
+        "found": true,
+        "_source": {
+          "attraction_id": "g-hz-garden",
+          "name": "星湾花园",
+          "aliases": [],
+          "description": "星湾花园，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 7000,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.988527+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/start",
+      "target": "graduation-Java",
+      "request": {
+        "search": {
+          "q": "星湾",
+          "cityCode": "HZ",
+          "maxPriceFen": 6000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "5ed9c5ba-077d-431c-bdea-a3741d6928ca",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 3,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "星湾",
+            "cityCode": "HZ",
+            "maxPriceFen": 6000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFRZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 6000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "星湾",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "g-hz-free",
+            "name": "星湾湖畔步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "g-hz-free",
+              0
+            ]
+          },
+          {
+            "id": "g-hz-garden",
+            "name": "星湾花园",
+            "ticketPriceFen": 4500,
+            "score": null,
+            "sortValues": [
+              4500,
+              "g-hz-garden",
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:50.999540+00:00",
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFRZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 6000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "星湾",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "size": 2,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFRZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+        "took": 1,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 3,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-free",
+              "_score": null,
+              "_source": {
+                "attraction_id": "g-hz-free",
+                "name": "星湾湖畔步道",
+                "city_code": "HZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0,
+                "g-hz-free",
+                0
+              ]
+            },
+            {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-garden",
+              "_score": null,
+              "_source": {
+                "attraction_id": "g-hz-garden",
+                "name": "星湾花园",
+                "city_code": "HZ",
+                "ticket_price_fen": 4500,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                4500,
+                "g-hz-garden",
+                1
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.003483+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/close",
+      "target": "graduation-Java",
+      "request": {
+        "cursor": "5ed9c5ba-077d-431c-bdea-a3741d6928ca"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.010523+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/refresh",
+      "target": "graduation-Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "index": "tut-f12-graduation",
+        "refreshed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.014910+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/next",
+      "target": "graduation-Java",
+      "request": {
+        "cursor": "35f8347b-e016-4b40-a710-1e0da0acbb2c",
+        "afterPage": 1,
+        "conditions": {
+          "search": {
+            "q": "星湾",
+            "cityCode": "HZ",
+            "maxPriceFen": 6000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        }
+      },
+      "status": 200,
+      "response": {
+        "cursor": "35f8347b-e016-4b40-a710-1e0da0acbb2c",
+        "pageNumber": 2,
+        "hasNext": false,
+        "total": 3,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "星湾",
+            "cityCode": "HZ",
+            "maxPriceFen": 6000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFBZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 6000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "星湾",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "search_after": [
+            4500,
+            "g-hz-garden",
+            1
+          ],
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "g-hz-museum",
+            "name": "星湾自然馆",
+            "ticketPriceFen": 6000,
+            "score": null,
+            "sortValues": [
+              6000,
+              "g-hz-museum",
+              2
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.025715+00:00",
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFBZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 6000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "星湾",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "search_after": [
+          4500,
+          "g-hz-garden",
+          1
+        ],
+        "size": 2,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFBZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+        "took": 2,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 3,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-museum",
+              "_score": null,
+              "_source": {
+                "attraction_id": "g-hz-museum",
+                "name": "星湾自然馆",
+                "city_code": "HZ",
+                "ticket_price_fen": 6000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                6000,
+                "g-hz-museum",
+                2
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.030208+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/close",
+      "target": "graduation-Java",
+      "request": {
+        "cursor": "35f8347b-e016-4b40-a710-1e0da0acbb2c"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.033238+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/start",
+      "target": "graduation-Java",
+      "request": {
+        "search": {
+          "q": "星湾",
+          "cityCode": "HZ",
+          "maxPriceFen": 6000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "70571d76-c0dc-4916-a9f3-bf3d0f31b0d1",
+        "pageNumber": 1,
+        "hasNext": false,
+        "total": 2,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "星湾",
+            "cityCode": "HZ",
+            "maxPriceFen": 6000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFhZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 6000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "星湾",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "g-hz-free",
+            "name": "星湾湖畔步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "g-hz-free",
+              0
+            ]
+          },
+          {
+            "id": "g-hz-museum",
+            "name": "星湾自然馆",
+            "ticketPriceFen": 6000,
+            "score": null,
+            "sortValues": [
+              6000,
+              "g-hz-museum",
+              2
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.041677+00:00",
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFhZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 6000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "星湾",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "size": 2,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFhZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+        "took": 1,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-free",
+              "_score": null,
+              "_source": {
+                "attraction_id": "g-hz-free",
+                "name": "星湾湖畔步道",
+                "city_code": "HZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0,
+                "g-hz-free",
+                0
+              ]
+            },
+            {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-museum",
+              "_score": null,
+              "_source": {
+                "attraction_id": "g-hz-museum",
+                "name": "星湾自然馆",
+                "city_code": "HZ",
+                "ticket_price_fen": 6000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                6000,
+                "g-hz-museum",
+                2
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.045517+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/close",
+      "target": "graduation-Java",
+      "request": {
+        "cursor": "70571d76-c0dc-4916-a9f3-bf3d0f31b0d1"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.050652+00:00",
+      "method": "GET",
+      "path": "/api/attractions/changes/g-hz-museum",
+      "target": "graduation-Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "g-hz-museum",
+        "seqNo": 2,
+        "primaryTerm": 1,
+        "document": {
+          "attraction_id": "g-hz-museum",
+          "name": "星湾自然馆",
+          "aliases": [],
+          "description": "星湾自然馆，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 6000,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.055895+00:00",
+      "method": "PATCH",
+      "path": "/api/attractions/changes/g-hz-museum",
+      "target": "graduation-Java",
+      "request": {
+        "seqNo": 2,
+        "primaryTerm": 1,
+        "status": "closed"
+      },
+      "status": 200,
+      "response": {
+        "id": "g-hz-museum",
+        "result": "updated",
+        "seqNo": 9,
+        "primaryTerm": 1
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.064535+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/refresh",
+      "target": "graduation-Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "index": "tut-f12-graduation",
+        "refreshed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.076863+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/start",
+      "target": "graduation-Java",
+      "request": {
+        "search": {
+          "q": "星湾",
+          "cityCode": "HZ",
+          "maxPriceFen": 6000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "e5f1c23b-8f25-4de7-bac0-6ae9cb10d25d",
+        "pageNumber": 1,
+        "hasNext": false,
+        "total": 1,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "星湾",
+            "cityCode": "HZ",
+            "maxPriceFen": 6000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFxZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 6000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "星湾",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "g-hz-free",
+            "name": "星湾湖畔步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "g-hz-free",
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.087396+00:00",
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFxZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 6000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "星湾",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "size": 2,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAESdHV0LWYxMi1ncmFkdWF0aW9uFjFOODNrME9nU0RlYzZEcTJONDJaN3cAARZVRmpucGxZRVJkaVNib2IzTnVvQldBAAEAAAAAAAAAFxZneVV2c0QwYlRiRzNVdE5STXpNVFR3AAEWMU44M2swT2dTRGVjNkRxMk40Mlo3dwAA",
+        "took": 1,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 1,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-free",
+              "_score": null,
+              "_source": {
+                "attraction_id": "g-hz-free",
+                "name": "星湾湖畔步道",
+                "city_code": "HZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0,
+                "g-hz-free",
+                0
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.091724+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/close",
+      "target": "graduation-Java",
+      "request": {
+        "cursor": "e5f1c23b-8f25-4de7-bac0-6ae9cb10d25d"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:09:51.094652+00:00",
+      "method": "GET",
+      "path": "/tut-f12-graduation/_count",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "count": 8,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        }
+      }
+    }
+  ]
+}

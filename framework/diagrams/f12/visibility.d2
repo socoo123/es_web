@@ -1,0 +1,10 @@
+direction: down
+write: "改价已被 ES 接受\n花园：4500 → 9000分\n本课关闭自动 refresh"
+get: "实时 GET\n读取当前资料：9000分\n不等于搜索已可见"
+old: "新发起的普通搜索\n显式 refresh 前仍为4500分\n预算8000分，花园仍命中"
+refresh: "显式 refresh 后重新搜索\n新视图价格9000分\n超出预算，花园不命中"
+pit: "此前打开的 PIT\n仍读4500分与原次序\nrefresh 不会改写旧视图"
+write -> get: "按ID读取"
+get -> old: {style.opacity: 0}
+old -> refresh: "本实验的操作顺序"
+refresh -> pit: {style.opacity: 0}

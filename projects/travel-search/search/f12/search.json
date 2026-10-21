@@ -1,0 +1,56 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "湖滨",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "HZ"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 8000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "ticket_price_fen": "asc"
+    },
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}

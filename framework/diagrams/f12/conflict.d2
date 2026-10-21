@@ -1,0 +1,8 @@
+direction: down
+readers: "甲乙分别读取同一份花园资料\n价格4500分，状态open\n持有相同 seq_no / primary_term"
+a: "甲带读取的版本改价\n6500分写入成功\n文档版本已变化"
+b: "乙带旧版本提交closed\nES返回409，不执行这次修改\n甲的6500分被保留"
+review: "乙重新读取并核对\n接受6500分，只改状态closed\n带新版本提交成功"
+readers -> a: "受控实验：甲先写"
+a -> b: "乙仍带旧版本"
+b -> review: "重读后再做业务决定"

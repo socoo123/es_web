@@ -1,0 +1,1555 @@
+{
+  "scenario": "java",
+  "requests": 27,
+  "operations": [
+    {
+      "started_at": "2026-10-21T01:08:22.356074+00:00",
+      "method": "POST",
+      "path": "/tut-f12-attractions/_bulk",
+      "target": "ES",
+      "request": "data/f12/attractions.ndjson",
+      "status": 200,
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-walk",
+              "_version": 6,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 30,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-garden",
+              "_version": 10,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 31,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-boat",
+              "_version": 7,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 32,
+              "_primary_term": 1,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-sh-park",
+              "_version": 6,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 33,
+              "_primary_term": 1,
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.370950+00:00",
+      "method": "POST",
+      "path": "/tut-f12-attractions/_refresh",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "failed": 0
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.380390+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/d-hz-new/create",
+      "target": "Java",
+      "request": {
+        "attraction_id": "d-hz-new",
+        "name": "湖滨新展馆",
+        "aliases": [],
+        "description": "湖滨新展馆，适合步行参观。",
+        "city_code": "HZ",
+        "ticket_price_fen": 3000,
+        "currency": "CNY",
+        "status": "open",
+        "location": {
+          "lat": 30.25,
+          "lon": 120.15
+        }
+      },
+      "status": 200,
+      "response": {
+        "id": "d-hz-new",
+        "result": "created",
+        "seqNo": 34,
+        "primaryTerm": 1
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.573830+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/d-hz-new/create",
+      "target": "Java",
+      "request": {
+        "attraction_id": "d-hz-new",
+        "name": "湖滨新展馆",
+        "aliases": [],
+        "description": "湖滨新展馆，适合步行参观。",
+        "city_code": "HZ",
+        "ticket_price_fen": 3000,
+        "currency": "CNY",
+        "status": "open",
+        "location": {
+          "lat": 30.25,
+          "lon": 120.15
+        }
+      },
+      "status": 409,
+      "response": {
+        "code": "WRITE_CONFLICT",
+        "message": "版本已变化或ID已存在；请重新读取、核对他人修改，再决定是否重试。"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.586225+00:00",
+      "method": "GET",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-new",
+        "seqNo": 34,
+        "primaryTerm": 1,
+        "document": {
+          "attraction_id": "d-hz-new",
+          "name": "湖滨新展馆",
+          "aliases": [],
+          "description": "湖滨新展馆，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 3000,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.596071+00:00",
+      "method": "GET",
+      "path": "/tut-f12-attractions/_doc/d-hz-new",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "_index": "tut-f12-attractions",
+        "_id": "d-hz-new",
+        "_version": 6,
+        "_seq_no": 34,
+        "_primary_term": 1,
+        "found": true,
+        "_source": {
+          "attraction_id": "d-hz-new",
+          "name": "湖滨新展馆",
+          "aliases": [],
+          "description": "湖滨新展馆，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 3000,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.599045+00:00",
+      "method": "PUT",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": {
+        "seqNo": 34,
+        "primaryTerm": 1,
+        "document": {
+          "attraction_id": "d-hz-new",
+          "name": "湖滨新展馆（二期）",
+          "aliases": [],
+          "description": "湖滨新展馆（二期），适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 3500,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      },
+      "status": 200,
+      "response": {
+        "id": "d-hz-new",
+        "result": "updated",
+        "seqNo": 35,
+        "primaryTerm": 1
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.611228+00:00",
+      "method": "PATCH",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": {
+        "seqNo": 34,
+        "primaryTerm": 1,
+        "ticketPriceFen": 4000
+      },
+      "status": 409,
+      "response": {
+        "code": "WRITE_CONFLICT",
+        "message": "版本已变化或ID已存在；请重新读取、核对他人修改，再决定是否重试。"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.625222+00:00",
+      "method": "GET",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-new",
+        "seqNo": 35,
+        "primaryTerm": 1,
+        "document": {
+          "attraction_id": "d-hz-new",
+          "name": "湖滨新展馆（二期）",
+          "aliases": [],
+          "description": "湖滨新展馆（二期），适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 3500,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.629473+00:00",
+      "method": "PATCH",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": {
+        "seqNo": 35,
+        "primaryTerm": 1,
+        "ticketPriceFen": 4000
+      },
+      "status": 200,
+      "response": {
+        "id": "d-hz-new",
+        "result": "updated",
+        "seqNo": 36,
+        "primaryTerm": 1
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.638109+00:00",
+      "method": "GET",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-new",
+        "seqNo": 36,
+        "primaryTerm": 1,
+        "document": {
+          "attraction_id": "d-hz-new",
+          "name": "湖滨新展馆（二期）",
+          "aliases": [],
+          "description": "湖滨新展馆（二期），适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 4000,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.642493+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/start",
+      "target": "Java",
+      "request": {
+        "search": {
+          "q": "湖滨",
+          "cityCode": "HZ",
+          "maxPriceFen": 8000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "7b1cf430-0963-422c-9f44-4e4ce97d0470",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 3,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "湖滨",
+            "cityCode": "HZ",
+            "maxPriceFen": 8000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABAWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 8000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "湖滨",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "d-hz-walk",
+            "name": "湖滨步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "d-hz-walk",
+              30
+            ]
+          },
+          {
+            "id": "d-hz-garden",
+            "name": "湖滨花园",
+            "ticketPriceFen": 4500,
+            "score": null,
+            "sortValues": [
+              4500,
+              "d-hz-garden",
+              31
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.719580+00:00",
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABAWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 8000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "湖滨",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "size": 2,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABAWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+        "took": 4,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 3,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-walk",
+              "_score": null,
+              "_source": {
+                "attraction_id": "d-hz-walk",
+                "name": "湖滨步道",
+                "city_code": "HZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0,
+                "d-hz-walk",
+                30
+              ]
+            },
+            {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-garden",
+              "_score": null,
+              "_source": {
+                "attraction_id": "d-hz-garden",
+                "name": "湖滨花园",
+                "city_code": "HZ",
+                "ticket_price_fen": 4500,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                4500,
+                "d-hz-garden",
+                31
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.727555+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/close",
+      "target": "Java",
+      "request": {
+        "cursor": "7b1cf430-0963-422c-9f44-4e4ce97d0470"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.736441+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/refresh",
+      "target": "Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "index": "tut-f12-attractions",
+        "refreshed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.751445+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/start",
+      "target": "Java",
+      "request": {
+        "search": {
+          "q": "湖滨",
+          "cityCode": "HZ",
+          "maxPriceFen": 8000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "ff1364e6-427a-4eaf-96c5-16622e97dec3",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 4,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "湖滨",
+            "cityCode": "HZ",
+            "maxPriceFen": 8000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABEWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 8000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "湖滨",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "d-hz-walk",
+            "name": "湖滨步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "d-hz-walk",
+              30
+            ]
+          },
+          {
+            "id": "d-hz-new",
+            "name": "湖滨新展馆（二期）",
+            "ticketPriceFen": 4000,
+            "score": null,
+            "sortValues": [
+              4000,
+              "d-hz-new",
+              36
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.763985+00:00",
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABEWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 8000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "湖滨",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "size": 2,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABEWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+        "took": 4,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 4,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-walk",
+              "_score": null,
+              "_source": {
+                "attraction_id": "d-hz-walk",
+                "name": "湖滨步道",
+                "city_code": "HZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0,
+                "d-hz-walk",
+                30
+              ]
+            },
+            {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-new",
+              "_score": null,
+              "_source": {
+                "attraction_id": "d-hz-new",
+                "name": "湖滨新展馆（二期）",
+                "city_code": "HZ",
+                "ticket_price_fen": 4000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                4000,
+                "d-hz-new",
+                36
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.771875+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "ff1364e6-427a-4eaf-96c5-16622e97dec3",
+        "afterPage": 1,
+        "conditions": {
+          "search": {
+            "q": "湖滨",
+            "cityCode": "HZ",
+            "maxPriceFen": 8000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        }
+      },
+      "status": 200,
+      "response": {
+        "cursor": "ff1364e6-427a-4eaf-96c5-16622e97dec3",
+        "pageNumber": 2,
+        "hasNext": false,
+        "total": 4,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "湖滨",
+            "cityCode": "HZ",
+            "maxPriceFen": 8000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABEWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 8000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "湖滨",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "search_after": [
+            4000,
+            "d-hz-new",
+            36
+          ],
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "d-hz-garden",
+            "name": "湖滨花园",
+            "ticketPriceFen": 4500,
+            "score": null,
+            "sortValues": [
+              4500,
+              "d-hz-garden",
+              31
+            ]
+          },
+          {
+            "id": "d-hz-boat",
+            "name": "湖滨游船",
+            "ticketPriceFen": 8000,
+            "score": null,
+            "sortValues": [
+              8000,
+              "d-hz-boat",
+              32
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.785054+00:00",
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABEWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 8000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "湖滨",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "search_after": [
+          4000,
+          "d-hz-new",
+          36
+        ],
+        "size": 2,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABEWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+        "took": 2,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 4,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-garden",
+              "_score": null,
+              "_source": {
+                "attraction_id": "d-hz-garden",
+                "name": "湖滨花园",
+                "city_code": "HZ",
+                "ticket_price_fen": 4500,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                4500,
+                "d-hz-garden",
+                31
+              ]
+            },
+            {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-boat",
+              "_score": null,
+              "_source": {
+                "attraction_id": "d-hz-boat",
+                "name": "湖滨游船",
+                "city_code": "HZ",
+                "ticket_price_fen": 8000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                8000,
+                "d-hz-boat",
+                32
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.789443+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/close",
+      "target": "Java",
+      "request": {
+        "cursor": "ff1364e6-427a-4eaf-96c5-16622e97dec3"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.793055+00:00",
+      "method": "DELETE",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": {
+        "seqNo": 35,
+        "primaryTerm": 1
+      },
+      "status": 409,
+      "response": {
+        "code": "WRITE_CONFLICT",
+        "message": "版本已变化或ID已存在；请重新读取、核对他人修改，再决定是否重试。"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.801052+00:00",
+      "method": "GET",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-new",
+        "seqNo": 36,
+        "primaryTerm": 1,
+        "document": {
+          "attraction_id": "d-hz-new",
+          "name": "湖滨新展馆（二期）",
+          "aliases": [],
+          "description": "湖滨新展馆（二期），适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 4000,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.804391+00:00",
+      "method": "DELETE",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": {
+        "seqNo": 36,
+        "primaryTerm": 1
+      },
+      "status": 200,
+      "response": {
+        "id": "d-hz-new",
+        "result": "deleted",
+        "seqNo": 37,
+        "primaryTerm": 1
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.810200+00:00",
+      "method": "GET",
+      "path": "/api/attractions/changes/d-hz-new",
+      "target": "Java",
+      "request": null,
+      "status": 404,
+      "response": {
+        "code": "DOCUMENT_MISSING",
+        "message": "资料不存在，请重新读取并确认是否已被删除。"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.813372+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/refresh",
+      "target": "Java",
+      "request": null,
+      "status": 200,
+      "response": {
+        "index": "tut-f12-attractions",
+        "refreshed": true
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.821577+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/start",
+      "target": "Java",
+      "request": {
+        "search": {
+          "q": "湖滨",
+          "cityCode": "HZ",
+          "maxPriceFen": 8000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "ea29577e-c7f5-491d-b546-36fb6e006456",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 3,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "湖滨",
+            "cityCode": "HZ",
+            "maxPriceFen": 8000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZzT2ZYMWZJc1Q1aXBqQ0RLX29hZVJRAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABIWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFnNPZlgxZklzVDVpcGpDREtfb2FlUlEAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 8000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "湖滨",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "d-hz-walk",
+            "name": "湖滨步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "d-hz-walk",
+              30
+            ]
+          },
+          {
+            "id": "d-hz-garden",
+            "name": "湖滨花园",
+            "ticketPriceFen": 4500,
+            "score": null,
+            "sortValues": [
+              4500,
+              "d-hz-garden",
+              31
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:08:22.831269+00:00",
+      "method": "POST",
+      "path": "/api/attractions/changes/pages/close",
+      "target": "Java",
+      "request": {
+        "cursor": "ea29577e-c7f5-491d-b546-36fb6e006456"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    }
+  ]
+}

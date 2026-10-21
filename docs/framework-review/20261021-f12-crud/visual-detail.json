@@ -1,0 +1,749 @@
+{
+  "recorded_at": "2026-10-21T01:20:54.998162+00:00",
+  "scope": "F12 supplementary actual browser screenshots; no mocked API; editor and results regions explicitly captured",
+  "matrix": [],
+  "operations": [
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/d-hz-garden",
+      "method": "GET",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-garden",
+        "seqNo": 5,
+        "primaryTerm": 2,
+        "document": {
+          "attraction_id": "d-hz-garden",
+          "name": "湖滨花园",
+          "aliases": [],
+          "description": "湖滨花园，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 4500,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/d-hz-garden",
+      "method": "GET",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-garden",
+        "seqNo": 5,
+        "primaryTerm": 2,
+        "document": {
+          "attraction_id": "d-hz-garden",
+          "name": "湖滨花园",
+          "aliases": [],
+          "description": "湖滨花园，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 4500,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/pages/start",
+      "method": "POST",
+      "request": {
+        "search": {
+          "q": "湖滨",
+          "cityCode": "HZ",
+          "maxPriceFen": 8000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "96bd9235-ebdf-4501-b628-e96f59ca9a7d",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 3,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "湖滨",
+            "cityCode": "HZ",
+            "maxPriceFen": 8000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZranJ2VnhUZFFlU1BKYmpsMXVndFV3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAAAQWa1ZzTEtlZ1VTLW1iY2FfR2k1UGNUUQABFmtqcnZWeFRkUWVTUEpiamwxdWd0VXcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 8000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "湖滨",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "d-hz-walk",
+            "name": "湖滨步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "d-hz-walk",
+              0
+            ]
+          },
+          {
+            "id": "d-hz-garden",
+            "name": "湖滨花园",
+            "ticketPriceFen": 4500,
+            "score": null,
+            "sortValues": [
+              4500,
+              "d-hz-garden",
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/d-hz-garden",
+      "method": "PATCH",
+      "request": {
+        "seqNo": 5,
+        "primaryTerm": 2,
+        "ticketPriceFen": 9000,
+        "status": "open"
+      },
+      "status": 200,
+      "response": {
+        "id": "d-hz-garden",
+        "result": "updated",
+        "seqNo": 8,
+        "primaryTerm": 2
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/d-hz-garden",
+      "method": "GET",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-garden",
+        "seqNo": 8,
+        "primaryTerm": 2,
+        "document": {
+          "attraction_id": "d-hz-garden",
+          "name": "湖滨花园",
+          "aliases": [],
+          "description": "湖滨花园，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 9000,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/d-hz-garden",
+      "method": "PATCH",
+      "request": {
+        "seqNo": 5,
+        "primaryTerm": 2,
+        "ticketPriceFen": 4500,
+        "status": "closed"
+      },
+      "status": 409,
+      "response": {
+        "code": "WRITE_CONFLICT",
+        "message": "版本已变化或ID已存在；请重新读取、核对他人修改，再决定是否重试。"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/d-hz-garden",
+      "method": "GET",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-garden",
+        "seqNo": 8,
+        "primaryTerm": 2,
+        "document": {
+          "attraction_id": "d-hz-garden",
+          "name": "湖滨花园",
+          "aliases": [],
+          "description": "湖滨花园，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 9000,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/d-hz-garden",
+      "method": "PATCH",
+      "request": {
+        "seqNo": 8,
+        "primaryTerm": 2,
+        "ticketPriceFen": 9000,
+        "status": "closed"
+      },
+      "status": 200,
+      "response": {
+        "id": "d-hz-garden",
+        "result": "updated",
+        "seqNo": 9,
+        "primaryTerm": 2
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/refresh",
+      "method": "POST",
+      "request": null,
+      "status": 200,
+      "response": {
+        "index": "tut-f12-attractions",
+        "refreshed": true
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/d-hz-garden",
+      "method": "GET",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-garden",
+        "seqNo": 9,
+        "primaryTerm": 2,
+        "document": {
+          "attraction_id": "d-hz-garden",
+          "name": "湖滨花园",
+          "aliases": [],
+          "description": "湖滨花园，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 9000,
+          "currency": "CNY",
+          "status": "closed",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/pages/close",
+      "method": "POST",
+      "request": {
+        "cursor": "96bd9235-ebdf-4501-b628-e96f59ca9a7d"
+      },
+      "status": 200,
+      "response": {
+        "closed": true,
+        "numFreed": 1
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/pages/start",
+      "method": "POST",
+      "request": {
+        "search": {
+          "q": "湖滨",
+          "cityCode": "HZ",
+          "maxPriceFen": 8000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "eccd919e-6130-4de5-a236-3e2af61f0efa",
+        "pageNumber": 1,
+        "hasNext": false,
+        "total": 2,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "湖滨",
+            "cityCode": "HZ",
+            "maxPriceFen": 8000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxZranJ2VnhUZFFlU1BKYmpsMXVndFV3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAAAUWa1ZzTEtlZ1VTLW1iY2FfR2k1UGNUUQABFmtqcnZWeFRkUWVTUEpiamwxdWd0VXcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 8000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "湖滨",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "d-hz-walk",
+            "name": "湖滨步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "d-hz-walk",
+              0
+            ]
+          },
+          {
+            "id": "d-hz-boat",
+            "name": "湖滨游船",
+            "ticketPriceFen": 8000,
+            "score": null,
+            "sortValues": [
+              8000,
+              "d-hz-boat",
+              2
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/pages/close",
+      "method": "POST",
+      "request": {
+        "cursor": "eccd919e-6130-4de5-a236-3e2af61f0efa"
+      },
+      "status": 200,
+      "response": {
+        "closed": true,
+        "numFreed": 1
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "docs/framework-review/20261021-f12-crud/screenshots/shell-1440-light-opening.png",
+      "sha256": "4fbb092b2222afe42bb9f60e853cc61596079fdc72692043c8d627373d6ecee1",
+      "visual_review": "individually opened"
+    },
+    {
+      "path": "docs/framework-review/20261021-f12-crud/screenshots/shell-1440-dark-opening.png",
+      "sha256": "3b21c0de7a8f7ffd4652a0a57540f352cc13f0d405b38ad11d4c24033dc2e42f",
+      "visual_review": "individually opened"
+    },
+    {
+      "path": "docs/framework-review/20261021-f12-crud/screenshots/shell-390-light-opening.png",
+      "sha256": "6f68ff51a76380bca7c7b2b178a0238484c7b5d08234a5eb852309f5a4edbb6c",
+      "visual_review": "individually opened"
+    },
+    {
+      "path": "docs/framework-review/20261021-f12-crud/screenshots/shell-390-dark-opening.png",
+      "sha256": "6ecd7e3130fbcd79b30f58b09602c34ce58b1493a64706908fa032c8bcedbd06",
+      "visual_review": "individually opened"
+    },
+    {
+      "path": "docs/framework-review/20261021-f12-crud/screenshots/shell-390-get9000-editor.png",
+      "sha256": "50c49e8deb4ade0d4dc04b0475fac53704b12954570fa4006a75937a2ec522fd",
+      "visual_review": "individually opened"
+    },
+    {
+      "path": "docs/framework-review/20261021-f12-crud/screenshots/shell-390-search4500-results.png",
+      "sha256": "ffa3f3c50c0718a88da3ed8f111d06197ce95cdb492c1c48860e7198e02344f2",
+      "visual_review": "individually opened"
+    },
+    {
+      "path": "docs/framework-review/20261021-f12-crud/screenshots/shell-390-conflict-editor.png",
+      "sha256": "c0d1dcc2b1be13ee36958f5bf9094b4aee067cd560a0f353b19b098b95f4d81e",
+      "visual_review": "individually opened"
+    },
+    {
+      "path": "docs/framework-review/20261021-f12-crud/screenshots/shell-390-reread-closed-editor.png",
+      "sha256": "f229455d18fe271abe6db10cfcb4992d6f96d47a896146ea8125da36d063a036",
+      "visual_review": "individually opened"
+    },
+    {
+      "path": "docs/framework-review/20261021-f12-crud/screenshots/shell-390-new-view-results.png",
+      "sha256": "f0ce7a4c6c91f5efd79345a0c64e7f8d5a635a3058ef1950d88febc7ff0935c2",
+      "visual_review": "individually opened"
+    }
+  ],
+  "js_errors": [],
+  "direct_es_requests": [],
+  "status": "passed",
+  "es_author_operations": [
+    {
+      "started_at": "2026-10-21T01:20:54.998364+00:00",
+      "method": "POST",
+      "path": "/tut-f12-attractions/_bulk",
+      "target": "ES",
+      "request": "data/f12/attractions.ndjson",
+      "status": 200,
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-walk",
+              "_version": 2,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 4,
+              "_primary_term": 2,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-garden",
+              "_version": 2,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 5,
+              "_primary_term": 2,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-boat",
+              "_version": 2,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 6,
+              "_primary_term": 2,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-sh-park",
+              "_version": 2,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 7,
+              "_primary_term": 2,
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:20:55.045331+00:00",
+      "method": "POST",
+      "path": "/tut-f12-attractions/_refresh",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "failed": 0
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:20:59.571364+00:00",
+      "method": "POST",
+      "path": "/tut-f12-attractions/_bulk",
+      "target": "ES",
+      "request": "data/f12/attractions.ndjson",
+      "status": 200,
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-walk",
+              "_version": 3,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 10,
+              "_primary_term": 2,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-garden",
+              "_version": 5,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 11,
+              "_primary_term": 2,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-boat",
+              "_version": 3,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 12,
+              "_primary_term": 2,
+              "status": 200
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-sh-park",
+              "_version": 3,
+              "result": "updated",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 13,
+              "_primary_term": 2,
+              "status": 200
+            }
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:20:59.580545+00:00",
+      "method": "POST",
+      "path": "/tut-f12-attractions/_refresh",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "failed": 0
+        }
+      }
+    }
+  ]
+}

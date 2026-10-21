@@ -75,3 +75,8 @@ DTO保存scope/scopeTotal、整体/逐桶docCountErrorUpperBound、sumOtherDocCo
 ## F11 · 稳定分页与PIT
 
 新增[本课手工入口](../labs/f11/README.md)：from/size、受控改价、PIT/search_after与三模式Java分页。启动同一个Boot4/JDK25应用后打开 http://127.0.0.1:18080/f11.html ，顺序翻页、末页与关闭/换条件重新开始；教程无需前端开发。旧接口保留，独立tut-f11-attractions，原始实连与重做分别记录。
+
+
+## F12 · 更新、可见性与基础结业
+
+新增[手工入口](../labs/f12/README.md)，独立tut-f12-attractions/结业tut-f12-graduation，显式关闭自动refresh。新增/api/attractions/changes：实时GET、只准新建、带版本的完整替换/局部更新/删除、显式refresh和独立PIT分页；旧课接口保留。本机观察页http://127.0.0.1:18080/f12.html；结业用同jar的APP_PORT=18081/TRAVEL_F12_INDEX=tut-f12-graduation，浏览器不能指定任意索引。Pages只承载教程，不要求开发前端。先独立做新样本任务，再看参考解；脚本通过不等于独立结业。

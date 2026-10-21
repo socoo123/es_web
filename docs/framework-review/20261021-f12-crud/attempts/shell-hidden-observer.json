@@ -1,0 +1,747 @@
+{
+  "recorded_at": "2026-10-21T01:18:46.160593+00:00",
+  "scope": "actual F12 browser/Java/ES, no fake responses",
+  "matrix": [],
+  "operations": [
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/d-hz-garden",
+      "method": "GET",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "d-hz-garden",
+        "seqNo": 1,
+        "primaryTerm": 1,
+        "document": {
+          "attraction_id": "d-hz-garden",
+          "name": "湖滨花园",
+          "aliases": [],
+          "description": "湖滨花园，适合步行参观。",
+          "city_code": "HZ",
+          "ticket_price_fen": 4500,
+          "currency": "CNY",
+          "status": "open",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        }
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18080/api/attractions/changes/pages/start",
+      "method": "POST",
+      "request": {
+        "search": {
+          "q": "湖滨",
+          "cityCode": "HZ",
+          "maxPriceFen": 8000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 2
+      },
+      "status": 200,
+      "response": {
+        "cursor": "d49f6940-217d-4c5d-8059-ec1088b26401",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 3,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "湖滨",
+            "cityCode": "HZ",
+            "maxPriceFen": 8000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 2
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMi1hdHRyYWN0aW9ucxYxU0lTX2xEb1J4S1VwS0lkWjdMVkJnAAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAAFMWZ3lVdnNEMGJUYkczVXROUk16TVRUdwABFjFTSVNfbERvUnhLVXBLSWRaN0xWQmcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 8000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "湖滨",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 2,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "d-hz-walk",
+            "name": "湖滨步道",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "d-hz-walk",
+              0
+            ]
+          },
+          {
+            "id": "d-hz-garden",
+            "name": "湖滨花园",
+            "ticketPriceFen": 4500,
+            "score": null,
+            "sortValues": [
+              4500,
+              "d-hz-garden",
+              1
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "screenshots": [],
+  "js_errors": [],
+  "direct_es_requests": [],
+  "browser": {
+    "engine": "Chromium",
+    "version": "147.0.7727.15"
+  },
+  "status": "failed",
+  "failure": "Traceback (most recent call last):\n  File \"/Users/zy/ai_web_page/es_web/docs/framework-review/20261021-f12-crud/shell-review.py\", line 60, in run\n    first=search(page);require([i['id'] for i in first['items']]==['d-hz-walk','d-hz-garden'] and first['total']==3,'first')\n          ^^^^^^^^^^^^\n  File \"/Users/zy/ai_web_page/es_web/docs/framework-review/20261021-f12-crud/shell-review.py\", line 44, in search\n    r=action(page,'#submit','/pages/start');check_cards(page,r);return r\n                                            ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/zy/ai_web_page/es_web/docs/framework-review/20261021-f12-crud/shell-review.py\", line 32, in check_cards\n    require(json.loads(page.locator('#dsl-json').inner_text())==data['esRequest'],'DSL')\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/zy/.pyenv/versions/3.11.8/lib/python3.11/json/__init__.py\", line 346, in loads\n    return _default_decoder.decode(s)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/zy/.pyenv/versions/3.11.8/lib/python3.11/json/decoder.py\", line 337, in decode\n    obj, end = self.raw_decode(s, idx=_w(s, 0).end())\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/zy/.pyenv/versions/3.11.8/lib/python3.11/json/decoder.py\", line 355, in raw_decode\n    raise JSONDecodeError(\"Expecting value\", s, err.value) from None\njson.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)\n",
+  "es_author_operations": [
+    {
+      "started_at": "2026-10-21T01:18:46.160750+00:00",
+      "method": "GET",
+      "path": "/",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "name": "travel-search-01",
+        "cluster_name": "travel-search-lab",
+        "cluster_uuid": "DlwGm716R6iph5GCe9Tucg",
+        "version": {
+          "number": "9.4.0",
+          "build_flavor": "default",
+          "build_type": "docker",
+          "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+          "build_date": "2026-04-30T15:05:34.751113474Z",
+          "build_snapshot": false,
+          "lucene_version": "10.4.0",
+          "minimum_wire_compatibility_version": "8.19.0",
+          "minimum_index_compatibility_version": "8.0.0"
+        },
+        "tagline": "You Know, for Search"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.166903+00:00",
+      "method": "PUT",
+      "path": "/tut-f12-attractions",
+      "target": "ES",
+      "request": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "refresh_interval": "-1"
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "properties": {
+            "attraction_id": {
+              "type": "keyword"
+            },
+            "name": {
+              "type": "text",
+              "analyzer": "standard",
+              "fields": {
+                "raw": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "aliases": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "description": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "city_code": {
+              "type": "keyword"
+            },
+            "ticket_price_fen": {
+              "type": "integer",
+              "coerce": false
+            },
+            "currency": {
+              "type": "keyword"
+            },
+            "status": {
+              "type": "keyword"
+            },
+            "location": {
+              "type": "geo_point"
+            }
+          }
+        }
+      },
+      "status": 200,
+      "response": {
+        "acknowledged": true,
+        "shards_acknowledged": true,
+        "index": "tut-f12-attractions"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.215295+00:00",
+      "method": "GET",
+      "path": "/_cluster/health/tut-f12-attractions?wait_for_status=green&timeout=30s",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "cluster_name": "travel-search-lab",
+        "status": "green",
+        "timed_out": false,
+        "number_of_nodes": 1,
+        "number_of_data_nodes": 1,
+        "active_primary_shards": 1,
+        "active_shards": 1,
+        "relocating_shards": 0,
+        "initializing_shards": 0,
+        "unassigned_shards": 0,
+        "unassigned_primary_shards": 0,
+        "delayed_unassigned_shards": 0,
+        "number_of_pending_tasks": 0,
+        "number_of_in_flight_fetch": 0,
+        "task_max_waiting_in_queue_millis": 0,
+        "active_shards_percent_as_number": 100.0
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.217170+00:00",
+      "method": "POST",
+      "path": "/tut-f12-attractions/_bulk",
+      "target": "ES",
+      "request": "data/f12/attractions.ndjson",
+      "status": 200,
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-walk",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 0,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-garden",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 1,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-hz-boat",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 2,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-attractions",
+              "_id": "d-sh-park",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 3,
+              "_primary_term": 1,
+              "status": 201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.220950+00:00",
+      "method": "POST",
+      "path": "/tut-f12-attractions/_refresh",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "failed": 0
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.226199+00:00",
+      "method": "GET",
+      "path": "/tut-f12-attractions/_count",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "count": 4,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.229195+00:00",
+      "method": "GET",
+      "path": "/",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "name": "travel-search-01",
+        "cluster_name": "travel-search-lab",
+        "cluster_uuid": "DlwGm716R6iph5GCe9Tucg",
+        "version": {
+          "number": "9.4.0",
+          "build_flavor": "default",
+          "build_type": "docker",
+          "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+          "build_date": "2026-04-30T15:05:34.751113474Z",
+          "build_snapshot": false,
+          "lucene_version": "10.4.0",
+          "minimum_wire_compatibility_version": "8.19.0",
+          "minimum_index_compatibility_version": "8.0.0"
+        },
+        "tagline": "You Know, for Search"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.230421+00:00",
+      "method": "PUT",
+      "path": "/tut-f12-graduation",
+      "target": "ES",
+      "request": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "refresh_interval": "-1"
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "properties": {
+            "attraction_id": {
+              "type": "keyword"
+            },
+            "name": {
+              "type": "text",
+              "analyzer": "standard",
+              "fields": {
+                "raw": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "aliases": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "description": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "city_code": {
+              "type": "keyword"
+            },
+            "ticket_price_fen": {
+              "type": "integer",
+              "coerce": false
+            },
+            "currency": {
+              "type": "keyword"
+            },
+            "status": {
+              "type": "keyword"
+            },
+            "location": {
+              "type": "geo_point"
+            }
+          }
+        }
+      },
+      "status": 200,
+      "response": {
+        "acknowledged": true,
+        "shards_acknowledged": true,
+        "index": "tut-f12-graduation"
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.261951+00:00",
+      "method": "GET",
+      "path": "/_cluster/health/tut-f12-graduation?wait_for_status=green&timeout=30s",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "cluster_name": "travel-search-lab",
+        "status": "green",
+        "timed_out": false,
+        "number_of_nodes": 1,
+        "number_of_data_nodes": 1,
+        "active_primary_shards": 1,
+        "active_shards": 1,
+        "relocating_shards": 0,
+        "initializing_shards": 0,
+        "unassigned_shards": 0,
+        "unassigned_primary_shards": 0,
+        "delayed_unassigned_shards": 0,
+        "number_of_pending_tasks": 1,
+        "number_of_in_flight_fetch": 0,
+        "task_max_waiting_in_queue_millis": 0,
+        "active_shards_percent_as_number": 100.0
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.263903+00:00",
+      "method": "POST",
+      "path": "/tut-f12-graduation/_bulk",
+      "target": "ES",
+      "request": "data/f12/graduation.ndjson",
+      "status": 200,
+      "response": {
+        "errors": false,
+        "took": 0,
+        "items": [
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-free",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 0,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-garden",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 1,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-museum",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 2,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-night",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 3,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-closed",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 4,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-sh-park",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 5,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-other",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 6,
+              "_primary_term": 1,
+              "status": 201
+            }
+          },
+          {
+            "index": {
+              "_index": "tut-f12-graduation",
+              "_id": "g-hz-usd",
+              "_version": 1,
+              "result": "created",
+              "_shards": {
+                "total": 1,
+                "successful": 1,
+                "failed": 0
+              },
+              "_seq_no": 7,
+              "_primary_term": 1,
+              "status": 201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.268816+00:00",
+      "method": "POST",
+      "path": "/tut-f12-graduation/_refresh",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "failed": 0
+        }
+      }
+    },
+    {
+      "started_at": "2026-10-21T01:18:46.273609+00:00",
+      "method": "GET",
+      "path": "/tut-f12-graduation/_count",
+      "target": "ES",
+      "request": null,
+      "status": 200,
+      "response": {
+        "count": 8,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        }
+      }
+    }
+  ],
+  "sha256": {
+    "projects/travel-search/backend/src/main/resources/application.properties": "ed984be7547013d3c804f610ba6d293637ae14778f8a75cf87099c910b8d667a",
+    "projects/travel-search/backend/src/main/resources/static/shell.js": "d89dbc50ae0564f4f1d2c9d4d40db145c90d3af049a5c2d31e85f1474a45785c",
+    "projects/travel-search/backend/src/main/resources/static/shell-f11.js": "5459d600c8a23021260c6a2b6feeb7e22665abc4999d1795f21568ca6649b115",
+    "projects/travel-search/backend/src/main/resources/static/index.html": "a8eb8dcc1b58359146a426655e30287e3ad77c3060a2febfd71613aaf5fd5579",
+    "projects/travel-search/backend/src/main/resources/static/shell-f08.css": "f865139daafa37092ab25ee2cdef57ec4466e62874269a1047a14ba6f6b5c7ff",
+    "projects/travel-search/backend/src/main/resources/static/shell-f09.css": "98bc64969233808a902a3e8c30d14ea29ef2ef803ce0342525ac52ee8a123fd6",
+    "projects/travel-search/backend/src/main/resources/static/shell-f10.js": "ee89df766aaf91d885b4c3bc4dd9f75cecfe913b7082473c45e6cc8d42fdb524",
+    "projects/travel-search/backend/src/main/resources/static/f09.html": "6957940f1c0b518d12785d4ad322f1ace25d455db0d80f5dc8d4bff8db851da6",
+    "projects/travel-search/backend/src/main/resources/static/f08.html": "5dbfc52a76940d5b40d2a718696482d70c338c92cb11dcf56f798994545033b3",
+    "projects/travel-search/backend/src/main/resources/static/f12.html": "f40657edd993ac5b6dc38664cc5caa239ee042a65194c93e65f1efd858127d8d",
+    "projects/travel-search/backend/src/main/resources/static/shell.css": "41dff4c4f069b9d0f642a04cde9f00335c79f6a68a40e4791d92a2ee76d27618",
+    "projects/travel-search/backend/src/main/resources/static/f11.html": "fec5f1dcbabf9bb37b43aef7b17e61431dc6c9cce13158166564988c1a91e857",
+    "projects/travel-search/backend/src/main/resources/static/shell-f09.js": "bc1994aba5d25dd92c5a7a1daf879d68bb95af47af7f7f1c732e92ee0030a781",
+    "projects/travel-search/backend/src/main/resources/static/shell-f08.js": "88bb8dcea8658a67168fe04fa3f0e0bbf0524fa1e8c64d2ccd3d5edab9696aee",
+    "projects/travel-search/backend/src/main/resources/static/f10.html": "4eef182b80a7db0e34b5f997e9c74b450888d6341ba0062af8e4e6a506a6570b",
+    "projects/travel-search/backend/src/main/resources/static/shell-f12.css": "46ca0a5a789ef4a101f3ce805ff79bd51fc31f5416d7a8dd73af589ebd5fd541",
+    "projects/travel-search/backend/src/main/resources/static/shell-f10.css": "fc2fd8890307e63dc7af6916fede114aca26fd485e3756fd8bd59b72a71adb78",
+    "projects/travel-search/backend/src/main/resources/static/shell-f11.css": "7fb4cf1a21c0cbd2126825baec1e350b3961761f2da2b8c2f90d50dde158a07a",
+    "projects/travel-search/backend/src/main/resources/static/shell-f12.js": "a14470a7b28d60c876be6c76748a7a8cfee38a4f34ab9aaa7e595e1565371be7",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SortInput.java": "476c4a5ed10bbe15f266478fc23fce9914e93ee6490d97ed7330aa8f6295df68",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/ChangeDocument.java": "12800587aae78d1e911e515d178a4fa3bf36497ca17d0c3a6e405215fc8f0ff1",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SortResult.java": "3e2423ccebbf533f8a95f1520ced5c17a0b6004b77d26405413e9466d435d251",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/HighlightSegments.java": "04b29aab68b438db04c035dbbdec0cca0ccff9a305f6fb5018b8cc90d223d3f0",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/PageController.java": "956992b8f7d33c0835400f149a554559aeaf06cb8cf0dfc6ee7187a67dd55175",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/PageInput.java": "7a8f07320fd46cb5fe7c5fcf468fc66051096f335e920315cd9a739daad9773d",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SortSearchService.java": "c41ffd4996461aeb7b52f9f226485b9a36c77f6717d00dbde06fd47fe7832009",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SortAttraction.java": "2a33c0ddb1d1bb74bca5cedfdd04eb3676cda15f3e21108689ebb56282d722f8",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/ChangeService.java": "f87952bcc072b135335cf4e774e0396a4e72aafd8e968923e857856eb04cbae3",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldAttraction.java": "3ee6f11b8cf0ef657e71d2a633b4c2307436d346bf0dc2dee9f82fd6b0fd98f8",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/Attraction.java": "9ad3d4c5ff7ee61e2481f6cad9711480c77030a24db7e8162bbc423f772794ff",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchResult.java": "550e695a27e4acc9ed0c7adcd4a4d9f9a49e786deb7771b67d8b44ae368b5928",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/AttractionSearchService.java": "d6ea82daf58a4dd95e06a281aff68ad2ce30f268a3c5a146cbfb10ae311c0d1e",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetAttraction.java": "8357efc7965d03f676e7f6f3a37eeee263954eb41f6233e1b2f9773a2770909a",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchController.java": "20babeb98585c26dd1d48fae1a047ee6bf307b8c0f674ac4013ef01f779c327f",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetController.java": "7cc97acabf1797fa8be587aacceff37a7b2c7e58bd2431d1875dc34d42223e06",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/EsConfiguration.java": "18205ec3d65bd08412927dd82b0f6691837582b7afc7328c1741f75d75ba620b",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/TravelSearchApplication.java": "1ffe8c3e2e4c108901fd4cfa6ca927dcd8d069f75cc80bbb627e8d58459ca960",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/PageSearchService.java": "98a676f1533cecd69c91c7e7aeada6150301b11d8c375c7f432460eedde78004",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SearchInput.java": "7775bf712607e43b6e3d6ce080af8be1c438597eb81d403f200da83d32e75566",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetInput.java": "cba230d7800ea1a17eedd0b256664b4b67d10cb65b2689cdd62fa88acdc86977",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SortController.java": "8bd7c092b27156a901352d28e2c22f0645b45dc70873757a93f1b84fa8d25ccc",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/PageResult.java": "e61cc063f369382f06a60cff26f3bd8b378efe2ef4ab66598b7c0d28f7c6b07d",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/ChangeController.java": "0d402bbbccd68e4c230ff6f0e20c82de7c9b1a7580217f6020234ca3511b8cc6",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetResult.java": "62072ea3b3c7e3f01dd4abff1a388f87fdf9d96b21ba1d9a6bca4f265e174465",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldSearchService.java": "fc059606f9fc476b9833402a11bdc109580a7d3ceddb03632b0cafc4b092ffca",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/ApiErrors.java": "6e08f1a84e9cbbcddc9f6e50d449e656dcde224caeb78cbcf64f63df7e282bd4",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/FacetSearchService.java": "a59793e6ff009e64f71e2f66500a098a50f96c82fd5996ddcce47f0cb9bf3ccb",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/MultiFieldResult.java": "24e96157534072d8d6558f75e14f1228389d9c24ec91de13298a7dde7328b0f7"
+  }
+}
