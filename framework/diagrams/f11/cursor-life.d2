@@ -1,0 +1,10 @@
+direction: down
+start: "从第一页开始\n固定条件 / 页大小\n打开 PIT，读取首批"
+next: "下一页\n最新 PIT ID + 末项完整 sort\nquery 与 sort 保持一致"
+renew: "成功读取\n保存新 pit_id 与末项 sort\nkeep_alive 延长保留"
+finish: "末页 / 改条件 / 主动关闭\nDELETE /_pit 释放资源\n改条件从第一页开始"
+expired: "过期 / 失效 / 服务重启\n旧游标不能接到新 PIT\n提示重新开始"
+start -> next: "会话继续"
+next -> renew: "成功"
+renew -> finish: "结束本轮"
+finish -> expired: {style.opacity: 0}

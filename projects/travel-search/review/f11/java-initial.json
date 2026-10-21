@@ -1,0 +1,3473 @@
+{
+  "scenario": "java",
+  "requests": 31,
+  "operations": [
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/start",
+      "target": "Java",
+      "request": {
+        "search": {
+          "q": "西湖",
+          "cityCode": "ALL",
+          "maxPriceFen": 20000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 3
+      },
+      "status": 200,
+      "response": {
+        "cursor": "45cc180b-b219-4924-8574-64132046403b",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABQWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 3,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-fz-xihu",
+            "name": "福州西湖",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "a-fz-xihu",
+              54
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "a-hz-xihu",
+              52
+            ]
+          },
+          {
+            "id": "a-hz-far",
+            "name": "西湖远处展馆",
+            "ticketPriceFen": 1000,
+            "score": null,
+            "sortValues": [
+              1000,
+              "a-hz-far",
+              61
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABQWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 20000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "西湖",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "size": 3,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABQWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+        "took": 3,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 9,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-fz-xihu",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-fz-xihu",
+                "name": "福州西湖",
+                "city_code": "FZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 26.1,
+                  "lon": 119.28
+                }
+              },
+              "sort": [
+                0,
+                "a-fz-xihu",
+                54
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-xihu",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-xihu",
+                "name": "杭州西湖",
+                "city_code": "HZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0,
+                "a-hz-xihu",
+                52
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-far",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-far",
+                "name": "西湖远处展馆",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "ticket_price_fen": 1000,
+                "status": "open",
+                "location": {
+                  "lat": 30.6,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                1000,
+                "a-hz-far",
+                61
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "45cc180b-b219-4924-8574-64132046403b",
+        "afterPage": 1,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 200,
+      "response": {
+        "cursor": "45cc180b-b219-4924-8574-64132046403b",
+        "pageNumber": 2,
+        "hasNext": true,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABQWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "search_after": [
+            1000,
+            "a-hz-far",
+            61
+          ],
+          "size": 3,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "ticketPriceFen": 1000,
+            "score": null,
+            "sortValues": [
+              1000,
+              "a-hz-guide",
+              64
+            ]
+          },
+          {
+            "id": "a-hz-missing-location",
+            "name": "西湖待定位",
+            "ticketPriceFen": 1000,
+            "score": null,
+            "sortValues": [
+              1000,
+              "a-hz-missing-location",
+              63
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "ticketPriceFen": 1000,
+            "score": null,
+            "sortValues": [
+              1000,
+              "a-hz-plain",
+              66
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABQWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 20000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "西湖",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "search_after": [
+          1000,
+          "a-hz-far",
+          61
+        ],
+        "size": 3,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABQWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+        "took": 2,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 9,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-guide",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-guide",
+                "name": "步行驿站",
+                "city_code": "HZ",
+                "ticket_price_fen": 1000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                1000,
+                "a-hz-guide",
+                64
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-missing-location",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-missing-location",
+                "name": "西湖待定位",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "ticket_price_fen": 1000,
+                "status": "open"
+              },
+              "sort": [
+                1000,
+                "a-hz-missing-location",
+                63
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-plain",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-plain",
+                "name": "西湖步道",
+                "city_code": "HZ",
+                "ticket_price_fen": 1000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                1000,
+                "a-hz-plain",
+                66
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "45cc180b-b219-4924-8574-64132046403b",
+        "afterPage": 2,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 200,
+      "response": {
+        "cursor": "45cc180b-b219-4924-8574-64132046403b",
+        "pageNumber": 3,
+        "hasNext": false,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABQWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "search_after": [
+            1000,
+            "a-hz-plain",
+            66
+          ],
+          "size": 3,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "ticketPriceFen": 8000,
+            "score": null,
+            "sortValues": [
+              8000,
+              "a-hz-tea",
+              53
+            ]
+          },
+          {
+            "id": "a-sh-exhibit",
+            "name": "湖景展览馆",
+            "ticketPriceFen": 10000,
+            "score": null,
+            "sortValues": [
+              10000,
+              "a-sh-exhibit",
+              67
+            ]
+          },
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "ticketPriceFen": 20000,
+            "score": null,
+            "sortValues": [
+              20000,
+              "a-hz-boundary",
+              57
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABQWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 20000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "西湖",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "search_after": [
+          1000,
+          "a-hz-plain",
+          66
+        ],
+        "size": 3,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "missing": "_last",
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABQWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+        "took": 2,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 9,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-tea",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-tea",
+                "name": "湖畔茶园",
+                "city_code": "HZ",
+                "ticket_price_fen": 8000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.24,
+                  "lon": 120.14
+                }
+              },
+              "sort": [
+                8000,
+                "a-hz-tea",
+                53
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-sh-exhibit",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-sh-exhibit",
+                "name": "湖景展览馆",
+                "city_code": "SH",
+                "ticket_price_fen": 10000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 31.23,
+                  "lon": 121.47
+                }
+              },
+              "sort": [
+                10000,
+                "a-sh-exhibit",
+                67
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-boundary",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-boundary",
+                "name": "西湖预算线",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "ticket_price_fen": 20000,
+                "status": "open",
+                "location": {
+                  "lat": 30.251,
+                  "lon": 120.151
+                }
+              },
+              "sort": [
+                20000,
+                "a-hz-boundary",
+                57
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "45cc180b-b219-4924-8574-64132046403b",
+        "afterPage": 3,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 409,
+      "response": {
+        "code": "PAGE_END",
+        "message": "已到末页，请关闭分页或重新搜索。"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/close",
+      "target": "Java",
+      "request": {
+        "cursor": "45cc180b-b219-4924-8574-64132046403b"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "45cc180b-b219-4924-8574-64132046403b",
+        "afterPage": 1,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 410,
+      "response": {
+        "code": "PAGE_EXPIRED",
+        "message": "分页已关闭、过期或服务已重启，请从第一页开始。"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/start",
+      "target": "Java",
+      "request": {
+        "search": {
+          "q": "西湖",
+          "cityCode": "ALL",
+          "maxPriceFen": 20000,
+          "sortMode": "relevance",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 3
+      },
+      "status": 200,
+      "response": {
+        "cursor": "a15ff96c-bfc2-4c49-a89e-b3c32d720ca3",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "relevance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABUWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 3,
+          "sort": [
+            {
+              "_score": {
+                "order": "desc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-sh-exhibit",
+            "name": "湖景展览馆",
+            "ticketPriceFen": 10000,
+            "score": 2.1593246,
+            "sortValues": [
+              2.1593246,
+              "a-sh-exhibit",
+              67
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "ticketPriceFen": 8000,
+            "score": 2.0857546,
+            "sortValues": [
+              2.0857546,
+              "a-hz-tea",
+              53
+            ]
+          },
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "ticketPriceFen": 1000,
+            "score": 1.4121654,
+            "sortValues": [
+              1.4121654,
+              "a-hz-guide",
+              64
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABUWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 20000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "西湖",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "size": 3,
+        "sort": [
+          {
+            "_score": {
+              "order": "desc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABUWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+        "took": 5,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 9,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-sh-exhibit",
+              "_score": 2.1593246,
+              "_source": {
+                "attraction_id": "a-sh-exhibit",
+                "name": "湖景展览馆",
+                "city_code": "SH",
+                "ticket_price_fen": 10000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 31.23,
+                  "lon": 121.47
+                }
+              },
+              "sort": [
+                2.1593246,
+                "a-sh-exhibit",
+                67
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-tea",
+              "_score": 2.0857546,
+              "_source": {
+                "attraction_id": "a-hz-tea",
+                "name": "湖畔茶园",
+                "city_code": "HZ",
+                "ticket_price_fen": 8000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.24,
+                  "lon": 120.14
+                }
+              },
+              "sort": [
+                2.0857546,
+                "a-hz-tea",
+                53
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-guide",
+              "_score": 1.4121654,
+              "_source": {
+                "attraction_id": "a-hz-guide",
+                "name": "步行驿站",
+                "city_code": "HZ",
+                "ticket_price_fen": 1000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                1.4121654,
+                "a-hz-guide",
+                64
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "a15ff96c-bfc2-4c49-a89e-b3c32d720ca3",
+        "afterPage": 1,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "relevance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 200,
+      "response": {
+        "cursor": "a15ff96c-bfc2-4c49-a89e-b3c32d720ca3",
+        "pageNumber": 2,
+        "hasNext": true,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "relevance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABUWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "search_after": [
+            1.4121654,
+            "a-hz-guide",
+            64
+          ],
+          "size": 3,
+          "sort": [
+            {
+              "_score": {
+                "order": "desc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-fz-xihu",
+            "name": "福州西湖",
+            "ticketPriceFen": 0,
+            "score": 1.1741574,
+            "sortValues": [
+              1.1741574,
+              "a-fz-xihu",
+              54
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "ticketPriceFen": 1000,
+            "score": 1.1741574,
+            "sortValues": [
+              1.1741574,
+              "a-hz-plain",
+              66
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "ticketPriceFen": 0,
+            "score": 1.1741574,
+            "sortValues": [
+              1.1741574,
+              "a-hz-xihu",
+              52
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABUWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 20000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "西湖",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "search_after": [
+          1.4121654,
+          "a-hz-guide",
+          64
+        ],
+        "size": 3,
+        "sort": [
+          {
+            "_score": {
+              "order": "desc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABUWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+        "took": 2,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 9,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-fz-xihu",
+              "_score": 1.1741574,
+              "_source": {
+                "attraction_id": "a-fz-xihu",
+                "name": "福州西湖",
+                "city_code": "FZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 26.1,
+                  "lon": 119.28
+                }
+              },
+              "sort": [
+                1.1741574,
+                "a-fz-xihu",
+                54
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-plain",
+              "_score": 1.1741574,
+              "_source": {
+                "attraction_id": "a-hz-plain",
+                "name": "西湖步道",
+                "city_code": "HZ",
+                "ticket_price_fen": 1000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                1.1741574,
+                "a-hz-plain",
+                66
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-xihu",
+              "_score": 1.1741574,
+              "_source": {
+                "attraction_id": "a-hz-xihu",
+                "name": "杭州西湖",
+                "city_code": "HZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                1.1741574,
+                "a-hz-xihu",
+                52
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "a15ff96c-bfc2-4c49-a89e-b3c32d720ca3",
+        "afterPage": 2,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "relevance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 200,
+      "response": {
+        "cursor": "a15ff96c-bfc2-4c49-a89e-b3c32d720ca3",
+        "pageNumber": 3,
+        "hasNext": false,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "relevance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABUWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "search_after": [
+            1.1741574,
+            "a-hz-xihu",
+            52
+          ],
+          "size": 3,
+          "sort": [
+            {
+              "_score": {
+                "order": "desc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "ticketPriceFen": 20000,
+            "score": 1.0746305,
+            "sortValues": [
+              1.0746305,
+              "a-hz-boundary",
+              57
+            ]
+          },
+          {
+            "id": "a-hz-missing-location",
+            "name": "西湖待定位",
+            "ticketPriceFen": 1000,
+            "score": 1.0746305,
+            "sortValues": [
+              1.0746305,
+              "a-hz-missing-location",
+              63
+            ]
+          },
+          {
+            "id": "a-hz-far",
+            "name": "西湖远处展馆",
+            "ticketPriceFen": 1000,
+            "score": 0.9906578,
+            "sortValues": [
+              0.9906578,
+              "a-hz-far",
+              61
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABUWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 20000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "西湖",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "search_after": [
+          1.1741574,
+          "a-hz-xihu",
+          52
+        ],
+        "size": 3,
+        "sort": [
+          {
+            "_score": {
+              "order": "desc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABUWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+        "took": 4,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 9,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-boundary",
+              "_score": 1.0746305,
+              "_source": {
+                "attraction_id": "a-hz-boundary",
+                "name": "西湖预算线",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "ticket_price_fen": 20000,
+                "status": "open",
+                "location": {
+                  "lat": 30.251,
+                  "lon": 120.151
+                }
+              },
+              "sort": [
+                1.0746305,
+                "a-hz-boundary",
+                57
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-missing-location",
+              "_score": 1.0746305,
+              "_source": {
+                "attraction_id": "a-hz-missing-location",
+                "name": "西湖待定位",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "ticket_price_fen": 1000,
+                "status": "open"
+              },
+              "sort": [
+                1.0746305,
+                "a-hz-missing-location",
+                63
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-far",
+              "_score": 0.9906578,
+              "_source": {
+                "attraction_id": "a-hz-far",
+                "name": "西湖远处展馆",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "ticket_price_fen": 1000,
+                "status": "open",
+                "location": {
+                  "lat": 30.6,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0.9906578,
+                "a-hz-far",
+                61
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "a15ff96c-bfc2-4c49-a89e-b3c32d720ca3",
+        "afterPage": 3,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "relevance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 409,
+      "response": {
+        "code": "PAGE_END",
+        "message": "已到末页，请关闭分页或重新搜索。"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/close",
+      "target": "Java",
+      "request": {
+        "cursor": "a15ff96c-bfc2-4c49-a89e-b3c32d720ca3"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "a15ff96c-bfc2-4c49-a89e-b3c32d720ca3",
+        "afterPage": 1,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "relevance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 410,
+      "response": {
+        "code": "PAGE_EXPIRED",
+        "message": "分页已关闭、过期或服务已重启，请从第一页开始。"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/start",
+      "target": "Java",
+      "request": {
+        "search": {
+          "q": "西湖",
+          "cityCode": "ALL",
+          "maxPriceFen": 20000,
+          "sortMode": "distance",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 3
+      },
+      "status": 200,
+      "response": {
+        "cursor": "df3878d6-aa40-4cb4-9d91-ae1135c3dc5f",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "distance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABYWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 3,
+          "sort": [
+            {
+              "_geo_distance": {
+                "location": [
+                  {
+                    "lat": 30.25,
+                    "lon": 120.15
+                  }
+                ],
+                "mode": "min",
+                "distance_type": "arc",
+                "ignore_unmapped": false,
+                "order": "asc",
+                "unit": "km"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-guide",
+            "name": "步行驿站",
+            "ticketPriceFen": 1000,
+            "score": null,
+            "sortValues": [
+              0.0,
+              "a-hz-guide",
+              64
+            ]
+          },
+          {
+            "id": "a-hz-plain",
+            "name": "西湖步道",
+            "ticketPriceFen": 1000,
+            "score": null,
+            "sortValues": [
+              0.0,
+              "a-hz-plain",
+              66
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0.0,
+              "a-hz-xihu",
+              52
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABYWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 20000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "西湖",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "size": 3,
+        "sort": [
+          {
+            "_geo_distance": {
+              "location": [
+                {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              ],
+              "mode": "min",
+              "distance_type": "arc",
+              "ignore_unmapped": false,
+              "order": "asc",
+              "unit": "km"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABYWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+        "took": 3,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 9,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-guide",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-guide",
+                "name": "步行驿站",
+                "city_code": "HZ",
+                "ticket_price_fen": 1000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0.0,
+                "a-hz-guide",
+                64
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-plain",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-plain",
+                "name": "西湖步道",
+                "city_code": "HZ",
+                "ticket_price_fen": 1000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0.0,
+                "a-hz-plain",
+                66
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-xihu",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-xihu",
+                "name": "杭州西湖",
+                "city_code": "HZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                0.0,
+                "a-hz-xihu",
+                52
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "df3878d6-aa40-4cb4-9d91-ae1135c3dc5f",
+        "afterPage": 1,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "distance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 200,
+      "response": {
+        "cursor": "df3878d6-aa40-4cb4-9d91-ae1135c3dc5f",
+        "pageNumber": 2,
+        "hasNext": true,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "distance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABYWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "search_after": [
+            0.0,
+            "a-hz-xihu",
+            52
+          ],
+          "size": 3,
+          "sort": [
+            {
+              "_geo_distance": {
+                "location": [
+                  {
+                    "lat": 30.25,
+                    "lon": 120.15
+                  }
+                ],
+                "mode": "min",
+                "distance_type": "arc",
+                "ignore_unmapped": false,
+                "order": "asc",
+                "unit": "km"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-hz-boundary",
+            "name": "西湖预算线",
+            "ticketPriceFen": 20000,
+            "score": null,
+            "sortValues": [
+              0.1469316248031265,
+              "a-hz-boundary",
+              57
+            ]
+          },
+          {
+            "id": "a-hz-tea",
+            "name": "湖畔茶园",
+            "ticketPriceFen": 8000,
+            "score": null,
+            "sortValues": [
+              1.4694162609736356,
+              "a-hz-tea",
+              53
+            ]
+          },
+          {
+            "id": "a-hz-far",
+            "name": "西湖远处展馆",
+            "ticketPriceFen": 1000,
+            "score": null,
+            "sortValues": [
+              38.91827641582324,
+              "a-hz-far",
+              61
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABYWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 20000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "西湖",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "search_after": [
+          0.0,
+          "a-hz-xihu",
+          52
+        ],
+        "size": 3,
+        "sort": [
+          {
+            "_geo_distance": {
+              "location": [
+                {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              ],
+              "mode": "min",
+              "distance_type": "arc",
+              "ignore_unmapped": false,
+              "order": "asc",
+              "unit": "km"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABYWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+        "took": 2,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 9,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-boundary",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-boundary",
+                "name": "西湖预算线",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "ticket_price_fen": 20000,
+                "status": "open",
+                "location": {
+                  "lat": 30.251,
+                  "lon": 120.151
+                }
+              },
+              "sort": [
+                0.1469316248031265,
+                "a-hz-boundary",
+                57
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-tea",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-tea",
+                "name": "湖畔茶园",
+                "city_code": "HZ",
+                "ticket_price_fen": 8000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 30.24,
+                  "lon": 120.14
+                }
+              },
+              "sort": [
+                1.4694162609736356,
+                "a-hz-tea",
+                53
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-far",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-far",
+                "name": "西湖远处展馆",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "ticket_price_fen": 1000,
+                "status": "open",
+                "location": {
+                  "lat": 30.6,
+                  "lon": 120.15
+                }
+              },
+              "sort": [
+                38.91827641582324,
+                "a-hz-far",
+                61
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "df3878d6-aa40-4cb4-9d91-ae1135c3dc5f",
+        "afterPage": 2,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "distance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 200,
+      "response": {
+        "cursor": "df3878d6-aa40-4cb4-9d91-ae1135c3dc5f",
+        "pageNumber": 3,
+        "hasNext": false,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "distance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABYWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "search_after": [
+            38.91827641582324,
+            "a-hz-far",
+            61
+          ],
+          "size": 3,
+          "sort": [
+            {
+              "_geo_distance": {
+                "location": [
+                  {
+                    "lat": 30.25,
+                    "lon": 120.15
+                  }
+                ],
+                "mode": "min",
+                "distance_type": "arc",
+                "ignore_unmapped": false,
+                "order": "asc",
+                "unit": "km"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-sh-exhibit",
+            "name": "湖景展览馆",
+            "ticketPriceFen": 10000,
+            "score": null,
+            "sortValues": [
+              166.69949527916455,
+              "a-sh-exhibit",
+              67
+            ]
+          },
+          {
+            "id": "a-fz-xihu",
+            "name": "福州西湖",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              469.266625611182,
+              "a-fz-xihu",
+              54
+            ]
+          },
+          {
+            "id": "a-hz-missing-location",
+            "name": "西湖待定位",
+            "ticketPriceFen": 1000,
+            "score": null,
+            "sortValues": [
+              "Infinity",
+              "a-hz-missing-location",
+              63
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_search",
+      "target": "ES",
+      "request": {
+        "_source": {
+          "includes": [
+            "attraction_id",
+            "name",
+            "city_code",
+            "ticket_price_fen",
+            "currency",
+            "status",
+            "location"
+          ]
+        },
+        "pit": {
+          "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABYWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+          "keep_alive": "1m"
+        },
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0.0,
+                    "lte": 20000.0
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              }
+            ],
+            "must": [
+              {
+                "multi_match": {
+                  "fields": [
+                    "name^3",
+                    "aliases^2",
+                    "description"
+                  ],
+                  "operator": "and",
+                  "query": "西湖",
+                  "tie_breaker": 0.0,
+                  "type": "best_fields"
+                }
+              }
+            ]
+          }
+        },
+        "search_after": [
+          38.91827641582324,
+          "a-hz-far",
+          61
+        ],
+        "size": 3,
+        "sort": [
+          {
+            "_geo_distance": {
+              "location": [
+                {
+                  "lat": 30.25,
+                  "lon": 120.15
+                }
+              ],
+              "mode": "min",
+              "distance_type": "arc",
+              "ignore_unmapped": false,
+              "order": "asc",
+              "unit": "km"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "_shard_doc": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_scores": false,
+        "track_total_hits": true
+      },
+      "status": 200,
+      "response": {
+        "pit_id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABYWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+        "took": 2,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 9,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-sh-exhibit",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-sh-exhibit",
+                "name": "湖景展览馆",
+                "city_code": "SH",
+                "ticket_price_fen": 10000,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 31.23,
+                  "lon": 121.47
+                }
+              },
+              "sort": [
+                166.69949527916455,
+                "a-sh-exhibit",
+                67
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-fz-xihu",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-fz-xihu",
+                "name": "福州西湖",
+                "city_code": "FZ",
+                "ticket_price_fen": 0,
+                "currency": "CNY",
+                "status": "open",
+                "location": {
+                  "lat": 26.1,
+                  "lon": 119.28
+                }
+              },
+              "sort": [
+                469.266625611182,
+                "a-fz-xihu",
+                54
+              ]
+            },
+            {
+              "_index": "tut-f11-attractions",
+              "_id": "a-hz-missing-location",
+              "_score": null,
+              "_source": {
+                "attraction_id": "a-hz-missing-location",
+                "name": "西湖待定位",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "ticket_price_fen": 1000,
+                "status": "open"
+              },
+              "sort": [
+                "Infinity",
+                "a-hz-missing-location",
+                63
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "df3878d6-aa40-4cb4-9d91-ae1135c3dc5f",
+        "afterPage": 3,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "distance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 409,
+      "response": {
+        "code": "PAGE_END",
+        "message": "已到末页，请关闭分页或重新搜索。"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/close",
+      "target": "Java",
+      "request": {
+        "cursor": "df3878d6-aa40-4cb4-9d91-ae1135c3dc5f"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "df3878d6-aa40-4cb4-9d91-ae1135c3dc5f",
+        "afterPage": 1,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "distance",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 410,
+      "response": {
+        "code": "PAGE_EXPIRED",
+        "message": "分页已关闭、过期或服务已重启，请从第一页开始。"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/start",
+      "target": "Java",
+      "request": {
+        "search": {
+          "q": "西湖",
+          "cityCode": "ALL",
+          "maxPriceFen": 20000,
+          "sortMode": "price",
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "trackScores": false
+        },
+        "pageSize": 3
+      },
+      "status": 200,
+      "response": {
+        "cursor": "4d869a4b-577e-496d-a90a-66600fe1119a",
+        "pageNumber": 1,
+        "hasNext": true,
+        "total": 9,
+        "totalRelation": "eq",
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "pit": {
+            "id": "oce6BAETdHV0LWYxMS1hdHRyYWN0aW9ucxZLOUJDeTR2Q1RvU3hEaWg5Rlp2RXB3AAEWVUZqbnBsWUVSZGlTYm9iM051b0JXQQABAAAAAAAAABcWQzVpSldyZldULUdxRXMyS21oazhpdwABFks5QkN5NHZDVG9TeERpaDlGWnZFcHcAAA==",
+            "keep_alive": "1m"
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "multi_match": {
+                    "fields": [
+                      "name^3",
+                      "aliases^2",
+                      "description"
+                    ],
+                    "operator": "and",
+                    "query": "西湖",
+                    "tie_breaker": 0.0,
+                    "type": "best_fields"
+                  }
+                }
+              ]
+            }
+          },
+          "size": 3,
+          "sort": [
+            {
+              "ticket_price_fen": {
+                "missing": "_last",
+                "order": "asc"
+              }
+            },
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            },
+            {
+              "_shard_doc": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": false,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "a-fz-xihu",
+            "name": "福州西湖",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "a-fz-xihu",
+              54
+            ]
+          },
+          {
+            "id": "a-hz-xihu",
+            "name": "杭州西湖",
+            "ticketPriceFen": 0,
+            "score": null,
+            "sortValues": [
+              0,
+              "a-hz-xihu",
+              52
+            ]
+          },
+          {
+            "id": "a-hz-far",
+            "name": "西湖远处展馆",
+            "ticketPriceFen": 1000,
+            "score": null,
+            "sortValues": [
+              1000,
+              "a-hz-far",
+              61
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "4d869a4b-577e-496d-a90a-66600fe1119a",
+        "afterPage": 1,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "HZ",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 409,
+      "response": {
+        "code": "PAGE_CHANGED",
+        "message": "条件或页序已改变，请关闭旧分页并重新搜索。"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/next",
+      "target": "Java",
+      "request": {
+        "cursor": "4d869a4b-577e-496d-a90a-66600fe1119a",
+        "afterPage": 2,
+        "conditions": {
+          "search": {
+            "q": "西湖",
+            "cityCode": "ALL",
+            "maxPriceFen": 20000,
+            "sortMode": "price",
+            "latitude": 30.25,
+            "longitude": 120.15,
+            "trackScores": false
+          },
+          "pageSize": 3
+        }
+      },
+      "status": 409,
+      "response": {
+        "code": "PAGE_CHANGED",
+        "message": "条件或页序已改变，请关闭旧分页并重新搜索。"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/attractions/pages/close",
+      "target": "Java",
+      "request": {
+        "cursor": "4d869a4b-577e-496d-a90a-66600fe1119a"
+      },
+      "status": 200,
+      "response": {
+        "numFreed": 1,
+        "closed": true
+      }
+    }
+  ]
+}

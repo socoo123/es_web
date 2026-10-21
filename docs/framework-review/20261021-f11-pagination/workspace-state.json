@@ -1,0 +1,184 @@
+{
+  "recorded_at": "2026-10-21T00:58:56.127619+00:00",
+  "initial_observed_inventory": "framework ES Exited143; es-study-secure running healthy; es-study Exited137; no Java listening18080; task started framework ES and owned Java only",
+  "operations": [
+    {
+      "scope": "F11 index search stats before cleanup",
+      "response": {
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "failed": 0
+        },
+        "_all": {
+          "primaries": {
+            "search": {
+              "open_contexts": 0,
+              "query_total": 1,
+              "query_time_in_millis": 21,
+              "query_current": 0,
+              "query_failure": 0,
+              "fetch_total": 1,
+              "fetch_time_in_millis": 12,
+              "fetch_current": 0,
+              "fetch_failure": 0,
+              "scroll_total": 0,
+              "scroll_time_in_millis": 0,
+              "scroll_current": 0,
+              "suggest_total": 0,
+              "suggest_time_in_millis": 0,
+              "suggest_current": 0,
+              "recent_search_load": 0.00031233091247170674
+            }
+          },
+          "total": {
+            "search": {
+              "open_contexts": 0,
+              "query_total": 1,
+              "query_time_in_millis": 21,
+              "query_current": 0,
+              "query_failure": 0,
+              "fetch_total": 1,
+              "fetch_time_in_millis": 12,
+              "fetch_current": 0,
+              "fetch_failure": 0,
+              "scroll_total": 0,
+              "scroll_time_in_millis": 0,
+              "scroll_current": 0,
+              "suggest_total": 0,
+              "suggest_time_in_millis": 0,
+              "suggest_current": 0,
+              "recent_search_load": 0.00031233091247170674
+            }
+          }
+        },
+        "indices": {
+          "tut-f11-attractions": {
+            "uuid": "EkVuFgS9QSWbW9Ql9Eq2Xg",
+            "health": "green",
+            "status": "open",
+            "primaries": {
+              "search": {
+                "open_contexts": 0,
+                "query_total": 1,
+                "query_time_in_millis": 21,
+                "query_current": 0,
+                "query_failure": 0,
+                "fetch_total": 1,
+                "fetch_time_in_millis": 12,
+                "fetch_current": 0,
+                "fetch_failure": 0,
+                "scroll_total": 0,
+                "scroll_time_in_millis": 0,
+                "scroll_current": 0,
+                "suggest_total": 0,
+                "suggest_time_in_millis": 0,
+                "suggest_current": 0,
+                "recent_search_load": 0.00031233091247170674
+              }
+            },
+            "total": {
+              "search": {
+                "open_contexts": 0,
+                "query_total": 1,
+                "query_time_in_millis": 21,
+                "query_current": 0,
+                "query_failure": 0,
+                "fetch_total": 1,
+                "fetch_time_in_millis": 12,
+                "fetch_current": 0,
+                "fetch_failure": 0,
+                "scroll_total": 0,
+                "scroll_time_in_millis": 0,
+                "scroll_current": 0,
+                "suggest_total": 0,
+                "suggest_time_in_millis": 0,
+                "suggest_current": 0,
+                "recent_search_load": 0.00031233091247170674
+              }
+            }
+          }
+        }
+      },
+      "assertion": "open_contexts == 0"
+    },
+    {
+      "command": [
+        "bash",
+        "projects/travel-search/labs/f11/cleanup.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "tut-f11-attractions: HTTP 200\n",
+      "stderr": ""
+    },
+    {
+      "index": "tut-f11-attractions",
+      "status": 404,
+      "response": {
+        "error": {
+          "root_cause": [
+            {
+              "type": "index_not_found_exception",
+              "reason": "no such index [tut-f11-attractions]",
+              "resource.type": "index_or_alias",
+              "resource.id": "tut-f11-attractions",
+              "index_uuid": "_na_",
+              "index": "tut-f11-attractions"
+            }
+          ],
+          "type": "index_not_found_exception",
+          "reason": "no such index [tut-f11-attractions]",
+          "resource.type": "index_or_alias",
+          "resource.id": "tut-f11-attractions",
+          "index_uuid": "_na_",
+          "index": "tut-f11-attractions"
+        },
+        "status": 404
+      }
+    },
+    {
+      "java_pid": 99621,
+      "signal": "SIGTERM",
+      "status": "exited normally; both app runs retained in Java log"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/single-node/compose.yaml",
+        "stop",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-single-es-1 Stopping \n Container es-framework-single-es-1 Stopped \n"
+    },
+    {
+      "command": [
+        "docker",
+        "ps",
+        "-a",
+        "--format",
+        "{{.Names}} {{.Status}} {{.Ports}}"
+      ],
+      "exit_code": 0,
+      "stdout": "es-framework-single-es-1 Exited (143) Less than a second ago \nes-study-secure Up 7 days (healthy) 9300/tcp, 127.0.0.1:9201->9200/tcp\nes-study Exited (137) 7 days ago \n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "inspect",
+        "es-framework-single-es-1",
+        "--format",
+        "{{.State.Status}} {{json .Mounts}}"
+      ],
+      "exit_code": 0,
+      "stdout": "exited [{\"Type\":\"volume\",\"Name\":\"es-framework-single_es-data\",\"Source\":\"/var/lib/docker/volumes/es-framework-single_es-data/_data\",\"Destination\":\"/usr/share/elasticsearch/data\",\"Driver\":\"local\",\"Mode\":\"rw\",\"RW\":true,\"Propagation\":\"\"}]\n",
+      "stderr": ""
+    }
+  ],
+  "status": "restored",
+  "volumes": "No volumes removed; only tut-f11-attractions deleted; source-study containers left alone"
+}

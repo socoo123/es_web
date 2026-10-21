@@ -1,4 +1,4 @@
-# F07–F09 · 本机旅游搜索服务
+# F07–F11 · 本机旅游搜索服务
 
 本工程实现 F07 的输入校验、官方 Java Client、最小搜索接口与课程提供的展示壳。只学习已在 F06 解释的名称、城市、预算、开放、半径条件；无需开发前端。Pages 不运行这个应用。
 
@@ -71,3 +71,7 @@ F08固定multi_match/name^3,aliases^2,description/best_fields/AND/tie_breaker0�
 FacetInput：q非空最长60；cityCodes与themes数组必填，空数组不限；城市允许HZ/FZ/SH，最多3项；主题允许lake/walk/garden/culture，最多4项；maxPriceFen整数分0–100000000，不截断小数。各维度内OR，跨维AND。全国浏览移除F08圆心/半径；query保留multi_match/best_fields/AND/CNY/open/非负价格/预算，post_filter应用全部选择。城市filter聚合只加主题，主题filter聚合只加城市，价格filter聚合保留两维，range含from不含to。仍按ID升序核对，最多20卡；不请求高亮。
 
 DTO保存scope/scopeTotal、整体/逐桶docCountErrorUpperBound、sumOtherDocCount、missingThemeCount及价格分布/priceScopeTotal；不把未返回的桶自动当0。缺必要聚合/源字段或搜索不完整502；输入400、后端拒绝502、连接不可用503沿用错误代码。本课Controller提供适配数组输入的400说明。无CORS代理或任意DSL入口。范围/桶/误差与REST精确比较、非法输入和删除索引恢复见[真实验收](../review/f09/README.md)。
+
+## F11 · 稳定分页与PIT
+
+新增[本课手工入口](../labs/f11/README.md)：from/size、受控改价、PIT/search_after与三模式Java分页。启动同一个Boot4/JDK25应用后打开 http://127.0.0.1:18080/f11.html ，顺序翻页、末页与关闭/换条件重新开始；教程无需前端开发。旧接口保留，独立tut-f11-attractions，原始实连与重做分别记录。

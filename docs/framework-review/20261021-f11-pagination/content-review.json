@@ -1,0 +1,99 @@
+{
+  "recorded_at": "2026-10-21T00:57:56.654042+00:00",
+  "scope": "F11 author content self-review",
+  "reasoning": {
+    "requested": "xhigh",
+    "actual": "root entry offers no way to set or verify it",
+    "independent_agent": false
+  },
+  "counts": {
+    "cases": 3,
+    "teaching_HTTP": 60,
+    "breakdown": {
+      "prepare": 6,
+      "offsets": 4,
+      "view": 19,
+      "Java_and_REST": 31
+    },
+    "static_D2": 2,
+    "SVG_themes": 4,
+    "players": 0,
+    "drills": 6,
+    "code_blocks": 14,
+    "Chinese_characters_excluding_pre_script_style": 4527
+  },
+  "checks": [
+    {
+      "topic": "教学因果",
+      "finding": "先游客页间重漏，再固定样本/偏移/完整元组/PIT，再Java；同视图次序与跨请求视图分开。",
+      "status": "passed"
+    },
+    {
+      "topic": "语料继承",
+      "finding": "F10与F11的16份JSON和NDJSON逐字节一致；只有独立move-prices夹具改变两价。",
+      "status": "passed"
+    },
+    {
+      "topic": "请求窗口",
+      "finding": "默认10000只约束from+size；9999+3在16份资料上真实400，非索引容量或基准。",
+      "status": "passed"
+    },
+    {
+      "topic": "受控更新",
+      "finding": "first-page后固定ID Bulk两价并refresh；普通from和search_after均far重复tea遗漏，PIT9份各一次/旧价；新搜索9份/新价。",
+      "status": "passed"
+    },
+    {
+      "topic": "完整元组",
+      "finding": "价格/ID/_shard_doc三项；Java保存原始FieldValue，不用浏览器显示值；显式三项截为两项真实400。默认附加键固定tag核对，不声称所有任意请求都自动补齐。",
+      "status": "passed"
+    },
+    {
+      "topic": "PIT边界",
+      "finding": "单节点单主分片；不是业务事务/备份/实时售卖报价；新写继续，旧_source与新_source分开。最新pit_id与query/sort一致，搜索URL无index。",
+      "status": "passed"
+    },
+    {
+      "topic": "生命周期",
+      "finding": "keep_alive续期、主动最新id关闭、后台回收；原生重复close404与Java无会话幂等200区分；真实过期404/410、外部释放ES上下文410。",
+      "status": "passed"
+    },
+    {
+      "topic": "条件变化",
+      "finding": "Java完整PageInput相等校验409；ES自身未提供业务游标条件验证。页大小1–5和固定整轮大小是本应用约定。",
+      "status": "passed"
+    },
+    {
+      "topic": "页序与失败",
+      "finding": "afterPage阻止旧页序重复消费；末页409、空集200；失败清卡片/页序。无网络丢响应幂等重放、多实例共享承诺。",
+      "status": "passed"
+    },
+    {
+      "topic": "Java与展示",
+      "finding": "Boot4/JDK25实际构建/实连，三模式每页REST↔Java ID/sort/价格/score/total对照；同源浏览器不直连ES。正文无前端代码。",
+      "status": "passed"
+    },
+    {
+      "topic": "思考题与下一课",
+      "finding": "6道答案分别覆盖offset公式、视图变化、完整sort、旧价、条件/过期恢复、每页2条；2/2/2/2/1实测。F12只介绍缘由，未实施。",
+      "status": "passed"
+    },
+    {
+      "topic": "视觉与证据",
+      "finding": "D2 2源/4SVG官方生成，HTTP双主题六尺寸和截图实看分开；作者失败保留；当前xhigh不可设置或核验，作者自审无代理。",
+      "status": "passed"
+    }
+  ],
+  "limitations": [
+    "single node, single primary, small synthetic corpus",
+    "writes controlled between reads; no random concurrency/load benchmark",
+    "no real partial-shard failure or ES execution-timeout injection",
+    "no multiple-node recovery/TLS/permissions/CDC",
+    "single-process serial in-memory Java session; no idempotent page replay",
+    "latest PIT ID replacement implemented; real IDs were not forced to rotate"
+  ],
+  "sha256": {
+    "framework/f11.html": "b81e3f752da9423bb863693f1fa043444770d9241f8fbdff3db31141c5ec5267"
+  },
+  "status": "passed"
+}
