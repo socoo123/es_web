@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>F10 · 显式排序、缺值与第二键</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"></head>
+<body class="framework-page chapter-visual-page">
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="f10" data-ch="f10">
+<header class="ch-header"><div class="ch-kicker">FRAMEWORK 10 · 基础搜索闭环</div><h1>显式排序：<br>先选用哪把尺子</h1><div class="meta-line">约 50 分钟 · 前置：F04–F09 · 3 个执行案例 · 23 条教学 HTTP 请求（探活/清理另计） · 2 幅静态 D2 · 0 个机制播放器</div><p class="ch-intro">F09 已能解释筛选栏的数字，结果却仍按 ID 排列。游客可能先看免费去处，也可能想从附近开始；运营则容易把“相关性高”当成“更值得去”。本课让同一批候选按三把尺子排列，逐一读懂 sort 数组、缺值和同值时的第二键，再把相同契约接入 Java 与本机观察页。</p><div class="diagram-jumps"><a href="#fig-sort-contract">三把尺子 ↓</a><a href="#fig-missing-boundary">缺值与过滤 ↓</a><a href="../projects/travel-search/labs/f10/README.md">本机实验入口 ↗</a></div><details class="chapter-outline"><summary>本课目录</summary><ol><li><a href="#goals">本课目标</a></li><li><a href="#scene">排序先回答什么</a></li><li><a href="#samples">固定九份候选</a></li><li><a href="#prepare">准备独立资源</a></li><li><a href="#modes">相关性、价格和距离</a></li><li><a href="#tuples">完整sort与第二键</a></li><li><a href="#missing">缺值不等于免费</a></li><li><a href="#scores">track_scores</a></li><li><a href="#java">Java与错误分支</a></li><li><a href="#shell">本机排序观察页</a></li><li><a href="#repeat">点名清理重做</a></li><li><a href="#drills">能力检查</a></li><li><a href="#pitfalls">陷阱</a></li><li><a href="#recap">速记与下一课</a></li></ol></details></header>
+<section class="goal"><h2 id="goals">本课目标</h2><ol><li>固定查询条件，复现相关性、价格、距离三种完整 ID 次序，证明候选集合不变而排列改变。</li><li>解释排序值的单位、缺价/缺坐标与唯一第二键，区分 sort、过滤、评分与展示值。</li><li>逐项核对 REST、Java DTO 和真实观察页，验证 track_scores 开关、预算/城市硬约束、正常空集及错误恢复。</li></ol></section>
+<section class="lesson"><h2 id="scene">1. “排第一”只在一把尺子下成立</h2><p>搜索分成两个问题：哪些资料符合条件，符合的资料先看谁。Elasticsearch 是搜索与分析引擎，query 决定匹配范围，sort 决定命中次序。本课没有让 ES 决定售卖资格、真实库存或景点星级。Java 把允许的排序方式翻译为固定字段，展示壳把单位与缺失状态显示清楚，业务含义仍由我们约定。</p><p>先想两个西湖：杭州西湖和福州西湖都免费；若游客在杭州，免费不能区分远近，距离却可以。同样，“西湖预算线”的名称匹配不错，但200元不该在价格升序里压过免费景点。三种模式分别回答“文本匹配得怎样”“票价多低”“离指定圆心多近”，不能把分数、分和公里直接比较或相加。</p><p>没有显式 sort 时，普通搜索默认按 <code>_score</code> 降序；F07–F09 为便于逐项核对，已经显式按 ID 排序，因此它们的界面顺序不是 ES 默认相关性。F10 的相关性模式显式写 <code>_score desc</code>，再加 ID 升序处理同分。本课学习排序契约，不推导 BM25，也不把当前样本的高分当推荐质量评估，评分解释留到 F18。</p><h2 id="samples">2. 不改候选，只换排列</h2><p>独立导入 F09 十六份合成教学资料，所有原字段和值保持不变。主查询从全国浏览开始，不选主题，也不设半径；保留 multi_match 的 name^3、aliases^2、description、best_fields、AND、tie_breaker=0，以及 CNY、明确 open、价格0至20000分。仍得到 F09 的九份共同候选。本课单选城市可进一步限制范围；F09 多维计数页保留，F10 另开专门观察排序的页面。</p><table class="ktable"><thead><tr><th>完整业务 ID</th><th>票价（分）</th><th>到圆心距离（km，实测约值）</th></tr></thead><tbody><tr><td>a-hz-xihu</td><td>0</td><td>0.000</td></tr><tr><td>a-hz-guide</td><td>1000</td><td>0.000</td></tr><tr><td>a-hz-plain</td><td>1000</td><td>0.000</td></tr><tr><td>a-hz-boundary</td><td>20000</td><td>0.147</td></tr><tr><td>a-hz-tea</td><td>8000</td><td>1.469</td></tr><tr><td>a-hz-far</td><td>1000</td><td>38.918</td></tr><tr><td>a-sh-exhibit</td><td>10000</td><td>166.699</td></tr><tr><td>a-fz-xihu</td><td>0</td><td>469.267</td></tr><tr><td>a-hz-missing-location</td><td>1000</td><td>未定位</td></tr></tbody></table><p>圆心为 lat=30.25、lon=120.15；这是实验指定点，不读取浏览器定位。球面距离不是步行/驾车路线，表中小数仅为显示近似；ES比较的是完整值，Java也不先四舍五入再排。资料的 location 为单点，价格为单个 integer 分值；<code>mode=min</code> 在本课不涉及多坐标选择。夜游和超一分超预算、旧展馆下架、待核状态不明确、缺价/null不满足range、split不满足每字段AND，仍被排除。</p><figure class="fig d2-figure" id="fig-sort-contract"><div class="d2-shell"><div class="d2-tools"><strong>01 · 同一批候选，三种次序</strong><a data-expand-d2 href="diagrams/f10/sort-contract-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f10/sort-contract-light.svg" data-d2-light="diagrams/f10/sort-contract-light.svg" data-d2-dark="diagrams/f10/sort-contract-dark.svg" alt="固定九份候选分别按评分降序、票价分升序、距离公里升序，最后均按业务ID升序"></div></div><figcaption>四张卡片比较独立模式，隐形边仅纵向排版，不表示先按评分再按价格。省略分片与收集器；图中缩写对应正文完整ID。 静态图可展开；<a href="diagrams/f10/README.md">图源与生成记录</a>。</figcaption></figure><h2 id="prepare">3. f10-c01：先预测，再运行三种排序</h2><p>版本沿用 Spring Boot4.0.8 / JDK25（作者本轮Temurin25.0.4.1+1）/ 官方Java与Rest5 Client9.4.8 / Wrapper3.3.4、Maven3.9.11；ES9.4.0 / Lucene10.4.0。应用JDK与ES容器bundled JVM分别管理。先让 JAVA_HOME/PATH 指向JDK25；不依赖任何旧课索引，也不使用历史 travel-portal 工程。</p><pre class="code-block" data-label="Bash · 仓库根目录开始"><code class="language-bash">cd projects/travel-search
+docker compose -f infra/single-node/compose.yaml up -d es
+bash infra/single-node/wait.sh
+bash labs/f10/01-prepare.sh
+bash labs/f10/02-modes.sh</code></pre><p>只创建 <code>tut-f10-attractions</code>，一主零副本、dynamic=strict。准备六条请求依次观察版本、acknowledged、green且未超时、Bulk十六项created且errors=false、refresh零分片失败、count16。脚本只判断HTTP错误，Bulk/等待响应仍须人工核对。重复创建报已存在时停下，按本课清理重做，不能把updated当作初次created。</p><details><summary>完整准备请求与文件路径</summary><pre class="code-block" data-label="Bash · 六条准备请求" data-source="projects/travel-search/labs/f10/01-prepare.sh"><code class="language-bash">#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/env.sh"
+curl --fail-with-body -sS "$ES_URL/?pretty"
+curl --fail-with-body -sS -X PUT "$ES_URL/tut-f10-attractions?pretty" -H 'Content-Type: application/json' --data-binary @search/f10/index.json
+curl --fail-with-body -sS "$ES_URL/_cluster/health/tut-f10-attractions?wait_for_status=green&amp;timeout=30s&amp;pretty"
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f10-attractions/_bulk?pretty" -H 'Content-Type: application/x-ndjson' --data-binary @data/f10/attractions.ndjson
+curl --fail-with-body -sS -X POST "$ES_URL/tut-f10-attractions/_refresh?pretty"
+curl --fail-with-body -sS "$ES_URL/tut-f10-attractions/_count?pretty"</code></pre></details><details><summary>完整mapping：价格integer、ID keyword、位置geo_point</summary><pre class="code-block" data-label="JSON · PUT /tut-f10-attractions" data-source="projects/travel-search/search/f10/index.json"><code class="language-json">{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "standard",
+        "fields": {
+          "raw": {
+            "type": "keyword"
+          }
+        },
+        "copy_to": [
+          "search_text"
+        ]
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "ticket_price_fen": {
+        "type": "integer",
+        "coerce": false
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "standard",
+        "copy_to": [
+          "search_text"
+        ]
+      },
+      "published_on": {
+        "type": "date",
+        "format": "strict_date"
+      },
+      "location": {
+        "type": "geo_point"
+      },
+      "aliases": {
+        "type": "text",
+        "analyzer": "standard",
+        "copy_to": [
+          "search_text"
+        ]
+      },
+      "search_text": {
+        "type": "text",
+        "analyzer": "standard"
+      },
+      "themes": {
+        "type": "keyword"
+      }
+    }
+  }
+}</code></pre></details><p><a href="../projects/travel-search/data/f10/attractions.json">固定十六份资料</a>、<a href="../projects/travel-search/data/f10/attractions.ndjson">Bulk导入数据</a>保留离线文件。ID字段为keyword，既供业务识别也供排序；资料约定 attraction_id 唯一且与 _id 相同。不要直接拿分析后的 name text 或 _id 做第二排序字段。</p><h2 id="modes">4. 用完整请求读三把尺子</h2><p><code>02-modes.sh</code> 先执行不带sort的default，再执行relevance、price、distance。先预测九个ID是否相同，再观察顺序；default同分之间没有本课的业务ID保证，不能照抄一次默认次序作为产品契约。下面三份完整请求仅替换排序定义，硬条件完全一致。</p><pre class="code-block" data-label="JSON · POST /tut-f10-attractions/_search · 相关性" data-source="projects/travel-search/search/f10/relevance.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": false,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "location"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0.0,
+              "lte": 20000.0
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "_score": {
+        "order": "desc"
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre><p>先比较 _score，越高越先；同分才比较 attraction_id，按keyword字典序升序。这是依次比较，不是两个字段求加权总分。名称^3也不保证名称命中一定压过描述命中：本次上海展馆2.16773、茶园2.0939422、驿站1.4181306，均来自当前语料与查询。字段统计、长度、词频等会影响分数；换数据后的数值不是固定常量。</p><details><summary>完整价格请求：分升序、缺值_last、ID升序</summary><pre class="code-block" data-label="JSON · POST /tut-f10-attractions/_search · 价格" data-source="projects/travel-search/search/f10/price.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": false,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "location"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0.0,
+              "lte": 20000.0
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "ticket_price_fen": {
+        "order": "asc",
+        "missing": "_last"
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre></details><p>价格首键 <code>ticket_price_fen asc</code> 的0是0分，不是0元以外的新单位。返回1000要显示¥10.00，8000显示¥80.00；不要把1000分先当1000元再比较。我们显式写 <code>missing=_last</code>，但主查询的预算range已经排除缺价，不能靠这份结果证明缺值处理，下一案例会单独观察。</p><pre class="code-block" data-label="JSON · POST /tut-f10-attractions/_search · 距离" data-source="projects/travel-search/search/f10/distance.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": false,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "location"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0.0,
+              "lte": 20000.0
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "_geo_distance": {
+        "location": [
+          {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        ],
+        "order": "asc",
+        "unit": "km",
+        "distance_type": "arc",
+        "mode": "min",
+        "ignore_unmapped": false
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre><p><code>_geo_distance</code> 以指定圆心、arc球面模型、km单位升序，location使用具名lat/lon避免数组经纬颠倒。请求里的数组是一个参考点的列表，不是数值形式的经纬数组。<code>ignore_unmapped=false</code> 保留错误暴露：整索引没有location mapping，与某文档缺坐标是两件事。距离sort不等于geo_distance过滤：福州西湖约469.267km仍命中，待定位也没有被删除。</p><table class="ktable"><thead><tr><th>位次</th><th>相关性模式</th><th>价格模式</th><th>距离模式</th></tr></thead><tbody><tr><td>1</td><td>a-sh-exhibit</td><td>a-fz-xihu</td><td>a-hz-guide</td></tr><tr><td>2</td><td>a-hz-tea</td><td>a-hz-xihu</td><td>a-hz-plain</td></tr><tr><td>3</td><td>a-hz-guide</td><td>a-hz-far</td><td>a-hz-xihu</td></tr><tr><td>4</td><td>a-fz-xihu</td><td>a-hz-guide</td><td>a-hz-boundary</td></tr><tr><td>5</td><td>a-hz-plain</td><td>a-hz-missing-location</td><td>a-hz-tea</td></tr><tr><td>6</td><td>a-hz-xihu</td><td>a-hz-plain</td><td>a-hz-far</td></tr><tr><td>7</td><td>a-hz-boundary</td><td>a-hz-tea</td><td>a-sh-exhibit</td></tr><tr><td>8</td><td>a-hz-missing-location</td><td>a-sh-exhibit</td><td>a-fz-xihu</td></tr><tr><td>9</td><td>a-hz-far</td><td>a-hz-boundary</td><td>a-hz-missing-location</td></tr></tbody></table><p>这是本轮ES9.4.0固定语料的真实次序，hits.total均为9且relation=eq；不是用于任意生产语料的排名承诺。完整未取整排序值见<a href="../projects/travel-search/review/f10/README.md">两轮原始响应</a>。</p><h2 id="tuples">5. sort是一个有顺序的元组</h2><p>价格模式杭州西湖返回 <code>[0,"a-hz-xihu"]</code>，远处展馆返回 <code>[1000,"a-hz-far"]</code>；先比较0与1000，只有相同才看ID。同为1000分的四份按 far、guide、missing-location、plain 排列；它们的评分或距离不同也不会插队。距离模式前三份本次完整首值均0.0，guide、plain、xihu便由第二键决定。</p><p>稳定第二键要求<strong>在当前查询覆盖范围内唯一、存在、值稳定</strong>。keyword类型本身不强制唯一，样本导入和业务约束共同保证。这里对一个固定数据视图给出确定的全序；索引有更新、评分统计改变或翻页请求时视图变化，唯一ID也不能冻结前后两次看到的集合。F11再处理分页与固定搜索视图，本课不交付游标或PIT。</p><h2 id="missing">6. f10-c02：缺价、免费和待定位分别观察</h2><pre class="code-block" data-label="Bash · 评分、硬条件、空集与缺值对照"><code class="language-bash">bash labs/f10/03-boundaries.sh</code></pre><p>先看前四次：price-scores用于下一节；hz-distance加HZ过滤，只剩7份杭州资料；budget-price把预算降为8000分，剩7份、仍价格升序；empty输入火星，200正常空集。全国变杭州会改变集合，不能称为“只改sort”。这两种操作并列，是为了证明排序切换不会取消硬条件。</p><p>接着用四份明确ID的<strong>独立缺价对照</strong>：西湖0分、驿站1000分、待报价字段不存在、空报价显式null。保留关键词、CNY和open，特意移除预算range，仅限这四份。没有配置null_value，缺字段与null都没有可用于数值排序的价格。移除range不是主界面的业务规则，不能用这个请求绕过预算。</p><details><summary>完整四文档请求：明确没有预算range</summary><pre class="code-block" data-label="JSON · POST /tut-f10-attractions/_search · 缺价排末尾" data-source="projects/travel-search/search/f10/missing-last.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": false,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "location"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "attraction_id": [
+              "a-hz-xihu",
+              "a-hz-guide",
+              "a-hz-missing-price",
+              "a-hz-null-price"
+            ]
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "ticket_price_fen": {
+        "order": "asc",
+        "missing": "_last"
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre></details><p>实际顺序为 xihu→guide→missing-price→null-price（均前缀a-hz-）。两份缺价的sort首值本次为2147483647，这是本映射/升序/缺值策略下的整数哨兵，不是实际票价。_source仍缺字段或为null；界面应显示“待报价”，不能把哨兵格式化为人民币。本课Java主查询只返回有效预算价格，这个反例直接用REST观察。</p><details><summary>完整反例请求：只把missing改成0</summary><pre class="code-block" data-label="JSON · POST /tut-f10-attractions/_search · 反例missing=0" data-source="projects/travel-search/search/f10/missing-zero.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": false,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "location"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "attraction_id": [
+              "a-hz-xihu",
+              "a-hz-guide",
+              "a-hz-missing-price",
+              "a-hz-null-price"
+            ]
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "ticket_price_fen": {
+        "order": "asc",
+        "missing": 0
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre></details><p>反例次序变为 missing-price→null-price→xihu→guide：前三份排序首值都是0，ID进一步排序。<code>missing=0</code> 只给排序用一个替代值，没有补写文档，也不证明缺价资料免费。反过来，给sort写_last不会让原先被range排除的资料重新命中。过滤、排序与数据修改各有职责。</p><p>坐标缺失则出现在主查询里：待定位价格1000、开放、CNY且关键词符合，没有半径过滤，所以仍属于九份候选。geo排序把它的距离当正无穷，升序排末尾；本次JSON首值为字符串 <code>"Infinity"</code>。geo排序不支持像普通价格字段一样自定义missing；不要给它臆造0km。Java保留原始sortValues，并把展示用distanceKm设null，hasLocation=false，页面显示“待定位”。</p><figure class="fig d2-figure" id="fig-missing-boundary"><div class="d2-shell"><div class="d2-tools"><strong>02 · 先看是否命中，再看缺值怎么排</strong><a data-expand-d2 href="diagrams/f10/missing-boundary-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f10/missing-boundary-light.svg" data-d2-light="diagrams/f10/missing-boundary-light.svg" data-d2-dark="diagrams/f10/missing-boundary-dark.svg" alt="预算range排除缺价，独立四文档展示缺价末尾和补零反例；没有半径时缺坐标仍命中而距离排末尾"></div></div><figcaption>四张卡片列出不同前提，不表示同一批请求依次修改索引。省略其他query与Java细节，完整条件在请求文件中。 静态图可展开；<a href="diagrams/f10/README.md">图源与生成记录</a>。</figcaption></figure><h2 id="scores">7. 返回评分，不代表按评分排</h2><p>价格/距离模式本课显式设 <code>track_scores=false</code>，没有_score排序键时观察到每个_score为null；null不是零分，也不是没匹配。打开track_scores只是要求计算并返回评分：price-scores与price的全部ID、价格、total和sort完全一致，但出现了评分。far的分数约1.0486474低于guide的1.4181306，仍因同价时ID更小排在guide前面。</p><details><summary>完整track_scores=true请求</summary><pre class="code-block" data-label="JSON · POST /tut-f10-attractions/_search · 价格附加评分" data-source="projects/travel-search/search/f10/price-scores.json"><code class="language-json">{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "_source": {
+    "includes": [
+      "attraction_id",
+      "name",
+      "city_code",
+      "ticket_price_fen",
+      "currency",
+      "status",
+      "location"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name^3",
+              "aliases^2",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and",
+            "tie_breaker": 0.0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0.0,
+              "lte": 20000.0
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "ticket_price_fen": {
+        "order": "asc",
+        "missing": "_last"
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre></details><p>相关性模式虽然开关为false，_score首键本身就需要评分，本次仍返回分数。若想把评分作为同价后的比较条件，应把_score显式列为后续sort键；本课选择唯一ID作为第二键，没有隐含插入评分。不要把track_total_hits=true与track_scores混淆：前者为匹配文档计数，后者控制额外评分。计算评分有工作量，本课不做性能量化结论。</p><h2 id="java">8. f10-c03：同一排序契约交给Java</h2><p>新增POST <code>/api/attractions/sort-search</code>，请求模式只能为relevance/price/distance，城市为ALL/HZ/FZ/SH，预算为0–100000000整数分，坐标必须有限且在纬度±90、经度±180内，评分开关必填。服务端固定本课索引，不接受客户端任意字段名或排序DSL；即使价格模式当前不用圆心，也保持同一完整输入契约。</p><pre class="code-block" data-label="Java · 完整输入约束" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/SortInput.java"><code class="language-java">package dev.esweb.travel;
+
+import jakarta.validation.constraints.*;
+
+public record SortInput(
+        @NotBlank @Size(max = 60) String q,
+        @NotNull @Pattern(regexp = "ALL|HZ|FZ|SH") String cityCode,
+        @NotNull @Min(0) @Max(100000000) Integer maxPriceFen,
+        @NotNull @Pattern(regexp = "relevance|price|distance") String sortMode,
+        @NotNull @DecimalMin("-90") @DecimalMax("90") Double latitude,
+        @NotNull @DecimalMin("-180") @DecimalMax("180") Double longitude,
+        @NotNull Boolean trackScores) {
+}</code></pre><p>关键实现如下：先构建同一bool，再按模式添加首键，最后始终追加ID。查询不包含半径，不能让“距离模式”暗中变成“附近过滤”。DTO直接保留ES返回次序和完整排序值，只有距离模式且有坐标时才从首排序值读取distanceKm，不在Java重算或对卡片另排。</p><pre class="code-block" data-label="Java · 查询、sort分支、结果与错误检查" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/SortSearchService.java"><code class="language-java">package dev.esweb.travel;
+
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.*;
+import co.elastic.clients.elasticsearch._types.query_dsl.*;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.json.JsonpUtils;
+import java.io.IOException;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.json.JsonMapper;
+
+@Service
+public class SortSearchService {
+    private final ElasticsearchClient client;
+    private final String index;
+    private final JsonMapper json;
+
+    public SortSearchService(ElasticsearchClient client,
+            @Value("${travel.f10-index:tut-f10-attractions}") String index, JsonMapper json) {
+        this.client = client; this.index = index; this.json = json;
+    }
+
+    public SearchRequest request(SortInput input) {
+        var bool = new BoolQuery.Builder()
+                .must(m -&gt; m.multiMatch(t -&gt; t.query(input.q()).fields("name^3", "aliases^2", "description")
+                        .type(TextQueryType.BestFields).operator(Operator.And).tieBreaker(0.0)))
+                .filter(f -&gt; f.term(t -&gt; t.field("currency").value("CNY")))
+                .filter(f -&gt; f.range(r -&gt; r.number(n -&gt; n.field("ticket_price_fen")
+                        .gte(0.0).lte(input.maxPriceFen().doubleValue()))))
+                .filter(f -&gt; f.term(t -&gt; t.field("status").value("open")));
+        if (!input.cityCode().equals("ALL")) {
+            bool.filter(f -&gt; f.term(t -&gt; t.field("city_code").value(input.cityCode())));
+        }
+        var search = new SearchRequest.Builder().index(index).size(20)
+                .trackTotalHits(t -&gt; t.enabled(true)).trackScores(input.trackScores())
+                .source(src -&gt; src.filter(f -&gt; f.includes(List.of("attraction_id", "name", "city_code",
+                        "ticket_price_fen", "currency", "status", "location"))))
+                .query(q -&gt; q.bool(bool.build()));
+        switch (input.sortMode()) {
+            case "relevance" -&gt; search.sort(s -&gt; s.score(f -&gt; f.order(SortOrder.Desc)));
+            case "price" -&gt; search.sort(s -&gt; s.field(f -&gt; f.field("ticket_price_fen")
+                    .order(SortOrder.Asc).missing(FieldValue.of("_last"))));
+            case "distance" -&gt; search.sort(s -&gt; s.geoDistance(g -&gt; g.field("location")
+                    .location(l -&gt; l.latlon(p -&gt; p.lat(input.latitude()).lon(input.longitude())))
+                    .order(SortOrder.Asc).unit(DistanceUnit.Kilometers)
+                    .distanceType(GeoDistanceType.Arc).mode(SortMode.Min).ignoreUnmapped(false)));
+            default -&gt; throw new IllegalArgumentException("Unsupported sort mode");
+        }
+        return search.sort(s -&gt; s.field(f -&gt; f.field("attraction_id").order(SortOrder.Asc))).build();
+    }
+
+    private Object sortValue(FieldValue value) {
+        return switch (value._kind()) {
+            case Double -&gt; value.doubleValue();
+            case Long -&gt; value.longValue();
+            case String -&gt; value.stringValue();
+            case Null -&gt; null;
+            default -&gt; throw new AttractionSearchService.IncompleteSearchException();
+        };
+    }
+
+    public SortResult search(SortInput input) throws IOException {
+        var request = request(input);
+        var response = client.search(request, SortAttraction.class);
+        if (response.timedOut() || response.shards().failed().longValue() != 0 || response.hits().total() == null) {
+            throw new AttractionSearchService.IncompleteSearchException();
+        }
+        var items = response.hits().hits().stream().map(hit -&gt; {
+            var src = hit.source();
+            if (src == null || !hit.id().equals(src.attractionId()) || src.name() == null
+                    || src.ticketPriceFen() == null || hit.sort().size() != 2) {
+                throw new AttractionSearchService.IncompleteSearchException();
+            }
+            var values = hit.sort().stream().map(this::sortValue).toList();
+            Double distanceKm = null;
+            if (input.sortMode().equals("distance") &amp;&amp; src.location() != null) {
+                if (!(values.getFirst() instanceof Number number) || !Double.isFinite(number.doubleValue())) {
+                    throw new AttractionSearchService.IncompleteSearchException();
+                }
+                distanceKm = number.doubleValue();
+            }
+            return new SortResult.Card(hit.id(), src.name(), src.cityCode(), src.ticketPriceFen(),
+                    src.currency(), src.status(), hit.score(), values, src.location() != null, distanceKm);
+        }).toList();
+        String dsl = JsonpUtils.toJsonString(request, client._jsonpMapper());
+        return new SortResult(response.hits().total().value(), response.hits().total().relation().jsonValue(),
+                response.took(), input, json.readTree(dsl), items);
+    }
+}</code></pre><p><a href="../projects/travel-search/backend/src/main/java/dev/esweb/travel/SortResult.java">完整DTO</a>、<a href="../projects/travel-search/backend/src/main/java/dev/esweb/travel/SortController.java">Controller</a>、<a href="../projects/travel-search/backend/src/main/java/dev/esweb/travel/ApiErrors.java">统一错误映射</a>可离线查看。索引默认tut-f10-attractions，可在启动前用TRAVEL_F10_INDEX覆盖；端点沿用ES_URL，F07–F09的配置和接口保留。Client仍为F07的单例并正常关闭，没有每次请求新建连接。</p><table class="ktable"><thead><tr><th>分支</th><th>HTTP与判断</th></tr></thead><tbody><tr><td>无匹配</td><td>200，total0/items空；不是故障</td></tr><tr><td>输入非法/小数分</td><td>400 INVALID_SEARCH_INPUT</td></tr><tr><td>缺索引/mapping拒绝</td><td>502 SEARCH_BACKEND_REJECTED</td></tr><tr><td>连接不可用</td><td>503 SEARCH_UNAVAILABLE</td></tr><tr><td>ES超时/失败分片/DTO字段不完整</td><td>502 SEARCH_INCOMPLETE；不把部分列表当完整结果</td></tr></tbody></table><p>本轮实际验证非法输入、缺索引和ES停机恢复；曾观察到ES探活刚恢复后的首次搜索仍503，随后同一Java进程重试成功，探活成功不等于下一次业务请求立即成功。ES执行超时、部分分片失败与畸形资料保护只有代码检查，未制造故障实测。浏览器自己的等待超时也不同于ES响应中的timed_out，不混称已验证。</p><h2 id="shell">9. 在观察页亲自切换</h2><p>另开终端，从仓库根目录启动应用。构建成功只说明工程可构建，随后还要用真实请求对照ES响应。</p><pre class="code-block" data-label="Bash · JDK25构建与运行"><code class="language-bash">cd projects/travel-search/backend
+./mvnw -version
+./mvnw -B -ntp clean package
+java -jar target/travel-search-0.7.0.jar</code></pre><pre class="code-block" data-label="Bash · 另一终端对照七组Java输入"><code class="language-bash">cd projects/travel-search
+bash labs/f10/04-java.sh</code></pre><pre class="code-block" data-label="JSON · POST /api/attractions/sort-search · 输入" data-source="projects/travel-search/search/f10/input-distance.json"><code class="language-json">{
+  "q": "西湖",
+  "cityCode": "ALL",
+  "maxPriceFen": 20000,
+  "sortMode": "distance",
+  "latitude": 30.25,
+  "longitude": 120.15,
+  "trackScores": false
+}</code></pre><p>打开 <code>http://127.0.0.1:18080/f10.html</code>。默认全国/西湖/200元/相关性，点击查询；然后只切价格，再切距离，每次提交。逐项对照上表九份完整ID和观察区的conditions、esRequest、items、sortValues；距离模式最后一张必须显示待定位，而非0km。价格卡片显示元，sort保留整数分；公里显示三位小数，观察区保留精度。</p><p>价格模式打开附加评分，卡片分数出现但顺序不变；改杭州只剩7份，恢复全国并把预算改80元仍为7份但集合不同；火星返回空卡片。删除本课索引后查询应报502并清空旧结果，重新准备后恢复。界面由课程提供，读者无需开发前端，正文不贴前端实现；真实路径是浏览器→本机Java→ES，浏览器不会直连ES，Pages只承载阅读。</p><p>本轮<a href="../docs/framework-review/20261021-f10-sort/README.md">HTTP阅读与真实观察页验收</a>分别记录，截图仅辅助阅读；页面好看不能代替REST/Java完整次序核对。23条教学HTTP请求=准备6+模式4+边界6+Java7；探活、点名清理1、作者附加断言和浏览器重复搜索另计。</p><h2 id="repeat">10. 先清理，再完整重做</h2><pre class="code-block" data-label="Bash · 仅删除tut-f10-attractions" data-source="projects/travel-search/labs/f10/cleanup.sh"><code class="language-bash">#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/env.sh"
+# 只删除 F10 独立索引；404 表示已经清理。
+code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE "$ES_URL/tut-f10-attractions")
+case "$code" in 200|404) printf 'tut-f10-attractions: HTTP %s\n' "$code";; *) printf '清理失败 HTTP %s\n' "$code" &gt;&amp;2; exit 1;; esac</code></pre><p>先预测：清理后Java仍运行但搜索502，不能显示前一批成功卡片；再次执行01准备、02模式、03边界、04Java，应重新16项created，九份次序与四份缺价对照相同。清理只点名本课索引，200/404均表示已清理，不删除卷、不碰F03–F09或业务资源。完成后关闭自己启动的Java；专用ES原来停止时可用原compose的stop es恢复，不执行down -v。</p><details><summary>版本依据与适用范围</summary><p>官方<a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/sort-search-results">排序文档</a>提供语义入口；在线页可能变化，版本以本轮ES9.4.0实测与固定tag源码为锚。目标文件与远端逐字节比较记录在<a href="../docs/framework-review/20261021-f10-sort/sources.json">来源收据</a>，不是通过当前在线默认值猜测本课行为。</p><ul><li><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/search/sort/SortBuilder.java">SortBuilder.buildSort</a>：按列表顺序构造排序字段。</li><li><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/search/sort/FieldSortBuilder.java">FieldSortBuilder.missing/build</a>：字段缺值配置；不修改_source。</li><li><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/search/sort/GeoDistanceSortBuilder.java">GeoDistanceSortBuilder.build/comparatorSource</a>：地理距离与缺坐标正无穷。</li><li><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/search/query/QueryPhaseCollectorManager.java">QueryPhaseCollectorManager</a>：分数/字段收集路径；结合真实track_scores对照。</li></ul><p>这不是多节点稳定分页或性能实验；唯一第二键不冻结数据视图，固定次序也不证明评分质量、实际票价与交通距离。</p></details></section>
+<section class="drills"><h2 id="drills">能力检查：解释后再打开</h2><details><summary>1. 两种模式都返回9份，为什么首位能从上海展馆变成福州西湖？</summary><p>候选条件相同，sort首键不同：相关性比较_score，价格比较整数分。免费福州西湖因与杭州西湖同价，再按完整ID字典序在前。不是价格改变了召回。</p></details><details><summary>2. 同为1000分，far评分更低也更远，为什么还在guide前？</summary><p>价格请求只写票价asc、ID asc。票价相同直接比较ID；track_scores=true只增加评分返回，不把评分加入排序。</p></details><details><summary>3. 缺价设置missing=0，文档变成免费了吗？</summary><p>没有，只影响排序替代值，_source未改。主查询range仍排除缺价。独立四文档反例去掉预算后，两份缺价与真实0分同首值，ID使缺价在前。</p></details><details><summary>4. 距离末尾的Infinity能显示为0km吗？加3km半径会怎样？</summary><p>不能，待定位不是零距离；保存原始sort值，展示待定位。加入3km过滤后，缺坐标、远处展馆、上海和福州都不满足，仅guide/plain/xihu/boundary/tea五份，但这已经改变查询集合。</p></details><details><summary>5. ID唯一后，明天翻页还一定没有重漏吗？</summary><p>不能这样承诺。唯一第二键让一个固定视图内的同分/同价/同距可确定，前后请求有数据或评分统计变化仍会变。下一课用完整sort、游标和PIT讨论视图一致性。</p></details><details><summary>6. 独立操作：切价格、开评分、改80元、输入火星、删索引，分别核对什么？</summary><p>切价格九份；开评分仍同ID同sort、_score从null变数字；80元七份去掉boundary和exhibit；火星200空集；缺索引502清空旧卡片，重新01导入恢复。不要拿空结果当服务故障，也不要把HTTP200当所有分片完整。</p></details></section><section class="pitfalls"><h2 id="pitfalls">容易误读的四件事</h2><div class="callout warn"><b>把价格、距离、评分当同一种优先级。</b>三把尺子回答不同问题。先固定集合与单位，再看明确的sort字段和顺序。</div><div class="callout warn"><b>以为缺价是0、缺坐标就在圆心。</b>字段缺失、显式null与有效0分不同；geo缺值按正无穷，不能伪造0km。</div><div class="callout warn"><b>开了track_scores便以为相关性参与同价排序。</b>是否比较评分由sort数组决定，开关不是隐式排序键。</div><div class="callout warn"><b>把ID第二键当跨请求不变的保证。</b>先保证字段唯一、非空且稳定；它只消除当前视图内主键相同的歧义，分页视图仍需下一课处理。</div></section>
+<section class="recap"><h2 id="recap">速记与下一课</h2><table class="ktable"><thead><tr><th>问题</th><th>本课契约</th></tr></thead><tbody><tr><td>谁能出现</td><td>query硬条件；sort不取消预算或开放条件</td></tr><tr><td>文本相关性</td><td>_score desc，再ID asc</td></tr><tr><td>低价优先</td><td>整数分asc，missing=_last，再ID asc</td></tr><tr><td>附近优先</td><td>_geo_distance / arc / km / asc，再ID asc；不是半径过滤</td></tr><tr><td>如何读sort</td><td>按请求字段位置解释，保留完整精度与缺值标记</td></tr><tr><td>是否返回评分</td><td>track_scores；不隐式加入排序</td></tr><tr><td>确定的同值次序</td><td>当前范围唯一、存在且稳定的keyword业务ID</td></tr></tbody></table><p><strong>先定候选，再定尺子，最后读完整排序元组。</strong>现在三种排列可以解释，但结果多到需要翻页时，同价资料和更新中的搜索视图仍会造成疑惑。F11再学习from/size、search_after与PIT；本课只完成排序，不提前实现下一课。</p></section>
+<footer class="ch-footer"><button class="read-toggle" data-ch="f10" type="button">标记已读</button><div class="pager"><a class="btn" href="f09.html">← F09 聚合与筛选计数</a><a class="btn" href="index.html">框架篇目录</a><span>下一课：F11 稳定分页与PIT（待编写） →</span></div></footer>
+</article></main><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>

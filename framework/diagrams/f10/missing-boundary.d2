@@ -1,0 +1,9 @@
+direction: down
+filter: "主查询的预算 range\n缺价 / null 不满足\n不会被 missing 排序救回"
+price: "四文档独立价格对照\n0分 → 1000分 → 两份缺价\nmissing: _last 不改原文"
+zero: "反例：missing: 0\n缺价与免费同一排序值\n不代表真的免费"
+geo: "主查询没有半径过滤\n缺坐标仍可命中\n距离按 Infinity 排末尾"
+# Independent boundary cards, no execution order.
+filter -> price: {style.opacity: 0}
+price -> zero: {style.opacity: 0}
+zero -> geo: {style.opacity: 0}

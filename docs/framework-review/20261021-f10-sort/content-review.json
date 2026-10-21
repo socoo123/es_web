@@ -1,0 +1,82 @@
+{
+  "recorded_at": "2026-10-21T00:37:48.185563+00:00",
+  "scope": "F10 only, author content self-review",
+  "reasoning": {
+    "requested": "xhigh",
+    "actual": "root entry point cannot configure or verify reasoning strength; prompt preference is not runtime configuration",
+    "independent_agent": false
+  },
+  "body_chinese_characters_excluding_code": 4401,
+  "lesson_sha256": "c29c2af32d80034d143c4a54d5fe1f5ebcd3d757dad5aee12d59b1457f00fca2",
+  "structure": {
+    "seven_parts": true,
+    "cases": 3,
+    "teaching_http": 23,
+    "request_breakdown": {
+      "prepare": 6,
+      "modes": 4,
+      "boundaries": 6,
+      "Java": 7
+    },
+    "cleanup_requests_separate": 1,
+    "D2_diagrams": 2,
+    "players": 0,
+    "exercises": 6,
+    "pitfalls": 4
+  },
+  "teaching": [
+    {
+      "claim": "query fixes candidates; sort changes order",
+      "evidence": "Two real rounds: relevance/price/distance total9 and same complete ID set; query JSON identical"
+    },
+    {
+      "claim": "default relevance differs from previous explicit ID sorts",
+      "evidence": "default request score descending with tied default order unpromised; explicit _score desc + unique ID asc asserted"
+    },
+    {
+      "claim": "primary/secondary keys form an ordered tuple",
+      "evidence": "price1000 ties far/guide/missing-location/plain; distance zero ties guide/plain/xihu; full sort[1] equals ID"
+    },
+    {
+      "claim": "units and distance definition",
+      "evidence": "source integer fen; shell division100; geo arc/km; supplementary m values equal km*1000; no road distance claim"
+    },
+    {
+      "claim": "missing price not free, range excludes it",
+      "evidence": "main9 excludes missing/null; four-ID request explicitly removes range, _last sentinel2147483647 then missing0 counterexample; source unchanged"
+    },
+    {
+      "claim": "missing coordinate is not zero distance or missing mapping",
+      "evidence": "main distance last sort=[Infinity string, a-hz-missing-location]; Java distanceKm null and hasLocation false; ignore_unmapped false"
+    },
+    {
+      "claim": "track_scores is not a sort key",
+      "evidence": "price false/true have identical full IDs/sort; scores null/numeric respectively; explicit _score first still returns scores with false"
+    },
+    {
+      "claim": "hard conditions persist and errors differ from empty",
+      "evidence": "HZ7, budget8000 seven distinct candidates, 火星200 empty, 11 invalid cases400 per round plus 5 NaN/Infinity/lower-bound400; missing index502; real ES stop503; same Java PID recovered"
+    },
+    {
+      "claim": "second key does not freeze changing views",
+      "evidence": "Lesson explicitly limits guarantee to fixed data view with unique nonmissing stable keyword ID; no pagination/PIT implemented"
+    }
+  ],
+  "source_evidence": "sources.json: 4 local files match official v9.4.0 bytes",
+  "corrections": [
+    {
+      "old": "F10 directory entry missing card class, read badge failed",
+      "new": "Added required existing progress hook class, mark/unmark and old-key isolation validated"
+    },
+    {
+      "old": "Author browser test expected immediate200 after ES HTTP ready",
+      "new": "Record observed503 and retry; same Java process/Client recovers. Underlying cause not asserted."
+    }
+  ],
+  "limitations": [
+    "No independent agent and actual xhigh not verifiable",
+    "No multi-node, concurrent update, PIT/pagination, performance or relevance quality benchmark",
+    "No forced ES execution timeout/partial shard failure/malformed result protocol"
+  ],
+  "status": "author self-review passed"
+}

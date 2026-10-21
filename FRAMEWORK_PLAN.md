@@ -6,7 +6,7 @@
 
 F01–F45 分为 **8 个长度不同的阶段**，章节与案例由要解决的问题决定。案例设计见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)，写作要求见 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)，进度以 [STATUS.md](STATUS.md) 为准。
 
-**[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)、[F08 多字段与高亮](framework/f08.html)与[F09 聚合与筛选计数](framework/f09.html)已交付，F10–F45待按本路线实施。**导学介绍 ES 的用途、职责与完整学习方式；实际验收范围见 STATUS。F07已交付最小Java搜索接口与本机展示壳；插件、多节点与CDC的后续阶段效果仍待交付。
+**[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)、[F08 多字段与高亮](framework/f08.html)、[F09 聚合与筛选计数](framework/f09.html)与[F10 显式排序](framework/f10.html)已交付，F11–F45待按本路线实施。**导学介绍 ES 的用途、职责与完整学习方式；实际验收范围见 STATUS。F07已交付最小Java搜索接口与本机展示壳；插件、多节点与CDC的后续阶段效果仍待交付。
 
 ## 1. 开篇先回答：ES 是什么，解决什么问题
 
