@@ -1,0 +1,73 @@
+{
+  "recorded_at": "2026-10-23T19:07:36.192122+00:00",
+  "status": "passed_author_self_review",
+  "scope": "F15 only; necessary navigation/progress references updated",
+  "reviewer": "root author; no independent agent",
+  "reasoning": "xhigh requested; root entry cannot set/verify; not claimed actual xhigh",
+  "chinese_characters_excluding_code": 4343,
+  "structure": {
+    "seven_sections": true,
+    "execution_cases": 3,
+    "teaching_HTTP": 84,
+    "D2_figures": 2,
+    "mechanism_players": 0,
+    "folded_exercises": 7,
+    "pitfalls": 3
+  },
+  "claims": [
+    {
+      "claim": "F15只实现本地IK扩展词典重启加载；未把本地文件发布称热更新",
+      "evidence": "round summaries: baseline/file-only/loaded analysis; transition commands; plugins 9.4.0"
+    },
+    {
+      "claim": "旧文档存储词项不因文件/重启/refresh而重写，新写入使用加载后的词典",
+      "evidence": "baseline stored == loaded stored, mixed new stored terms, explicit term search probes and refresh"
+    },
+    {
+      "claim": "term vector为显式存储且不覆盖分析器的词项证据；默认未存时可临时生成",
+      "evidence": "mapping with_positions_offsets; termvectors.json; official v9.4.0 TermVectorsService methods and byte-match sources.json"
+    },
+    {
+      "claim": "受控_source重建11份，保留ID/原文；未宣称在线迁移",
+      "evidence": "reindex response 11 created, no failure; source maps == fixed 9+2 docs; write block403; duplicate target409"
+    },
+    {
+      "claim": "新词修复加载后旧资料漏召回，排除散字并新增湾流边界误入",
+      "evidence": "frozen formal judgments + full phase IDs + actual stored terms of nj-boundary"
+    },
+    {
+      "claim": "REST/Java实际请求同契约，界面不用前端代码学习",
+      "evidence": "actual serialized analysis/vector/search replay; fixed server-side index/field/analyzer/old-ID whitelist; shell DOM/API comparisons"
+    },
+    {
+      "claim": "两轮84教学+74附加，各158调用；图、HTTP、运行与展示壳分列",
+      "evidence": "execution.json, generation.json, http-review.json, shell-review.json"
+    }
+  ],
+  "judgment_provenance": "Synthetic examples explored before corpus finalization; business intent/IDs frozen before two formal comparison rounds. Not a blind benchmark or global Chinese quality evaluation.",
+  "errata": {
+    "prior_F15_content": "none; new lesson",
+    "draft_corrections": [
+      "duplicate create reindex is HTTP409",
+      "root HTTP200 does not prove cluster state recovered; wait.sh now waits for actual recovery",
+      "initial shell instruction changed from inherited F14 keyword",
+      "formal comparison wording separates exploratory sample selection from fixed formal judgments"
+    ]
+  },
+  "validation_limits": [
+    "remote dictionary loading/reload timing",
+    "multi-node/rolling publication",
+    "production online migration/alias/catch-up",
+    "overall Chinese recall or precision benchmark",
+    "performance/storage cost",
+    "TLS/authentication/CDC",
+    "synonyms/traditional-simplified/pinyin/scoring",
+    "timeout/partial-shard failure paths have code checks but were not fault-injected"
+  ],
+  "sha256": {
+    "framework/f15.html": "14fc77e01abddf415c0add6d66635c81c6d8ee08208f232d36fa1eafbcd23119",
+    "projects/travel-search/labs/f15/lab.py": "d126204013c1d521a41c669b6f7cd1f156448266d63ea88b23d4874ed4f9b0ec",
+    "projects/travel-search/data/f15/judgments.json": "cae6acfca7ceb49f2a745a9c72eec1a4e2133b3259c79d26355c2986ffc51e44",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/DictionarySearchService.java": "b34ba2cbe33ecdd75cc435ccfe2ce8edcf7d79909971355bae4c49f019014a9b"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "recorded_at": "2026-10-23T19:09:08.421381+00:00",
+  "scope": "F15 owned resources only",
+  "observed_before": {
+    "es-framework-single-es-1": {
+      "running": false,
+      "exit_code": 143
+    },
+    "es-study-secure": {
+      "running": true
+    },
+    "es-study": {
+      "running": false,
+      "exit_code": 137
+    },
+    "F15_container": "absent before this task; created for this lesson"
+  },
+  "open_contexts_before_cleanup": {
+    "tut-f15-v1": 0,
+    "tut-f15-v2": 0
+  },
+  "signals": [
+    {
+      "pid": 11871,
+      "signal": "SIGTERM",
+      "command": "/tmp/es-f07-tooling/jdk-25.0.4.1+1/Contents/Home/bin/java -jar target/travel-search-0.7.0.jar"
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f15/compose.yaml",
+        "down"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f15-es-1 Stopping \n Container es-framework-f15-es-1 Stopped \n Container es-framework-f15-es-1 Removing \n Container es-framework-f15-es-1 Removed \n Network es-framework-f15_default Removing \n Network es-framework-f15_default Removed \n"
+    }
+  ],
+  "after": {
+    "es-framework-single-es-1": {
+      "running": false,
+      "exit_code": 143,
+      "status": "exited"
+    },
+    "es-study-secure": {
+      "running": true,
+      "exit_code": 0,
+      "status": "running"
+    },
+    "es-study": {
+      "running": false,
+      "exit_code": 137,
+      "status": "exited"
+    }
+  },
+  "F15_container_removed": true,
+  "retained": "F15 data volume after named lesson indexes deleted, and verified image/ZIP cache. Other course resources unchanged.",
+  "status": "passed"
+}

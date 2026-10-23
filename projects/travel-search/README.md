@@ -1,6 +1,6 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业、F13分析链与中文召回及F14中文分词方案比较已交付，F15–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业、F13分析链与中文召回、F14中文分词方案比较及F15专有词与词典已交付，F16–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
 
 当前入口是 [F03 首搜](../../framework/f03.html)、[F03 手工实验](labs/f03/README.md)与[两轮真实 ES 记录](review/f03/README.md)，无需前端、Java、数据库或 Kibana。[F04 字段设计与 Bulk](../../framework/f04.html)及其[本机步骤](labs/f04/README.md)已提供；[执行状态](review/f04/README.md)明确记录本环境启动阻塞，尚未两轮实测。F04 从新资源独立开始，不依赖 F03 索引。历史文件、资源与案例 ID 保留：
 
@@ -123,3 +123,11 @@ F10再学习排序切换；不把本课ID次序当推荐排序，不把桶计数
 - [三案例108条教学HTTP与点名重做](labs/f14/README.md)、[固定语料/判断](data/f14/judgments.json)、[完整字段配置](search/f14/index-plugins.json)、[插件锁](infra/f14/plugins.lock.json)
 - 新接口`POST /api/attractions/analyzer-search`、本机页`http://127.0.0.1:18080/f14.html`；固定候选与样本，Java启动时ES_URL指向19214
 - [真实插件/ES/Java两轮与错版本拒绝](review/f14/README.md)、[内容/图解/阅读/观察窗](../../docs/framework-review/20261024-f14-analyzers/README.md)；未测词典/同义词/拼音、整体质量与性能
+
+## F15 · 本地词典与历史词项
+
+[F15正文](../../framework/f15.html)用虚构品牌/地名观察本地IK词典：只改文件、重启加载、旧/新文档与_source受控重建。独立19215与tut-f15-v1/v2，显式存储term vector，既解释漏召回修复，也核对新增误匹配。
+
+- [三案例84教学HTTP与点名重做](labs/f15/README.md)、[固定样本/判断](data/f15/judgments.json)、[字段配置](search/f15/index.json)、[插件锁](infra/f15/plugins.lock.json)
+- 接口`POST /api/attractions/dictionary-search`、本机页`http://127.0.0.1:18080/f15.html`；启动Java时ES_URL指向19215，索引选择不切词典
+- [ES/Java两轮](review/f15/README.md)、[内容/图解/阅读/观察窗](../../docs/framework-review/20261024-f15-dictionary/README.md)；不认证远程词典、多节点发布、在线迁移、全站质量或性能

@@ -1,0 +1,22 @@
+name: es-framework-f15
+services:
+  es:
+    image: es-web-f15:9.4.0
+    build:
+      context: .
+    environment:
+      cluster.name: travel-f15-lab
+      node.name: travel-f15-01
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:19215:9200"
+    mem_limit: 1g
+    volumes:
+      - f15-data:/usr/share/elasticsearch/data
+      - ./IKAnalyzer.cfg.xml:/usr/share/elasticsearch/config/analysis-ik/IKAnalyzer.cfg.xml:ro
+      - ./.runtime:/usr/share/elasticsearch/config/analysis-ik/custom:ro
+volumes:
+  f15-data:

@@ -1,0 +1,33 @@
+time="2026-10-24T00:43:36+08:00" level=warning msg="Docker Compose requires buildx plugin to be installed"
+ Image es-web-f15:9.4.0 Building
+ Image es-web-f15:9.4.0 Building
+Sending build context to Docker daemon  524.6kB
+Sending build context to Docker daemon  4.623MB
+
+Step 1/4 : FROM docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+ ---> 754c3d8ca6f7
+Step 2/4 : COPY --chown=elasticsearch:root .artifacts/analysis-ik.zip /tmp/analysis-ik.zip
+ ---> 7113b5d70ef8
+Step 3/4 : RUN bin/elasticsearch-plugin install --batch file:///tmp/analysis-ik.zip  && rm /tmp/analysis-ik.zip
+ ---> Running in 06f7ec07d024
+-> Installing file:///tmp/analysis-ik.zip
+-> Downloading file:///tmp/analysis-ik.zip
+[91mWARNING: this plugin contains a legacy Security Policy file. Starting with version 8.18, Entitlements replace SecurityManager as the security mechanism. Plugins must migrate their policy files to the new format. For more information, please refer to https://www.elastic.co/guide/en/elasticsearch/plugins/current/creating-classic-plugins.html
+[0m[91m@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@     WARNING: plugin requires additional entitlements    @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[0m[91m* outbound_network
+See https://www.elastic.co/guide/en/elasticsearch/plugins/current/creating-classic-plugins.html
+[0m[91mfor descriptions of what these entitlements allow and the associated risks.
+[0m-> Installed analysis-ik
+-> Please restart Elasticsearch to activate any plugins installed
+ ---> Removed intermediate container 06f7ec07d024
+ ---> 09e8700272ca
+Step 4/4 : LABEL com.docker.compose.image.builder=classic
+ ---> Running in 17e3047929e9
+ ---> Removed intermediate container 17e3047929e9
+ ---> 79b9badbb54a
+Successfully built 79b9badbb54a
+Successfully tagged es-web-f15:9.4.0
+ Image es-web-f15:9.4.0 Built
+ Image es-web-f15:9.4.0 Built

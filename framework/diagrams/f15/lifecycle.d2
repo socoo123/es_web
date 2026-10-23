@@ -1,0 +1,10 @@
+direction: down
+old: "① 空扩展词典下写入 v1\n旧词项：星 / 澜 / 湾\n显式存储 term vector，保留写入证据"
+load: "② 写入词典文件，再重启本课节点\n当前分析：星澜湾 → 星澜湾\n词典加载不修改旧文档"
+mixed: "③ 在 v1 新写入两份资料\n查询用新词，旧资料仍是旧词项\n新资料能命中，旧资料继续漏掉"
+rebuild: "④ 暂停 v1 写入，从 _source 重建 v2\n目标预先建好 mapping\n所有资料按已加载词典重新分析"
+verify: "⑤ 核对已存词项与完整命中 ID\n恢复旧景点，也检查新增误匹配\n词典不是品牌或地名认证"
+old -> load: "发布规则"
+load -> mixed: "只影响后续分析"
+mixed -> rebuild: "受控重建"
+rebuild -> verify: "刷新后验收"
