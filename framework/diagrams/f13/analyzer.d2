@@ -1,0 +1,10 @@
+direction: down
+source: "原输入（本例含标记）\n<b>故宫</b> Palace-MUSEUM"
+chars: "char filter：html_strip\n去除 HTML 标记，修正 offset 对应\n故宫 Palace-MUSEUM"
+split: "tokenizer：standard\n按本例的 Unicode 边界切分\n故 / 宫 / Palace / MUSEUM"
+lower: "token filter：lowercase\n保留词项顺序，英文转小写\n故 / 宫 / palace / museum"
+result: "输出 token 流\n词面 + position + 原输入 offset\n不会把 _source 改成小写"
+source -> chars: "字符流变换"
+chars -> split: "恰好一个 tokenizer"
+split -> lower: "词项流变换"
+lower -> result: "供索引或查询使用"

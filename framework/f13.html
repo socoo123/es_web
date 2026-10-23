@@ -1,0 +1,654 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>F13 · 分析链与中文召回</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"></head><body class="framework-page chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header><main class="wrap chapter-visual"><article class="chapter" id="f13" data-ch="f13"><header class="ch-header"><div class="ch-kicker">FRAMEWORK 13 · 中文召回</div><h1>明明有“北京故宫博物院”，<br>为什么搜不到？</h1><div class="meta-line">约 55 分钟 · 前置：F04–F12 · 3 个执行案例 · 58 条教学 HTTP 请求（清理/探活/作者附加验收另计） · 2 幅静态 D2 · 0 个机制播放器</div><p class="ch-intro">基础搜索已经能筛选、排序、分页和更新。现在游客输入“故宫”，运营明明看见了名称，却得到空结果。本课把文本拆成可观察的token，找到一次故意配置失配的原因，再检查恢复召回后混进来的“故城宫苑”。先解释发生了什么，才有依据比较下一课的中文分词方案。</p><div class="diagram-jumps"><a href="#fig-analyzer">分析链 ↓</a><a href="#fig-recall">召回对照 ↓</a><a href="../projects/travel-search/labs/f13/README.md">本机实验入口 ↗</a></div><details class="chapter-outline"><summary>本课目录</summary><ol>
+<li><a href="#goals">本课目标</a></li>
+<li><a href="#scene">把空结果变成问题</a></li>
+<li><a href="#model">分析链的三种职责</a></li>
+<li><a href="#samples">固定资料与字段</a></li>
+<li><a href="#prepare">准备本课索引</a></li>
+<li><a href="#chain">观察token与offset</a></li>
+<li><a href="#mismatch">查对索引与查询链</a></li>
+<li><a href="#recall">召回与误召回</a></li>
+<li><a href="#java">关键Java实现</a></li>
+<li><a href="#observe">本机真实观察窗</a></li>
+<li><a href="#repeat">清理与重做</a></li>
+<li><a href="#drills">能力检查</a></li>
+<li><a href="#pitfalls">实际陷阱</a></li>
+<li><a href="#recap">速记与下一课</a></li>
+</ol></details></header><section class="goal"><h2 id="goals">学完能证明什么</h2><ul><li>用实际token、position、offset定位字符过滤、分词或小写归一发生在哪一环。</li><li>找出索引/查询链的故意失配，使用REST与Java恢复相同的候选，并说明局部覆盖的范围。</li><li>逐份解释漏召回、AND/短语误召回与业务过滤，用固定数据核对，清理后再完整重做。</li></ul></section><section class="lesson"><h2 id="scene">1. 先把“搜不到”变成可以解释的问题</h2>
+<p>Elasticsearch在这里负责从旅游搜索文档中找候选。<strong>召回</strong>就是找到候选集合；漏召回是应找的没有进入，误召回是人按需求判断不相关的也进来了。ES不会仅凭名称理解旅游实体；需要分析规则、查询与业务条件共同表达意图。</p>
+<p>游客选择北京，预算不超过 100 元，输入“故宫”。运营确认资料里有“北京故宫博物院”，搜索却返回空集。</p>
+<p>名称里看得见这两个字，为什么没有命中？</p>
+<p>全文查询需要关注两次文本处理：写入时，名称怎样形成可检索的词项；搜索时，“故宫”怎样形成查询词项。两边产生的词项能否对应，会影响结果。原文中出现了某段文字，并不能单独证明当前字段、当前请求一定命中。</p>
+<p>本课故意准备一个失配字段：写入时把“故宫”分析为“故”和“宫”，查询时却把它作为完整的“故宫”词项。我们只修复这个明确的漏召回原因。</p>
+<p>这也不是“standard 默认搜中文会失败”的证明。后面的对齐字段恰恰用于说明：在本课语料和配置下，它能够召回包含相关字项的文档；真正需要继续追问的是，召回的是否都是游客想找的景点。</p>
+<h2 id="model">2. 先处理字符，再切分，再处理词项</h2><figure class="fig d2-figure" id="fig-analyzer"><div class="d2-shell"><div class="d2-tools"><strong>01 · 一份文本怎样成为token</strong><a data-expand-d2 href="diagrams/f13/analyzer-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f13/analyzer-light.svg" data-d2-light="diagrams/f13/analyzer-light.svg" data-d2-dark="diagrams/f13/analyzer-dark.svg" alt="文本经html_strip字符过滤、standard分词、lowercase词项过滤，保留position与原输入offset"></div></div><figcaption>箭头表示本例字符流与词项流的变换，省略倒排格式。html_strip用于分析，不是网页安全净化；本课实际景点名称无HTML标记。 静态图可展开；<a href="diagrams/f13/README.md">图源与生成记录</a>。</figcaption></figure><p>把“故宫 Palace-MUSEUM（东门）”交给本课的 <code>travel_text</code>，可以沿着三个环节观察：</p>
+<p><strong>输入文本 → 字符过滤 → 分词 → 词项过滤 → token。</strong></p>
+<p>字符过滤器先处理字符流，例如 <code>html_strip</code> 去掉 HTML 标签。随后，tokenizer 按规则切分文本。最后，token filter 处理已经切出的 token，例如 <code>lowercase</code> 将英文归一为小写。</p>
+<p>一个 analyzer 恰好包含一个 tokenizer，可以有零到多个字符过滤器和零到多个词项过滤器。执行顺序影响结果，三者的职责也不能互换。<a href="https://www.elastic.co/docs/manage-data/data-store/text-analysis/anatomy-of-an-analyzer">官方自定义分析器说明</a></p>
+<p>本课显式定义：</p>
+<table class="ktable">
+<thead>
+<tr>
+<th>名称</th>
+<th>配置与用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>travel_text</code></td>
+<td><code>custom</code>；<code>html_strip</code> → <code>standard</code> tokenizer → <code>lowercase</code></td>
+</tr>
+<tr>
+<td><code>case_sensitive</code></td>
+<td>自定义 analyzer；使用 <code>standard</code> tokenizer，无 token filter；仅供对照查询覆盖</td>
+</tr>
+</tbody>
+</table>
+<p>这里的 <code>lowercase</code> 是 filter 的工作。只指定 <code>standard</code> <strong>tokenizer</strong>，不会因此自动得到小写归一。</p>
+<p>也不要把 <code>standard</code> 描述成理解“故宫”这一旅游实体的中文语义分词器。本课实际观察到的中文单字 token，只能说明当前切分规则怎样处理这些字符，不能证明它理解了景点名称。</p>
+<p>索引与搜索也不要求永远采用完全相同的 analyzer；需要判断的是两边的设计能否支持目标查询。本课先用相同链建立容易解释的基线，再单独观察故意失配。<a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/search-analyzer">官方 <code>search_analyzer</code> 说明</a></p>
+<h2 id="samples">3. 同一资料，保留三种字段表达</h2><p>实验锚定 ES 9.4.0 / Lucene 10.4.0，使用独立索引 <code>tut-f13-attractions</code>：一主分片、零副本、<code>refresh_interval=-1</code>、<code>dynamic: strict</code>。八份文档的币种均为 CNY，金额单位为整数分。</p>
+<table class="ktable">
+<thead>
+<tr>
+<th>业务 ID</th>
+<th>name</th>
+<th>城市</th>
+<th>状态</th>
+<th style="text-align: right;">价格／分</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bj-palace</td>
+<td>北京故宫博物院</td>
+<td>BJ</td>
+<td>open</td>
+<td style="text-align: right;">6000</td>
+</tr>
+<tr>
+<td>bj-mixed</td>
+<td>北京故宫博物院 Palace-MUSEUM（东门）</td>
+<td>BJ</td>
+<td>open</td>
+<td style="text-align: right;">6000</td>
+</tr>
+<tr>
+<td>bj-separated</td>
+<td>故城宫苑</td>
+<td>BJ</td>
+<td>open</td>
+<td style="text-align: right;">3000</td>
+</tr>
+<tr>
+<td>bj-punctuation</td>
+<td>故，宫主题展</td>
+<td>BJ</td>
+<td>open</td>
+<td style="text-align: right;">1000</td>
+</tr>
+<tr>
+<td>sy-palace</td>
+<td>沈阳故宫博物院</td>
+<td>SY</td>
+<td>open</td>
+<td style="text-align: right;">5000</td>
+</tr>
+<tr>
+<td>bj-closed</td>
+<td>北京故宫夜游</td>
+<td>BJ</td>
+<td>closed</td>
+<td style="text-align: right;">7000</td>
+</tr>
+<tr>
+<td>bj-other</td>
+<td>北京国家博物馆</td>
+<td>BJ</td>
+<td>open</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td>bj-dash</td>
+<td>Palace Museum</td>
+<td>BJ</td>
+<td>open</td>
+<td style="text-align: right;">4000</td>
+</tr>
+</tbody>
+</table>
+<p>同一个 <code>name</code> 输入建立三种字段表达：</p>
+<ul>
+<li><code>name</code>：<code>text</code>，索引与搜索均显式使用 <code>travel_text</code>。</li>
+<li><code>name.mismatch</code>：<code>text</code> 多字段，索引用 <code>travel_text</code>，<code>search_analyzer</code> 故意设为 <code>keyword</code>。</li>
+<li><code>name.raw</code>：<code>keyword</code>，保留名称整值的精确表达。</li>
+</ul>
+<p><code>name.mismatch</code> 仍是文本字段；它的搜索 analyzer 叫 <code>keyword</code>，不意味着字段类型变成了 <code>keyword</code>。</p>
+<p>以下主查询始终限定 <strong>BJ、CNY、open、价格 0–10000 分，包含两端</strong>，按可排序的 keyword 业务 ID 升序返回。这个顺序用于稳定核对，本课不解释评分高低。</p>
+<h2 id="prepare">4. f13-c01：准备固定资料，再观察分析链</h2><p>应用沿用Boot4.0.8、官方Java与Rest5 Client9.4.8、Wrapper3.3.4/Maven3.9.11。应用需JDK25，作者使用Temurin25.0.4.1+1；与ES bundled JVM分开。脚本使用Bash、curl与Python3.10+标准库，正文按语义手工核对即可。Pages只承载教程。</p>
+<pre class="code-block" data-label="Bash · 从仓库根目录开始"><code>cd projects/travel-search
+docker compose -f infra/single-node/compose.yaml up -d es
+bash infra/single-node/wait.sh
+bash labs/f13/01-prepare.sh
+bash labs/f13/02-chain.sh</code></pre>
+<p>准备六请求依次核对ES/Lucene版本、创建确认、目标索引green且未超时、Bulk八项created且errors=false、显式refresh零失败、count=8。若索引已存在，先停下，按本课点名清理后重做。关闭自动refresh用于保证实验前提；不阻止手动refresh。</p>
+<pre class="code-block" data-label="JSON · PUT /tut-f13-attractions · 完整分析配置与mapping" data-source="projects/travel-search/search/f13/index.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1",
+    "analysis": {
+      "analyzer": {
+        "travel_text": {
+          "type": "custom",
+          "char_filter": [
+            "html_strip"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase"
+          ]
+        },
+        "case_sensitive": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": []
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "travel_text",
+        "search_analyzer": "travel_text",
+        "fields": {
+          "mismatch": {
+            "type": "text",
+            "analyzer": "travel_text",
+            "search_analyzer": "keyword"
+          },
+          "raw": {
+            "type": "keyword"
+          }
+        }
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "ticket_price_fen": {
+        "type": "integer",
+        "coerce": false
+      }
+    }
+  }
+}</code></pre>
+<p><code>travel_text</code>是本索引内自定义名字，调用它需带索引路径；直接<code>POST /_analyze</code>找不到这个索引级名字会400。配置中的<code>char_filter</code>先处理字符流，<code>filter</code>随后处理token流。<code>case_sensitive</code>只用于查询反例；没有给生产搜索选择“最佳分词器”。GET mapping可能省略与analyzer相同的search_analyzer，按其有效回退语义判断，不能把省略当成丢失。</p>
+<p><a href="../projects/travel-search/data/f13/attractions.json">八份资料</a> · <a href="../projects/travel-search/data/f13/attractions.ndjson">完整Bulk</a> · <a href="../projects/travel-search/labs/f13/lab.py">准备与十组分析脚本</a>。</p>
+<h2 id="chain">5. token说什么，position和offset各说什么</h2>
+<pre class="code-block" data-label="JSON · POST /tut-f13-attractions/_analyze" data-source="projects/travel-search/search/f13/analyze/01-field.json"><code>{
+  "field": "name",
+  "text": "故宫 Palace-MUSEUM（东门）"
+}</code></pre>
+<p>向本课索引的 <code>_analyze</code> 提交 <code>field: name</code>，文本使用：</p>
+<pre class="code-block" data-label="Text · 分析输入"><code class="language-text">故宫 Palace-MUSEUM（东门）
+</code></pre>
+<p><strong>ES9.4.0实测（01-field.json）：</strong></p>
+<table class="ktable">
+<thead>
+<tr>
+<th>token</th>
+<th style="text-align: right;">position</th>
+<th>offset 半开区间</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>故</td>
+<td style="text-align: right;">0</td>
+<td>[0, 1)</td>
+</tr>
+<tr>
+<td>宫</td>
+<td style="text-align: right;">1</td>
+<td>[1, 2)</td>
+</tr>
+<tr>
+<td>palace</td>
+<td style="text-align: right;">2</td>
+<td>[3, 9)</td>
+</tr>
+<tr>
+<td>museum</td>
+<td style="text-align: right;">3</td>
+<td>[10, 16)</td>
+</tr>
+<tr>
+<td>东</td>
+<td style="text-align: right;">4</td>
+<td>[17, 18)</td>
+</tr>
+<tr>
+<td>门</td>
+<td style="text-align: right;">5</td>
+<td>[18, 19)</td>
+</tr>
+</tbody>
+</table>
+<p><code>token</code> 是分析得到的词项文本。<code>position</code> 表示词项位置，可用于解释短语关系。<code>offset</code> 则指向原始输入中的文本范围，可用于定位原文；它不是第几个词，也不是字节偏移。</p>
+<p>本课 offset 按 UTF-16 单位理解，区间包含起点、不包含终点。再分析“故宫😀 Palace”：😀占两个 UTF-16 单位，因此 <code>Palace</code> 对应范围为 <code>[5,11)</code>，不能按照肉眼数出的字符个数直接推算。本轮还保留了😀这个token：position=2、offset=[2,4)；palace的position=3。不能把“标点常不成词”扩大为“所有符号都会被丢弃”。</p>
+<p>接着保持第一份文本不变，做三次临时对照：</p>
+<ol>
+<li>只指定 <code>standard</code> tokenizer：英文仍为 <code>Palace</code>、<code>MUSEUM</code>。</li>
+<li>加入 <code>lowercase</code> filter：英文变成 <code>palace</code>、<code>museum</code>。</li>
+<li>换成 <code>whitespace</code> tokenizer：实际按空白切成“故宫”和“Palace-MUSEUM（东门）”，连字符、括号不会按前一种规则拆开。</li>
+</ol>
+<p>第三次改变的是切词规则，不能解释成“只是关闭了小写转换”。</p>
+<p>再显式指定 <code>analyzer: travel_text</code>、<code>explain: true</code>，分析：</p>
+<pre class="code-block" data-label="Text · 分析输入"><code class="language-text">&lt;b&gt;故宫&lt;/b&gt; Palace-MUSEUM（东门）
+</code></pre>
+<p>观察字符过滤后的文本、tokenizer 的输出，以及 lowercase 后的输出。offset仍对照原始字符串，而不是在去标签后的短串上重新编号。本轮“宫”的offset实际为[4,9)，结束位置包含被过滤的闭合标签；区间长度无需等于词面长度，不能用这段原串的字面切片反推token。分析过程不会把 <code>_source</code> 中的原文改成小写或去标签后的文本。</p>
+<pre class="code-block" data-label="JSON · 同一索引/_analyze · 展开每个环节" data-source="projects/travel-search/search/f13/analyze/05-explain.json"><code>{
+  "analyzer": "travel_text",
+  "text": "&lt;b&gt;故宫&lt;/b&gt; Palace-MUSEUM（东门）",
+  "explain": true
+}</code></pre>
+<details><summary>手工复现与两个只改变一环的请求</summary><pre class="code-block" data-label="Bash · projects/travel-search目录"><code>curl --fail-with-body -sS -X POST http://127.0.0.1:19200/tut-f13-attractions/_analyze -H 'Content-Type: application/json' --data-binary @search/f13/analyze/01-field.json
+curl --fail-with-body -sS -X POST http://127.0.0.1:19200/tut-f13-attractions/_analyze -H 'Content-Type: application/json' --data-binary @search/f13/analyze/05-explain.json</code></pre><pre class="code-block" data-label="JSON · 只有tokenizer" data-source="projects/travel-search/search/f13/analyze/02-tokenizer.json"><code>{
+  "tokenizer": "standard",
+  "text": "故宫 Palace-MUSEUM（东门）"
+}</code></pre><pre class="code-block" data-label="JSON · 增加lowercase" data-source="projects/travel-search/search/f13/analyze/03-lowercase.json"><code>{
+  "tokenizer": "standard",
+  "filter": [
+    "lowercase"
+  ],
+  "text": "故宫 Palace-MUSEUM（东门）"
+}</code></pre><p>另有<a href="../projects/travel-search/search/f13/analyze/04-whitespace.json">whitespace</a>、<a href="../projects/travel-search/search/f13/analyze/08-punctuation.json">标点位置</a>、<a href="../projects/travel-search/search/f13/analyze/09-utf16.json">UTF-16</a>、<a href="../projects/travel-search/search/f13/analyze/10-empty.json">空流</a>。四个请求也在完整脚本中执行。</p></details>
+<h2 id="mismatch">6. field分析正常，为什么搜索仍然为空？</h2><p>对 <code>field: name.mismatch</code> 调用 <code>_analyze</code>，仍能看到“故”“宫”。这里推导的是字段的<strong>索引 analyzer</strong>，不会自动模拟它的 <code>search_analyzer</code>。</p>
+<p>要观察故意失配的查询链，应显式使用 <code>analyzer: keyword</code>，对同一个输入“故宫”分析。实际只有一个完整 token：“故宫”。</p>
+<p>于是问题具体了：文档写入时形成的是“故”和“宫”，查询寻找的却是完整词项“故宫”。把 <code>operator</code> 改成 AND 也无法补救，因为查询分析后只有一个词项，AND 不会替你重新切词。</p>
+<p><code>_analyze</code> 的职责是分析提交的文本并返回 token。<a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-analyze">官方 Analyze API 说明</a> 它没有直接读取这些文档已经存下的词项，也不能证明真实搜索一定命中。判断必须同时对照 mapping/settings、固定数据、refresh 前提和实际 search。</p>
+<pre class="code-block" data-label="JSON · 字段的索引链，不自动模拟search_analyzer" data-source="projects/travel-search/search/f13/analyze/06-mismatch-field.json"><code>{
+  "field": "name.mismatch",
+  "text": "故宫"
+}</code></pre><pre class="code-block" data-label="JSON · 显式模拟keyword查询链" data-source="projects/travel-search/search/f13/analyze/07-query-keyword.json"><code>{
+  "analyzer": "keyword",
+  "text": "故宫"
+}</code></pre>
+<h2 id="recall">7. f13-c02：恢复候选之后，再找误召回</h2><figure class="fig d2-figure" id="fig-recall"><div class="d2-shell"><div class="d2-tools"><strong>02 · 失配、AND与短语</strong><a data-expand-d2 href="diagrams/f13/recall-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f13/recall-light.svg" data-d2-light="diagrams/f13/recall-light.svg" data-d2-dark="diagrams/f13/recall-dark.svg" alt="失配查询0份，对齐AND4份，短语3份，标点主题展仍命中"></div></div><figcaption>实线表示词项比较；其余卡片为独立查询对照，隐形边只排版，不代表ES依次执行三种查询。所有结果沿用BJ/open/CNY/0–10000分与完整固定语料。 静态图可展开；<a href="diagrams/f13/README.md">图源与生成记录</a>。</figcaption></figure>
+<pre class="code-block" data-label="Bash · projects/travel-search目录"><code>bash labs/f13/03-recall.sh</code></pre>
+<p>先预测每个名字会不会进入结果，再观察响应。下面是对齐后的<strong>完整主查询</strong>；失配版仅把match字段改为name.mismatch，短语版使用match_phrase/slop=0，英文反例在match内增加analyzer。完整对照文件均保留，不能在比较时悄悄改变硬条件。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f13-attractions/_search" data-source="projects/travel-search/search/f13/queries/02-aligned.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name": {
+              "query": "故宫",
+              "operator": "and"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre>
+<p>下表是<strong>ES9.4.0两轮实测</strong>，共同使用前述业务过滤与 ID 排序：</p>
+<table class="ktable">
+<thead>
+<tr>
+<th>查询</th>
+<th>实际命中ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name.mismatch</code>，<code>match 故宫</code>，AND</td>
+<td>空集</td>
+</tr>
+<tr>
+<td><code>name</code>，<code>match 故宫</code>，AND</td>
+<td>bj-mixed、bj-palace、bj-punctuation、bj-separated</td>
+</tr>
+<tr>
+<td><code>name</code>，<code>match_phrase 故宫</code>，<code>slop: 0</code></td>
+<td>bj-mixed、bj-palace、bj-punctuation</td>
+</tr>
+<tr>
+<td><code>name</code>，<code>match PALACE-MUSEUM</code>，AND，使用 <code>travel_text</code></td>
+<td>bj-dash、bj-mixed</td>
+</tr>
+<tr>
+<td>同一英文查询，局部覆盖 <code>analyzer: case_sensitive</code></td>
+<td>空集</td>
+</tr>
+<tr>
+<td><code>name.mismatch</code>，局部覆盖 <code>analyzer: travel_text</code>，<code>match 故宫</code>，AND</td>
+<td>与第二行相同的四份</td>
+</tr>
+</tbody>
+</table>
+<p>第二行中，AND 要求分析得到的“故”和“宫”都能匹配，不要求二者相邻。因此，“故城宫苑”也满足规则。按照本课“寻找故宫景点”的人为相关性判断，它属于误召回。</p>
+<p>第三行增加了词序和位置约束，“故城宫苑”被排除。但“故，宫主题展”的逗号在当前分析链中被丢弃，“故”和“宫”仍占相邻位置，所以 <code>slop: 0</code> 仍会命中。<strong>短语匹配分析后的词项位置，不等于原文逐字包含“故宫”。</strong> 这份主题展在本课标注下仍是误召回。</p>
+<p>英文对照则展示归一化的作用：<code>PALACE-MUSEUM</code> 经 <code>travel_text</code> 成为 <code>palace</code>、<code>museum</code>，能对应两份英文名称。覆盖为 <code>case_sensitive</code> 后，查询保留大写，无法对应索引侧的小写词项。</p>
+<p>最后一行只改变当前请求的查询分析方式，实际恢复四份结果。它没有修改 mapping、字段的默认搜索配置或历史 token；下一次不带覆盖参数的失配查询，仍为空。</p>
+<p>沈阳资料被城市排除，夜游资料被状态排除；“北京国家博物馆”缺少所需词项。不要把这些未命中都归因于分析链。</p>
+<details><summary>完整失配、短语与大小写反例DSL</summary><pre class="code-block" data-label="JSON · 失配查询" data-source="projects/travel-search/search/f13/queries/01-mismatch.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name.mismatch": {
+              "query": "故宫",
+              "operator": "and"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre><pre class="code-block" data-label="JSON · 短语查询" data-source="projects/travel-search/search/f13/queries/03-phrase.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match_phrase": {
+            "name": {
+              "query": "故宫",
+              "slop": 0
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre><pre class="code-block" data-label="JSON · 请求局部覆盖case_sensitive" data-source="projects/travel-search/search/f13/queries/07-case-sensitive.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name": {
+              "query": "PALACE-MUSEUM",
+              "operator": "and",
+              "analyzer": "case_sensitive"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre></details>
+<p>其余固定对照也实际执行：<a href="../projects/travel-search/search/f13/queries/04-raw-short.json">raw短值</a>0份，<a href="../projects/travel-search/search/f13/queries/05-raw-full.json">raw完整名称</a>仅bj-palace，<a href="../projects/travel-search/search/f13/queries/09-term-text.json">term文本完整故宫</a>0份，<a href="../projects/travel-search/search/f13/queries/10-punctuation-only.json">纯标点match</a>0份，<a href="../projects/travel-search/search/f13/queries/11-other-city.json">SY城市</a>仅sy-palace。term不会替你分析成单字，keyword整值不做子串查找；空分析结果默认没有候选，与连接失败分开。</p>
+<p><a href="../projects/travel-search/search/f13/queries/06-english.json">英文对齐</a>与<a href="../projects/travel-search/search/f13/queries/08-query-override.json">本次覆盖travel_text</a>完整给出。案例末GET bj-mixed仍为原输入“北京故宫博物院 Palace-MUSEUM（东门）”，小写token没有改写原文。不要通过更新字段配置来解释一次请求局部覆盖。</p>
+<h2 id="java">8. f13-c03：Java执行同一份分析与查询</h2><p>同一个Boot应用新增<code>POST /api/attractions/analysis-search</code>。输入q/cityCode/maxPriceFen/mode；服务端校验非空且长度为1至60个UTF-16单位的查询、BJ或SY、0至100000000整数分预算和四模式白名单。白名单由<a href="../projects/travel-search/backend/src/main/java/dev/esweb/travel/AnalysisInput.java">AnalysisInput的@Pattern输入校验</a>保证；下段展示校验后的模式分派。索引启动时固定；字段和analyzer由服务端选择，浏览器不能指定任意资源。</p>
+<pre class="code-block" data-label="JSON · Java输入，10000分=100元" data-source="projects/travel-search/search/f13/inputs/02-aligned.json"><code>{
+  "q": "故宫",
+  "cityCode": "BJ",
+  "maxPriceFen": 10000,
+  "mode": "aligned"
+}</code></pre>
+<pre class="code-block" data-label="Java · 模式白名单、同一硬条件和排序" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/AnalysisSearchService.java" data-lines="44-71"><code>    public String field(AnalysisInput input) {
+        return input.mode().equals("mismatch") ? "name.mismatch" : "name";
+    }
+    public String searchAnalyzer(AnalysisInput input) {
+        return switch (input.mode()) {
+            case "mismatch" -&gt; "keyword";
+            case "case-sensitive" -&gt; "case_sensitive";
+            default -&gt; "travel_text";
+        };
+    }
+
+    public SearchRequest request(AnalysisInput input) {
+        String field = field(input);
+        Query text = input.mode().equals("phrase")
+                ? Query.of(q -&gt; q.matchPhrase(m -&gt; m.field(field).query(input.q()).slop(0)))
+                : Query.of(q -&gt; q.match(m -&gt; {
+                    m.field(field).query(input.q()).operator(Operator.And);
+                    if (input.mode().equals("case-sensitive")) m.analyzer("case_sensitive");
+                    return m;
+                }));
+        return SearchRequest.of(s -&gt; s.index(index).size(20).trackTotalHits(t -&gt; t.enabled(true)).trackScores(true)
+                .query(q -&gt; q.bool(b -&gt; b.must(text)
+                        .filter(f -&gt; f.term(t -&gt; t.field("city_code").value(input.cityCode())))
+                        .filter(f -&gt; f.term(t -&gt; t.field("status").value("open")))
+                        .filter(f -&gt; f.term(t -&gt; t.field("currency").value("CNY")))
+                        .filter(f -&gt; f.range(r -&gt; r.number(n -&gt; n.field("ticket_price_fen")
+                                .gte(0.0).lte(input.maxPriceFen().doubleValue()))))))
+                .sort(srt -&gt; srt.field(f -&gt; f.field("attraction_id").order(SortOrder.Asc))));</code></pre>
+<p>普通match由字段mapping选择搜索链；phrase默认使用该字段的短语搜索链，本课没有另设search_quote_analyzer，所以仍为travel_text；case-sensitive才在请求内显式覆盖。sort只为稳定核对ID；track_scores保留评分但本课不据此评价搜索质量。</p>
+<pre class="code-block" data-label="Java · 两份真实分析、真实搜索、完整性校验和DTO" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/AnalysisSearchService.java" data-lines="74-96"><code>    public Result search(AnalysisInput input) throws IOException {
+        // Both analyze calls inspect the supplied q, not stored postings from an existing document.
+        var indexRequest = AnalyzeRequest.of(a -&gt; a.index(index).field(field(input)).text(input.q()));
+        var searchRequest = AnalyzeRequest.of(a -&gt; a.index(index).analyzer(searchAnalyzer(input)).text(input.q()));
+        var indexTokens = client.indices().analyze(indexRequest).tokens().stream().map(Token::from).toList();
+        var searchTokens = client.indices().analyze(searchRequest).tokens().stream().map(Token::from).toList();
+        var request = request(input);
+        var response = client.search(request, Attraction.class);
+        if (response.timedOut() || response.shards().failed().longValue() != 0 || response.hits().total() == null)
+            throw new AttractionSearchService.IncompleteSearchException();
+        var cards = response.hits().hits().stream().map(hit -&gt; {
+            var source = hit.source();
+            if (source == null || !hit.id().equals(source.attractionId()) || source.name() == null
+                    || source.ticketPriceFen() == null || source.cityCode() == null)
+                throw new AttractionSearchService.IncompleteSearchException();
+            List&lt;Object&gt; sort = hit.sort().stream().map(v -&gt; (Object) v._get()).toList();
+            return new Card(hit.id(), source.name(), source.cityCode(), source.ticketPriceFen(), hit.score(), sort);
+        }).toList();
+        return new Result(response.hits().total().value(), response.hits().total().relation().jsonValue(),
+                response.took(), input, field(input), searchAnalyzer(input),
+                json.readTree(JsonpUtils.toJsonString(indexRequest, client._jsonpMapper())),
+                json.readTree(JsonpUtils.toJsonString(searchRequest, client._jsonpMapper())),
+                indexTokens, searchTokens, json.readTree(JsonpUtils.toJsonString(request, client._jsonpMapper())), cards);</code></pre>
+<p>两份AnalyzeRequest都处理同一个输入q，分别选择field与本模式实际查询analyzer。返回的indexTokens应读作“输入经字段索引链的结果”，不能当作文档存量词项。两份分析用于诊断，正常业务搜索无需每次增加这两次调用。返回DSL直接序列化刚发送的同一个SearchRequest，不另造一份展示版。</p>
+<p>搜索超时、分片失败或缺少契约字段返回不完整错误，避免把部分结果展示成完整结果。本轮未制造执行超时或部分分片失败；输入400、索引缺失502与真实连接不可用503分别核对。服务返回通用消息，ES地址与凭据留在服务端。</p>
+<h2 id="observe">9. 在本机观察“0 → 4 → 3”的原因</h2><p>第二终端从仓库根目录开始，确认java -version为25；<a href="../projects/travel-search/backend/README.md">JDK与构建前提</a>沿用F07。应用JDK与ES bundled JVM分别记录。</p>
+<pre class="code-block" data-label="Bash · 第二终端，从仓库根目录开始"><code>cd projects/travel-search/backend
+./mvnw -B clean package
+java -jar target/travel-search-0.7.0.jar</code></pre>
+<pre class="code-block" data-label="Bash · 回第一终端，仍在projects/travel-search目录"><code>bash labs/f13/04-java.sh</code></pre>
+<p>打开本机<code>http://127.0.0.1:18080/f13.html</code>。默认故宫/BJ/100元/故意失配为0；同输入切对齐分析链为4，短语为3。两列token都来自Java实际Analyze响应；结果卡片核对名称、完整ID、城市与元，观察区另有整数分/请求/DTO。换PALACE-MUSEUM：对齐2份，不转小写反例0份；换SY城市1份，纯标点0份。改条件会清空旧结果，须重新提交；请求失败也不会保留旧卡片冒充新结果。</p>
+<p>真实路径是<strong>浏览器 → Java → ES</strong>；教程Pages不调用本机服务，读者无需开发前端。输入错误400、索引缺失502、ES连接不可用503分别显示；修复服务或点名重建本课索引，再提交可恢复。不要把“0份命中”当成故障。</p>
+<p>七组Java输入分别重放实际两份分析请求和搜索DSL到REST，逐项比较token/position/offset、ID/次序/价格/score/sort/total/relation。两轮每轮58条教学HTTP=准备6+分析12+召回12+Java及REST28；Java内部每次另有两次分析与一次搜索，不重复计入58。探活、清理、作者附加断言及浏览器重复另记。<a href="../projects/travel-search/review/f13/README.md">真实ES/Java两轮</a>与<a href="../docs/framework-review/20261023-f13-analysis/README.md">阅读/观察窗验收</a>分开记录。</p>
+<h2 id="repeat">10. 点名清理，再完整重做</h2><pre class="code-block" data-label="Bash · projects/travel-search目录"><code>bash labs/f13/cleanup.sh
+bash labs/f13/01-prepare.sh
+bash labs/f13/02-chain.sh
+bash labs/f13/03-recall.sh
+bash labs/f13/04-java.sh</code></pre>
+<p>只删除tut-f13-attractions，确认GET为404；重建后八项Bulk都应created，结果与第一次相同。不清空集群、不删卷、不碰前课索引。本课没有PIT或写入会话，同一个Java进程可保持运行；结束时关闭自己启动的Java。框架ES若原来停止，用原compose的stop es恢复，保留持久卷和源码篇节点。</p>
+<details><summary>固定版本依据与本轮验证边界</summary><p><a href="../docs/framework-review/20261023-f13-analysis/sources.json">四份官方v9.4.0源码哈希</a>与本机目标源码逐字节一致：<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/admin/indices/analyze/TransportAnalyzeAction.java">TransportAnalyzeAction.getAnalyzer/simpleAnalyze/detailAnalyze</a>区分field索引链与显式analyzer，<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/search/MatchQueryParser.java">MatchQueryParser.getAnalyzer</a>选择实际查询链，<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/TextParams.java">TextParams.Analyzers</a>处理有效回退与配置序列化。当前官方文档用于定位，版本结论由固定源码和本轮ES9.4.0实测支持。<a href="https://lucene.apache.org/core/10_4_0/core/org/apache/lucene/analysis/tokenattributes/OffsetAttribute.html">Lucene10.4.0 OffsetAttribute</a>说明原文范围与词面长度可以不同。</p>
+<p>当前根会话无法设置或核验xhigh；独立作者和内容审阅使用可配置CLI，实际运行元数据分别记录。初稿中的预测经本轮实测校正，不把提示词当运行配置。未比较插件/词典/同义词、未做中文查询集质量结业、评分调优、性能压测、多节点、TLS权限、数据库或CDC；本课只证明固定语料下的分析与查询因果。</p></details></section><section class="drills"><h2 id="drills">先独立解释，再展开答案</h2>
+<details><summary>练习一：name.mismatch 的 _analyze 已返回“故”“宫”，能否据此断定查询链没有问题？</summary><p>不能。<code>field</code> 分析观察的是索引链。应再显式使用 <code>keyword</code> 分析相同查询，核对它产生完整“故宫”，并对照 mapping 与实际失配搜索。</p></details>
+<details><summary>练习二：把失配查询的 operator 从 OR 改成 AND，为什么仍是空集？</summary><p><code>keyword</code> 将“故宫”保留为一个词项。AND 约束的是分析后的词项，并不负责拆字；它无法把完整词项变成索引侧的“故”和“宫”。</p></details>
+<details><summary>练习三：对齐后四份命中，为什么不能直接说中文搜索已经正确？</summary><p>“故城宫苑”和“故，宫主题展”满足当前查询规则，却不符合本课寻找故宫景点的标注。恢复了漏掉的候选，不代表误召回同时消失。</p></details>
+<details><summary>练习四：slop 为 0，为什么仍仍命中“故，宫主题展”？</summary><p>当前链丢弃逗号后，“故”和“宫”的词项位置仍相邻。短语查询检查分析后的顺序与位置，不能据此断言原文存在连续的“故宫”子串。</p></details>
+<details><summary>练习五：英文改成小写后，是否意味着 _source 也变成了小写？</summary><p>没有。lowercase 处理分析链中的 token，<code>_source</code> 保留输入原文。只指定 standard tokenizer 的对照应保留大写，由此定位归一化发生在哪一步。</p></details>
+<details><summary>练习六：局部覆盖 travel_text 恢复命中后，删除覆盖参数再查，会怎样？</summary><p>重新变为空集。局部参数没有修改 <code>name.mismatch</code> 的 <code>search_analyzer</code>，也没有重新处理历史文档；恢复作用仅限带覆盖的请求。</p></details>
+<details><summary>能力题：使用 aligned 搜“故宫”，只把预算上限降到 5000 分，预期剩谁？这能证明分析链更准确了吗？</summary><p>预期剩 bj-punctuation（1000 分）与 bj-separated（3000 分）。两份 6000 分资料被预算排除；分析链没有变化，剩余两份在本课标注下仍是误召回。结果变少本身不是质量改善的证据。</p></details>
+</section><section class="pitfalls"><h2 id="pitfalls">实际陷阱</h2>
+<div class="callout warn"><strong>把field分析当成查询分析</strong><p>name.mismatch的field分析采用索引链，故/宫正常不代表keyword查询链也相同。必须核对mapping、显式查询analyzer与实际search。</p></div>
+<div class="callout warn"><strong>用一次分析证明历史索引或中文质量</strong><p>_analyze只处理输入，不能直接读取存量词项或证明命中。对齐后仍有误召回；减少候选数也可能只是预算改变。</p></div>
+<div class="callout warn"><strong>把字符过滤当作改原文或网页安全处理</strong><p>html_strip只处理分析流，_source不因此改变；本例offset校正后可覆盖被移除的标签。网页显示另按纯文本处理，不能依赖分析器净化。</p></div>
+</section><section class="recap"><h2 id="recap">速记与下一课</h2><table class="ktable">
+<thead>
+<tr>
+<th>对象</th>
+<th>判断方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>analyzer</td>
+<td>零到多字符过滤 → 一个tokenizer → 零到多token过滤</td>
+</tr>
+<tr>
+<td>lowercase</td>
+<td>词项归一；不是standard tokenizer自带的小写动作</td>
+</tr>
+<tr>
+<td>position / offset</td>
+<td>词项位置 / 原输入UTF-16范围；两者不能互换</td>
+</tr>
+<tr>
+<td>AND / phrase</td>
+<td>都出现 / 位置约束；短语不保证字面连续子串</td>
+</tr>
+<tr>
+<td>field / 显式analyzer</td>
+<td>_analyze的索引链 / 指定链；先对照实际字段配置</td>
+</tr>
+<tr>
+<td>请求局部覆盖</td>
+<td>只作用于本次，不修改mapping与历史词项</td>
+</tr>
+<tr>
+<td>验证</td>
+<td>配置、输入分析与真实查询互相对照；留出误召回</td>
+</tr>
+</tbody>
+</table>
+<p><strong>先说清索引和查询各自产生了什么词项，再判断这些候选是否符合游客意图。</strong> 本课恢复了一次明确失配导致的漏召回，也留下“故城宫苑”和“故，宫主题展”的反例。下一课F14才在同一语料上比较分析方案与插件；新词、同义词与评分分别留到F15、F16、F18。</p></section><footer class="ch-footer"><button class="read-toggle" data-ch="f13" type="button">标记已读</button><div class="pager"><a class="btn" href="f12.html">← F12 更新与基础结业</a><a class="btn" href="index.html">框架篇目录</a><span>下一课：F14 中文分词方案比较（待编写） →</span></div></footer></article></main><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>

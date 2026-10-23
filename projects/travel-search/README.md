@@ -1,6 +1,6 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT及F12更新与基础结业已交付，F13–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业及F13分析链与中文召回已交付，F14–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
 
 当前入口是 [F03 首搜](../../framework/f03.html)、[F03 手工实验](labs/f03/README.md)与[两轮真实 ES 记录](review/f03/README.md)，无需前端、Java、数据库或 Kibana。[F04 字段设计与 Bulk](../../framework/f04.html)及其[本机步骤](labs/f04/README.md)已提供；[执行状态](review/f04/README.md)明确记录本环境启动阻塞，尚未两轮实测。F04 从新资源独立开始，不依赖 F03 索引。历史文件、资源与案例 ID 保留：
 
@@ -104,3 +104,14 @@ F10再学习排序切换；不把本课ID次序当推荐排序，不把桶计数
 ## F12 · 更新、可见性与基础结业
 
 新增[手工入口](labs/f12/README.md)，独立tut-f12-attractions/结业tut-f12-graduation，显式关闭自动refresh。新增/api/attractions/changes：实时GET、只准新建、带版本的完整替换/局部更新/删除、显式refresh和独立PIT分页；旧课接口保留。本机观察页http://127.0.0.1:18080/f12.html；结业用同jar的APP_PORT=18081/TRAVEL_F12_INDEX=tut-f12-graduation，浏览器不能指定任意索引。Pages只承载教程，不要求开发前端。先独立做新样本任务，再看参考解；脚本通过不等于独立结业。
+
+
+## F13 · 分析链与中文召回
+
+[F13正文](../../framework/f13.html)从故意失配的查询恢复召回，再检查单字AND/短语与标点的误匹配。独立tut-f13-attractions、八份固定资料，分析链与field/显式analyzer、token/position/offset、大小写/HTML/UTF-16分开解释；未安装插件，方案比较留到F14。
+
+- [三案例、58条教学HTTP、本机启动与点名重做](labs/f13/README.md)；[固定语料](data/f13/attractions.json)、[完整分析配置](search/f13/index.json)
+- 新接口`POST /api/attractions/analysis-search`，本机页`http://127.0.0.1:18080/f13.html`，四模式白名单；两列均分析输入q，不读取存量文档词项
+- [真实ES/Java两轮](review/f13/README.md)、[构建与依赖](review/f13/build/runtime.json)、[HTTP/真实观察窗/独立xhigh审阅与视觉](../../docs/framework-review/20261023-f13-analysis/README.md)
+
+失配0/对齐AND4/短语3/英文2/不转小写0、城市/预算/空流、400/502/真实ES停机503与同Java进程恢复分别核对。Pages仍仅承载教程，浏览器通过Java访问ES。

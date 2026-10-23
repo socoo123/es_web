@@ -80,3 +80,10 @@ DTO保存scope/scopeTotal、整体/逐桶docCountErrorUpperBound、sumOtherDocCo
 ## F12 · 更新、可见性与基础结业
 
 新增[手工入口](../labs/f12/README.md)，独立tut-f12-attractions/结业tut-f12-graduation，显式关闭自动refresh。新增/api/attractions/changes：实时GET、只准新建、带版本的完整替换/局部更新/删除、显式refresh和独立PIT分页；旧课接口保留。本机观察页http://127.0.0.1:18080/f12.html；结业用同jar的APP_PORT=18081/TRAVEL_F12_INDEX=tut-f12-graduation，浏览器不能指定任意索引。Pages只承载教程，不要求开发前端。先独立做新样本任务，再看参考解；脚本通过不等于独立结业。
+
+
+## F13 分析链观察
+
+`POST /api/attractions/analysis-search`接受q、cityCode(BJ/SY)、maxPriceFen(0–100000000整数分)、mode(mismatch/aligned/phrase/case-sensitive)。q非空，长度不超过60个UTF-16单位。索引默认tut-f13-attractions，启动前可用TRAVEL_F13_INDEX配置；浏览器不能指定任意索引、字段或analyzer。服务端模式分派与[完整配置](../search/f13/index.json)保持一致。
+
+本机`/f13.html`返回同一查询文本分别经过字段索引链与查询链的真实token/position/offset、两份实际分析请求、SearchRequest DSL与卡片。分析结果不代表读取存量词项；每次两次额外分析用于本课诊断，普通业务接口不用这样重复分析。[准备/运行/清理](../labs/f13/README.md) · [两轮及构建](../review/f13/README.md)。

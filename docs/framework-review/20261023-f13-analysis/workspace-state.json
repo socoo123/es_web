@@ -1,0 +1,34 @@
+{
+  "recorded_at": "2026-10-23T15:36:46.580581+00:00",
+  "baseline_containers": [
+    "es-framework-single-es-1 exited docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+    "es-study-secure running docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+    "es-study exited docker.elastic.co/elasticsearch/elasticsearch:9.4.0"
+  ],
+  "baseline_git_clean": true,
+  "resources": [
+    "tut-f13-attractions"
+  ],
+  "final_restore": "passed: target index deleted/GET404; Java closed; framework ES exited as baseline; secure/source nodes unchanged",
+  "before_cleanup": {
+    "tut-f13-attractions": {
+      "open_contexts": 0
+    }
+  },
+  "cleanup": {
+    "command": "bash projects/travel-search/labs/f13/cleanup.sh",
+    "status": "passed",
+    "stdout": "{\"at\": \"2026-10-23T15:58:49.170486+00:00\", \"target\": \"ES\", \"method\": \"DELETE\", \"path\": \"/tut-f13-attractions\", \"request\": null, \"status\": 200, \"response\": {\"acknowledged\": true}}\n{\"at\": \"2026-10-23T15:58:49.176984+00:00\", \"target\": \"ES\", \"method\": \"GET\", \"path\": \"/tut-f13-attractions\", \"request\": null, \"status\": 404, \"response\": {\"error\": {\"root_cause\": [{\"type\": \"index_not_found_exception\", \"reason\": \"no such index [tut-f13-attractions]\", \"resource.type\": \"index_or_alias\", \"resource.id\": \"tut-f13-attractions\", \"index_uuid\": \"_na_\", \"index\": \"tut-f13-attractions\"}], \"type\": \"index_not_found_exception\", \"reason\": \"no such index [tut-f13-attractions]\", \"resource.type\": \"index_or_alias\", \"resource.id\": \"tut-f13-attractions\", \"index_uuid\": \"_na_\", \"index\": \"tut-f13-attractions\"}, \"status\": 404}}\n",
+    "stderr": "",
+    "at": "2026-10-23T15:58:49.183845+00:00"
+  },
+  "final_containers": [
+    "es-framework-single-es-1 exited docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+    "es-study-secure running docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+    "es-study exited docker.elastic.co/elasticsearch/elasticsearch:9.4.0"
+  ],
+  "java_listener_check": [],
+  "java_shutdown": "initial and final process logs contain Graceful shutdown complete",
+  "volumes": "preserved; no volume removal",
+  "finished_at": "2026-10-23T16:01:28.134556+00:00"
+}
