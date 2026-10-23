@@ -1,0 +1,235 @@
+{
+  "recorded_at": "2026-10-23T16:21:21.231887+00:00",
+  "scope": "F14 only; fixed judgments and packaged analyzers; no quality/performance benchmark",
+  "rounds": [
+    {
+      "round": 1,
+      "status": "passed",
+      "teaching_calls": 108,
+      "phases": {
+        "baseline": 20,
+        "plugins": 64,
+        "java_rest": 24
+      },
+      "all_client_calls": 152,
+      "additional_calls": 44
+    },
+    {
+      "round": 2,
+      "status": "passed",
+      "teaching_calls": 108,
+      "phases": {
+        "baseline": 20,
+        "plugins": 64,
+        "java_rest": 24
+      },
+      "all_client_calls": 152,
+      "additional_calls": 44
+    }
+  ],
+  "transitions": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f14/compose.yaml",
+        "stop",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f14-es-1 Stopping \n Container es-framework-f14-es-1 Stopped \n"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f14/compose.yaml",
+        "up",
+        "-d",
+        "--force-recreate",
+        "--no-build",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f14-es-1 Recreate \n Container es-framework-f14-es-1 Recreated \n Container es-framework-f14-es-1 Starting \n Container es-framework-f14-es-1 Started \n"
+    },
+    {
+      "command": [
+        "bash",
+        "infra/f14/wait.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "F14 ES ready: http://127.0.0.1:19214\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f14/compose.yaml",
+        "-f",
+        "infra/f14/compose.plugins.yaml",
+        "stop",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f14-es-1 Stopping \n Container es-framework-f14-es-1 Stopped \n"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f14/compose.yaml",
+        "-f",
+        "infra/f14/compose.plugins.yaml",
+        "up",
+        "-d",
+        "--force-recreate",
+        "--no-build",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f14-es-1 Recreate \n Container es-framework-f14-es-1 Recreated \n Container es-framework-f14-es-1 Starting \n Container es-framework-f14-es-1 Started \n"
+    },
+    {
+      "command": [
+        "bash",
+        "infra/f14/wait.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "F14 ES ready: http://127.0.0.1:19214\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f14/compose.yaml",
+        "stop",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f14-es-1 Stopping \n Container es-framework-f14-es-1 Stopped \n"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f14/compose.yaml",
+        "up",
+        "-d",
+        "--force-recreate",
+        "--no-build",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f14-es-1 Recreate \n Container es-framework-f14-es-1 Recreated \n Container es-framework-f14-es-1 Starting \n Container es-framework-f14-es-1 Started \n"
+    },
+    {
+      "command": [
+        "bash",
+        "infra/f14/wait.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "F14 ES ready: http://127.0.0.1:19214\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f14/compose.yaml",
+        "-f",
+        "infra/f14/compose.plugins.yaml",
+        "stop",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f14-es-1 Stopping \n Container es-framework-f14-es-1 Stopped \n"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f14/compose.yaml",
+        "-f",
+        "infra/f14/compose.plugins.yaml",
+        "up",
+        "-d",
+        "--force-recreate",
+        "--no-build",
+        "es"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f14-es-1 Recreate \n Container es-framework-f14-es-1 Recreated \n Container es-framework-f14-es-1 Starting \n Container es-framework-f14-es-1 Started \n"
+    },
+    {
+      "command": [
+        "bash",
+        "infra/f14/wait.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "F14 ES ready: http://127.0.0.1:19214\n",
+      "stderr": ""
+    }
+  ],
+  "status": "passed",
+  "sha256": {
+    "projects/travel-search/data/f14/attractions.json": "6c0dbc97aa1ed39bc87d2a0f5c28f0f6275cfd5d360e22a0848cc297080023b0",
+    "projects/travel-search/data/f14/judgments.json": "c45b4c781ddd6cc61b57655c60c13c333815a33b88c5f218084a36c74a0bf3e7",
+    "projects/travel-search/data/f14/attractions.ndjson": "b1bd50d512800eb432024fabf7502ce4e0bf92f754a2ba6ee053874a9cd54115",
+    "projects/travel-search/search/f14/candidates.json": "834fbcb82084e201dc4edf9f9e00c4ab09748f83fe05523c7373db7cdb86414a",
+    "projects/travel-search/search/f14/expected.json": "7b47e3dde26bc4dbeb35f3ce4214b7f67a7782b9098da2d9ea90bdf7d02f0d27",
+    "projects/travel-search/search/f14/index-baseline.json": "5b330f3865b3632d16a398396c8561800e4d62a9e18c3757cf89b96020db5855",
+    "projects/travel-search/search/f14/analyze-bridge.json": "5882197c05b659e440e2bdb6135d18c7ed83c3af1ffd5b44becb55f43b8b575f",
+    "projects/travel-search/search/f14/input-icu.json": "bbb1cf439efcd4275c068e34bc7ee4e6378a11edc525eb1344491f25a2214e7c",
+    "projects/travel-search/search/f14/index-plugins.json": "0ed4fdd4fc978443aa21a8978f30a3b27723cb664e28c7f36eb9ce870ee9bf0f",
+    "projects/travel-search/search/f14/analyze-cafe.json": "1c4878bff8c62a93cebc2439fe1720799e09d9c5899795cab6c8a3b46dcb47f3",
+    "projects/travel-search/search/f14/smartcn/bridge.json": "5a1b2d0c20465b4b5ef254d2dddc00ce51c3f649117d3ee6a715a52d7ec35c65",
+    "projects/travel-search/search/f14/smartcn/cafe.json": "7828cb03e03a28ced95c860129a6e31a81a7a96afa7cd2660dbcbaa2f54ddc84",
+    "projects/travel-search/search/f14/smartcn/palace.json": "e41dc079aa05d0e1eed422af16918c3e776a78cce97aef699a2c016e8952ddd4",
+    "projects/travel-search/search/f14/smartcn/river.json": "08d5ce294da519cb13c3063fd12f37a5440cb0636913a0cbe07dc5856215f843",
+    "projects/travel-search/search/f14/ik-max/bridge.json": "01f3b93f4b1e86b686acb55ac454de29fbdc53c1bb5ac3e0a3a4e40cdd1f46b0",
+    "projects/travel-search/search/f14/ik-max/cafe.json": "d7ed4be262fc5a3a997d8d77b095d0d2d5db34d863592a0b32f2a23b05f7ddd6",
+    "projects/travel-search/search/f14/ik-max/palace.json": "1c08007618b6614fd741fdded08ee7c7d8cf76290036f1ace52c49aa3bb1d1a2",
+    "projects/travel-search/search/f14/ik-max/river.json": "157d90f0063dbd0b7d7f835e6e8d0fb14d6adcb65edc66da303b473aec595eb8",
+    "projects/travel-search/search/f14/standard/bridge.json": "4600016d2334ddf375550415c9128cff101f0cb5ad1cb7747298fe35ad616791",
+    "projects/travel-search/search/f14/standard/cafe.json": "a484bbef0322d4536b9558c1afef205a51ba3f9f4d758ae1f37e3ca8da6ec0a2",
+    "projects/travel-search/search/f14/standard/palace.json": "237d037d230f12271e13d40aa0e13da0cd3df552ec4dfa063363a84bb0019dce",
+    "projects/travel-search/search/f14/standard/river.json": "6aa7d38fb004165c39a324da4513cda15b6b4201db84efa3984316d163c357f8",
+    "projects/travel-search/search/f14/ik-smart/bridge.json": "4a1abe3e3c2436a56aac171204ccbfce14f2b3d978bce2fe4653448cd108a930",
+    "projects/travel-search/search/f14/ik-smart/cafe.json": "4328a7bf4396ef779e772149996920517c6b732ed36f00410da326b22d4b76ce",
+    "projects/travel-search/search/f14/ik-smart/palace.json": "b40e260eaaaee7a2ab62a68fe9490a53f137127dfeccdfdc1d7b880a5f2e3dac",
+    "projects/travel-search/search/f14/ik-smart/river.json": "b6624b8804d9a7321b3e4dbb68b43f363e932a871fecf864752f9e5f84966b1b",
+    "projects/travel-search/search/f14/icu/bridge.json": "a10e88832d220f83c20cd258e254d0309b3ebeb1fa9708554cf3aa2c092d2468",
+    "projects/travel-search/search/f14/icu/cafe.json": "60fdbbfb047c68c5e202e1e21a7fb4306b3979fa2b4634686be861df82e4da15",
+    "projects/travel-search/search/f14/icu/palace.json": "4d574c23003fa6f341f2c6166d420b5443059944b8ec1dd6c318fc2238d4a644",
+    "projects/travel-search/search/f14/icu/river.json": "6c594ffd5f2ac027841682505a20f4b99e45fabfff950ddafd0e6031a3a6354c",
+    "projects/travel-search/labs/f14/02-baseline.sh": "92718de2b716b5d6faf0b68fe860255f5f9931c49ac5fae91fc4e9214f532f0e",
+    "projects/travel-search/labs/f14/03-prepare-plugins.sh": "8fe59f9e4f16f9959334772302f432f55e9f83449acbb19ecb824a7cf962df5f",
+    "projects/travel-search/labs/f14/05-java.sh": "0c2f1edef18271e3fb75dd0855749cee61ba955c279d926b7f0a28a88821c84d",
+    "projects/travel-search/labs/f14/04-compare.sh": "d5699f7c5e7b9cd7680e87b5297165031d120cb87bbd8bd41b1c86a4838967fb",
+    "projects/travel-search/labs/f14/cleanup.sh": "8a71099a3369f2e872677a6c4383bce539e6add07eb7ea3da55b62b0b4038ff3",
+    "projects/travel-search/labs/f14/lab.py": "b9c52ce0f00d42a8e1751683cca140903a6197a6851169acd93a431b48009ba8",
+    "projects/travel-search/labs/f14/01-prepare-baseline.sh": "8414d4471f21d32fccbc7c3e59ca08b0e7d4dd10085792b2e566d4ed70e0fefc",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/AnalyzerInput.java": "cf4669c439eff5e2be9f685913d43e417cc3914594002fac48de09a3785ac8af",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/AnalyzerCompareService.java": "765056ebc9d6d88b3b772fd3d7e41a48815021fe1525372041701d4fc7e584a8",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/AnalyzerController.java": "60c091f40dcbf0e67fc8e02e2782c242cd746cc3320519efd3948e19cec14626"
+  }
+}

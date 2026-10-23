@@ -1,0 +1,110 @@
+{
+  "recorded_at": "2026-10-23T16:31:17.038448+00:00",
+  "initial_observed": {
+    "f14": "no F14 containers at first inventory",
+    "es-framework-single-es-1": "exited",
+    "es-study-secure": "running/healthy",
+    "es-study": "exited",
+    "app_18080": "free before this task started Java"
+  },
+  "commands": [
+    {
+      "command": [
+        "ps",
+        "-p",
+        "91325",
+        "-o",
+        "command="
+      ],
+      "exit_code": 0,
+      "stdout": "/tmp/es-f07-tooling/jdk-25.0.4.1+1/Contents/Home/bin/java -jar projects/travel-search/backend/target/travel-search-0.7.0.jar\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/infra/f14/compose.yaml",
+        "-f",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/infra/f14/compose.plugins.yaml",
+        "down"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f14-es-1 Stopping \n Container es-framework-f14-es-1 Stopped \n Container es-framework-f14-es-1 Removing \n Container es-framework-f14-es-1 Removed \n Network es-framework-f14_default Removing \n Network es-framework-f14_default Removed \n"
+    },
+    {
+      "command": [
+        "docker",
+        "inspect",
+        "8e29228ce8dd"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"id\": \"8e29228ce8dd4a9ab260fe2f9bfc94062dbd6f7369eb6975508ffb5d0cbcf1e2\", \"name\": \"/adoring_dubinsky\", \"image_id\": \"sha256:4f11d36ce095652a69a2ebc38f5cf981813692e6cde329c9e6efedda6e1ffacd\", \"running\": false, \"health\": null}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "rm",
+        "8e29228ce8dd"
+      ],
+      "exit_code": 0,
+      "stdout": "8e29228ce8dd\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "ps",
+        "-a",
+        "--format",
+        "{{.Names}}\t{{.Status}}\t{{.Ports}}"
+      ],
+      "exit_code": 0,
+      "stdout": "es-framework-single-es-1\tExited (143) 32 minutes ago\t\nes-study-secure\tUp 10 days (healthy)\t9300/tcp, 127.0.0.1:9201->9200/tcp\nes-study\tExited (137) 9 days ago\t\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "inspect",
+        "es-framework-single-es-1"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"id\": \"e7f16a59f651ae11cdc827fae90f6d057c132627ac3ccfb1fcc28a5c41c96732\", \"name\": \"/es-framework-single-es-1\", \"image_id\": \"sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\", \"running\": false, \"health\": null}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "inspect",
+        "es-study-secure"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"id\": \"7123a12e4dda100566b6f4b9d4eb567640de1293cdfb76c8feac14b73c31306b\", \"name\": \"/es-study-secure\", \"image_id\": \"sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\", \"running\": true, \"health\": \"healthy\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "inspect",
+        "es-study"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"id\": \"de11d253f59a3a9f10b64165a0cde100ccad3d2d01ef6839802808f892de5928\", \"name\": \"/es-study\", \"image_id\": \"sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\", \"running\": false, \"health\": \"unhealthy\"}\n",
+      "stderr": ""
+    }
+  ],
+  "status": "restored",
+  "final_index": "GET404 after named deletion; open_contexts0 before deletion",
+  "java": "task-owned PID91325 terminated normally with SIGTERM; no replacement Java started",
+  "final_containers": [
+    "es-framework-single-es-1\tExited (143) 32 minutes ago\t",
+    "es-study-secure\tUp 10 days (healthy)\t9300/tcp, 127.0.0.1:9201->9200/tcp",
+    "es-study\tExited (137) 9 days ago\t"
+  ],
+  "retained": "F14 empty named volume and local plugin image/build cache retained; prior volumes, source nodes and stopped F07 node preserved",
+  "record_sanitization": "Docker inspect output reduced to identity/image/runtime-state fields only; environment/config and unrelated metadata omitted."
+}

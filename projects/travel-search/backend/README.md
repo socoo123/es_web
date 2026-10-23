@@ -87,3 +87,14 @@ DTO保存scope/scopeTotal、整体/逐桶docCountErrorUpperBound、sumOtherDocCo
 `POST /api/attractions/analysis-search`接受q、cityCode(BJ/SY)、maxPriceFen(0–100000000整数分)、mode(mismatch/aligned/phrase/case-sensitive)。q非空，长度不超过60个UTF-16单位。索引默认tut-f13-attractions，启动前可用TRAVEL_F13_INDEX配置；浏览器不能指定任意索引、字段或analyzer。服务端模式分派与[完整配置](../search/f13/index.json)保持一致。
 
 本机`/f13.html`返回同一查询文本分别经过字段索引链与查询链的真实token/position/offset、两份实际分析请求、SearchRequest DSL与卡片。分析结果不代表读取存量词项；每次两次额外分析用于本课诊断，普通业务接口不用这样重复分析。[准备/运行/清理](../labs/f13/README.md) · [两轮及构建](../review/f13/README.md)。
+
+## F14 中文分析方案观察窗
+
+本课另用独立ES端口19214，与前课19200分开。在启动Java前运行[F14基线与插件准备](../labs/f14/README.md)，然后从backend目录：
+
+```bash
+./mvnw -B clean package
+ES_URL=http://127.0.0.1:19214 java -jar target/travel-search-0.7.0.jar
+```
+
+打开`http://127.0.0.1:18080/f14.html`，API`POST /api/attractions/analyzer-search`接受q/cityCode/maxPriceFen/candidate。五种候选由服务端映射到固定字段/analyzer，默认索引tut-f14-attractions（启动前TRAVEL_F14_INDEX可配置）；两列分析当前查询与固定样本，不读取存量词项。输入/插件不可用/缺索引/连接故障分别400/502/502/503，错误清空旧卡片。标准基线无需插件，其他模式需完整准备。构建/两轮实连见[review/f14](../review/f14/README.md)，浏览器不直连ES。

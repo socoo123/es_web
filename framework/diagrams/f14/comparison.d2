@@ -1,0 +1,8 @@
+direction: down
+fixed: "先固定判断标准\n12份相同资料 · 4个查询与人工相关ID\n城市 / open / CNY / 0–10000分"
+representations: "只换完整分析方案\nstandard · smartcn · icu_analyzer\nik_smart · ik_max_word\n每种方案同时用于索引与查询"
+requests: "同一查询语义\nmatch + operator: and\n按业务ID升序，核对完整候选"
+judgment: "对照相关ID，而非只看token数量\n应有而没有：漏召回\n命中但不相关：误召回"
+fixed -> representations: "各自建立字段表达"
+representations -> requests: "分别执行，互不串联"
+requests -> judgment: "保存token与命中ID"

@@ -1,0 +1,49 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name.smartcn": {
+              "query": "故宫",
+              "operator": "and"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}

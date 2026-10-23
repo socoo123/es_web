@@ -2,7 +2,7 @@
 
 适用于 F01–F45，修订日期：2026-10-14。目标是**先理解 Elasticsearch 解决什么问题，再通过同一个旅游网站的搜索逐步学会使用、解释和运行 ES，最后进入源码篇**。课程范围见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)，案例见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)。Pages 承载教程、截图、示意和图解；课程将提供的搜索展示壳与实验工程由读者本机启动，正文不安排门户开发。
 
-[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)、[F08 多字段与高亮](framework/f08.html)、[F09 聚合与筛选计数](framework/f09.html)、[F10 显式排序](framework/f10.html)、[F11 稳定分页与PIT](framework/f11.html)、[F12 更新与基础结业](framework/f12.html)与[F13 分析链与中文召回](framework/f13.html)已交付，F14–F45待按本路线实施。正文交付、图源生成、HTTP 阅读与真实运行分别记录，实际通过范围以 [STATUS.md](STATUS.md) 为准。展示壳、插件和 CDC 链路的可运行状态只以实际交付与执行记录为准。
+[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)、[F08 多字段与高亮](framework/f08.html)、[F09 聚合与筛选计数](framework/f09.html)、[F10 显式排序](framework/f10.html)、[F11 稳定分页与PIT](framework/f11.html)、[F12 更新与基础结业](framework/f12.html)、[F13 分析链与中文召回](framework/f13.html)与[F14 中文分词方案比较](framework/f14.html)已交付，F15–F45待按本路线实施。正文交付、图源生成、HTTP 阅读与真实运行分别记录，实际通过范围以 [STATUS.md](STATUS.md) 为准。展示壳、插件和 CDC 链路的可运行状态只以实际交付与执行记录为准。
 
 ## 1. 正文必须讲清 ES，而不只是提供实验工具
 

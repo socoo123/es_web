@@ -1,0 +1,54 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "standard",
+        "search_analyzer": "standard",
+        "fields": {
+          "smartcn": {
+            "type": "text",
+            "analyzer": "smartcn",
+            "search_analyzer": "smartcn"
+          },
+          "icu": {
+            "type": "text",
+            "analyzer": "icu_analyzer",
+            "search_analyzer": "icu_analyzer"
+          },
+          "ik_smart": {
+            "type": "text",
+            "analyzer": "ik_smart",
+            "search_analyzer": "ik_smart"
+          },
+          "ik_max": {
+            "type": "text",
+            "analyzer": "ik_max_word",
+            "search_analyzer": "ik_max_word"
+          }
+        }
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "ticket_price_fen": {
+        "type": "integer"
+      }
+    }
+  }
+}

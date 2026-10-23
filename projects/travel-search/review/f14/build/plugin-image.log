@@ -1,0 +1,50 @@
+time="2026-10-24T00:12:35+08:00" level=warning msg="Docker Compose requires buildx plugin to be installed"
+ Image es-web-f14:9.4.0 Building
+ Image es-web-f14:9.4.0 Building
+Sending build context to Docker daemon  524.7kB
+Sending build context to Docker daemon  7.343MB
+Sending build context to Docker daemon  14.16MB
+Sending build context to Docker daemon  20.46MB
+Sending build context to Docker daemon     22MB
+
+Step 1/4 : FROM docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+ ---> 754c3d8ca6f7
+Step 2/4 : COPY --chown=elasticsearch:root .artifacts/*.zip /tmp/f14-plugins/
+ ---> aa147d7e3c53
+Step 3/4 : RUN bin/elasticsearch-plugin install --batch file:///tmp/f14-plugins/analysis-smartcn.zip  && bin/elasticsearch-plugin install --batch file:///tmp/f14-plugins/analysis-icu.zip  && bin/elasticsearch-plugin install --batch file:///tmp/f14-plugins/analysis-ik.zip  && rm -rf /tmp/f14-plugins
+ ---> Running in d15a1d2158f2
+-> Installing file:///tmp/f14-plugins/analysis-smartcn.zip
+-> Downloading file:///tmp/f14-plugins/analysis-smartcn.zip
+WARNING: plugin has a policy file with no additional entitlements. Double check this is intentional.
+-> Installed analysis-smartcn
+-> Please restart Elasticsearch to activate any plugins installed
+-> Installing file:///tmp/f14-plugins/analysis-icu.zip
+-> Downloading file:///tmp/f14-plugins/analysis-icu.zip
+WARNING: plugin has a policy file with no additional entitlements. Double check this is intentional.
+-> Installed analysis-icu
+-> Please restart Elasticsearch to activate any plugins installed
+-> Installing file:///tmp/f14-plugins/analysis-ik.zip
+-> Downloading file:///tmp/f14-plugins/analysis-ik.zip
+WARNING: this plugin contains a legacy Security Policy file. Starting with version 8.18, Entitlements replace SecurityManager as the security mechanism. Plugins must migrate their policy files to the new format. For more information, please refer to https://www.elastic.co/guide/en/elasticsearch/plugins/current/creating-classic-plugins.html
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@     WARNING: plugin requires additional entitlements    @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+* outbound_network
+See https://www.elastic.co/guide/en/elasticsearch/plugins/current/creating-classic-plugins.html
+for descriptions of what these entitlements allow and the associated risks.
+-> Installed analysis-ik
+-> Please restart Elasticsearch to activate any plugins installed
+ ---> Removed intermediate container d15a1d2158f2
+ ---> 16bb70235f88
+Step 4/4 : LABEL com.docker.compose.image.builder=classic
+ ---> Running in 7f4f36b9cf81
+ ---> Removed intermediate container 7f4f36b9cf81
+ ---> 563a323d9bde
+Successfully built 563a323d9bde
+Successfully tagged es-web-f14:9.4.0
+ Image es-web-f14:9.4.0 Built
+ Image es-web-f14:9.4.0 Built
+ Container es-framework-f14-es-1 Recreate
+ Container es-framework-f14-es-1 Recreated
+ Container es-framework-f14-es-1 Starting
+ Container es-framework-f14-es-1 Started
