@@ -104,3 +104,7 @@ ES_URL=http://127.0.0.1:19214 java -jar target/travel-search-0.7.0.jar
 按[本机入口](../labs/f16/README.md)准备独立19216节点、ICU9.4.0、初始规则与11份资料。沿用Boot4.0.8/JDK25/官方客户端9.4.8，启动前设置ES_URL=http://127.0.0.1:19216；打开http://127.0.0.1:18080/f16.html。
 
 POST /api/attractions/synonym-search接受q/cityCode(BJ|SY)/maxPriceFen整数分0–100000000/mode(plain|aliases|graph|phrase|loose|late)。服务端固定本课索引、字段和分析器，双分析都处理当前输入，返回position/positionLength/offset与完整链，不冒充历史词项。完整查询与DTO逐份REST重放；条件/错误清空旧结果，400/502/503与正常0结果分开。[两轮与构建](../review/f16/README.md)。
+
+## F18 评分观察
+
+[本机实验](../labs/f18/README.md)使用ES_URL=http://127.0.0.1:19218。新增POST /api/attractions/score-search与/f18.html，三模式共用完整query执行搜索与_explain；详情见[正文](../../../framework/f18.html)。继承Boot4.0.8/JDK25/官方客户端9.4.8，原接口保留。观察窗只读，不写入追加资料；固定ID/字段/索引，解释数值来自ES。

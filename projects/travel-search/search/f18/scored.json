@@ -1,0 +1,17 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "explain": true,
+  "query": {
+    "bool": {
+      "must": [{"match": {"description": {"query": "西湖", "operator": "or"}}}],
+      "filter": [
+        {"term": {"status": {"value": "open"}}},
+        {"term": {"currency": {"value": "CNY"}}},
+        {"range": {"ticket_price_fen": {"gte": 0, "lte": 10000}}},
+        {"term": {"city_code": {"value": "HZ"}}}
+      ]
+    }
+  },
+  "sort": [{"_score": "desc"}, {"attraction_id": "asc"}]
+}
