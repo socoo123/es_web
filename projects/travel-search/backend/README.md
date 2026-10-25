@@ -108,3 +108,9 @@ POST /api/attractions/synonym-search接受q/cityCode(BJ|SY)/maxPriceFen整数分
 ## F18 评分观察
 
 [本机实验](../labs/f18/README.md)使用ES_URL=http://127.0.0.1:19218。新增POST /api/attractions/score-search与/f18.html，三模式共用完整query执行搜索与_explain；详情见[正文](../../../framework/f18.html)。继承Boot4.0.8/JDK25/官方客户端9.4.8，原接口保留。观察窗只读，不写入追加资料；固定ID/字段/索引，解释数值来自ES。
+
+## F19 增量
+
+[手工入口](../labs/f19/README.md)准备独立19219/tut-f19-attractions，Java启动时ES_URL指向该节点。新增POST /api/attractions/weight-search与/f19.html，六模式sum/best/tie/tuned/optional/required；每字段AND，名称match权重1–50整数，tuned额外短语boost4与整名constant_score8。q保留原值，未自动去空格。固定索引/字段/解释ID，不提供任意DSL代理。
+
+结果携带实际搜索/解释请求、客户端序列化响应、完整卡片和解释树；两个ES请求非并发原子视图。400/502/503沿用错误映射，字段不完整502；真实超时/分片部分失败仅代码防护。整名目标提升与夜游摄影展退步同列，未认证全站质量。[两轮实连](../review/f19/README.md)。

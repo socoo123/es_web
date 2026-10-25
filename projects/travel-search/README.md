@@ -1,6 +1,6 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业、F13分析链与中文召回、F14中文分词方案比较、F15专有词与词典、F16别名/同义词与繁简及F17提示/拼音与容错已交付，F18已交付BM25与解释评分，F19–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业、F13分析链与中文召回、F14中文分词方案比较、F15专有词与词典、F16别名/同义词与繁简及F17提示/拼音与容错已交付，F18已交付BM25与解释评分，F19已交付名称/短语与多字段权重，F20–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
 
 当前入口是 [F03 首搜](../../framework/f03.html)、[F03 手工实验](labs/f03/README.md)与[两轮真实 ES 记录](review/f03/README.md)，无需前端、Java、数据库或 Kibana。[F04 字段设计与 Bulk](../../framework/f04.html)及其[本机步骤](labs/f04/README.md)已提供；[执行状态](review/f04/README.md)明确记录本环境启动阻塞，尚未两轮实测。F04 从新资源独立开始，不依赖 F03 索引。历史文件、资源与案例 ID 保留：
 
@@ -155,3 +155,11 @@ F10再学习排序切换；不把本课ID次序当推荐排序，不把桶计数
 - [本机三案例/58请求与重做](labs/f18/README.md)、[资料清单](data/f18/manifest.json)、[完整配置](search/f18/index.json)
 - POST /api/attractions/score-search，观察窗http://127.0.0.1:18080/f18.html；Java的ES_URL指向19218，浏览器不直连ES
 - [真实两轮](review/f18/README.md)、[内容/图解/阅读/观察窗](../../docs/framework-review/20261025-f18-bm25/README.md)；未测全站质量/性能、多主分片/DFS
+
+## F19 · 名称、短语与多字段权重
+
+[F19正文](../../framework/f19.html)区分整名相等/名称短语/散词，比较加和、dis_max、轻补、奖励与should门槛；保留夜游摄影展被误抬的反例。独立19219/tut-f19-attractions，12份虚构资料，无插件。
+
+- [本机三案例/92教学请求与重做](labs/f19/README.md)、[固定资料与意图](data/f19/judgments.json)、[完整配置](search/f19/index.json)
+- POST /api/attractions/weight-search，观察窗http://127.0.0.1:18080/f19.html；启动Java时ES_URL指向19219
+- [真实两轮](review/f19/README.md)、[内容/图解/阅读/观察窗](../../docs/framework-review/20261025-f19-weights/README.md)；全站质量/性能/多分片/生产安全未测

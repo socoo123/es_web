@@ -1,0 +1,18 @@
+name: es-framework-f19
+services:
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    environment:
+      cluster.name: travel-f19-lab
+      node.name: travel-f19-01
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:19219:9200"
+    mem_limit: 1g
+    volumes:
+      - f19-data:/usr/share/elasticsearch/data
+volumes:
+  f19-data:

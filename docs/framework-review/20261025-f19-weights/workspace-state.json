@@ -1,0 +1,63 @@
+{
+  "at": "2026-10-25T06:28:11.973381+00:00",
+  "scope": "Remove only F19 index/container/network and Java process launched in this turn; preserve other resources",
+  "before": {
+    "command": [
+      "docker",
+      "ps",
+      "-a",
+      "--format",
+      "{{.Names}} {{.Status}} {{.Ports}}"
+    ],
+    "returncode": 0,
+    "stdout": "es-framework-f19-es-1 Up 5 minutes 9300/tcp, 127.0.0.1:19219->9200/tcp\nes-framework-single-es-1 Exited (143) 38 hours ago \nes-study-secure Up 11 days (healthy) 9300/tcp, 127.0.0.1:9201->9200/tcp\nes-study Exited (137) 11 days ago \n",
+    "stderr": ""
+  },
+  "java": {
+    "pid": 44943,
+    "command": "/private/tmp/es-f07-tooling/jdk-25.0.4.1+1/Contents/Home/bin/java -jar target/travel-search-0.7.0.jar",
+    "stop": "SIGTERM",
+    "port_closed": true
+  },
+  "open_contexts": 0,
+  "compose_down": {
+    "command": [
+      "docker",
+      "compose",
+      "-f",
+      "/Users/zy/ai_web_page/es_web/projects/travel-search/infra/f19/compose.yaml",
+      "down"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": " Container es-framework-f19-es-1 Stopping \n Container es-framework-f19-es-1 Stopped \n Container es-framework-f19-es-1 Removing \n Container es-framework-f19-es-1 Removed \n Network es-framework-f19_default Removing \n Network es-framework-f19_default Removed \n"
+  },
+  "after": {
+    "command": [
+      "docker",
+      "ps",
+      "-a",
+      "--format",
+      "{{.Names}} {{.Status}} {{.Ports}}"
+    ],
+    "returncode": 0,
+    "stdout": "es-framework-single-es-1 Exited (143) 38 hours ago \nes-study-secure Up 11 days (healthy) 9300/tcp, 127.0.0.1:9201->9200/tcp\nes-study Exited (137) 11 days ago \n",
+    "stderr": ""
+  },
+  "volume_retained": {
+    "command": [
+      "docker",
+      "volume",
+      "inspect",
+      "es-framework-f19_f19-data",
+      "--format",
+      "{{.Name}}"
+    ],
+    "returncode": 0,
+    "stdout": "es-framework-f19_f19-data\n",
+    "stderr": ""
+  },
+  "other_resources": "es-study-secure still running; es-study and es-framework-single remain exited; none were started/stopped/removed by F19 work",
+  "retained": "Local image, caches and volume retained; only this lesson index deleted, container/network removed; no down -v",
+  "status": "passed"
+}
