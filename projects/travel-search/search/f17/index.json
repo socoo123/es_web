@@ -1,0 +1,74 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1",
+    "analysis": {
+      "normalizer": {
+        "latin_lower": {
+          "type": "custom",
+          "filter": [
+            "lowercase"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "standard",
+        "fields": {
+          "whole": {
+            "type": "keyword",
+            "normalizer": "latin_lower"
+          }
+        }
+      },
+      "name_sayt": {
+        "type": "search_as_you_type",
+        "analyzer": "standard",
+        "max_shingle_size": 3
+      },
+      "pinyin_full": {
+        "type": "keyword",
+        "normalizer": "latin_lower"
+      },
+      "pinyin_initials": {
+        "type": "keyword",
+        "normalizer": "latin_lower"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "ticket_price_fen": {
+        "type": "integer"
+      },
+      "suggest": {
+        "type": "completion",
+        "analyzer": "standard",
+        "search_analyzer": "standard",
+        "preserve_separators": true,
+        "preserve_position_increments": true,
+        "max_input_length": 50,
+        "contexts": [
+          {
+            "name": "scope",
+            "type": "category"
+          }
+        ]
+      }
+    }
+  }
+}

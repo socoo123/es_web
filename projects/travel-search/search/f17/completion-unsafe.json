@@ -1,0 +1,41 @@
+{
+  "size": 0,
+  "suggest": {
+    "places": {
+      "prefix": "故宫",
+      "completion": {
+        "field": "suggest",
+        "size": 10,
+        "skip_duplicates": false,
+        "contexts": {
+          "scope": [
+            "BJ|open",
+            "BJ|closed",
+            "SY|open"
+          ]
+        }
+      }
+    }
+  },
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        }
+      ]
+    }
+  }
+}

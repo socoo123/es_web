@@ -1,0 +1,62 @@
+{
+  "at": "2026-10-25T05:29:32.677314+00:00",
+  "scope": "F17-only resource restore; other lessons untouched",
+  "status": "passed",
+  "index": {
+    "name": "tut-f17-attractions",
+    "delete": "acknowledged",
+    "subsequent_get": 404,
+    "open_contexts_before_delete": 0
+  },
+  "java": {
+    "pid": 22746,
+    "command": "/tmp/es-f07-tooling/jdk-25.0.4.1+1/Contents/Home/bin/java -jar projects/travel-search/backend/target/travel-search-0.7.0.jar",
+    "signal": "SIGTERM",
+    "stopped": true,
+    "final_log_sha256": "78ac57f34ee0d9b28e2e7d2a455186113dfcbcbc5e1e038fc83cf55c8fc199ed"
+  },
+  "compose_down": {
+    "command": [
+      "docker",
+      "compose",
+      "-f",
+      "/Users/zy/ai_web_page/es_web/projects/travel-search/infra/f17/compose.yaml",
+      "down"
+    ],
+    "stdout": "",
+    "stderr": "Container es-framework-f17-es-1 Stopping \n Container es-framework-f17-es-1 Stopped \n Container es-framework-f17-es-1 Removing \n Container es-framework-f17-es-1 Removed \n Network es-framework-f17_default Removing \n Network es-framework-f17_default Removed",
+    "exit_code": 0
+  },
+  "remaining_containers": {
+    "command": [
+      "docker",
+      "ps",
+      "-a",
+      "--format",
+      "{{.Names}} {{.Status}} {{.Ports}}"
+    ],
+    "stdout": "es-framework-single-es-1 Exited (143) 38 hours ago \nes-study-secure Up 11 days (healthy) 9300/tcp, 127.0.0.1:9201->9200/tcp\nes-study Exited (137) 11 days ago",
+    "stderr": "",
+    "exit_code": 0
+  },
+  "volume": {
+    "command": [
+      "docker",
+      "volume",
+      "inspect",
+      "--format",
+      "{{.Name}}",
+      "es-framework-f17_f17-data"
+    ],
+    "stdout": "es-framework-f17_f17-data",
+    "stderr": "",
+    "exit_code": 0
+  },
+  "preserved": [
+    "empty F17 volume; no lesson index remains",
+    "official ES image and tooling caches",
+    "es-framework-single-es-1 remains stopped",
+    "es-study remains stopped",
+    "es-study-secure remains running"
+  ]
+}
