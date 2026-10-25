@@ -6,7 +6,7 @@
 
 F01–F45 分为 **8 个长度不同的阶段**，章节与案例由要解决的问题决定。案例设计见 [FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)，写作要求见 [FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)，进度以 [STATUS.md](STATUS.md) 为准。
 
-**[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)、[F08 多字段与高亮](framework/f08.html)、[F09 聚合与筛选计数](framework/f09.html)、[F10 显式排序](framework/f10.html)、[F11 稳定分页与PIT](framework/f11.html)、[F12 更新与基础结业](framework/f12.html)、[F13 分析链与中文召回](framework/f13.html)、[F14 中文分词方案比较](framework/f14.html)与[F15 专有词与词典](framework/f15.html)已交付，F16–F45待按本路线实施。**导学介绍 ES 的用途、职责与完整学习方式；实际验收范围见 STATUS。F07已交付最小Java搜索接口与本机展示壳；F14已验证SmartCN/ICU/IK9.4.0单节点安装与比较，F15已验证本地词典重启/历史词项/受控重建，多节点与CDC的后续效果仍待交付。
+**[F01 导学](framework/f01.html)、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)、[F08 多字段与高亮](framework/f08.html)、[F09 聚合与筛选计数](framework/f09.html)、[F10 显式排序](framework/f10.html)、[F11 稳定分页与PIT](framework/f11.html)、[F12 更新与基础结业](framework/f12.html)、[F13 分析链与中文召回](framework/f13.html)、[F14 中文分词方案比较](framework/f14.html)、[F15 专有词与词典](framework/f15.html)与[F16 别名/同义词与繁简](framework/f16.html)已交付，F17–F45待按本路线实施。**导学介绍 ES 的用途、职责与完整学习方式；实际验收范围见 STATUS。F07已交付最小Java搜索接口与本机展示壳；F14已验证SmartCN/ICU/IK9.4.0单节点安装与比较，F15已验证本地词典重启/历史词项/受控重建，F16已验证别名/搜索同义词/繁简与管理集重载，多节点与CDC的后续效果仍待交付。
 
 ## 1. 开篇先回答：ES 是什么，解决什么问题
 

@@ -1,0 +1,28 @@
+time="2026-10-25T12:42:54+08:00" level=warning msg="Docker Compose requires buildx plugin to be installed"
+ Image es-web-f16:9.4.0 Building
+ Image es-web-f16:9.4.0 Building
+Sending build context to Docker daemon  524.7kB
+Sending build context to Docker daemon  7.868MB
+Sending build context to Docker daemon  13.76MB
+
+Step 1/4 : FROM docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+ ---> 754c3d8ca6f7
+Step 2/4 : COPY --chown=elasticsearch:root .artifacts/analysis-icu.zip /tmp/f16-icu.zip
+ ---> 4076f1821724
+Step 3/4 : RUN bin/elasticsearch-plugin install --batch file:///tmp/f16-icu.zip  && rm /tmp/f16-icu.zip
+ ---> Running in 86245c1c0d51
+-> Installing file:///tmp/f16-icu.zip
+-> Downloading file:///tmp/f16-icu.zip
+WARNING: plugin has a policy file with no additional entitlements. Double check this is intentional.
+-> Installed analysis-icu
+-> Please restart Elasticsearch to activate any plugins installed
+ ---> Removed intermediate container 86245c1c0d51
+ ---> c74a90fdf26e
+Step 4/4 : LABEL com.docker.compose.image.builder=classic
+ ---> Running in 405de76fd9bb
+ ---> Removed intermediate container 405de76fd9bb
+ ---> d611b90e1786
+Successfully built d611b90e1786
+Successfully tagged es-web-f16:9.4.0
+ Image es-web-f16:9.4.0 Built
+ Image es-web-f16:9.4.0 Built

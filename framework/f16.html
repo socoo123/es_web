@@ -1,0 +1,482 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>F16 · 别名、同义词与繁简</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"></head><body class="framework-page chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header><main class="wrap chapter-visual"><article class="chapter" id="f16" data-ch="f16"><header class="ch-header"><div class="ch-kicker">FRAMEWORK 16 · 中文召回</div><h1>“紫禁城”和“故宫”，<br>怎样找到同一景点？</h1><div class="meta-line">约 65 分钟 · 前置：F04–F15 · 3 个执行案例 · 87 条教学 HTTP 请求（清理/探活/构建/附加验收另计） · 2 幅静态 D2 · 0 个机制播放器</div><p class="ch-intro">游客叫它“紫禁城”，资料写着“北京故宫博物院”。切词正确也未必能相遇。给指定资料加别名，或让查询展开成同义路径，都能补召回；本课同时检查多词短语、繁简与城市，防止把更多候选误当成更好的结果。</p><div class="diagram-jumps"><a href="#fig-choices">三种改法 ↓</a><a href="#fig-graph">实际词图 ↓</a><a href="../projects/travel-search/labs/f16/README.md">本机实验入口 ↗</a></div><details class="chapter-outline"><summary>本课目录</summary><ol><li><a href="#goals">本课目标</a></li><li><a href="#scene">一个景点几种叫法</a></li><li><a href="#choices">别名、同义词、繁简</a></li><li><a href="#samples">固定资料与意图</a></li><li><a href="#prepare">隔离环境与完整配置</a></li><li><a href="#aliases">别名与全局扩展</a></li><li><a href="#graph">多词同义词与短语</a></li><li><a href="#order">分析链顺序</a></li><li><a href="#normalize">繁简与历史词项</a></li><li><a href="#updates">两种更新与重建边界</a></li><li><a href="#java">关键Java实现</a></li><li><a href="#observe">本机观察窗</a></li><li><a href="#repeat">清理重做</a></li><li><a href="#drills">能力检查</a></li><li><a href="#pitfalls">实际陷阱</a></li><li><a href="#recap">速记与下一课</a></li></ol></details></header><section class="goal"><h2 id="goals">学完能证明什么</h2><ul><li>用同一资料集解释显式别名与查询同义词补回了谁、又误入了谁，城市条件怎样独立生效。</li><li>读取position与positionLength，画出单词/多词的替代路径，预测默认AND、放宽分支与完整短语的不同命中。</li><li>验证繁简、分析链顺序、别名更新与搜索同义词重载，说明何时需要重新写入资料，并让REST、Java与卡片一致。</li></ul></section><section class="lesson"><h2 id="scene">1. 切对了词，仍可能找不到同一个地方</h2>
+<p>F15解决了新品牌和地名怎样进入词典。“紫禁城”和“故宫”却是另一类问题：即使两个名字都切得合理，它们也没有相同词项。ES负责按照索引表达检索，不会仅凭历史知识自动知道游客指向哪里。资料维护方需要提供别名关系，或者为搜索规则声明哪些表达可以互相替代。</p>
+<p>这仍是旅游网站的搜索层：浏览器提交关键词与城市，Java选择查询，ES返回候选。景点身份、别名审核与相关性判断来自业务资料。新增同义词不是给资料发“官方景点”认证；在北京能搜到“故宫主题餐厅”，不代表它符合游客的宫殿游览意图。</p>
+<h2 id="choices">2. 先区分三种改法，决定关系放在哪里</h2>
+<p><strong>显式别名</strong>是某份文档的另一个名字，例如只在bj-palace的aliases数组写“紫禁城”。检索原名与别名，能把这个叫法连接到指定资料。这里的aliases是普通text字段，不是F32的索引alias，也不是mapping中的alias字段类型。维护成本是给具体资料补数据；一处别名不会自动分配给所有含“故宫”的商户。</p>
+<p><strong>同义词</strong>在本课是查询分析中的替代规则。“紫禁城, 故宫”表示等价展开；显式设置expand=true保留双方路径。“旧称 =&gt; 新称”则只从左侧改写到右侧，不能据此假定反向也成立。我们把synonym_graph放在搜索链，名称写入链不展开同义词。它能复用语言规则，但规则作用于词项，范围比单份实体别名大。</p>
+<p><strong>繁简归一</strong>把“故宮”转换为“故宫”这一种文字形式。本课用ICU的Traditional-Simplified，索引与查询都归到简体；_source保留原文。它不把“紫禁城”变成“故宫”，也不解决一词多义、地区用语或实体身份。三种改法可以配合，却不能用其中一种的成功证明另外两种正确。</p><figure class="fig d2-figure" id="fig-choices"><div class="d2-shell"><div class="d2-tools"><strong>01 · 关系放在资料，还是查询规则</strong><a data-expand-d2 href="diagrams/f16/choices-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f16/choices-light.svg" data-d2-light="diagrams/f16/choices-light.svg" data-d2-dark="diagrams/f16/choices-dark.svg" alt="显式别名属于指定文档，同义词改变查询路径，繁简统一文字形式，三个方案都保留城市与业务硬条件"></div></div><figcaption>三个卡片表示不同方案，隐形边仅排版，不表达处理先后。省略评分与倒排实现。 静态图可展开；<a href="diagrams/f16/README.md">图源与生成记录</a>。</figcaption></figure><h2 id="samples">3. 先固定资料和意图，再看候选变化</h2><p>以下是虚构教学目录，中文名称、英文对照、价格及归属均不陈述现实经营事实。11份资料使用稳定ID；城市BJ/SY、open/closed、CNY/USD，金额为整数分。全部查询限定所选城市、open、CNY、0–10000分，按keyword业务ID升序，最多20份并精确统计；本课比较召回，不比较评分优劣。</p>
+<table class="ktable" id="samples-table"><thead><tr><th>ID</th><th>name / name_en</th><th>aliases</th><th>城市 / 状态 / 币种 / 分</th></tr></thead><tbody><tr><td>bj-palace</td><td>北京故宫博物院<br>Forbidden City Museum</td><td>紫禁城</td><td>BJ / open / CNY / 6000</td></tr><tr><td>bj-wall</td><td>紫禁城城墙展<br>Zijin Wall Exhibition</td><td>故宫城墙</td><td>BJ / open / CNY / 2000</td></tr><tr><td>bj-theme</td><td>故宫主题餐厅<br>Palace Theme Dining</td><td>空数组</td><td>BJ / open / CNY / 3000</td></tr><tr><td>bj-traditional</td><td>故宮文創館<br>Palace Gift Gallery</td><td>空数组</td><td>BJ / open / CNY / 0</td></tr><tr><td>sy-palace</td><td>沈阳故宫博物院<br>Shenyang Palace Museum</td><td>盛京皇宫</td><td>SY / open / CNY / 5000</td></tr><tr><td>bj-gap</td><td>旧城历史馆<br>Forbidden History City Museum</td><td>空数组</td><td>BJ / open / CNY / 1000</td></tr><tr><td>bj-reverse</td><td>城史馆<br>City Forbidden Museum</td><td>空数组</td><td>BJ / open / CNY / 1000</td></tr><tr><td>bj-tail</td><td>宫城历史馆<br>Forbidden City History Museum</td><td>空数组</td><td>BJ / open / CNY / 1000</td></tr><tr><td>bj-closed</td><td>故宫闭馆展<br>Forbidden City Museum Closed</td><td>空数组</td><td>BJ / closed / CNY / 5000</td></tr><tr><td>bj-expensive</td><td>故宫贵宾讲解<br>Forbidden City Museum Premium</td><td>空数组</td><td>BJ / open / CNY / 15000</td></tr><tr><td>bj-usd</td><td>故宫外币票<br>Forbidden City Museum USD</td><td>空数组</td><td>BJ / open / USD / 5000</td></tr></tbody></table><p>“紫禁城/BJ”的相关资料事先定为bj-palace与bj-wall；主题餐厅、文创馆与本课游览意图无关。“紫禁城/SY”没有相关资料；沈阳故宫不是这个叫法所指的北京目的地。英文“PALACE museum/BJ”想找bj-palace，gap/reverse/tail是词序与相邻性反例。<a href="../projects/travel-search/data/f16/judgments.json">人工判断</a>在正式两轮前固定，探索用于挑选可解释样本，不冒充留出评估。</p>
+<h2 id="prepare">4. f16-c01：先建查询规则，再建隔离索引</h2><p>用独立19216端口、tut-f16-attractions与同义词集tut-f16-names。需要Docker/Compose、Bash、curl、Python3.10+；Java观察需要JDK25。镜像基于ES9.4.0，只装官方ICU9.4.0；下载前后核对官方SHA512与descriptor。可复用F14已验证缓存，本轮实际用了缓存并重新校验，不宣称又做了一次网络下载。</p><pre class="code-block" data-label="Bash · 从仓库根目录开始；脚本检查版本、插件和前提"><code>cd projects/travel-search
+export ES_URL=http://127.0.0.1:19216
+python3 infra/f16/fetch.py
+docker compose -f infra/f16/compose.yaml build es
+docker compose -f infra/f16/compose.yaml up -d es
+bash infra/f16/wait.sh
+# 若本课资源已存在，先按第12节清理，再从01重做
+bash labs/f16/01-aliases.sh</code></pre>
+<p>同义词集必须在引用它的索引之前创建。01脚本实际先执行下列PUT，再创建索引、等green、Bulk11项全created、显式refresh与count=11，核对完整配置。重复执行01不会自动覆盖：已存在的同义词集会返回updated，脚本要求created并停止，随后按清理流程回到基线。</p><pre class="code-block" data-label="JSON · PUT /_synonyms/tut-f16-names · 初始完整规则" data-source="projects/travel-search/search/f16/synonyms.json"><code>{
+  "synonyms_set": [
+    {
+      "id": "palace-cn",
+      "synonyms": "紫禁城, 故宫"
+    },
+    {
+      "id": "palace-en",
+      "synonyms": "palace, forbidden city"
+    }
+  ]
+}</code></pre>
+<pre class="code-block" data-label="JSON · PUT /tut-f16-attractions · 完整配置" data-source="projects/travel-search/search/f16/index.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1",
+    "analysis": {
+      "filter": {
+        "t2s": {
+          "type": "icu_transform",
+          "id": "Traditional-Simplified"
+        },
+        "travel_syn": {
+          "type": "synonym_graph",
+          "synonyms_set": "tut-f16-names",
+          "updateable": true,
+          "expand": true,
+          "lenient": false
+        }
+      },
+      "analyzer": {
+        "travel_plain": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase"
+          ]
+        },
+        "travel_base": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "t2s"
+          ]
+        },
+        "travel_search": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "t2s",
+            "travel_syn"
+          ]
+        },
+        "travel_late": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "travel_syn",
+            "lowercase",
+            "t2s"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "ticket_price_fen": {
+        "type": "integer"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "travel_base",
+        "search_analyzer": "travel_search",
+        "term_vector": "with_positions_offsets"
+      },
+      "name_en": {
+        "type": "text",
+        "analyzer": "travel_base",
+        "search_analyzer": "travel_search",
+        "term_vector": "with_positions_offsets"
+      },
+      "aliases": {
+        "type": "text",
+        "analyzer": "travel_base",
+        "search_analyzer": "travel_base",
+        "position_increment_gap": 100
+      }
+    }
+  }
+}</code></pre>
+<p>所有字段显式定义，strict拒绝未声明字段，一主零副本、refresh_interval=-1使可见性可控。name/name_en写入travel_base，搜索默认travel_search；aliases两端都用基础链，数组间gap=100，本课slop=0不跨别名值拼短语。保存名称term vector供后面核对写入证据。travel_plain与travel_late仅作查询反例，绝不用来写入资料。</p>
+<p>standard tokenizer让中文主要成为逐字token，便于看清本课替代路径；这里没有继续使用F15的IK词典，不以此证明standard中文质量最佳。英文正常分词，lowercase处理大小写，t2s统一繁简，最后才是同义词。updateable=true只用于搜索分析；lenient=false使无效规则报错，而不是静默忽略。</p>
+<details><summary>不用脚本时，对应的手工准备请求（与01二选一）</summary><pre class="code-block" data-label="Bash · 完整固定文件与显式可见性"><code>curl --fail-with-body -sS -X PUT &quot;$ES_URL/_synonyms/tut-f16-names&quot; -H &#x27;Content-Type: application/json&#x27; --data-binary @search/f16/synonyms.json
+curl --fail-with-body -sS -X PUT &quot;$ES_URL/tut-f16-attractions&quot; -H &#x27;Content-Type: application/json&#x27; --data-binary @search/f16/index.json
+curl --fail-with-body -sS &quot;$ES_URL/_cluster/health/tut-f16-attractions?wait_for_status=green&amp;timeout=30s&quot;
+curl --fail-with-body -sS -X POST &quot;$ES_URL/tut-f16-attractions/_bulk&quot; -H &#x27;Content-Type: application/x-ndjson&#x27; --data-binary @data/f16/attractions.ndjson
+curl --fail-with-body -sS -X POST &quot;$ES_URL/tut-f16-attractions/_refresh&quot;
+curl --fail-with-body -sS &quot;$ES_URL/tut-f16-attractions/_count&quot;</code></pre>
+</details><h2 id="aliases">5. 别名补回了谁，全局同义词又带来了谁</h2><p>先预测：“紫禁城”只查name/name_en的基线能看到什么？实际只有bj-wall；bj-palace名称不含这些字。别名模式在原名、英文名和aliases之间选能匹配完整短语的字段；这是F08多字段查询的延伸，同一个别名仍只在自己那份资料里参与检索。</p><pre class="code-block" data-label="JSON · POST /tut-f16-attractions/_search · 显式别名" data-source="projects/travel-search/search/f16/aliases-cn.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "紫禁城",
+            "fields": [
+              "name",
+              "name_en",
+              "aliases"
+            ],
+            "analyzer": "travel_base",
+            "type": "phrase",
+            "slop": 0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre>
+<p>实际得到bj-palace、bj-wall，补回主景点而没有让主题商户自动继承别名。改用下面的查询同义词方案，字段只查name/name_en，输入经travel_search展开。operator=and不表示要同时包含同义词图的全部分支。</p><pre class="code-block" data-label="JSON · POST /tut-f16-attractions/_search · 查询同义词" data-source="projects/travel-search/search/f16/graph-cn.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "紫禁城",
+            "fields": [
+              "name",
+              "name_en"
+            ],
+            "analyzer": "travel_search",
+            "type": "best_fields",
+            "operator": "and",
+            "auto_generate_synonyms_phrase_query": true
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre>
+<table class="ktable" id="cn-matrix"><thead><tr><th>输入 / 城市</th><th>方式</th><th>实际完整ID</th></tr></thead><tbody><tr><td>紫禁城 / BJ</td><td>名称基线</td><td>bj-wall</td></tr><tr><td>紫禁城 / BJ</td><td>显式别名</td><td>bj-palace、bj-wall</td></tr><tr><td>紫禁城 / BJ</td><td>查询同义词</td><td>bj-palace、bj-theme、bj-traditional、bj-wall</td></tr><tr><td>紫禁城 / SY</td><td>显式别名</td><td>空</td></tr><tr><td>紫禁城 / SY</td><td>查询同义词</td><td>sy-palace</td></tr></tbody></table>
+<p>同义词补回主景点，也让“故宫主题餐厅”和“故宮文創館”误入。切到SY后，北京资料全被城市条件排除；sy-palace仍因“故宫”词项进入，却不符合“紫禁城”意图。城市过滤完成的是地区消歧，不能撤销同义词规则本身的语义过宽。别名方案也不保证任意查询都准确：原名本身含游客关键词的无关商户仍可能匹配。</p>
+<h2 id="graph">6. f16-c02：多词同义词是一条替代路径</h2><p>palace是一个token，forbidden city是两个。如果只画成一堆同位置词，后面的museum应该接在哪里就不清楚了。<strong>token graph</strong>用位置作节点，每个token是从position到position+positionLength的边。synonym_graph记录多位置跨度，让查询能沿不同完整路径理解同义表达。<a href="https://www.elastic.co/docs/manage-data/data-store/text-analysis/token-graphs">官方词图说明</a>指出索引不保留这种多位置图语义，因此本课在查询阶段使用它。</p><pre class="code-block" data-label="Bash · 词图、三种查询、顺序反例与无效规则"><code>bash labs/f16/02-graph.sh</code></pre>
+<pre class="code-block" data-label="JSON · POST /tut-f16-attractions/_analyze · 读取detail最后一层tokenfilters" data-source="projects/travel-search/search/f16/analyze-graph.json"><code>{
+  "analyzer": "travel_search",
+  "text": "PALACE museum",
+  "explain": true
+}</code></pre>
+<p>实际最后一层有下列四条边。offset仍指向原输入，不是新词字符串中的字符位置；forbidden与city都来自PALACE的[0,6)，不要求输出字数等于区间长度。explain=true还保留各层完整属性，不能只看最后一列词面。</p><table class="ktable" id="graph-tokens"><thead><tr><th>token</th><th>position</th><th>positionLength</th><th>UTF-16 offset</th></tr></thead><tbody><tr><td>forbidden</td><td>0</td><td>1</td><td>[0,6)</td></tr><tr><td>palace</td><td>0</td><td>2</td><td>[0,6)</td></tr><tr><td>city</td><td>1</td><td>1</td><td>[0,6)</td></tr><tr><td>museum</td><td>2</td><td>1</td><td>[7,13)</td></tr></tbody></table><figure class="fig d2-figure" id="fig-graph"><div class="d2-shell"><div class="d2-tools"><strong>02 · PALACE museum 的实际替代路径</strong><a data-expand-d2 href="diagrams/f16/graph-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f16/graph-light.svg" data-d2-light="diagrams/f16/graph-light.svg" data-d2-dark="diagrams/f16/graph-dark.svg" alt="位置0可沿palace跨到位置2，或沿forbidden到位置1再沿city到位置2，之后museum到位置3"></div></div><figcaption>边表示token跨度：palace museum与forbidden city museum是两条路径。不是把四个词全AND；省略同一查询在多个字段的合并。 静态图可展开；<a href="diagrams/f16/README.md">图源与生成记录</a>。</figcaption></figure><pre class="code-block" data-label="JSON · POST /tut-f16-attractions/_search · 默认同义词短语分支" data-source="projects/travel-search/search/f16/graph-en.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "PALACE museum",
+            "fields": [
+              "name",
+              "name_en"
+            ],
+            "analyzer": "travel_search",
+            "type": "best_fields",
+            "operator": "and",
+            "auto_generate_synonyms_phrase_query": true
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre>
+<p>在当前固定英文语料上，默认best_fields+AND、auto_generate_synonyms_phrase_query=true可理解为要求<code>(palace 或 "forbidden city") 并且 museum</code>。同义词内部的forbidden city相邻，但museum不必紧接它：bj-tail的Forbidden City History Museum仍然匹配。</p><pre class="code-block" data-label="JSON · POST /tut-f16-attractions/_search · 完整短语对照" data-source="projects/travel-search/search/f16/phrase-en.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "PALACE museum",
+            "fields": [
+              "name",
+              "name_en"
+            ],
+            "analyzer": "travel_search",
+            "type": "phrase",
+            "slop": 0
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": "BJ"
+          }
+        },
+        {
+          "term": {
+            "status": "open"
+          }
+        },
+        {
+          "term": {
+            "currency": "CNY"
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre>
+<table class="ktable" id="en-matrix"><thead><tr><th>方式</th><th>实际完整ID</th><th>说明</th></tr></thead><tbody><tr><td>AND / 自动短语true</td><td>bj-palace、bj-tail</td><td>同义词内部相邻，museum可隔词</td></tr><tr><td>AND / 自动短语false</td><td>bj-gap、bj-palace、bj-reverse、bj-tail</td><td>多词分支放宽为词项组合，新增隔词/反序误入</td></tr><tr><td>phrase / slop=0</td><td>bj-palace</td><td>完整路径词序、相邻性都受约束</td></tr></tbody></table><p>第二行完整请求在<a href="../projects/travel-search/search/f16/loose-en.json">loose-en.json</a>，只改变自动短语参数。脚本把三份query提交_validate/query?explain=true，保留实际改写与命中。中文逐字产生的多词同义路径也适用这个机制；不要把普通AND误解为任意图分支都无序，也不要把“自动同义词短语”误解为整个输入已经是phrase。</p>
+<h2 id="order">7. 为什么小写与繁简必须先到达同义词</h2><p>本课正确链是standard → lowercase → t2s → travel_syn。之前的filter不仅处理用户输入，也参与解析同义词规则，所以查询与规则能在同一文字形式下比较。顺序反例travel_late把travel_syn放在最前，后面的转换无法让已经错过的规则重新匹配。<a href="https://www.elastic.co/docs/reference/text-analysis/analysis-synonym-graph-tokenfilter">官方顺序与规则说明</a>和v9.4.0固定源码共同核对了这点。</p>
+<p>实际PALACE museum在正确链生成四条边，在late链只有palace、museum两条边，搜索为0。故宮在正确链先变成故宫，再展开到紫禁城；late只在扩展结束后变简体，因此只得bj-palace、bj-theme、bj-traditional，漏掉bj-wall。这两个反例都不是“字符最后看起来一样就能补救”。</p>
+<p>stop放在同义词前还可能把规则的一侧全部删掉。02用<a href="../projects/travel-search/search/f16/bad-stop.json">完整临时分析请求</a>删除palace，再解析palace =&gt; forbidden city；lenient=false实际报400与completely eliminated。它没有改动本课已配置分析器，随后正确查询仍恢复2份。不能用忽略错误掩盖规则没有生效；新规则需要验证分析与搜索两层。</p>
+<h2 id="normalize">8. f16-c03：繁简一致，原文仍然可以不同</h2><pre class="code-block" data-label="Bash · 繁简、别名可见性与管理API重载"><code>bash labs/f16/03-normalize-and-update.sh</code></pre>
+<pre class="code-block" data-label="JSON · POST /tut-f16-attractions/_analyze · 当前输入的基础链" data-source="projects/travel-search/search/f16/analyze-trad.json"><code>{
+  "analyzer": "travel_base",
+  "text": "故宮文創館"
+}</code></pre>
+<p>故宮文創館实际归一成故/宫/文/创/馆。GET bj-traditional的_source.name仍为“故宮文創館”；显式保存的name词向量含宫、创，不含宮、創。这个向量请求点名已有文档，不传doc或per_field_analyzer，才可以用来核对写入时的词项。</p>
+<p>查询“故宮”用不转繁简的travel_plain时为0；别名模式用travel_base，得到bj-palace、bj-theme、bj-traditional、bj-wall。最后一份来自自己的“故宫城墙”别名，其余来自名称。成功的是统一了查询与索引的文字形式，并未证明所有候选相关。ICU转换发生在tokenizer之后；本课standard逐字样本验证了这些字，不把结果推广为所有中文分词器、上下文和地区用词的完整转换保证。<a href="https://www.elastic.co/docs/reference/elasticsearch/plugins/analysis-icu-transform">ICU transform官方入口</a>解释转换ID与方向。</p>
+<h2 id="updates">9. 更新别名、更新查询规则，需要重建吗</h2><p>先新增bj-palace的实体别名“皇家旧宫”。这是资料变更，需要重新写入这一文档的索引表达；本课用局部_update，自动refresh已关闭，所以更新后立即_search仍为0，显式refresh之后才命中bj-palace。不要为了一个别名把整个资料库重建，也不要把查询规则重载当作资料可见性操作。</p><pre class="code-block" data-label="JSON · POST /tut-f16-attractions/_update/bj-palace" data-source="projects/travel-search/search/f16/alias-update.json"><code>{
+  "doc": {
+    "aliases": [
+      "紫禁城",
+      "皇家旧宫"
+    ]
+  }
+}</code></pre>
+<p>再把“皇城旧称”加到查询同义词组。以下PUT提交的是<strong>完整替换后的集合</strong>，保留英文规则；只提交新增一条会替换掉没有携带的旧规则。此前皇城旧称为0；此次管理API更新触发已引用搜索分析器重载，实际返回travel_search/travel_late、一个节点、零失败。随后的_analyze出现替代路径，_search得到四个中文候选，仍含两份误入。</p><pre class="code-block" data-label="JSON · PUT /_synonyms/tut-f16-names · 完整替换并自动重载搜索链" data-source="projects/travel-search/search/f16/synonyms-updated.json"><code>{
+  "synonyms_set": [
+    {
+      "id": "palace-cn",
+      "synonyms": "紫禁城, 故宫, 皇城旧称"
+    },
+    {
+      "id": "palace-en",
+      "synonyms": "palace, forbidden city"
+    }
+  ]
+}</code></pre>
+<p>这里没有对存量name做refresh、重写或reindex；bj-traditional前后_source、版本、seq_no、primary_term和已存词向量全部一致，count仍11。原因是名称原先就以基础词项写入，现在只让查询换一组路径去匹配它们。手改本地JSON文件不会发送PUT；inline synonyms也不能靠这个API自动更新。管理API的实际自动重载条件见<a href="https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-synonyms-put-synonym">官方PUT说明</a>。</p>
+<p>如果改变的是索引阶段的tokenizer、繁简规则或索引同义扩展，历史词项不会自动变化，需要按新规则重新写入受影响资料，通常建立新索引并受控重建；流程沿用F15，在线切流留到F33。改搜索链也必须先确认它能匹配旧索引表达。新增text多字段不会替已有文档补齐历史词项；给既有aliases字段更新个别资料与新增字段的前提不同。</p>
+<h2 id="java">10. Java沿用同一查询语义，词图不要丢跨度</h2><p>沿用Boot4.0.8、Temurin25.0.4.1+1、官方Java及Rest5 Client9.4.8、Wrapper3.3.4/Maven3.9.11；ES容器自带JVM与应用JDK分开。<code>POST /api/attractions/synonym-search</code>只接受以下契约，服务端固定索引、字段与分析器，浏览器不能上传任意DSL。预算不截断小数，q长度按UTF-16单位计。</p><pre class="code-block" data-label="Java · 本课输入校验" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/SynonymInput.java"><code>package dev.esweb.travel;
+
+import jakarta.validation.constraints.*;
+
+public record SynonymInput(
+        @NotBlank @Size(max = 60) String q,
+        @NotNull @Pattern(regexp = "BJ|SY") String cityCode,
+        @NotNull @Min(0) @Max(100000000) Integer maxPriceFen,
+        @NotNull @Pattern(regexp = "plain|aliases|graph|phrase|loose|late") String mode) {
+}</code></pre>
+<pre class="code-block" data-label="Java · 模式与完整查询构造" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/SynonymSearchService.java" data-lines="33-61"><code>    public String analyzer(SynonymInput input) {
+        return switch (input.mode()) {
+            case "plain" -&gt; "travel_plain";
+            case "aliases" -&gt; "travel_base";
+            case "late" -&gt; "travel_late";
+            case "graph", "phrase", "loose" -&gt; "travel_search";
+            default -&gt; throw new IllegalArgumentException("Unknown synonym mode");
+        };
+    }
+
+    public SearchRequest request(SynonymInput input) {
+        boolean phrase = input.mode().equals("aliases") || input.mode().equals("phrase");
+        List&lt;String&gt; fields = input.mode().equals("aliases")
+                ? List.of("name", "name_en", "aliases") : List.of("name", "name_en");
+        return SearchRequest.of(s -&gt; s.index(INDEX).size(20).trackTotalHits(t -&gt; t.enabled(true)).trackScores(true)
+                .query(q -&gt; q.bool(b -&gt; b.must(m -&gt; m.multiMatch(mm -&gt; {
+                    mm.query(input.q()).fields(fields).analyzer(analyzer(input))
+                            .type(phrase ? TextQueryType.Phrase : TextQueryType.BestFields);
+                    if (phrase) mm.slop(0);
+                    else mm.operator(Operator.And).autoGenerateSynonymsPhraseQuery(!input.mode().equals("loose"));
+                    return mm;
+                }))
+                        .filter(f -&gt; f.term(t -&gt; t.field("city_code").value(input.cityCode())))
+                        .filter(f -&gt; f.term(t -&gt; t.field("status").value("open")))
+                        .filter(f -&gt; f.term(t -&gt; t.field("currency").value("CNY")))
+                        .filter(f -&gt; f.range(r -&gt; r.number(n -&gt; n.field("ticket_price_fen")
+                                .gte(0.0).lte(input.maxPriceFen().doubleValue()))))))
+                .sort(srt -&gt; srt.field(f -&gt; f.field("attraction_id").order(SortOrder.Asc))));
+    }</code></pre>
+<p>两个诊断分析都处理当前输入，左侧基础链与右侧模式链并非读取历史词项。explain=true保留完整属性，再从最后一层提取positionLength。实际发现仅筛出positionLength会缺失9.4.8客户端模型要求的bytes/termFrequency；本课保留完整详细响应，不关闭客户端必填校验。分析请求和搜索请求逐份由Java返回，路径参数不在JSON body里，重放时仍须点名本课索引。</p><pre class="code-block" data-label="Java · 详细分析、真实搜索、完整性检查与DTO" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/SynonymSearchService.java" data-lines="79-105"><code>    public Result search(SynonymInput input) throws IOException {
+        // Both analyses inspect supplied q. They do not read stored terms from existing documents.
+        var base = AnalyzeRequest.of(a -&gt; a.index(INDEX).analyzer("travel_base").text(input.q())
+                .explain(true));
+        var query = AnalyzeRequest.of(a -&gt; a.index(INDEX).analyzer(analyzer(input)).text(input.q())
+                .explain(true));
+        var baseResponse = json.readTree(JsonpUtils.toJsonString(client.indices().analyze(base), client._jsonpMapper()));
+        var queryResponse = json.readTree(JsonpUtils.toJsonString(client.indices().analyze(query), client._jsonpMapper()));
+        var request = request(input);
+        var response = client.search(request, SynonymAttraction.class);
+        if (response.timedOut() || response.shards().failed().longValue() != 0 || response.hits().total() == null)
+            throw new AttractionSearchService.IncompleteSearchException();
+        var cards = response.hits().hits().stream().map(hit -&gt; {
+            var source = hit.source();
+            if (source == null || !hit.id().equals(source.attractionId()) || source.name() == null
+                    || source.nameEn() == null || source.aliases() == null || source.ticketPriceFen() == null
+                    || source.cityCode() == null || source.currency() == null || source.status() == null)
+                throw new AttractionSearchService.IncompleteSearchException();
+            List&lt;Object&gt; sort = hit.sort().stream().map(v -&gt; (Object) v._get()).toList();
+            return new Card(hit.id(), source.name(), source.nameEn(), source.aliases(), source.cityCode(),
+                    source.ticketPriceFen(), source.currency(), source.status(), hit.score(), sort);
+        }).toList();
+        return new Result(response.hits().total().value(), response.hits().total().relation().jsonValue(), response.took(),
+                input, analyzer(input), json.readTree(JsonpUtils.toJsonString(base, client._jsonpMapper())),
+                json.readTree(JsonpUtils.toJsonString(query, client._jsonpMapper())), baseResponse, queryResponse,
+                tokens(baseResponse), tokens(queryResponse), json.readTree(JsonpUtils.toJsonString(request, client._jsonpMapper())), cards);
+    }</code></pre>
+<p><a href="../projects/travel-search/backend/src/main/java/dev/esweb/travel/SynonymSearchService.java">完整服务</a>还检查token属性、源字段和ID，保留完整分析链、名称/英文名/别名/城市/整数分/score/sort。输入非法400；缺索引等ES拒绝502；连接或transport异常503；搜索超时、分片失败或不完整字段502。后两类搜索不完整只有防护代码，本轮未构造真实执行超时/部分分片失败。正常0命中仍是200，不能清一色显示“服务断了”。</p>
+<h2 id="observe">11. 打开本机观察窗，用卡片反查请求</h2><pre class="code-block" data-label="Bash · 两终端；末条curl为可选手工重复，不计87"><code># 第二终端，从仓库根目录进入；JAVA_HOME/PATH先选择JDK25
+cd projects/travel-search/backend
+./mvnw -B -ntp clean package
+ES_URL=http://127.0.0.1:19216 APP_PORT=18080 java -jar target/travel-search-0.7.0.jar
+# 第一终端仍在projects/travel-search
+bash labs/f16/04-java.sh
+curl --fail-with-body -sS -X POST http://127.0.0.1:18080/api/attractions/synonym-search -H &#x27;Content-Type: application/json&#x27; --data-binary @search/f16/input-en.json</code></pre>
+<p>打开<code>http://127.0.0.1:18080/f16.html</code>。先比较紫禁城的“显式别名/同义词”，再切SY检查误扩展；输入PALACE museum比较graph、loose、phrase；输入故宮比较plain、late与graph。完成03后还可观察皇家旧宫与皇城旧称，不要在尚未发布规则时照抄更新后的预期。</p>
+<p>每次改变条件即清空旧卡片、词图与DSL；错误也清空旧结果，显示实际400/502/503。结果卡保留原文，包括繁体名称；词图展示本次输入怎样分析，观察区显示完整请求与DTO。实际浏览器只调用同源Java，Java再访问ES；不把ES地址或凭据放入浏览器。Pages承载此课与图解，展示壳只由读者本机启动，无需编写前端。</p>
+<h2 id="repeat">12. 点名清理，从同一规则与资料重新开始</h2><p>先删引用索引，再删同义词集。实际直接删除仍被索引引用的集报400；不能据此省略清理，也不能反过来删所有集。cleanup仅点名这两个资源并分别GET404，随后01从初始规则与11份原始资料重做，恢复别名和规则更新前的状态。</p><pre class="code-block" data-label="Bash · 仅清理tut-f16-attractions与tut-f16-names，保留数据卷"><code># 在projects/travel-search；Java保持同一进程即可
+bash labs/f16/cleanup.sh
+bash labs/f16/01-aliases.sh
+bash labs/f16/02-graph.sh
+bash labs/f16/03-normalize-and-update.sh
+bash labs/f16/04-java.sh
+# 结束：先清理本课资源，关闭自己启动的Java
+bash labs/f16/cleanup.sh
+docker compose -f infra/f16/compose.yaml stop es</code></pre>
+<p>教学请求为01的22、02的12、03的21，加8组Java及其REST重放32，总87；Java内部ES调用、清理、探活、下载构建、可选curl、浏览器及作者附加另计。<a href="../projects/travel-search/review/f16/README.md">初次与清理后重做</a>各87+33个附加客户端请求，完整保留响应；<a href="../docs/framework-review/20261025-f16-synonyms/README.md">图解、阅读与观察窗</a>独立验收。小语料不认证全站中文质量、性能、多节点传播或线上同义词发布流程。</p>
+<details><summary>固定版本源码与证据入口</summary><p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/analysis-common/src/main/java/org/elasticsearch/analysis/common/SynonymTokenFilterFactory.java">SynonymTokenFilterFactory.buildSynonymAnalyzer</a>以之前的filter构造规则解析链；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/analysis-common/src/main/java/org/elasticsearch/analysis/common/SynonymGraphTokenFilterFactory.java">SynonymGraphTokenFilterFactory.getChainAwareTokenFilterFactory</a>创建图过滤器；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/plugins/analysis-icu/src/main/java/org/elasticsearch/plugin/analysis/icu/IcuTransformTokenFilterFactory.java">IcuTransformTokenFilterFactory</a>按ID创建转换。目标本地文件与官方v9.4.0逐字节比较，见<a href="../docs/framework-review/20261025-f16-synonyms/sources.json">来源记录</a>。源码解释不替代实际分析、命中和重载响应。</p></details></section><section class="drills"><h2 id="drills">能力检查：先预测，再修改一个条件</h2>
+<details><summary>1. 给bj-palace补“紫禁城”，餐厅也自动有了这个别名吗？</summary><p>不会。aliases是该文档的普通text字段；别名查询仍可能匹配其他资料的原名，但不会给其他资料写入新别名。全局查询同义词则会让“故宫”名称也成为候选。</p></details>
+<details><summary>2. palace的positionLength=2，是否表示它有两个字符？</summary><p>不是，它从位置0跨到位置2；另一条路径走forbidden、city两条边。字符串长度、UTF-16 offset和图中位置跨度是三件事。</p></details>
+<details><summary>3. 默认AND已经自动生成同义词短语，为什么bj-tail还在？</summary><p>默认只让forbidden city这个多词同义分支相邻，museum仍是另一个必需子句。Forbidden City History Museum满足；完整phrase/slop0才排除中间的History。</p></details>
+<details><summary>4. 把繁简与lowercase放最后，最终文字相同，结果就相同吗？</summary><p>不一定。同义词已经错过匹配时，后置归一不会倒带。实际late对PALACE museum为0，对故宮漏bj-wall；先统一输入与规则的形式再展开。</p></details>
+<details><summary>5. 皇城旧称重载后命中了旧文档，说明旧倒排重建了吗？</summary><p>没有。本课只改查询路径；name原有基础词项与_source/版本保持不变。修改索引分析才需要明确重新写入或重建受影响资料；个别实体别名更新则改该资料并等待可见。</p></details>
+<details><summary>6. 独立将紫禁城/BJ/graph的预算改为0，预测全部ID。</summary><p>只有bj-traditional。它免费却不符合宫殿游览意图；过滤条件正确和语义相关性正确是不同判断。让Java实际DSL重放REST，不能只数卡片。</p></details>
+<details><summary>7. 紫禁城/SY返回sy-palace，城市筛选坏了吗？</summary><p>城市筛选正确排除了北京资料；同义词把紫禁城扩成故宫，仍误入当地另一景点。把精确实体别名、语言扩展与城市意图一起审核，不能简单删除城市条件。</p></details>
+</section><section class="pitfalls"><h2 id="pitfalls">实际陷阱</h2><div class="callout warn"><strong>把同义词token全AND，或把默认同义词分支当作完整phrase。</strong><p>先画position→position+length的路径，再核对真实改写与ID。自动短语false会引入隔词/反序候选，完整phrase又可能减少召回，按当前意图选择。</p></div><div class="callout warn"><strong>只转换查询，或认为分析链顺序不重要。</strong><p>旧索引表达必须与查询形式兼容；后置转换不能让同义词重新匹配。本课保存原文与已存向量，不能用当前_analyze冒充历史词项。</p></div><div class="callout warn"><strong>把关系扩展当成实体认证，把更新JSON当成发布。</strong><p>全局规则可能新增同名商户或跨意图景点；管理API实际PUT、完整集合与重载响应都要核对。别名更新与查询重载分别验收，清理先删引用索引。</p></div></section><section class="recap"><h2 id="recap">速记与下一课</h2><table class="ktable"><thead><tr><th>要解决什么</th><th>选择与证据</th></tr></thead><tbody><tr><td>这个景点另叫什么</td><td>指定资料的aliases；更新/refresh与命中ID</td></tr><tr><td>语言表达怎样替代</td><td>搜索synonym_graph；position/length与短语改写</td></tr><tr><td>繁体和简体怎样对齐</td><td>两端归一；_source与历史词项分开看</td></tr><tr><td>更新是否需要重建</td><td>查询规则重载不改历史；资料别名重写该文档；索引分析改变需重写/重建</td></tr><tr><td>候选更多是否更好</td><td>固定意图/城市/ID，分别核对补回与新增误入</td></tr></tbody></table><p><strong>先决定关系属于哪份资料或哪条语言规则，再用词图与真实候选验证。</strong>完整叫法现在有了可解释路径，游客输入半个名字、拼音或错字时仍可能找不到。下一课F17再讨论提示、拼音与容错，本课不提前实施。</p></section><footer class="ch-footer"><button class="read-toggle" data-ch="f16" type="button">标记已读</button><div class="pager"><a class="btn" href="f15.html">← F15 专有词与词典</a><a class="btn" href="index.html">框架篇目录</a><span>下一课：F17 提示、拼音与容错（待编写） →</span></div></footer></article></main><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>

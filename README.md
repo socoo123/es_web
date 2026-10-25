@@ -19,7 +19,7 @@
 
 **F12 基础结业、F22 实用搜索结业、F45 完整复现**，各自有独立新样本/需求检验。详情见 [FRAMEWORK_PLAN.md](FRAMEWORK_PLAN.md)、[FRAMEWORK_CASES.md](FRAMEWORK_CASES.md)、[FRAMEWORK_STANDARD.md](FRAMEWORK_STANDARD.md)与[逐课提示词](docs/framework-lesson-prompt.md)。
 
-F01 导学、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业及[F13 分析链与中文召回](framework/f13.html)、[F14 中文分词方案比较](framework/f14.html)、[F15 专有词与词典](framework/f15.html)已交付，F16–F45待实施，实际验收范围见 [STATUS.md](STATUS.md)。F07最小Java接口与本机展示壳已交付，多节点与CDC尚未实施。[历史启动实验](framework/f01-startup-legacy.html)与[工程验收记录](projects/travel-search/review/f01/README.md)保留；[F03 实测](projects/travel-search/review/f03/README.md)已用新资源独立执行两轮。现有源码篇 ch01–ch30 保持原编号和链接。
+F01 导学、[F02 概念推演](framework/f02.html)与 [F03 首搜](framework/f03.html)已完成；[F04 字段建模](framework/f04.html)、[F05 关键词查询](framework/f05.html)与 [F06 组合筛选](framework/f06.html)可阅读、真实 ES 待验收，[F07 Java接口与本机展示壳](framework/f07.html)、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业及[F13 分析链与中文召回](framework/f13.html)、[F14 中文分词方案比较](framework/f14.html)、[F15 专有词与词典](framework/f15.html)、[F16 别名/同义词与繁简](framework/f16.html)已交付，F17–F45待实施，实际验收范围见 [STATUS.md](STATUS.md)。F07最小Java接口与本机展示壳已交付，多节点与CDC尚未实施。[历史启动实验](framework/f01-startup-legacy.html)与[工程验收记录](projects/travel-search/review/f01/README.md)保留；[F03 实测](projects/travel-search/review/f03/README.md)已用新资源独立执行两轮。现有源码篇 ch01–ch30 保持原编号和链接。
 
 ## 快速开始
 

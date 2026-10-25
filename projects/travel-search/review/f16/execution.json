@@ -1,0 +1,845 @@
+{
+  "recorded_at": "2026-10-25T04:47:21.981258+00:00",
+  "scope": "F16 real single-node ES9.4.0/ICU9.4.0 + Boot4/JDK25",
+  "rounds": [
+    {
+      "number": 1,
+      "cleanup_before": {
+        "path": "projects/travel-search/review/f16/round-1-cleanup-before.jsonl",
+        "requests": 4,
+        "results": {}
+      },
+      "teaching": [
+        {
+          "stage": "aliases",
+          "path": "projects/travel-search/review/f16/round-1-aliases.jsonl",
+          "requests": 22,
+          "results": {
+            "travel_plain:紫禁城": [
+              [
+                "紫",
+                0,
+                1,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "禁",
+                1,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "城",
+                2,
+                1,
+                2,
+                3,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "travel_base:紫禁城": [
+              [
+                "紫",
+                0,
+                1,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "禁",
+                1,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "城",
+                2,
+                1,
+                2,
+                3,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "travel_search:紫禁城": [
+              [
+                "故",
+                0,
+                1,
+                0,
+                3,
+                "SYNONYM"
+              ],
+              [
+                "紫",
+                0,
+                2,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "宫",
+                1,
+                3,
+                0,
+                3,
+                "SYNONYM"
+              ],
+              [
+                "禁",
+                2,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "城",
+                3,
+                1,
+                2,
+                3,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "travel_search:故宮": [
+              [
+                "紫",
+                0,
+                1,
+                0,
+                2,
+                "SYNONYM"
+              ],
+              [
+                "故",
+                0,
+                3,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "禁",
+                1,
+                1,
+                0,
+                2,
+                "SYNONYM"
+              ],
+              [
+                "城",
+                2,
+                2,
+                0,
+                2,
+                "SYNONYM"
+              ],
+              [
+                "宫",
+                3,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "travel_late:故宮": [
+              [
+                "故",
+                0,
+                1,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "宫",
+                1,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "plain-cn": [
+              "bj-wall"
+            ],
+            "aliases-cn": [
+              "bj-palace",
+              "bj-wall"
+            ],
+            "graph-cn": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "graph-sy": [
+              "sy-palace"
+            ],
+            "aliases-sy": [],
+            "graph-trad": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "late-trad": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional"
+            ]
+          }
+        },
+        {
+          "stage": "graph",
+          "path": "projects/travel-search/review/f16/round-1-graph.jsonl",
+          "requests": 12,
+          "results": {
+            "travel_base": [
+              [
+                "palace",
+                0,
+                1,
+                0,
+                6,
+                "<ALPHANUM>"
+              ],
+              [
+                "museum",
+                1,
+                1,
+                7,
+                13,
+                "<ALPHANUM>"
+              ]
+            ],
+            "travel_search": [
+              [
+                "forbidden",
+                0,
+                1,
+                0,
+                6,
+                "SYNONYM"
+              ],
+              [
+                "palace",
+                0,
+                2,
+                0,
+                6,
+                "<ALPHANUM>"
+              ],
+              [
+                "city",
+                1,
+                1,
+                0,
+                6,
+                "SYNONYM"
+              ],
+              [
+                "museum",
+                2,
+                1,
+                7,
+                13,
+                "<ALPHANUM>"
+              ]
+            ],
+            "travel_late": [
+              [
+                "palace",
+                0,
+                1,
+                0,
+                6,
+                "<ALPHANUM>"
+              ],
+              [
+                "museum",
+                1,
+                1,
+                7,
+                13,
+                "<ALPHANUM>"
+              ]
+            ],
+            "graph-en": [
+              "bj-palace",
+              "bj-tail"
+            ],
+            "loose-en": [
+              "bj-gap",
+              "bj-palace",
+              "bj-reverse",
+              "bj-tail"
+            ],
+            "phrase-en": [
+              "bj-palace"
+            ],
+            "late-en": [],
+            "rewrite:graph-en": [
+              {
+                "index": "tut-f16-attractions",
+                "valid": true,
+                "explanation": "+((+(name:\"forbidden city\" name:palace) +name:museum) | (+(name_en:\"forbidden city\" name_en:palace) +name_en:museum)) #city_code:BJ #status:open #currency:CNY #IndexOrDocValuesQuery(indexQuery=ticket_price_fen:[0 TO 10000], dvQuery=ticket_price_fen:[0 TO 10000])"
+              }
+            ],
+            "rewrite:loose-en": [
+              {
+                "index": "tut-f16-attractions",
+                "valid": true,
+                "explanation": "+((+((+name:forbidden +name:city) name:palace) +name:museum) | (+((+name_en:forbidden +name_en:city) name_en:palace) +name_en:museum)) #city_code:BJ #status:open #currency:CNY #IndexOrDocValuesQuery(indexQuery=ticket_price_fen:[0 TO 10000], dvQuery=ticket_price_fen:[0 TO 10000])"
+              }
+            ],
+            "rewrite:phrase-en": [
+              {
+                "index": "tut-f16-attractions",
+                "valid": true,
+                "explanation": "+(spanNear([spanOr([spanNear([name:forbidden, name:city], 0, true), name:palace]), name:museum], 0, true) | spanNear([spanOr([spanNear([name_en:forbidden, name_en:city], 0, true), name_en:palace]), name_en:museum], 0, true)) #city_code:BJ #status:open #currency:CNY #IndexOrDocValuesQuery(indexQuery=ticket_price_fen:[0 TO 10000], dvQuery=ticket_price_fen:[0 TO 10000])"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "changes",
+          "path": "projects/travel-search/review/f16/round-1-changes.jsonl",
+          "requests": 21,
+          "results": {
+            "plain-trad": [],
+            "aliases-trad": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "alias-new": [
+              "bj-palace"
+            ],
+            "synonym-new": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "name_terms_unchanged_after_query_reload": true,
+            "stored_source_unchanged_after_query_reload": true
+          }
+        },
+        {
+          "stage": "java",
+          "path": "projects/travel-search/review/f16/round-1-java.jsonl",
+          "requests": 32,
+          "results": {
+            "紫禁城:BJ:aliases": [
+              "bj-palace",
+              "bj-wall"
+            ],
+            "紫禁城:BJ:graph": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "紫禁城:SY:graph": [
+              "sy-palace"
+            ],
+            "PALACE museum:BJ:graph": [
+              "bj-palace",
+              "bj-tail"
+            ],
+            "PALACE museum:BJ:loose": [
+              "bj-gap",
+              "bj-palace",
+              "bj-reverse",
+              "bj-tail"
+            ],
+            "PALACE museum:BJ:phrase": [
+              "bj-palace"
+            ],
+            "故宮:BJ:late": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional"
+            ],
+            "皇城旧称:BJ:graph": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ]
+          }
+        }
+      ],
+      "extra": {
+        "path": "projects/travel-search/review/f16/round-1-extra.jsonl",
+        "requests": 33,
+        "results": {
+          "restored_after_502_in_same_Java_process": true,
+          "open_contexts": 0
+        }
+      },
+      "cleanup_after": {
+        "path": "projects/travel-search/review/f16/round-1-cleanup-after.jsonl",
+        "requests": 4,
+        "results": {}
+      },
+      "teaching_requests": 87,
+      "status": "passed"
+    },
+    {
+      "number": 2,
+      "cleanup_before": {
+        "path": "projects/travel-search/review/f16/round-2-cleanup-before.jsonl",
+        "requests": 4,
+        "results": {}
+      },
+      "teaching": [
+        {
+          "stage": "aliases",
+          "path": "projects/travel-search/review/f16/round-2-aliases.jsonl",
+          "requests": 22,
+          "results": {
+            "travel_plain:紫禁城": [
+              [
+                "紫",
+                0,
+                1,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "禁",
+                1,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "城",
+                2,
+                1,
+                2,
+                3,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "travel_base:紫禁城": [
+              [
+                "紫",
+                0,
+                1,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "禁",
+                1,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "城",
+                2,
+                1,
+                2,
+                3,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "travel_search:紫禁城": [
+              [
+                "故",
+                0,
+                1,
+                0,
+                3,
+                "SYNONYM"
+              ],
+              [
+                "紫",
+                0,
+                2,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "宫",
+                1,
+                3,
+                0,
+                3,
+                "SYNONYM"
+              ],
+              [
+                "禁",
+                2,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "城",
+                3,
+                1,
+                2,
+                3,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "travel_search:故宮": [
+              [
+                "紫",
+                0,
+                1,
+                0,
+                2,
+                "SYNONYM"
+              ],
+              [
+                "故",
+                0,
+                3,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "禁",
+                1,
+                1,
+                0,
+                2,
+                "SYNONYM"
+              ],
+              [
+                "城",
+                2,
+                2,
+                0,
+                2,
+                "SYNONYM"
+              ],
+              [
+                "宫",
+                3,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "travel_late:故宮": [
+              [
+                "故",
+                0,
+                1,
+                0,
+                1,
+                "<IDEOGRAPHIC>"
+              ],
+              [
+                "宫",
+                1,
+                1,
+                1,
+                2,
+                "<IDEOGRAPHIC>"
+              ]
+            ],
+            "plain-cn": [
+              "bj-wall"
+            ],
+            "aliases-cn": [
+              "bj-palace",
+              "bj-wall"
+            ],
+            "graph-cn": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "graph-sy": [
+              "sy-palace"
+            ],
+            "aliases-sy": [],
+            "graph-trad": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "late-trad": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional"
+            ]
+          }
+        },
+        {
+          "stage": "graph",
+          "path": "projects/travel-search/review/f16/round-2-graph.jsonl",
+          "requests": 12,
+          "results": {
+            "travel_base": [
+              [
+                "palace",
+                0,
+                1,
+                0,
+                6,
+                "<ALPHANUM>"
+              ],
+              [
+                "museum",
+                1,
+                1,
+                7,
+                13,
+                "<ALPHANUM>"
+              ]
+            ],
+            "travel_search": [
+              [
+                "forbidden",
+                0,
+                1,
+                0,
+                6,
+                "SYNONYM"
+              ],
+              [
+                "palace",
+                0,
+                2,
+                0,
+                6,
+                "<ALPHANUM>"
+              ],
+              [
+                "city",
+                1,
+                1,
+                0,
+                6,
+                "SYNONYM"
+              ],
+              [
+                "museum",
+                2,
+                1,
+                7,
+                13,
+                "<ALPHANUM>"
+              ]
+            ],
+            "travel_late": [
+              [
+                "palace",
+                0,
+                1,
+                0,
+                6,
+                "<ALPHANUM>"
+              ],
+              [
+                "museum",
+                1,
+                1,
+                7,
+                13,
+                "<ALPHANUM>"
+              ]
+            ],
+            "graph-en": [
+              "bj-palace",
+              "bj-tail"
+            ],
+            "loose-en": [
+              "bj-gap",
+              "bj-palace",
+              "bj-reverse",
+              "bj-tail"
+            ],
+            "phrase-en": [
+              "bj-palace"
+            ],
+            "late-en": [],
+            "rewrite:graph-en": [
+              {
+                "index": "tut-f16-attractions",
+                "valid": true,
+                "explanation": "+((+(name:\"forbidden city\" name:palace) +name:museum) | (+(name_en:\"forbidden city\" name_en:palace) +name_en:museum)) #city_code:BJ #status:open #currency:CNY #IndexOrDocValuesQuery(indexQuery=ticket_price_fen:[0 TO 10000], dvQuery=ticket_price_fen:[0 TO 10000])"
+              }
+            ],
+            "rewrite:loose-en": [
+              {
+                "index": "tut-f16-attractions",
+                "valid": true,
+                "explanation": "+((+((+name:forbidden +name:city) name:palace) +name:museum) | (+((+name_en:forbidden +name_en:city) name_en:palace) +name_en:museum)) #city_code:BJ #status:open #currency:CNY #IndexOrDocValuesQuery(indexQuery=ticket_price_fen:[0 TO 10000], dvQuery=ticket_price_fen:[0 TO 10000])"
+              }
+            ],
+            "rewrite:phrase-en": [
+              {
+                "index": "tut-f16-attractions",
+                "valid": true,
+                "explanation": "+(spanNear([spanOr([spanNear([name:forbidden, name:city], 0, true), name:palace]), name:museum], 0, true) | spanNear([spanOr([spanNear([name_en:forbidden, name_en:city], 0, true), name_en:palace]), name_en:museum], 0, true)) #city_code:BJ #status:open #currency:CNY #IndexOrDocValuesQuery(indexQuery=ticket_price_fen:[0 TO 10000], dvQuery=ticket_price_fen:[0 TO 10000])"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "changes",
+          "path": "projects/travel-search/review/f16/round-2-changes.jsonl",
+          "requests": 21,
+          "results": {
+            "plain-trad": [],
+            "aliases-trad": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "alias-new": [
+              "bj-palace"
+            ],
+            "synonym-new": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "name_terms_unchanged_after_query_reload": true,
+            "stored_source_unchanged_after_query_reload": true
+          }
+        },
+        {
+          "stage": "java",
+          "path": "projects/travel-search/review/f16/round-2-java.jsonl",
+          "requests": 32,
+          "results": {
+            "紫禁城:BJ:aliases": [
+              "bj-palace",
+              "bj-wall"
+            ],
+            "紫禁城:BJ:graph": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ],
+            "紫禁城:SY:graph": [
+              "sy-palace"
+            ],
+            "PALACE museum:BJ:graph": [
+              "bj-palace",
+              "bj-tail"
+            ],
+            "PALACE museum:BJ:loose": [
+              "bj-gap",
+              "bj-palace",
+              "bj-reverse",
+              "bj-tail"
+            ],
+            "PALACE museum:BJ:phrase": [
+              "bj-palace"
+            ],
+            "故宮:BJ:late": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional"
+            ],
+            "皇城旧称:BJ:graph": [
+              "bj-palace",
+              "bj-theme",
+              "bj-traditional",
+              "bj-wall"
+            ]
+          }
+        }
+      ],
+      "extra": {
+        "path": "projects/travel-search/review/f16/round-2-extra.jsonl",
+        "requests": 33,
+        "results": {
+          "restored_after_502_in_same_Java_process": true,
+          "open_contexts": 0
+        }
+      },
+      "cleanup_after": {
+        "path": "projects/travel-search/review/f16/round-2-cleanup-after.jsonl",
+        "requests": 4,
+        "results": {}
+      },
+      "teaching_requests": 87,
+      "status": "passed"
+    }
+  ],
+  "sha256": {
+    "projects/travel-search/search/f16/input-cn.json": "ea2641723519a04c22a3d1c65619af509dca47afaaeb8ad1afeb9ce1f14d52eb",
+    "projects/travel-search/search/f16/analyze-trad.json": "81c6b9b491132d37c8169bae250cc477d1168e82eb9eb687e1c9cbd616f0934e",
+    "projects/travel-search/search/f16/aliases-cn.json": "233f885665ee3f729f0b2b7fff6e923af842c1ad0528539685f2990ef2f51b37",
+    "projects/travel-search/search/f16/graph-trad.json": "47f9373fdb0adc2f417c749f10197e121bfad4451adb0db8d1e16c09f41d5667",
+    "projects/travel-search/search/f16/late-trad.json": "d59250f8d4e8c0e3bfef889f513dfa7e10458b82e44928ce7207d4ca883ae50f",
+    "projects/travel-search/search/f16/input-en.json": "ba8e1ce624db5b821e1eccf56a5dea72414b4ca73e849d4341db5d5cdcd46159",
+    "projects/travel-search/search/f16/aliases-sy.json": "4f87f4d0a4983eb863d395ed56d5d6b23d80ff539ac75e9a9fdc3aed51352b93",
+    "projects/travel-search/search/f16/loose-en.json": "c32ce85999b595abdcb0fbea26ecd444ea4f5c074e95b56e8e5f2e4050e944b2",
+    "projects/travel-search/search/f16/bad-stop.json": "7c722a053248235bfa9ce33adef19f9a4852ba4ba9b7d8deca47c907c8c657f9",
+    "projects/travel-search/search/f16/synonyms-updated.json": "41dae35b2725b990c62a078a49ee5ab27c2ec2c8b48faa3edcdc456219734700",
+    "projects/travel-search/search/f16/graph-sy.json": "d0153de378298ebd724dd50a64f00a5fa666e4f044ac20b074089d9241b0b671",
+    "projects/travel-search/search/f16/analyze-graph.json": "7a60ec6ff7d492fc722b19c1972ec4c75974e461cc5ab24fc3b0076a523f109c",
+    "projects/travel-search/search/f16/phrase-en.json": "13548b6f15672aa044ae319018ca2c4c3cd2d0e48bfe7772546d5181daa47aa3",
+    "projects/travel-search/search/f16/synonym-new.json": "66927480cce6cde7a0347a39eec0887197dab66686df25cc5284ba90932669d6",
+    "projects/travel-search/search/f16/vectors.json": "1b2f9260f9a777fce1431ee5b5ffb82a09950e0685a24d914102713e6f638b11",
+    "projects/travel-search/search/f16/plain-cn.json": "1dba694086d2cee1495d9fa469a67f4353078b69e956b64b06f20b3fa594c54e",
+    "projects/travel-search/search/f16/aliases-trad.json": "4672e240c4a889784d8ca33c824a3370c0ca6bf94901863f3a2748e42fa09cbf",
+    "projects/travel-search/search/f16/plain-trad.json": "0ddc37f67283cc13f8cef101e6c373a8d7fd6180e38edbf74392491099485d63",
+    "projects/travel-search/search/f16/alias-new.json": "3351100cbc2faa62bd96adf243fd2916561eeb53f4772d0428228042dbb4b38b",
+    "projects/travel-search/search/f16/graph-cn.json": "d04b62efddf1646a656d5d0237b0eb369d0f35a6bd666546a66bc90c533ea202",
+    "projects/travel-search/search/f16/index.json": "6bb7caa2fead5ff02b7290b59a1d07c0c537a5505b15a1ba7ba1b353628506e9",
+    "projects/travel-search/search/f16/late-en.json": "372fe31c4743faa89a1f60d334e4c05ec1870d7349bf22c3de3c47b998538524",
+    "projects/travel-search/search/f16/alias-update.json": "a260638f8310c9afe9b902b7aa1a82f19aa0aac4740da2fad08571f237938940",
+    "projects/travel-search/search/f16/graph-en.json": "2dfe47d8ae3e31c07bddcee90ff9970844c8d54eaa4554f8900c3a5921f79782",
+    "projects/travel-search/search/f16/synonyms.json": "b749c2e9f4fe2ff4c3e658b0aeb4d2dc31dcd31375cf281bf289d86b2e7243e5",
+    "projects/travel-search/data/f16/judgments.json": "a5dcf50f62f835851972c2096c301424dd72271ad313a2cabc2e7b322205fb0f",
+    "projects/travel-search/data/f16/attractions.ndjson": "3410c7ea9e4fd630c2c71e61ebfd9091be8451c72df1d1aa233376184b70b1c6",
+    "projects/travel-search/infra/f16/fetch.py": "f36f6f5ad7a1f0ca0293474ac6c409d2ea6b4a9d76ecaab594472c814e8c7605",
+    "projects/travel-search/infra/f16/Dockerfile": "bf7257df8f1ac096cf3f8528d2ab4e42bcece3b13df6c5df595f22f88a6b3553",
+    "projects/travel-search/infra/f16/compose.yaml": "3d67e8ca80083517674141f8cb46bf13b98c7003e1d798fa72f6f5d0517c0b48",
+    "projects/travel-search/infra/f16/wait.sh": "8d24f9663e234209dca0095674ba7a48944b8496e079ce06c3c8a3127fb0d01c",
+    "projects/travel-search/infra/f16/plugins.lock.json": "41fae72989a04f578ea7c8712339a6733b41139a4bd53af2db641884554dc43f",
+    "projects/travel-search/labs/f16/03-normalize-and-update.sh": "629d63ac5e428db403ae35511096cc1a0c9674fe9f7e4abc1605fd5cd4cec459",
+    "projects/travel-search/labs/f16/02-graph.sh": "b483f4f7ee84984cedbcdf46a6ebc93fb63d00a676e3fd0f5d5d230dc32adf78",
+    "projects/travel-search/labs/f16/04-java.sh": "a4a87a4935834b44888df2a88280a33da0a07b5b584336f1554b7d1f9123ce8b",
+    "projects/travel-search/labs/f16/01-aliases.sh": "c6f2b85549f48f9b4e2b447d41504aeffbaac7936f173475b411fb566b802247",
+    "projects/travel-search/labs/f16/cleanup.sh": "57292d9f20bf049a4f634b3b7d9e64227c02a290916e469b861d5b008630a4cb",
+    "projects/travel-search/labs/f16/lab.py": "4762bf12010f164323022b12bac26ba3cf4203a54ec80ebc2c214a217ac51bad",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SynonymController.java": "87dc202ba1ea8a8e6030fe0c848e8484c56a013d7f3c7e935651e41f4027f902",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SynonymAttraction.java": "5691f02472665f7944f4640ca785d8d443207bef14c5172c009ef8245688051c",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SynonymSearchService.java": "219957a716e3d2f58b5cbac241517d40bfbfe9ba0d5e368bfceb290080152ee2",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/SynonymInput.java": "294b9b8277f7b2d2d4fa2c55b67dfeb834a2501242f801a4448f673d5ab8d0aa",
+    "projects/travel-search/backend/src/main/resources/static/f16.html": "e7ebd38f00ee525bad3b1bc55be1e83213d9c17cf6ce6ebd0e8a0dcaf37d065f",
+    "projects/travel-search/backend/src/main/resources/static/shell-f16.css": "59d9295aab50c53ac31e0c85e7fafe60867b8ea0996813cffc98265d79cbe2c4",
+    "projects/travel-search/backend/src/main/resources/static/shell-f16.js": "102f64dfacf284688fc3906212215133208b582c1183b53394b480b0edf073d4"
+  },
+  "status": "passed",
+  "rounds_agree": true
+}

@@ -1,0 +1,20 @@
+name: es-framework-f16
+services:
+  es:
+    image: es-web-f16:9.4.0
+    build:
+      context: .
+    environment:
+      cluster.name: travel-f16-lab
+      node.name: travel-f16-01
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:19216:9200"
+    mem_limit: 1g
+    volumes:
+      - f16-data:/usr/share/elasticsearch/data
+volumes:
+  f16-data:

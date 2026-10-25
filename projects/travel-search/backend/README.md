@@ -98,3 +98,9 @@ ES_URL=http://127.0.0.1:19214 java -jar target/travel-search-0.7.0.jar
 ```
 
 打开`http://127.0.0.1:18080/f14.html`，API`POST /api/attractions/analyzer-search`接受q/cityCode/maxPriceFen/candidate。五种候选由服务端映射到固定字段/analyzer，默认索引tut-f14-attractions（启动前TRAVEL_F14_INDEX可配置）；两列分析当前查询与固定样本，不读取存量词项。输入/插件不可用/缺索引/连接故障分别400/502/502/503，错误清空旧卡片。标准基线无需插件，其他模式需完整准备。构建/两轮实连见[review/f14](../review/f14/README.md)，浏览器不直连ES。
+
+## F16 · 别名与同义词观察窗
+
+按[本机入口](../labs/f16/README.md)准备独立19216节点、ICU9.4.0、初始规则与11份资料。沿用Boot4.0.8/JDK25/官方客户端9.4.8，启动前设置ES_URL=http://127.0.0.1:19216；打开http://127.0.0.1:18080/f16.html。
+
+POST /api/attractions/synonym-search接受q/cityCode(BJ|SY)/maxPriceFen整数分0–100000000/mode(plain|aliases|graph|phrase|loose|late)。服务端固定本课索引、字段和分析器，双分析都处理当前输入，返回position/positionLength/offset与完整链，不冒充历史词项。完整查询与DTO逐份REST重放；条件/错误清空旧结果，400/502/503与正常0结果分开。[两轮与构建](../review/f16/README.md)。

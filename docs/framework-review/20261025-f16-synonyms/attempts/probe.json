@@ -1,0 +1,2540 @@
+[
+  {
+    "method": "PUT",
+    "path": "/_synonyms/tut-f16-names",
+    "body": {
+      "synonyms_set": [
+        {
+          "id": "palace-cn",
+          "synonyms": "紫禁城, 故宫"
+        },
+        {
+          "id": "palace-en",
+          "synonyms": "palace, forbidden city"
+        }
+      ]
+    },
+    "status": 201,
+    "response": {
+      "result": "created",
+      "reload_analyzers_details": {
+        "_shards": {
+          "total": 0,
+          "successful": 0,
+          "failed": 0
+        },
+        "reload_details": []
+      }
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/tut-f16-attractions",
+    "body": {
+      "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0,
+        "refresh_interval": "-1",
+        "analysis": {
+          "filter": {
+            "t2s": {
+              "type": "icu_transform",
+              "id": "Traditional-Simplified"
+            },
+            "travel_syn": {
+              "type": "synonym_graph",
+              "synonyms_set": "tut-f16-names",
+              "updateable": true,
+              "expand": true,
+              "lenient": false
+            }
+          },
+          "analyzer": {
+            "travel_plain": {
+              "type": "custom",
+              "tokenizer": "standard",
+              "filter": [
+                "lowercase"
+              ]
+            },
+            "travel_base": {
+              "type": "custom",
+              "tokenizer": "standard",
+              "filter": [
+                "lowercase",
+                "t2s"
+              ]
+            },
+            "travel_search": {
+              "type": "custom",
+              "tokenizer": "standard",
+              "filter": [
+                "lowercase",
+                "t2s",
+                "travel_syn"
+              ]
+            },
+            "travel_late": {
+              "type": "custom",
+              "tokenizer": "standard",
+              "filter": [
+                "travel_syn",
+                "lowercase",
+                "t2s"
+              ]
+            }
+          }
+        }
+      },
+      "mappings": {
+        "dynamic": "strict",
+        "properties": {
+          "attraction_id": {
+            "type": "keyword"
+          },
+          "city_code": {
+            "type": "keyword"
+          },
+          "status": {
+            "type": "keyword"
+          },
+          "currency": {
+            "type": "keyword"
+          },
+          "ticket_price_fen": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "text",
+            "analyzer": "travel_base",
+            "search_analyzer": "travel_search",
+            "term_vector": "with_positions_offsets"
+          },
+          "name_en": {
+            "type": "text",
+            "analyzer": "travel_base",
+            "search_analyzer": "travel_search",
+            "term_vector": "with_positions_offsets"
+          },
+          "aliases": {
+            "type": "text",
+            "analyzer": "travel_base",
+            "search_analyzer": "travel_base",
+            "position_increment_gap": 100
+          }
+        }
+      }
+    },
+    "status": 200,
+    "response": {
+      "acknowledged": true,
+      "shards_acknowledged": true,
+      "index": "tut-f16-attractions"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_bulk",
+    "body": "{\"create\": {\"_id\": \"bj-palace\"}}\n{\"attraction_id\": \"bj-palace\", \"name\": \"北京故宫博物院\", \"name_en\": \"Forbidden City Museum\", \"aliases\": [\"紫禁城\"], \"city_code\": \"BJ\", \"status\": \"open\", \"currency\": \"CNY\", \"ticket_price_fen\": 6000}\n{\"create\": {\"_id\": \"bj-wall\"}}\n{\"attraction_id\": \"bj-wall\", \"name\": \"紫禁城城墙展\", \"name_en\": \"Zijin Wall Exhibition\", \"aliases\": [\"故宫城墙\"], \"city_code\": \"BJ\", \"status\": \"open\", \"currency\": \"CNY\", \"ticket_price_fen\": 2000}\n{\"create\": {\"_id\": \"bj-theme\"}}\n{\"attraction_id\": \"bj-theme\", \"name\": \"故宫主题餐厅\", \"name_en\": \"Palace Theme Dining\", \"aliases\": [], \"city_code\": \"BJ\", \"status\": \"open\", \"currency\": \"CNY\", \"ticket_price_fen\": 3000}\n{\"create\": {\"_id\": \"bj-traditional\"}}\n{\"attraction_id\": \"bj-traditional\", \"name\": \"故宮文創館\", \"name_en\": \"Palace Gift Gallery\", \"aliases\": [], \"city_code\": \"BJ\", \"status\": \"open\", \"currency\": \"CNY\", \"ticket_price_fen\": 0}\n{\"create\": {\"_id\": \"sy-palace\"}}\n{\"attraction_id\": \"sy-palace\", \"name\": \"沈阳故宫博物院\", \"name_en\": \"Shenyang Palace Museum\", \"aliases\": [\"盛京皇宫\"], \"city_code\": \"SY\", \"status\": \"open\", \"currency\": \"CNY\", \"ticket_price_fen\": 5000}\n{\"create\": {\"_id\": \"bj-gap\"}}\n{\"attraction_id\": \"bj-gap\", \"name\": \"旧城历史馆\", \"name_en\": \"Forbidden History City Museum\", \"aliases\": [], \"city_code\": \"BJ\", \"status\": \"open\", \"currency\": \"CNY\", \"ticket_price_fen\": 1000}\n{\"create\": {\"_id\": \"bj-reverse\"}}\n{\"attraction_id\": \"bj-reverse\", \"name\": \"城史馆\", \"name_en\": \"City Forbidden Museum\", \"aliases\": [], \"city_code\": \"BJ\", \"status\": \"open\", \"currency\": \"CNY\", \"ticket_price_fen\": 1000}\n{\"create\": {\"_id\": \"bj-tail\"}}\n{\"attraction_id\": \"bj-tail\", \"name\": \"宫城历史馆\", \"name_en\": \"Forbidden City History Museum\", \"aliases\": [], \"city_code\": \"BJ\", \"status\": \"open\", \"currency\": \"CNY\", \"ticket_price_fen\": 1000}\n{\"create\": {\"_id\": \"bj-closed\"}}\n{\"attraction_id\": \"bj-closed\", \"name\": \"故宫闭馆展\", \"name_en\": \"Forbidden City Museum Closed\", \"aliases\": [], \"city_code\": \"BJ\", \"status\": \"closed\", \"currency\": \"CNY\", \"ticket_price_fen\": 5000}\n{\"create\": {\"_id\": \"bj-expensive\"}}\n{\"attraction_id\": \"bj-expensive\", \"name\": \"故宫贵宾讲解\", \"name_en\": \"Forbidden City Museum Premium\", \"aliases\": [], \"city_code\": \"BJ\", \"status\": \"open\", \"currency\": \"CNY\", \"ticket_price_fen\": 15000}\n{\"create\": {\"_id\": \"bj-usd\"}}\n{\"attraction_id\": \"bj-usd\", \"name\": \"故宫外币票\", \"name_en\": \"Forbidden City Museum USD\", \"aliases\": [], \"city_code\": \"BJ\", \"status\": \"open\", \"currency\": \"USD\", \"ticket_price_fen\": 5000}\n",
+    "status": 200,
+    "response": {
+      "errors": false,
+      "took": 0,
+      "items": [
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-palace",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 0,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-wall",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 1,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-theme",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 2,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-traditional",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 3,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "sy-palace",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 4,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-gap",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 5,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-reverse",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 6,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-tail",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 7,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-closed",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 8,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-expensive",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 9,
+            "_primary_term": 1,
+            "status": 201
+          }
+        },
+        {
+          "create": {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-usd",
+            "_version": 1,
+            "result": "created",
+            "_shards": {
+              "total": 1,
+              "successful": 1,
+              "failed": 0
+            },
+            "_seq_no": 10,
+            "_primary_term": 1,
+            "status": 201
+          }
+        }
+      ]
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_refresh",
+    "body": null,
+    "status": 200,
+    "response": {
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "failed": 0
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "紫禁城",
+                "fields": [
+                  "name",
+                  "name_en",
+                  "aliases"
+                ],
+                "analyzer": "travel_base",
+                "type": "phrase",
+                "slop": 0
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 19,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 2,
+          "relation": "eq"
+        },
+        "max_score": 4.9377146,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-palace",
+            "_score": 2.6270633,
+            "_source": {
+              "attraction_id": "bj-palace",
+              "name": "北京故宫博物院",
+              "name_en": "Forbidden City Museum",
+              "aliases": [
+                "紫禁城"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 6000
+            },
+            "sort": [
+              "bj-palace"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-wall",
+            "_score": 4.9377146,
+            "_source": {
+              "attraction_id": "bj-wall",
+              "name": "紫禁城城墙展",
+              "name_en": "Zijin Wall Exhibition",
+              "aliases": [
+                "故宫城墙"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 2000
+            },
+            "sort": [
+              "bj-wall"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "故宮",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_search",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": true
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 10,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 4,
+          "relation": "eq"
+        },
+        "max_score": 4.9377146,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-palace",
+            "_score": 0.7302065,
+            "_source": {
+              "attraction_id": "bj-palace",
+              "name": "北京故宫博物院",
+              "name_en": "Forbidden City Museum",
+              "aliases": [
+                "紫禁城"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 6000
+            },
+            "sort": [
+              "bj-palace"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-theme",
+            "_score": 0.7828196,
+            "_source": {
+              "attraction_id": "bj-theme",
+              "name": "故宫主题餐厅",
+              "name_en": "Palace Theme Dining",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 3000
+            },
+            "sort": [
+              "bj-theme"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-traditional",
+            "_score": 0.8436033,
+            "_source": {
+              "attraction_id": "bj-traditional",
+              "name": "故宮文創館",
+              "name_en": "Palace Gift Gallery",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 0
+            },
+            "sort": [
+              "bj-traditional"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-wall",
+            "_score": 4.9377146,
+            "_source": {
+              "attraction_id": "bj-wall",
+              "name": "紫禁城城墙展",
+              "name_en": "Zijin Wall Exhibition",
+              "aliases": [
+                "故宫城墙"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 2000
+            },
+            "sort": [
+              "bj-wall"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "故宮",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_late",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": true
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 5,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 3,
+          "relation": "eq"
+        },
+        "max_score": 0.8436034,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-palace",
+            "_score": 0.7302066,
+            "_source": {
+              "attraction_id": "bj-palace",
+              "name": "北京故宫博物院",
+              "name_en": "Forbidden City Museum",
+              "aliases": [
+                "紫禁城"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 6000
+            },
+            "sort": [
+              "bj-palace"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-theme",
+            "_score": 0.7828196,
+            "_source": {
+              "attraction_id": "bj-theme",
+              "name": "故宫主题餐厅",
+              "name_en": "Palace Theme Dining",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 3000
+            },
+            "sort": [
+              "bj-theme"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-traditional",
+            "_score": 0.8436034,
+            "_source": {
+              "attraction_id": "bj-traditional",
+              "name": "故宮文創館",
+              "name_en": "Palace Gift Gallery",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 0
+            },
+            "sort": [
+              "bj-traditional"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "紫禁城",
+                "fields": [
+                  "name",
+                  "name_en",
+                  "aliases"
+                ],
+                "analyzer": "travel_base",
+                "type": "phrase",
+                "slop": 0
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "SY"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 3,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 0,
+          "relation": "eq"
+        },
+        "max_score": null,
+        "hits": []
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "PALACE museum",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_search",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": false
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 5,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 4,
+          "relation": "eq"
+        },
+        "max_score": 1.3579427,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-gap",
+            "_score": 1.2068907,
+            "_source": {
+              "attraction_id": "bj-gap",
+              "name": "旧城历史馆",
+              "name_en": "Forbidden History City Museum",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 1000
+            },
+            "sort": [
+              "bj-gap"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-palace",
+            "_score": 1.3579427,
+            "_source": {
+              "attraction_id": "bj-palace",
+              "name": "北京故宫博物院",
+              "name_en": "Forbidden City Museum",
+              "aliases": [
+                "紫禁城"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 6000
+            },
+            "sort": [
+              "bj-palace"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-reverse",
+            "_score": 1.3579427,
+            "_source": {
+              "attraction_id": "bj-reverse",
+              "name": "城史馆",
+              "name_en": "City Forbidden Museum",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 1000
+            },
+            "sort": [
+              "bj-reverse"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-tail",
+            "_score": 1.2068907,
+            "_source": {
+              "attraction_id": "bj-tail",
+              "name": "宫城历史馆",
+              "name_en": "Forbidden City History Museum",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 1000
+            },
+            "sort": [
+              "bj-tail"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "紫禁城",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_search",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": true
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "SY"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 9,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 1,
+          "relation": "eq"
+        },
+        "max_score": 0.7302065,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "sy-palace",
+            "_score": 0.7302065,
+            "_source": {
+              "attraction_id": "sy-palace",
+              "name": "沈阳故宫博物院",
+              "name_en": "Shenyang Palace Museum",
+              "aliases": [
+                "盛京皇宫"
+              ],
+              "city_code": "SY",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 5000
+            },
+            "sort": [
+              "sy-palace"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "PALACE museum",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_search",
+                "type": "phrase",
+                "slop": 0
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 6,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 1,
+          "relation": "eq"
+        },
+        "max_score": 2.660183,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-palace",
+            "_score": 2.660183,
+            "_source": {
+              "attraction_id": "bj-palace",
+              "name": "北京故宫博物院",
+              "name_en": "Forbidden City Museum",
+              "aliases": [
+                "紫禁城"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 6000
+            },
+            "sort": [
+              "bj-palace"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "皇城旧称",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_search",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": true
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 3,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 0,
+          "relation": "eq"
+        },
+        "max_score": null,
+        "hits": []
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "紫禁城",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_plain",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": true
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 2,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 1,
+          "relation": "eq"
+        },
+        "max_score": 5.3071804,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-wall",
+            "_score": 5.3071804,
+            "_source": {
+              "attraction_id": "bj-wall",
+              "name": "紫禁城城墙展",
+              "name_en": "Zijin Wall Exhibition",
+              "aliases": [
+                "故宫城墙"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 2000
+            },
+            "sort": [
+              "bj-wall"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "故宮",
+                "fields": [
+                  "name",
+                  "name_en",
+                  "aliases"
+                ],
+                "analyzer": "travel_base",
+                "type": "phrase",
+                "slop": 0
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 4,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 4,
+          "relation": "eq"
+        },
+        "max_score": 1.398811,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-palace",
+            "_score": 0.7302065,
+            "_source": {
+              "attraction_id": "bj-palace",
+              "name": "北京故宫博物院",
+              "name_en": "Forbidden City Museum",
+              "aliases": [
+                "紫禁城"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 6000
+            },
+            "sort": [
+              "bj-palace"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-theme",
+            "_score": 0.7828196,
+            "_source": {
+              "attraction_id": "bj-theme",
+              "name": "故宫主题餐厅",
+              "name_en": "Palace Theme Dining",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 3000
+            },
+            "sort": [
+              "bj-theme"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-traditional",
+            "_score": 0.8436033,
+            "_source": {
+              "attraction_id": "bj-traditional",
+              "name": "故宮文創館",
+              "name_en": "Palace Gift Gallery",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 0
+            },
+            "sort": [
+              "bj-traditional"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-wall",
+            "_score": 1.398811,
+            "_source": {
+              "attraction_id": "bj-wall",
+              "name": "紫禁城城墙展",
+              "name_en": "Zijin Wall Exhibition",
+              "aliases": [
+                "故宫城墙"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 2000
+            },
+            "sort": [
+              "bj-wall"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "故宮",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_plain",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": true
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 1,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 0,
+          "relation": "eq"
+        },
+        "max_score": null,
+        "hits": []
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "皇家旧宫",
+                "fields": [
+                  "name",
+                  "name_en",
+                  "aliases"
+                ],
+                "analyzer": "travel_base",
+                "type": "phrase",
+                "slop": 0
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 1,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 0,
+          "relation": "eq"
+        },
+        "max_score": null,
+        "hits": []
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "紫禁城",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_search",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": true
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 3,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 4,
+          "relation": "eq"
+        },
+        "max_score": 4.9377146,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-palace",
+            "_score": 0.7302065,
+            "_source": {
+              "attraction_id": "bj-palace",
+              "name": "北京故宫博物院",
+              "name_en": "Forbidden City Museum",
+              "aliases": [
+                "紫禁城"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 6000
+            },
+            "sort": [
+              "bj-palace"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-theme",
+            "_score": 0.7828196,
+            "_source": {
+              "attraction_id": "bj-theme",
+              "name": "故宫主题餐厅",
+              "name_en": "Palace Theme Dining",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 3000
+            },
+            "sort": [
+              "bj-theme"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-traditional",
+            "_score": 0.8436033,
+            "_source": {
+              "attraction_id": "bj-traditional",
+              "name": "故宮文創館",
+              "name_en": "Palace Gift Gallery",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 0
+            },
+            "sort": [
+              "bj-traditional"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-wall",
+            "_score": 4.9377146,
+            "_source": {
+              "attraction_id": "bj-wall",
+              "name": "紫禁城城墙展",
+              "name_en": "Zijin Wall Exhibition",
+              "aliases": [
+                "故宫城墙"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 2000
+            },
+            "sort": [
+              "bj-wall"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "PALACE museum",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_late",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": true
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 1,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 0,
+          "relation": "eq"
+        },
+        "max_score": null,
+        "hits": []
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_search",
+    "body": {
+      "size": 20,
+      "track_total_hits": true,
+      "track_scores": true,
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "multi_match": {
+                "query": "PALACE museum",
+                "fields": [
+                  "name",
+                  "name_en"
+                ],
+                "analyzer": "travel_search",
+                "type": "best_fields",
+                "operator": "and",
+                "auto_generate_synonyms_phrase_query": true
+              }
+            }
+          ],
+          "filter": [
+            {
+              "term": {
+                "city_code": "BJ"
+              }
+            },
+            {
+              "term": {
+                "status": "open"
+              }
+            },
+            {
+              "term": {
+                "currency": "CNY"
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sort": [
+        {
+          "attraction_id": "asc"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "took": 2,
+      "timed_out": false,
+      "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "hits": {
+        "total": {
+          "value": 2,
+          "relation": "eq"
+        },
+        "max_score": 1.3579427,
+        "hits": [
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-palace",
+            "_score": 1.3579427,
+            "_source": {
+              "attraction_id": "bj-palace",
+              "name": "北京故宫博物院",
+              "name_en": "Forbidden City Museum",
+              "aliases": [
+                "紫禁城"
+              ],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 6000
+            },
+            "sort": [
+              "bj-palace"
+            ]
+          },
+          {
+            "_index": "tut-f16-attractions",
+            "_id": "bj-tail",
+            "_score": 1.2068907,
+            "_source": {
+              "attraction_id": "bj-tail",
+              "name": "宫城历史馆",
+              "name_en": "Forbidden City History Museum",
+              "aliases": [],
+              "city_code": "BJ",
+              "status": "open",
+              "currency": "CNY",
+              "ticket_price_fen": 1000
+            },
+            "sort": [
+              "bj-tail"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_analyze",
+    "body": {
+      "analyzer": "travel_search",
+      "text": "PALACE museum",
+      "explain": true,
+      "attributes": [
+        "positionLength"
+      ]
+    },
+    "status": 200,
+    "response": {
+      "detail": {
+        "custom_analyzer": true,
+        "charfilters": [],
+        "tokenizer": {
+          "name": "standard",
+          "tokens": [
+            {
+              "token": "PALACE",
+              "start_offset": 0,
+              "end_offset": 6,
+              "type": "<ALPHANUM>",
+              "position": 0,
+              "positionLength": 1
+            },
+            {
+              "token": "museum",
+              "start_offset": 7,
+              "end_offset": 13,
+              "type": "<ALPHANUM>",
+              "position": 1,
+              "positionLength": 1
+            }
+          ]
+        },
+        "tokenfilters": [
+          {
+            "name": "lowercase",
+            "tokens": [
+              {
+                "token": "palace",
+                "start_offset": 0,
+                "end_offset": 6,
+                "type": "<ALPHANUM>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "museum",
+                "start_offset": 7,
+                "end_offset": 13,
+                "type": "<ALPHANUM>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          },
+          {
+            "name": "t2s",
+            "tokens": [
+              {
+                "token": "palace",
+                "start_offset": 0,
+                "end_offset": 6,
+                "type": "<ALPHANUM>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "museum",
+                "start_offset": 7,
+                "end_offset": 13,
+                "type": "<ALPHANUM>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          },
+          {
+            "name": "travel_syn",
+            "tokens": [
+              {
+                "token": "forbidden",
+                "start_offset": 0,
+                "end_offset": 6,
+                "type": "SYNONYM",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "palace",
+                "start_offset": 0,
+                "end_offset": 6,
+                "type": "<ALPHANUM>",
+                "position": 0,
+                "positionLength": 2
+              },
+              {
+                "token": "city",
+                "start_offset": 0,
+                "end_offset": 6,
+                "type": "SYNONYM",
+                "position": 1,
+                "positionLength": 1
+              },
+              {
+                "token": "museum",
+                "start_offset": 7,
+                "end_offset": 13,
+                "type": "<ALPHANUM>",
+                "position": 2,
+                "positionLength": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_analyze",
+    "body": {
+      "analyzer": "travel_late",
+      "text": "PALACE museum",
+      "explain": true,
+      "attributes": [
+        "positionLength"
+      ]
+    },
+    "status": 200,
+    "response": {
+      "detail": {
+        "custom_analyzer": true,
+        "charfilters": [],
+        "tokenizer": {
+          "name": "standard",
+          "tokens": [
+            {
+              "token": "PALACE",
+              "start_offset": 0,
+              "end_offset": 6,
+              "type": "<ALPHANUM>",
+              "position": 0,
+              "positionLength": 1
+            },
+            {
+              "token": "museum",
+              "start_offset": 7,
+              "end_offset": 13,
+              "type": "<ALPHANUM>",
+              "position": 1,
+              "positionLength": 1
+            }
+          ]
+        },
+        "tokenfilters": [
+          {
+            "name": "travel_syn",
+            "tokens": [
+              {
+                "token": "PALACE",
+                "start_offset": 0,
+                "end_offset": 6,
+                "type": "<ALPHANUM>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "museum",
+                "start_offset": 7,
+                "end_offset": 13,
+                "type": "<ALPHANUM>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          },
+          {
+            "name": "lowercase",
+            "tokens": [
+              {
+                "token": "palace",
+                "start_offset": 0,
+                "end_offset": 6,
+                "type": "<ALPHANUM>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "museum",
+                "start_offset": 7,
+                "end_offset": 13,
+                "type": "<ALPHANUM>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          },
+          {
+            "name": "t2s",
+            "tokens": [
+              {
+                "token": "palace",
+                "start_offset": 0,
+                "end_offset": 6,
+                "type": "<ALPHANUM>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "museum",
+                "start_offset": 7,
+                "end_offset": 13,
+                "type": "<ALPHANUM>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_analyze",
+    "body": {
+      "analyzer": "travel_search",
+      "text": "故宮",
+      "explain": true,
+      "attributes": [
+        "positionLength"
+      ]
+    },
+    "status": 200,
+    "response": {
+      "detail": {
+        "custom_analyzer": true,
+        "charfilters": [],
+        "tokenizer": {
+          "name": "standard",
+          "tokens": [
+            {
+              "token": "故",
+              "start_offset": 0,
+              "end_offset": 1,
+              "type": "<IDEOGRAPHIC>",
+              "position": 0,
+              "positionLength": 1
+            },
+            {
+              "token": "宮",
+              "start_offset": 1,
+              "end_offset": 2,
+              "type": "<IDEOGRAPHIC>",
+              "position": 1,
+              "positionLength": 1
+            }
+          ]
+        },
+        "tokenfilters": [
+          {
+            "name": "lowercase",
+            "tokens": [
+              {
+                "token": "故",
+                "start_offset": 0,
+                "end_offset": 1,
+                "type": "<IDEOGRAPHIC>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "宮",
+                "start_offset": 1,
+                "end_offset": 2,
+                "type": "<IDEOGRAPHIC>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          },
+          {
+            "name": "t2s",
+            "tokens": [
+              {
+                "token": "故",
+                "start_offset": 0,
+                "end_offset": 1,
+                "type": "<IDEOGRAPHIC>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "宫",
+                "start_offset": 1,
+                "end_offset": 2,
+                "type": "<IDEOGRAPHIC>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          },
+          {
+            "name": "travel_syn",
+            "tokens": [
+              {
+                "token": "紫",
+                "start_offset": 0,
+                "end_offset": 2,
+                "type": "SYNONYM",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "故",
+                "start_offset": 0,
+                "end_offset": 1,
+                "type": "<IDEOGRAPHIC>",
+                "position": 0,
+                "positionLength": 3
+              },
+              {
+                "token": "禁",
+                "start_offset": 0,
+                "end_offset": 2,
+                "type": "SYNONYM",
+                "position": 1,
+                "positionLength": 1
+              },
+              {
+                "token": "城",
+                "start_offset": 0,
+                "end_offset": 2,
+                "type": "SYNONYM",
+                "position": 2,
+                "positionLength": 2
+              },
+              {
+                "token": "宫",
+                "start_offset": 1,
+                "end_offset": 2,
+                "type": "<IDEOGRAPHIC>",
+                "position": 3,
+                "positionLength": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_analyze",
+    "body": {
+      "analyzer": "travel_late",
+      "text": "故宮",
+      "explain": true,
+      "attributes": [
+        "positionLength"
+      ]
+    },
+    "status": 200,
+    "response": {
+      "detail": {
+        "custom_analyzer": true,
+        "charfilters": [],
+        "tokenizer": {
+          "name": "standard",
+          "tokens": [
+            {
+              "token": "故",
+              "start_offset": 0,
+              "end_offset": 1,
+              "type": "<IDEOGRAPHIC>",
+              "position": 0,
+              "positionLength": 1
+            },
+            {
+              "token": "宮",
+              "start_offset": 1,
+              "end_offset": 2,
+              "type": "<IDEOGRAPHIC>",
+              "position": 1,
+              "positionLength": 1
+            }
+          ]
+        },
+        "tokenfilters": [
+          {
+            "name": "travel_syn",
+            "tokens": [
+              {
+                "token": "故",
+                "start_offset": 0,
+                "end_offset": 1,
+                "type": "<IDEOGRAPHIC>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "宮",
+                "start_offset": 1,
+                "end_offset": 2,
+                "type": "<IDEOGRAPHIC>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          },
+          {
+            "name": "lowercase",
+            "tokens": [
+              {
+                "token": "故",
+                "start_offset": 0,
+                "end_offset": 1,
+                "type": "<IDEOGRAPHIC>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "宮",
+                "start_offset": 1,
+                "end_offset": 2,
+                "type": "<IDEOGRAPHIC>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          },
+          {
+            "name": "t2s",
+            "tokens": [
+              {
+                "token": "故",
+                "start_offset": 0,
+                "end_offset": 1,
+                "type": "<IDEOGRAPHIC>",
+                "position": 0,
+                "positionLength": 1
+              },
+              {
+                "token": "宫",
+                "start_offset": 1,
+                "end_offset": 2,
+                "type": "<IDEOGRAPHIC>",
+                "position": 1,
+                "positionLength": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/_synonyms/tut-f16-names",
+    "body": {
+      "synonyms_set": [
+        {
+          "id": "palace-cn",
+          "synonyms": "紫禁城, 故宫, 皇城旧称"
+        },
+        {
+          "id": "palace-en",
+          "synonyms": "palace, forbidden city"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "result": "updated",
+      "reload_analyzers_details": {
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "failed": 0
+        },
+        "reload_details": [
+          {
+            "index": "tut-f16-attractions",
+            "reloaded_analyzers": [
+              "travel_late",
+              "travel_search"
+            ],
+            "reloaded_node_ids": [
+              "kZEUTcoKRlu6UEzEIRfXUw"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/tut-f16-attractions/_analyze",
+    "body": {
+      "tokenizer": "standard",
+      "filter": [
+        {
+          "type": "stop",
+          "stopwords": [
+            "palace"
+          ]
+        },
+        {
+          "type": "synonym_graph",
+          "synonyms": [
+            "palace => forbidden city"
+          ],
+          "lenient": false
+        }
+      ],
+      "text": "palace"
+    },
+    "status": 400,
+    "response": {
+      "error": {
+        "root_cause": [
+          {
+            "type": "illegal_argument_exception",
+            "reason": "failed to build synonyms from ['__anonymous__synonym_graph' analyzer settings]"
+          }
+        ],
+        "type": "illegal_argument_exception",
+        "reason": "failed to build synonyms from ['__anonymous__synonym_graph' analyzer settings]",
+        "caused_by": {
+          "type": "parse_exception",
+          "reason": "Invalid synonym rule at line 1",
+          "caused_by": {
+            "type": "illegal_argument_exception",
+            "reason": "term: palace was completely eliminated by analyzer"
+          }
+        }
+      },
+      "status": 400
+    }
+  }
+]

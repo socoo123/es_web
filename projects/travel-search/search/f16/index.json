@@ -1,0 +1,95 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1",
+    "analysis": {
+      "filter": {
+        "t2s": {
+          "type": "icu_transform",
+          "id": "Traditional-Simplified"
+        },
+        "travel_syn": {
+          "type": "synonym_graph",
+          "synonyms_set": "tut-f16-names",
+          "updateable": true,
+          "expand": true,
+          "lenient": false
+        }
+      },
+      "analyzer": {
+        "travel_plain": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase"
+          ]
+        },
+        "travel_base": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "t2s"
+          ]
+        },
+        "travel_search": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "t2s",
+            "travel_syn"
+          ]
+        },
+        "travel_late": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "travel_syn",
+            "lowercase",
+            "t2s"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "ticket_price_fen": {
+        "type": "integer"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "travel_base",
+        "search_analyzer": "travel_search",
+        "term_vector": "with_positions_offsets"
+      },
+      "name_en": {
+        "type": "text",
+        "analyzer": "travel_base",
+        "search_analyzer": "travel_search",
+        "term_vector": "with_positions_offsets"
+      },
+      "aliases": {
+        "type": "text",
+        "analyzer": "travel_base",
+        "search_analyzer": "travel_base",
+        "position_increment_gap": 100
+      }
+    }
+  }
+}

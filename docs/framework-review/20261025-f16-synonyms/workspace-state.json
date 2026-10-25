@@ -1,0 +1,67 @@
+{
+  "recorded_at": "2026-10-25T05:00:08.746355+00:00",
+  "scope": "F16 owned resources only",
+  "observed_initial": {
+    "es-framework-single-es-1": "exited143",
+    "es-study-secure": "running",
+    "es-study": "exited137",
+    "F16_container": "absent"
+  },
+  "before_cleanup": {
+    "es-framework-single-es-1": {
+      "Status": "exited",
+      "Running": false,
+      "ExitCode": 143
+    },
+    "es-study-secure": {
+      "Status": "running",
+      "Running": true,
+      "ExitCode": 0
+    },
+    "es-study": {
+      "Status": "exited",
+      "Running": false,
+      "ExitCode": 137
+    }
+  },
+  "commands": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f16/compose.yaml",
+        "down"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f16-es-1 Stopping \n Container es-framework-f16-es-1 Stopped \n Container es-framework-f16-es-1 Removing \n Container es-framework-f16-es-1 Removed \n Network es-framework-f16_default Removing \n Network es-framework-f16_default Removed \n"
+    }
+  ],
+  "status": "passed",
+  "open_contexts": 0,
+  "java": {
+    "pid": 12845,
+    "command": "/tmp/es-f07-tooling/jdk-25.0.4.1+1/Contents/Home/bin/java -jar target/travel-search-0.7.0.jar",
+    "signal": "SIGTERM"
+  },
+  "after": {
+    "es-framework-single-es-1": {
+      "Status": "exited",
+      "Running": false,
+      "ExitCode": 143
+    },
+    "es-study-secure": {
+      "Status": "running",
+      "Running": true,
+      "ExitCode": 0
+    },
+    "es-study": {
+      "Status": "exited",
+      "Running": false,
+      "ExitCode": 137
+    }
+  },
+  "F16_container_removed": true,
+  "retained": "F16 data volume after named lesson index/set deleted, verified ICU/image cache; prior lesson and source nodes unchanged"
+}
