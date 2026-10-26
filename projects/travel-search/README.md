@@ -1,6 +1,6 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业、F13分析链与中文召回、F14中文分词方案比较、F15专有词与词典、F16别名/同义词与繁简及F17提示/拼音与容错已交付，F18已交付BM25与解释评分，F19已交付名称/短语与多字段权重，F20已交付点评/热度与数值评分，F21已交付距离/时效与显式排序，F22已交付查询集/标注与质量评估，F23已交付酒店/房型/offer文档边界，F24已交付同房型条件/inner_hits与nested排序，F25–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业、F13分析链与中文召回、F14中文分词方案比较、F15专有词与词典、F16别名/同义词与繁简及F17提示/拼音与容错已交付，F18已交付BM25与解释评分，F19已交付名称/短语与多字段权重，F20已交付点评/热度与数值评分，F21已交付距离/时效与显式排序，F22已交付查询集/标注与质量评估，F23已交付酒店/房型/offer文档边界，F24已交付同房型条件/inner_hits与nested排序，F25多晚库存/逐晚总价与Java固定价表核对已交付，F26–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
 
 当前入口是 [F03 首搜](../../framework/f03.html)、[F03 手工实验](labs/f03/README.md)与[两轮真实 ES 记录](review/f03/README.md)，无需前端、Java、数据库或 Kibana。[F04 字段设计与 Bulk](../../framework/f04.html)及其[本机步骤](labs/f04/README.md)已提供；[执行状态](review/f04/README.md)明确记录本环境启动阻塞，尚未两轮实测。F04 从新资源独立开始，不依赖 F03 索引。历史文件、资源与案例 ID 保留：
 
@@ -182,4 +182,8 @@ F10再学习排序切换；不把本课ID次序当推荐排序，不把桶计数
 
 ## F24 · 同房型条件与nested排序
 
-[正文](../../framework/f24.html) · [本机步骤](labs/f24/README.md) · [完整DSL](search/f24) · [固定资料](data/f24/hotels.json) · [两轮](review/f24/README.md)。独立19224，9酒店/16房型报价条目；object/多个nested错误对照、一个完整nested与inner_hits、嵌套排序过滤一致性；本机18081/f24.html和nested/inspect接口。F25未开始。
+[正文](../../framework/f24.html) · [本机步骤](labs/f24/README.md) · [完整DSL](search/f24) · [固定资料](data/f24/hotels.json) · [两轮](review/f24/README.md)。独立19224，9酒店/16房型报价条目；object/多个nested错误对照、一个完整nested与inner_hits、嵌套排序过滤一致性；本机18081/f24.html和nested/inspect接口。F25多晚核对见[labs/f25/README.md](labs/f25/README.md)。
+
+## F25 · 多晚库存与精确价表核对
+
+[正文](../../framework/f25.html) · [本机入口](labs/f25/README.md) · [固定逐晚表](data/f25/stay-table.json) · [完整DSL](search/f25) · [实际收据](review/f25/README.md)。独立19225/tut-f25-offers，Java本机18081/f25.html与/api/stay/inspect；ES摘要筛候选，同offer逐晚检查缺晚/库存/价格/入住最短晚数，按全部房间与住宿晚核对总预算。非实时可订，不做酒店去重或总价排名。F26未实施。

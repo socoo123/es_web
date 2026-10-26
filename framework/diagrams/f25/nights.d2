@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+request: "11月1日入住 → 11月3日离店\n酒店当地日期 [入住,离店)" {class: card}
+first: "住宿晚一 · 11月1日\no01：30000分 / 剩3间" {class: card}
+second: "住宿晚二 · 11月2日\no01：40000分 / 剩3间" {class: card}
+checkout: "11月3日是离店日\n不检查该晚库存，不计该晚价格" {class: card}
+total: "一间两晚：70000分\n两间两晚：140000分" {class: card}
+counter: "对照：o02缺11月2日\n日期两端覆盖 ≠ 中间每晚有记录" {class: card}
+request -> first: 展开住宿晚
+first -> second: 同一offer继续核对
+second -> checkout: 到离店边界停止
+checkout -> total: 只累加住宿晚
+total -> counter: 对照 {style.stroke-dash: 4}

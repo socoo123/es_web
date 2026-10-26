@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+input: "两晚 / 一间 / 每间2成人\n总预算120000分" {class: card}
+es: "ES摘要筛候选 · 8条\n身份、人数、日期两端、最大库存\n不能证明逐晚连续可售" {class: card}
+guard: "Java先检查候选完整性\ntotal精确 = 已返回条数\n校验同一报价与快照" {class: card}
+table: "Java固定逐晚表\n入住日最短入住 → 每晚覆盖\n每晚库存 → 每晚价格 → 总预算" {class: card}
+result: "快照合格 · o01 / o04 / o10\n70000 / 65000 / 90000分\n其余5条给出拒绝原因" {class: card}
+limit: "结果按offer_id显示\n未酒店去重，非实时可下单\n省略税费与预订事务" {class: card}
+input -> es: Java发送候选查询
+es -> guard: 返回候选及精确总数
+guard -> table: 逐条取同一offer
+table -> result: 输出金额或拒绝原因
+result -> limit: 解释适用范围 {style.stroke-dash: 4}

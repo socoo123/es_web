@@ -1,0 +1,2388 @@
+{
+  "at": "2026-10-26T15:21:30.257069+00:00",
+  "screenshots": [
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-320-light-verify.png",
+      "sha256": "edb97fe87e04e4145bf89f8b7469209c2d17ae6c214e9cf74b1c49e9b39337d2",
+      "visual_review": "pending"
+    },
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-320-light-caption.png",
+      "sha256": "d618f644cea89dd4e6c5002e599a233be2098a6989cedfb7b93038a8bf7aaa41",
+      "visual_review": "pending"
+    },
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-320-dark-verify.png",
+      "sha256": "bb0c971f3893abef07ca9518f62c4f35c63b6eb4641cd7f493393e48fc0ec190",
+      "visual_review": "pending"
+    },
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-320-dark-caption.png",
+      "sha256": "82e2f233ee619bfb60a6a75f0f2ad4e58f9dfa8e765a4233b13de61095a35e87",
+      "visual_review": "pending"
+    },
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-390-dark-table-right.png",
+      "sha256": "2d7e49af655062a859142052736413089f32ea89f652fa2d7f7edeeaeb9414c4",
+      "visual_review": "pending"
+    },
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-390-dark-java-right.png",
+      "sha256": "a02a4f8d4a4be6c216cc3033b2eba244f6d6da568234d83b179ecbd4558e1aab",
+      "visual_review": "pending"
+    },
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-shell-400.png",
+      "sha256": "34ec630a2694a257a2f0c427676f9e122d75a269c4f6a7381deb33be4c37fe97",
+      "visual_review": "pending"
+    },
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-shell-502-incomplete.png",
+      "sha256": "ff9180059f96a5349fcd17efd548c278d97f6e231b241cbdb7b6d3c4e558bd7d",
+      "visual_review": "pending"
+    },
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-shell-502-index.png",
+      "sha256": "150b9ec5231f24dda9d874d7dba4c1e616f40959950b5f4ea3d64282e189cfe2",
+      "visual_review": "pending"
+    },
+    {
+      "path": "docs/framework-review/20261026-f25-stay/screenshots/followup-shell-503.png",
+      "sha256": "d23d7f3de7a66eaef9f708e8563fce2d7dc9783820c44bf07939757025926f62",
+      "visual_review": "pending"
+    }
+  ],
+  "captions": [
+    {
+      "theme": "light",
+      "text": "箭头表示数据处理关系，省略线程/分片/网络重试。8候选先做完整性检查，再按同一快照逐条核对；只在固定表内成立。 静态图可展开；图源与生成记录。",
+      "box": {
+        "x": 14,
+        "y": 13824.859375,
+        "width": 292,
+        "height": 100.75
+      },
+      "style": {
+        "height": 101,
+        "scroll": 101,
+        "overflow": "visible"
+      }
+    },
+    {
+      "theme": "dark",
+      "text": "箭头表示数据处理关系，省略线程/分片/网络重试。8候选先做完整性检查，再按同一快照逐条核对；只在固定表内成立。 静态图可展开；图源与生成记录。",
+      "box": {
+        "x": 14,
+        "y": 13824.859375,
+        "width": 292,
+        "height": 100.75
+      },
+      "style": {
+        "height": 101,
+        "scroll": 101,
+        "overflow": "visible"
+      }
+    }
+  ],
+  "calls": [
+    {
+      "status": 400,
+      "input": {
+        "checkIn": "2026-11-02",
+        "checkOut": "2026-11-02",
+        "rooms": 1,
+        "adultsPerRoom": 2,
+        "budgetMinor": 120000
+      },
+      "response": {
+        "code": "INVALID_STAY_INPUT",
+        "message": "日期须在2026-11-01至04内且入住早于离店；房间1–3，每间成人1–4，总预算为1–2000000整数分。"
+      }
+    },
+    {
+      "status": 200,
+      "input": {
+        "checkIn": "2026-11-01",
+        "checkOut": "2026-11-03",
+        "rooms": 1,
+        "adultsPerRoom": 2,
+        "budgetMinor": 120000
+      },
+      "response": {
+        "conditions": {
+          "checkIn": "2026-11-01",
+          "checkOut": "2026-11-03",
+          "rooms": 1,
+          "adultsPerRoom": 2,
+          "budgetMinor": 120000
+        },
+        "snapshotId": "f25-20261026-v1",
+        "boundary": "只核对固定快照的全部ES候选；按offer_id显示，未酒店去重或按总价排序；不含税费，不锁库存，不证明实时可下单。",
+        "candidateTotal": 8,
+        "acceptedTotal": 3,
+        "decisions": [
+          {
+            "offerId": "o01",
+            "hotelId": "h01",
+            "hotelName": "湖畔旅舍01",
+            "roomId": "r01",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 70000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 30000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": 40000,
+                "minStayArrival": 5
+              }
+            ]
+          },
+          {
+            "offerId": "o02",
+            "hotelId": "h02",
+            "hotelName": "湖畔旅舍02",
+            "roomId": "r02",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MISSING_NIGHT",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 10000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": null,
+                "priceMinor": null,
+                "minStayArrival": null
+              }
+            ]
+          },
+          {
+            "offerId": "o03",
+            "hotelId": "h03",
+            "hotelName": "湖畔旅舍03",
+            "roomId": "r03",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "SOLD_OUT",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 20000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 0,
+                "priceMinor": 20000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o04",
+            "hotelId": "h04",
+            "hotelName": "湖畔旅舍04",
+            "roomId": "r04",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 65000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 25000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 1,
+                "priceMinor": 40000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o05",
+            "hotelId": "h05",
+            "hotelName": "湖畔旅舍05",
+            "roomId": "r05",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MIN_STAY",
+            "failedDate": "2026-11-01",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 2,
+                "priceMinor": 20000,
+                "minStayArrival": 3
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 2,
+                "priceMinor": 25000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o06",
+            "hotelId": "h06",
+            "hotelName": "湖畔旅舍06",
+            "roomId": "r06",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "BUDGET_EXCEEDED",
+            "failedDate": null,
+            "totalMinor": 130000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 60000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": 70000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o10",
+            "hotelId": "h10",
+            "hotelName": "湖畔旅舍10",
+            "roomId": "r10",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 90000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 2,
+                "priceMinor": 45000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 2,
+                "priceMinor": 45000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o12",
+            "hotelId": "h12",
+            "hotelName": "湖畔旅舍12",
+            "roomId": "r12",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MISSING_PRICE",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 30000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": null,
+                "minStayArrival": 1
+              }
+            ]
+          }
+        ],
+        "esRequest": {
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "hotel_status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "offer_status": {
+                      "value": "active"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "bed_type": {
+                      "value": "twin"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "meal": {
+                      "value": "breakfast"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "cancellation": {
+                      "value": "flexible"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "rate_plan_id": {
+                      "value": "bf-flex"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "capacity": {
+                      "gte": 2.0
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "window_start": {
+                      "lte": "2026-11-01"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "window_end_exclusive": {
+                      "gte": "2026-11-03"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "max_available_rooms": {
+                      "gte": 1.0
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 100,
+          "sort": [
+            {
+              "offer_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_total_hits": true
+        },
+        "esResponse": {
+          "took": 7,
+          "timed_out": false,
+          "_shards": {
+            "failed": 0.0,
+            "successful": 1.0,
+            "total": 1.0,
+            "skipped": 0.0
+          },
+          "hits": {
+            "total": {
+              "relation": "eq",
+              "value": 8
+            },
+            "hits": [
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o01",
+                "_source": {
+                  "offer_id": "o01",
+                  "hotel_id": "h01",
+                  "hotel_name": "湖畔旅舍01",
+                  "room_id": "r01",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 30000
+                },
+                "sort": [
+                  "o01"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o02",
+                "_source": {
+                  "offer_id": "o02",
+                  "hotel_id": "h02",
+                  "hotel_name": "湖畔旅舍02",
+                  "room_id": "r02",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 10000
+                },
+                "sort": [
+                  "o02"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o03",
+                "_source": {
+                  "offer_id": "o03",
+                  "hotel_id": "h03",
+                  "hotel_name": "湖畔旅舍03",
+                  "room_id": "r03",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 20000
+                },
+                "sort": [
+                  "o03"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o04",
+                "_source": {
+                  "offer_id": "o04",
+                  "hotel_id": "h04",
+                  "hotel_name": "湖畔旅舍04",
+                  "room_id": "r04",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 25000
+                },
+                "sort": [
+                  "o04"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o05",
+                "_source": {
+                  "offer_id": "o05",
+                  "hotel_id": "h05",
+                  "hotel_name": "湖畔旅舍05",
+                  "room_id": "r05",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 2,
+                  "min_price_minor": 20000
+                },
+                "sort": [
+                  "o05"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o06",
+                "_source": {
+                  "offer_id": "o06",
+                  "hotel_id": "h06",
+                  "hotel_name": "湖畔旅舍06",
+                  "room_id": "r06",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 10000
+                },
+                "sort": [
+                  "o06"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o10",
+                "_source": {
+                  "offer_id": "o10",
+                  "hotel_id": "h10",
+                  "hotel_name": "湖畔旅舍10",
+                  "room_id": "r10",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 2,
+                  "min_price_minor": 45000
+                },
+                "sort": [
+                  "o10"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o12",
+                "_source": {
+                  "offer_id": "o12",
+                  "hotel_id": "h12",
+                  "hotel_name": "湖畔旅舍12",
+                  "room_id": "r12",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 30000
+                },
+                "sort": [
+                  "o12"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "status": 502,
+      "input": {
+        "checkIn": "2026-11-01",
+        "checkOut": "2026-11-03",
+        "rooms": 1,
+        "adultsPerRoom": 2,
+        "budgetMinor": 120000
+      },
+      "response": {
+        "code": "SEARCH_INCOMPLETE",
+        "message": "搜索未完整完成或结果字段不符合契约，请检查 ES 与本课资料后重试。"
+      }
+    },
+    {
+      "status": 200,
+      "input": {
+        "checkIn": "2026-11-01",
+        "checkOut": "2026-11-03",
+        "rooms": 1,
+        "adultsPerRoom": 2,
+        "budgetMinor": 120000
+      },
+      "response": {
+        "conditions": {
+          "checkIn": "2026-11-01",
+          "checkOut": "2026-11-03",
+          "rooms": 1,
+          "adultsPerRoom": 2,
+          "budgetMinor": 120000
+        },
+        "snapshotId": "f25-20261026-v1",
+        "boundary": "只核对固定快照的全部ES候选；按offer_id显示，未酒店去重或按总价排序；不含税费，不锁库存，不证明实时可下单。",
+        "candidateTotal": 8,
+        "acceptedTotal": 3,
+        "decisions": [
+          {
+            "offerId": "o01",
+            "hotelId": "h01",
+            "hotelName": "湖畔旅舍01",
+            "roomId": "r01",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 70000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 30000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": 40000,
+                "minStayArrival": 5
+              }
+            ]
+          },
+          {
+            "offerId": "o02",
+            "hotelId": "h02",
+            "hotelName": "湖畔旅舍02",
+            "roomId": "r02",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MISSING_NIGHT",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 10000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": null,
+                "priceMinor": null,
+                "minStayArrival": null
+              }
+            ]
+          },
+          {
+            "offerId": "o03",
+            "hotelId": "h03",
+            "hotelName": "湖畔旅舍03",
+            "roomId": "r03",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "SOLD_OUT",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 20000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 0,
+                "priceMinor": 20000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o04",
+            "hotelId": "h04",
+            "hotelName": "湖畔旅舍04",
+            "roomId": "r04",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 65000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 25000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 1,
+                "priceMinor": 40000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o05",
+            "hotelId": "h05",
+            "hotelName": "湖畔旅舍05",
+            "roomId": "r05",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MIN_STAY",
+            "failedDate": "2026-11-01",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 2,
+                "priceMinor": 20000,
+                "minStayArrival": 3
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 2,
+                "priceMinor": 25000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o06",
+            "hotelId": "h06",
+            "hotelName": "湖畔旅舍06",
+            "roomId": "r06",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "BUDGET_EXCEEDED",
+            "failedDate": null,
+            "totalMinor": 130000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 60000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": 70000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o10",
+            "hotelId": "h10",
+            "hotelName": "湖畔旅舍10",
+            "roomId": "r10",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 90000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 2,
+                "priceMinor": 45000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 2,
+                "priceMinor": 45000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o12",
+            "hotelId": "h12",
+            "hotelName": "湖畔旅舍12",
+            "roomId": "r12",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MISSING_PRICE",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 30000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": null,
+                "minStayArrival": 1
+              }
+            ]
+          }
+        ],
+        "esRequest": {
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "hotel_status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "offer_status": {
+                      "value": "active"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "bed_type": {
+                      "value": "twin"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "meal": {
+                      "value": "breakfast"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "cancellation": {
+                      "value": "flexible"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "rate_plan_id": {
+                      "value": "bf-flex"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "capacity": {
+                      "gte": 2.0
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "window_start": {
+                      "lte": "2026-11-01"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "window_end_exclusive": {
+                      "gte": "2026-11-03"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "max_available_rooms": {
+                      "gte": 1.0
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 100,
+          "sort": [
+            {
+              "offer_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_total_hits": true
+        },
+        "esResponse": {
+          "took": 4,
+          "timed_out": false,
+          "_shards": {
+            "failed": 0.0,
+            "successful": 1.0,
+            "total": 1.0,
+            "skipped": 0.0
+          },
+          "hits": {
+            "total": {
+              "relation": "eq",
+              "value": 8
+            },
+            "hits": [
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o01",
+                "_source": {
+                  "offer_id": "o01",
+                  "hotel_id": "h01",
+                  "hotel_name": "湖畔旅舍01",
+                  "room_id": "r01",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 30000
+                },
+                "sort": [
+                  "o01"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o02",
+                "_source": {
+                  "offer_id": "o02",
+                  "hotel_id": "h02",
+                  "hotel_name": "湖畔旅舍02",
+                  "room_id": "r02",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 10000
+                },
+                "sort": [
+                  "o02"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o03",
+                "_source": {
+                  "offer_id": "o03",
+                  "hotel_id": "h03",
+                  "hotel_name": "湖畔旅舍03",
+                  "room_id": "r03",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 20000
+                },
+                "sort": [
+                  "o03"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o04",
+                "_source": {
+                  "offer_id": "o04",
+                  "hotel_id": "h04",
+                  "hotel_name": "湖畔旅舍04",
+                  "room_id": "r04",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 25000
+                },
+                "sort": [
+                  "o04"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o05",
+                "_source": {
+                  "offer_id": "o05",
+                  "hotel_id": "h05",
+                  "hotel_name": "湖畔旅舍05",
+                  "room_id": "r05",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 2,
+                  "min_price_minor": 20000
+                },
+                "sort": [
+                  "o05"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o06",
+                "_source": {
+                  "offer_id": "o06",
+                  "hotel_id": "h06",
+                  "hotel_name": "湖畔旅舍06",
+                  "room_id": "r06",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 10000
+                },
+                "sort": [
+                  "o06"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o10",
+                "_source": {
+                  "offer_id": "o10",
+                  "hotel_id": "h10",
+                  "hotel_name": "湖畔旅舍10",
+                  "room_id": "r10",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 2,
+                  "min_price_minor": 45000
+                },
+                "sort": [
+                  "o10"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o12",
+                "_source": {
+                  "offer_id": "o12",
+                  "hotel_id": "h12",
+                  "hotel_name": "湖畔旅舍12",
+                  "room_id": "r12",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 30000
+                },
+                "sort": [
+                  "o12"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "status": 502,
+      "input": {
+        "checkIn": "2026-11-01",
+        "checkOut": "2026-11-03",
+        "rooms": 1,
+        "adultsPerRoom": 2,
+        "budgetMinor": 120000
+      },
+      "response": {
+        "code": "SEARCH_BACKEND_REJECTED",
+        "message": "ES 拒绝搜索，请在本机核对本课索引、mapping 与服务端配置。"
+      }
+    },
+    {
+      "status": 200,
+      "input": {
+        "checkIn": "2026-11-01",
+        "checkOut": "2026-11-03",
+        "rooms": 1,
+        "adultsPerRoom": 2,
+        "budgetMinor": 120000
+      },
+      "response": {
+        "conditions": {
+          "checkIn": "2026-11-01",
+          "checkOut": "2026-11-03",
+          "rooms": 1,
+          "adultsPerRoom": 2,
+          "budgetMinor": 120000
+        },
+        "snapshotId": "f25-20261026-v1",
+        "boundary": "只核对固定快照的全部ES候选；按offer_id显示，未酒店去重或按总价排序；不含税费，不锁库存，不证明实时可下单。",
+        "candidateTotal": 8,
+        "acceptedTotal": 3,
+        "decisions": [
+          {
+            "offerId": "o01",
+            "hotelId": "h01",
+            "hotelName": "湖畔旅舍01",
+            "roomId": "r01",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 70000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 30000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": 40000,
+                "minStayArrival": 5
+              }
+            ]
+          },
+          {
+            "offerId": "o02",
+            "hotelId": "h02",
+            "hotelName": "湖畔旅舍02",
+            "roomId": "r02",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MISSING_NIGHT",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 10000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": null,
+                "priceMinor": null,
+                "minStayArrival": null
+              }
+            ]
+          },
+          {
+            "offerId": "o03",
+            "hotelId": "h03",
+            "hotelName": "湖畔旅舍03",
+            "roomId": "r03",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "SOLD_OUT",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 20000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 0,
+                "priceMinor": 20000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o04",
+            "hotelId": "h04",
+            "hotelName": "湖畔旅舍04",
+            "roomId": "r04",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 65000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 25000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 1,
+                "priceMinor": 40000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o05",
+            "hotelId": "h05",
+            "hotelName": "湖畔旅舍05",
+            "roomId": "r05",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MIN_STAY",
+            "failedDate": "2026-11-01",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 2,
+                "priceMinor": 20000,
+                "minStayArrival": 3
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 2,
+                "priceMinor": 25000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o06",
+            "hotelId": "h06",
+            "hotelName": "湖畔旅舍06",
+            "roomId": "r06",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "BUDGET_EXCEEDED",
+            "failedDate": null,
+            "totalMinor": 130000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 60000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": 70000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o10",
+            "hotelId": "h10",
+            "hotelName": "湖畔旅舍10",
+            "roomId": "r10",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 90000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 2,
+                "priceMinor": 45000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 2,
+                "priceMinor": 45000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o12",
+            "hotelId": "h12",
+            "hotelName": "湖畔旅舍12",
+            "roomId": "r12",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MISSING_PRICE",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 30000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": null,
+                "minStayArrival": 1
+              }
+            ]
+          }
+        ],
+        "esRequest": {
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "hotel_status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "offer_status": {
+                      "value": "active"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "bed_type": {
+                      "value": "twin"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "meal": {
+                      "value": "breakfast"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "cancellation": {
+                      "value": "flexible"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "rate_plan_id": {
+                      "value": "bf-flex"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "capacity": {
+                      "gte": 2.0
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "window_start": {
+                      "lte": "2026-11-01"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "window_end_exclusive": {
+                      "gte": "2026-11-03"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "max_available_rooms": {
+                      "gte": 1.0
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 100,
+          "sort": [
+            {
+              "offer_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_total_hits": true
+        },
+        "esResponse": {
+          "took": 2,
+          "timed_out": false,
+          "_shards": {
+            "failed": 0.0,
+            "successful": 1.0,
+            "total": 1.0,
+            "skipped": 0.0
+          },
+          "hits": {
+            "total": {
+              "relation": "eq",
+              "value": 8
+            },
+            "hits": [
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o01",
+                "_source": {
+                  "offer_id": "o01",
+                  "hotel_id": "h01",
+                  "hotel_name": "湖畔旅舍01",
+                  "room_id": "r01",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 30000
+                },
+                "sort": [
+                  "o01"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o02",
+                "_source": {
+                  "offer_id": "o02",
+                  "hotel_id": "h02",
+                  "hotel_name": "湖畔旅舍02",
+                  "room_id": "r02",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 10000
+                },
+                "sort": [
+                  "o02"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o03",
+                "_source": {
+                  "offer_id": "o03",
+                  "hotel_id": "h03",
+                  "hotel_name": "湖畔旅舍03",
+                  "room_id": "r03",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 20000
+                },
+                "sort": [
+                  "o03"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o04",
+                "_source": {
+                  "offer_id": "o04",
+                  "hotel_id": "h04",
+                  "hotel_name": "湖畔旅舍04",
+                  "room_id": "r04",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 25000
+                },
+                "sort": [
+                  "o04"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o05",
+                "_source": {
+                  "offer_id": "o05",
+                  "hotel_id": "h05",
+                  "hotel_name": "湖畔旅舍05",
+                  "room_id": "r05",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 2,
+                  "min_price_minor": 20000
+                },
+                "sort": [
+                  "o05"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o06",
+                "_source": {
+                  "offer_id": "o06",
+                  "hotel_id": "h06",
+                  "hotel_name": "湖畔旅舍06",
+                  "room_id": "r06",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 10000
+                },
+                "sort": [
+                  "o06"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o10",
+                "_source": {
+                  "offer_id": "o10",
+                  "hotel_id": "h10",
+                  "hotel_name": "湖畔旅舍10",
+                  "room_id": "r10",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 2,
+                  "min_price_minor": 45000
+                },
+                "sort": [
+                  "o10"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o12",
+                "_source": {
+                  "offer_id": "o12",
+                  "hotel_id": "h12",
+                  "hotel_name": "湖畔旅舍12",
+                  "room_id": "r12",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 30000
+                },
+                "sort": [
+                  "o12"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "status": 503,
+      "input": {
+        "checkIn": "2026-11-01",
+        "checkOut": "2026-11-03",
+        "rooms": 1,
+        "adultsPerRoom": 2,
+        "budgetMinor": 120000
+      },
+      "response": {
+        "code": "SEARCH_UNAVAILABLE",
+        "message": "搜索连接暂不可用，请检查本机 ES 与服务端端点，再重试。"
+      }
+    },
+    {
+      "status": 200,
+      "input": {
+        "checkIn": "2026-11-01",
+        "checkOut": "2026-11-03",
+        "rooms": 1,
+        "adultsPerRoom": 2,
+        "budgetMinor": 120000
+      },
+      "response": {
+        "conditions": {
+          "checkIn": "2026-11-01",
+          "checkOut": "2026-11-03",
+          "rooms": 1,
+          "adultsPerRoom": 2,
+          "budgetMinor": 120000
+        },
+        "snapshotId": "f25-20261026-v1",
+        "boundary": "只核对固定快照的全部ES候选；按offer_id显示，未酒店去重或按总价排序；不含税费，不锁库存，不证明实时可下单。",
+        "candidateTotal": 8,
+        "acceptedTotal": 3,
+        "decisions": [
+          {
+            "offerId": "o01",
+            "hotelId": "h01",
+            "hotelName": "湖畔旅舍01",
+            "roomId": "r01",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 70000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 30000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": 40000,
+                "minStayArrival": 5
+              }
+            ]
+          },
+          {
+            "offerId": "o02",
+            "hotelId": "h02",
+            "hotelName": "湖畔旅舍02",
+            "roomId": "r02",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MISSING_NIGHT",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 10000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": null,
+                "priceMinor": null,
+                "minStayArrival": null
+              }
+            ]
+          },
+          {
+            "offerId": "o03",
+            "hotelId": "h03",
+            "hotelName": "湖畔旅舍03",
+            "roomId": "r03",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "SOLD_OUT",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 20000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 0,
+                "priceMinor": 20000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o04",
+            "hotelId": "h04",
+            "hotelName": "湖畔旅舍04",
+            "roomId": "r04",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 65000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 25000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 1,
+                "priceMinor": 40000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o05",
+            "hotelId": "h05",
+            "hotelName": "湖畔旅舍05",
+            "roomId": "r05",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MIN_STAY",
+            "failedDate": "2026-11-01",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 2,
+                "priceMinor": 20000,
+                "minStayArrival": 3
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 2,
+                "priceMinor": 25000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o06",
+            "hotelId": "h06",
+            "hotelName": "湖畔旅舍06",
+            "roomId": "r06",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "BUDGET_EXCEEDED",
+            "failedDate": null,
+            "totalMinor": 130000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 60000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": 70000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o10",
+            "hotelId": "h10",
+            "hotelName": "湖畔旅舍10",
+            "roomId": "r10",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "ACCEPTED",
+            "failedDate": null,
+            "totalMinor": 90000,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 2,
+                "priceMinor": 45000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 2,
+                "priceMinor": 45000,
+                "minStayArrival": 1
+              }
+            ]
+          },
+          {
+            "offerId": "o12",
+            "hotelId": "h12",
+            "hotelName": "湖畔旅舍12",
+            "roomId": "r12",
+            "planId": "bf-flex",
+            "currency": "CNY",
+            "reason": "MISSING_PRICE",
+            "failedDate": "2026-11-02",
+            "totalMinor": null,
+            "nights": [
+              {
+                "date": "2026-11-01",
+                "availableRooms": 3,
+                "priceMinor": 30000,
+                "minStayArrival": 1
+              },
+              {
+                "date": "2026-11-02",
+                "availableRooms": 3,
+                "priceMinor": null,
+                "minStayArrival": 1
+              }
+            ]
+          }
+        ],
+        "esRequest": {
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "hotel_status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "offer_status": {
+                      "value": "active"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "bed_type": {
+                      "value": "twin"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "meal": {
+                      "value": "breakfast"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "cancellation": {
+                      "value": "flexible"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "rate_plan_id": {
+                      "value": "bf-flex"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "capacity": {
+                      "gte": 2.0
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "window_start": {
+                      "lte": "2026-11-01"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "window_end_exclusive": {
+                      "gte": "2026-11-03"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "max_available_rooms": {
+                      "gte": 1.0
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 100,
+          "sort": [
+            {
+              "offer_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_total_hits": true
+        },
+        "esResponse": {
+          "took": 72,
+          "timed_out": false,
+          "_shards": {
+            "failed": 0.0,
+            "successful": 1.0,
+            "total": 1.0,
+            "skipped": 0.0
+          },
+          "hits": {
+            "total": {
+              "relation": "eq",
+              "value": 8
+            },
+            "hits": [
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o01",
+                "_source": {
+                  "offer_id": "o01",
+                  "hotel_id": "h01",
+                  "hotel_name": "湖畔旅舍01",
+                  "room_id": "r01",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 30000
+                },
+                "sort": [
+                  "o01"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o02",
+                "_source": {
+                  "offer_id": "o02",
+                  "hotel_id": "h02",
+                  "hotel_name": "湖畔旅舍02",
+                  "room_id": "r02",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 10000
+                },
+                "sort": [
+                  "o02"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o03",
+                "_source": {
+                  "offer_id": "o03",
+                  "hotel_id": "h03",
+                  "hotel_name": "湖畔旅舍03",
+                  "room_id": "r03",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 20000
+                },
+                "sort": [
+                  "o03"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o04",
+                "_source": {
+                  "offer_id": "o04",
+                  "hotel_id": "h04",
+                  "hotel_name": "湖畔旅舍04",
+                  "room_id": "r04",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 25000
+                },
+                "sort": [
+                  "o04"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o05",
+                "_source": {
+                  "offer_id": "o05",
+                  "hotel_id": "h05",
+                  "hotel_name": "湖畔旅舍05",
+                  "room_id": "r05",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 2,
+                  "min_price_minor": 20000
+                },
+                "sort": [
+                  "o05"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o06",
+                "_source": {
+                  "offer_id": "o06",
+                  "hotel_id": "h06",
+                  "hotel_name": "湖畔旅舍06",
+                  "room_id": "r06",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 10000
+                },
+                "sort": [
+                  "o06"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o10",
+                "_source": {
+                  "offer_id": "o10",
+                  "hotel_id": "h10",
+                  "hotel_name": "湖畔旅舍10",
+                  "room_id": "r10",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 2,
+                  "min_price_minor": 45000
+                },
+                "sort": [
+                  "o10"
+                ]
+              },
+              {
+                "_index": "tut-f25-offers",
+                "_id": "o12",
+                "_source": {
+                  "offer_id": "o12",
+                  "hotel_id": "h12",
+                  "hotel_name": "湖畔旅舍12",
+                  "room_id": "r12",
+                  "city_code": "HZ",
+                  "hotel_status": "open",
+                  "offer_status": "active",
+                  "bed_type": "twin",
+                  "capacity": 2,
+                  "meal": "breakfast",
+                  "cancellation": "flexible",
+                  "rate_plan_id": "bf-flex",
+                  "currency": "CNY",
+                  "snapshot_id": "f25-20261026-v1",
+                  "window_start": "2026-11-01",
+                  "window_end_exclusive": "2026-11-04",
+                  "max_available_rooms": 3,
+                  "min_price_minor": 30000
+                },
+                "sort": [
+                  "o12"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "additional_ES_HTTP": 15,
+  "status": "passed",
+  "capture_note": "Some 320px element screenshots at viewport height1000 cut the last caption line; DOM complete, new height1600 and isolated caption show it. Original failure viewport screenshots showed form; new results-element screenshots show error text. Horizontal table/code screenshots intentionally show separate scroll positions."
+}

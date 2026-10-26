@@ -1,0 +1,101 @@
+{
+  "size": 100,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "hotel_status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "term": {
+            "offer_status": {
+              "value": "active"
+            }
+          }
+        },
+        {
+          "term": {
+            "bed_type": {
+              "value": "twin"
+            }
+          }
+        },
+        {
+          "term": {
+            "meal": {
+              "value": "breakfast"
+            }
+          }
+        },
+        {
+          "term": {
+            "cancellation": {
+              "value": "flexible"
+            }
+          }
+        },
+        {
+          "term": {
+            "rate_plan_id": {
+              "value": "bf-flex"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "capacity": {
+              "gte": 2.0
+            }
+          }
+        },
+        {
+          "range": {
+            "window_start": {
+              "lte": "2026-11-01"
+            }
+          }
+        },
+        {
+          "range": {
+            "window_end_exclusive": {
+              "gte": "2026-11-02"
+            }
+          }
+        },
+        {
+          "range": {
+            "max_available_rooms": {
+              "gte": 1.0
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "offer_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}
