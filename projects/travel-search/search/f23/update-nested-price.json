@@ -1,0 +1,11 @@
+{
+  "script": {
+    "lang": "painless",
+    "source": "boolean found = false; for (def room : ctx._source.rooms) { if (room.room_id == params.room) { for (def rate : room.rates) { if (rate.offer_id == params.offer) { rate.price_minor = params.price; found = true; } } } } if (!found) { throw new IllegalArgumentException('offer absent'); }",
+    "params": {
+      "room": "r101",
+      "offer": "o101",
+      "price": 63000
+    }
+  }
+}

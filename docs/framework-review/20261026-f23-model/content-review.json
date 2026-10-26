@@ -1,0 +1,84 @@
+{
+  "at": "2026-10-26T14:00:33.156545+00:00",
+  "reviewer": "F23 author self review; no independent second author or subagent",
+  "reasoning": "parent actual spawn gpt-6.1-sol/max, child no independent runtime readback API; see reasoning.json",
+  "chinese_characters_excluding_code": 4642,
+  "scope": "F23 only plus required previous navigation, directory and shared project summaries",
+  "business_contract": {
+    "hotel_count": 3,
+    "room_count": 5,
+    "offer_count": 8,
+    "same_source": "canonical catalog generates object/nested source identically; main omits rooms, offers unfold rates",
+    "currency": "CNY fen and USD cents; filter currency before budget; no FX conversion",
+    "identity": "offer_id explicitly assigned, rate_plan_id may repeat, room_id not unique offer key",
+    "state": "hotel_status open + offer_status active; separate authorities",
+    "time": "fixed single-night service_date2026-11-01, snapshot2026-10-26; no live inventory promise"
+  },
+  "mechanism_review": {
+    "object": "JSON hierarchy not independent roots; association limitations stated, cross-room multi-condition experiment reserved F24",
+    "nested": "rooms only, rates remains object lookup/display; no rate-correlated claims",
+    "counts": "root3/3/3/8, Lucene live3/3/8/8, formula only one nested level",
+    "lookup": "object term valid for one room ID; nested root term0, path-wrapped query returns h01 and complete source, GET room root404",
+    "updates": "UpdateHelper merged/script source -> IndexRequest; InternalEngine softUpdateDocuments whole nested block; primary roots and actual segments observed",
+    "cost": "no latency/throughput/storage/memory ratio promised; deleted stats merge-dependent",
+    "copied_fields": "hotel root rename does not propagate; explicit four-offer update_by_query not atomic",
+    "rest_java": "exact IDs/source/sort/total and actual DSL replay; only null hit._score and hits.max_score omissions normalized, source nulls not normalized"
+  },
+  "structure": {
+    "seven_parts": true,
+    "exercises": 7,
+    "pitfalls": 3,
+    "cases": 3,
+    "teaching_http": 90,
+    "formula": "38 prepare +14 boundaries +28 updates +10 Java/replay; Java internal5 extra",
+    "diagrams": 2,
+    "players": 0,
+    "frontend_code_in_lesson": false,
+    "full_key_java_visible": true,
+    "mapping_and_DSL": "all four complete mapping blocks and key queries/updates synchronized"
+  },
+  "author_corrections": [
+    {
+      "issue": "stats response nesting",
+      "fix": "read _all.primaries.docs, not top-level primaries; first failed logs preserved"
+    },
+    {
+      "issue": "GET mapping omits explicit object type",
+      "fix": "normalize only type=object; all other mapping/settings exact"
+    },
+    {
+      "issue": "update_by_query after unrefreshed price restore sees stale version",
+      "observed": "HTTP409:3 successful/1conflict",
+      "fix": "explicit refresh before next query update, rerun both rounds; partial success not rolled back"
+    },
+    {
+      "issue": "typed client response omits null scoring fields",
+      "fix": "document representation, normalize only two known scoring null fields; exact source including null remains checked"
+    },
+    {
+      "issue": "320px update diagram labels dense",
+      "fix": "shortened D2 source labels, regenerated official CLI and reran affected diagram/reading checks"
+    },
+    {
+      "issue": "local narrow tables need discoverable action",
+      "fix": "added visible scroll hint; final12 layout groups and horizontal-end screenshots"
+    }
+  ],
+  "limitations": [
+    "single local ES node, synthetic tiny fixed snapshot",
+    "no representative performance/capacity or benchmark",
+    "no F24 multi-condition nested query/inner_hits/sort",
+    "no nightly coverage/stock/booking/CDC or production security",
+    "no partial shard failure or real timeout injection; code guards only",
+    "content self review, not independent peer review"
+  ],
+  "status": "passed",
+  "new_lesson_errata": "no prior F23 published prose; development corrections retained in attempts",
+  "sha256": {
+    "framework/f23.html": "f1d2eb6890b7faaa3206499278da42bead2ab678b8db3968eeb61a5a74b941fb",
+    "projects/travel-search/labs/f23/lab.py": "71060a7a9e68bb55480bc43214f9be96dc3c99aa32e5d85c6cdcbe5965b36d75",
+    "projects/travel-search/backend/src/main/java/dev/esweb/travel/ModelSearchService.java": "e0e429f7cc3aadf6b1d59d1c3c7024730eae9bd6b84f710821d78344cd9f9c21",
+    "projects/travel-search/data/f23/catalog.json": "4342df90051c84f516f00d4528c0082b755ed1755489d602bd387221b9f727d1"
+  },
+  "conclusion_scope": "only the explicitly stated review and limitations"
+}

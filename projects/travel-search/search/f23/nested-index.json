@@ -1,0 +1,79 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "hotel_id": {
+        "type": "keyword"
+      },
+      "hotel_name": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "hotel_status": {
+        "type": "keyword"
+      },
+      "rooms": {
+        "type": "nested",
+        "dynamic": "strict",
+        "properties": {
+          "room_id": {
+            "type": "keyword"
+          },
+          "room_name": {
+            "type": "keyword"
+          },
+          "bed_type": {
+            "type": "keyword"
+          },
+          "capacity": {
+            "type": "integer",
+            "coerce": false
+          },
+          "rates": {
+            "type": "object",
+            "dynamic": "strict",
+            "properties": {
+              "offer_id": {
+                "type": "keyword"
+              },
+              "rate_plan_id": {
+                "type": "keyword"
+              },
+              "meal": {
+                "type": "keyword"
+              },
+              "cancellation": {
+                "type": "keyword"
+              },
+              "currency": {
+                "type": "keyword"
+              },
+              "offer_status": {
+                "type": "keyword"
+              },
+              "service_date": {
+                "type": "date",
+                "format": "strict_date"
+              },
+              "snapshot_at": {
+                "type": "date",
+                "format": "strict_date_time_no_millis"
+              },
+              "price_minor": {
+                "type": "integer",
+                "coerce": false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

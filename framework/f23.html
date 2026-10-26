@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>F23 · 酒店、房型与offer文档边界</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"><style>#f23 .d2-view img{min-width:0;max-width:480px;margin-inline:auto}</style></head>
+<body class="framework-page chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="f23" data-ch="f23"><header class="ch-header"><div class="ch-kicker">FRAMEWORK 23 · 酒店搜索的文档边界</div><h1>一个酒店、多个房型，<br>到底建成几份文档？</h1><p class="meta-line">前置：F04 字段、F07 Java、F12 更新 · 约65分钟 · 3案例 / 90教学HTTP · 2静态D2 / 0机制播放器</p><p>游客找到景点，接着要订“两人住、双床、含早、可退、单晚700元以内”的酒店。酒店名称只说明住在哪里，房型决定床和人数，价目计划才决定早餐、退改和金额。F23先确定每份搜索文档代表什么，再用真实查询和更新解释代价；下一课才组合nested房型条件与排序。</p></header>
+<section class="goal"><h2>学完能用输出证明什么</h2><ul><li>用酒店ID、房型ID和报价ID区分三种业务对象，说明一房多计划、多币种和不同状态不能合并成一个价格。</li><li>对照四种投影的根文档数、Lucene文档数和查询返回单位，解释nested房型为何仍从酒店根文档读写。</li><li>实测一次报价改价和酒店更名，核对更新范围、复制字段的恢复与成本边界，选择适合当前需求的模型。</li></ul></section>
+<section class="lesson"><details class="chapter-outline"><summary>本课目录</summary><nav><a href="#problem">1. 一张卡片是什么</a><a href="#identity">2. 三种身份与固定样本</a><a href="#models">3. 四种搜索投影</a><a href="#prepare">4. 建模与数量</a><a href="#lookup">5. 房型怎样被找到</a><a href="#offers">6. 独立报价筛选</a><a href="#updates">7. 更新范围</a><a href="#java">8. Java对应实现</a><a href="#observe">9. 本机观察窗</a><a href="#repeat">10. 清理与重做</a><a href="#choice">11. 选择与遗留问题</a><a href="#drills">能力检查</a><a href="#pitfalls">实际陷阱</a><a href="#recap">速记</a></nav></details><p class="diagram-jumps">图解跳转：<a href="#fig-boundaries">01 · 三层业务身份</a> · <a href="#fig-updates">02 · 两种更新范围</a></p>
+<h2 id="problem">1. ES存的是搜索投影，一份文档不等于一张业务表</h2>
+<p>景点阶段，一份文档足以装下名称、票价和开放状态。酒店不同：同一双床房可卖无早不可退的420元计划，也可卖含早可退的600元计划。把酒店写成“最低价420元、含早、可退”，可能把三个事实误拼成不存在的报价；把房型ID当报价ID反复写入，又会让后一条价目覆盖前一条。</p>
+<p>ES索引文档与字段，为查询构造候选；业务数据库或供价系统维护事实。本课从一个固定JSON投影出几种搜索视图，不先引入数据库或同步链路。模型要同时回答三件事：一次命中代表酒店还是报价？哪些条件必须属于同一个对象？事实变化时哪些文档需要重新写入？没有对所有查询、规模和更新频率都最优的统一答案。</p>
+<h2 id="identity">2. 三种身份：酒店、房型、某一条报价</h2>
+<p>hotel_id标识酒店，room_id标识酒店下的物理房型，offer_id标识供价快照中的一条报价。rate_plan_id描述价目计划，可能在不同房型重复，并非全局报价主键。本课offer_id由固定文件明确分配；实际业务还可能按供应商、渠道、入住人数、房间数与日期区分，先定义唯一键，不能只凭酒店和房型猜出唯一报价。</p>
+<figure class="fig d2-figure" id="fig-boundaries"><div class="d2-shell"><div class="d2-tools"><span>01 · 三层身份，不能只剩一个价格</span><a data-expand-d2 href="diagrams/f23/boundaries-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f23/boundaries-light.svg" data-d2-light="diagrams/f23/boundaries-light.svg" data-d2-dark="diagrams/f23/boundaries-dark.svg" alt="01 · 三层身份，不能只剩一个价格"></div></div><figcaption>实线表示业务归属，虚线为对照阅读，不是请求或时间线。图只展开h01/r101的一个报价；同一房型还有不同计划与币种，完整样本在表中。 静态图可展开；<a href="diagrams/f23/README.md">图源与生成记录</a>。</figcaption></figure><p><a href="../projects/travel-search/data/f23/catalog.json">固定资料</a>含3家杭州酒店、5个房型、8条报价。快照时间2026-10-26T00:00:00Z，服务日2026-11-01，只表示一个单晚；没有逐晚库存或连住总价。price_minor为币种最小单位整数，本课CNY用分、USD用美分，两者都是两位小数，但数值不能直接跨币种比较。hotel_status属于酒店，offer_status属于报价；active并不覆盖酒店paused。</p>
+<p class="course-status">窄屏提示：表格和代码可在框内横向滚动；图解可点“展开图解”。</p><table class="ktable" id="samples-table"><thead><tr><th>报价 / 酒店 / 房型</th><th>床型 / 人数</th><th>计划 / 早餐 / 退改</th><th>单晚快照</th></tr></thead><tbody>
+<tr><td>o101 / h01 / r101</td><td>twin / 2</td><td>bf-flex / 含早 / flexible</td><td>CNY 60000分 · active</td></tr>
+<tr><td>o102 / h01 / r101</td><td>twin / 2</td><td>room-only / 无早 / nonrefundable</td><td>CNY 42000分 · active</td></tr>
+<tr><td>o103 / h01 / r101</td><td>twin / 2</td><td>bf-flex-usd / 含早 / flexible</td><td>USD 8000美分 · active</td></tr>
+<tr><td>o104 / h01 / r102</td><td>double / 2</td><td>bf-nonref / 含早 / nonrefundable</td><td>CNY 51000分 · active</td></tr>
+<tr><td>o201 / h02 / r201</td><td>twin / 2</td><td>bf-flex / 含早 / flexible</td><td>CNY 68000分 · active</td></tr>
+<tr><td>o202 / h02 / r201</td><td>twin / 2</td><td>bf-promo / 含早 / flexible</td><td>CNY 30000分 · closed</td></tr>
+<tr><td>o203 / h02 / r202</td><td>family / 3</td><td>room-flex / 无早 / flexible</td><td>CNY 35000分 · active</td></tr>
+<tr><td>o301 / h03 / r301</td><td>twin / 2</td><td>bf-flex / 含早 / flexible</td><td>CNY 29000分 · active，酒店paused</td></tr>
+</tbody></table><p>本课flexible仅是固定可退类别，不含取消截止时间、罚金或税费政策；人数只用capacity上限，不表示儿童与加床规则。数据虽小，身份和单位仍须完整。八条报价不能压成“每个房型一个价格”，也不能把最低的USD 8000叫作80元。</p>
+<h2 id="models">3. 四种投影，把查询单位与更新单位分开看</h2>
+<p>根文档是可以通过索引、_id独立GET或更新的ES文档。JSON里的嵌套层级不自动产生独立根文档。object把对象字段组织为路径，数组内字段在索引时成为多值，不能靠JSON外观保证各字段仍属于同一元素。nested则为每个房型创建隐藏Lucene文档，保留这个层级的对象边界；它仍隶属一个酒店根文档，并非可单独_update的业务行。</p>
+<table class="ktable" id="models-table"><thead><tr><th>投影</th><th>一份根文档与用途</th><th>本课可做 / 代价</th></tr></thead><tbody><tr><td>hotels主文档</td><td>一家酒店；名称/城市/酒店状态</td><td>酒店资料查找；没有房型、价格，无法回答报价条件</td></tr><tr><td>object房型</td><td>一家酒店＋rooms/rates明细</td><td>单字段房型ID查找可用；数组多条件关联会丢失，改明细仍写酒店</td></tr><tr><td>nested房型</td><td>一家酒店＋nested rooms</td><td>房型边界保留；返回酒店、更新酒店块，隐藏文档增加</td></tr><tr><td>独立offers</td><td>一个房型的一条计划/币种/日期报价</td><td>平面条件/独立改价；酒店资料重复，命中数是报价数</td></tr></tbody></table>
+<p>object和nested使用完全相同的完整_source，只有rooms的mapping不同；hotels刻意投影掉rooms，offers则展开每条rate，并复制酒店和房型字段。四个索引是对照实验，不要求生产同时维护四套，也不意味着ES自动执行跨索引关联。主文档更名不会自动修改报价副本。</p>
+<div class="callout warn"><strong>nested只保护声明为nested的层级。</strong><p>本课rooms是nested，rooms.rates仍是object数组，只供按房型取回完整明细，不用于联合筛选价格、计划与币种。把房型层设成nested不会顺带保护每条rate。本课的报价条件统一在独立offer上执行；若要在酒店模型内联合约束rate，需要另定每条报价的嵌套边界，不能照搬本课明细路径拼条件。</p></div>
+<h2 id="prepare">4. f23-c01：同一数据，实际有多少文档</h2>
+<p>独立ES9.4.0/Lucene10.4.0单节点19223，无插件。四个tut-f23-*命名索引均一主零副本、dynamic=strict、refresh_interval=-1；整数禁coerce，金额用integer，身份/类别用keyword，日期格式显式指定。没有中文文本评分需求，因此酒店名称也按keyword整体存取；不宣称这种mapping适合全文酒店检索。</p>
+<pre class="code-block" data-label="Bash · 终端一"><code>cd projects/travel-search
+export ES_URL=http://127.0.0.1:19223
+export APP_URL=http://127.0.0.1:18081
+export F23_OUT=/tmp/f23-reader-first
+docker compose -f infra/f23/compose.yaml up -d es
+bash infra/f23/wait.sh
+# 若已有本课索引，先执行本课cleanup；不要删除其他资源
+bash labs/f23/01-prepare.sh</code></pre><p>01的38次HTTP核对版本/插件，然后逐索引创建、green、Bulk create、refresh、_count、mapping、settings、docs统计和全部_source。预先定义的业务ID进入_id，首次所有条目created；重复create会条级409，不能把HTTP200当导入成功。GET mapping会省略显式type=object，验收只归一化这处表达差别，其他属性完整核对。</p><details><summary>酒店主文档：完整settings/mapping · PUT /tut-f23-hotels</summary><pre class="code-block" data-label="JSON · PUT /tut-f23-hotels" data-source="projects/travel-search/search/f23/hotels-index.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "hotel_id": {
+        "type": "keyword"
+      },
+      "hotel_name": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "hotel_status": {
+        "type": "keyword"
+      }
+    }
+  }
+}</code></pre></details><details><summary>object房型：完整settings/mapping · PUT /tut-f23-object</summary><pre class="code-block" data-label="JSON · PUT /tut-f23-object" data-source="projects/travel-search/search/f23/object-index.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "hotel_id": {
+        "type": "keyword"
+      },
+      "hotel_name": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "hotel_status": {
+        "type": "keyword"
+      },
+      "rooms": {
+        "type": "object",
+        "dynamic": "strict",
+        "properties": {
+          "room_id": {
+            "type": "keyword"
+          },
+          "room_name": {
+            "type": "keyword"
+          },
+          "bed_type": {
+            "type": "keyword"
+          },
+          "capacity": {
+            "type": "integer",
+            "coerce": false
+          },
+          "rates": {
+            "type": "object",
+            "dynamic": "strict",
+            "properties": {
+              "offer_id": {
+                "type": "keyword"
+              },
+              "rate_plan_id": {
+                "type": "keyword"
+              },
+              "meal": {
+                "type": "keyword"
+              },
+              "cancellation": {
+                "type": "keyword"
+              },
+              "currency": {
+                "type": "keyword"
+              },
+              "offer_status": {
+                "type": "keyword"
+              },
+              "service_date": {
+                "type": "date",
+                "format": "strict_date"
+              },
+              "snapshot_at": {
+                "type": "date",
+                "format": "strict_date_time_no_millis"
+              },
+              "price_minor": {
+                "type": "integer",
+                "coerce": false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}</code></pre></details><details><summary>nested房型：完整settings/mapping · PUT /tut-f23-nested</summary><pre class="code-block" data-label="JSON · PUT /tut-f23-nested" data-source="projects/travel-search/search/f23/nested-index.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "hotel_id": {
+        "type": "keyword"
+      },
+      "hotel_name": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "hotel_status": {
+        "type": "keyword"
+      },
+      "rooms": {
+        "type": "nested",
+        "dynamic": "strict",
+        "properties": {
+          "room_id": {
+            "type": "keyword"
+          },
+          "room_name": {
+            "type": "keyword"
+          },
+          "bed_type": {
+            "type": "keyword"
+          },
+          "capacity": {
+            "type": "integer",
+            "coerce": false
+          },
+          "rates": {
+            "type": "object",
+            "dynamic": "strict",
+            "properties": {
+              "offer_id": {
+                "type": "keyword"
+              },
+              "rate_plan_id": {
+                "type": "keyword"
+              },
+              "meal": {
+                "type": "keyword"
+              },
+              "cancellation": {
+                "type": "keyword"
+              },
+              "currency": {
+                "type": "keyword"
+              },
+              "offer_status": {
+                "type": "keyword"
+              },
+              "service_date": {
+                "type": "date",
+                "format": "strict_date"
+              },
+              "snapshot_at": {
+                "type": "date",
+                "format": "strict_date_time_no_millis"
+              },
+              "price_minor": {
+                "type": "integer",
+                "coerce": false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}</code></pre></details><details><summary>独立offer：完整settings/mapping · PUT /tut-f23-offers</summary><pre class="code-block" data-label="JSON · PUT /tut-f23-offers" data-source="projects/travel-search/search/f23/offers-index.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "hotel_id": {
+        "type": "keyword"
+      },
+      "hotel_name": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "hotel_status": {
+        "type": "keyword"
+      },
+      "room_id": {
+        "type": "keyword"
+      },
+      "room_name": {
+        "type": "keyword"
+      },
+      "bed_type": {
+        "type": "keyword"
+      },
+      "capacity": {
+        "type": "integer",
+        "coerce": false
+      },
+      "offer_id": {
+        "type": "keyword"
+      },
+      "rate_plan_id": {
+        "type": "keyword"
+      },
+      "meal": {
+        "type": "keyword"
+      },
+      "cancellation": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "offer_status": {
+        "type": "keyword"
+      },
+      "service_date": {
+        "type": "date",
+        "format": "strict_date"
+      },
+      "snapshot_at": {
+        "type": "date",
+        "format": "strict_date_time_no_millis"
+      },
+      "price_minor": {
+        "type": "integer",
+        "coerce": false
+      }
+    }
+  }
+}</code></pre></details><table class="ktable" id="counts-table"><thead><tr><th>索引后缀</th><th>_count根文档</th><th>_stats/docs中的primaries live</th><th>解释</th></tr></thead><tbody><tr><td>hotels</td><td>3</td><td>3</td><td>每酒店一份</td></tr><tr><td>object</td><td>3</td><td>3</td><td>JSON有数组，不增加隐藏房型文档</td></tr><tr><td>nested</td><td>3</td><td>8</td><td>3酒店＋5个nested房型；rates仍为object</td></tr><tr><td>offers</td><td>8</td><td>8</td><td>每报价一份根文档</td></tr></tbody></table>
+<p>实际GET /tut-f23-nested/_count得到3，而GET /tut-f23-nested/_stats/docs的_all.primaries.docs.count是8。这里比较活动Lucene文档，不把副本或已删除待合并文档算入。若R个酒店根文档、每家有nᵢ个nested房型，且没有其他nested层级，活动数为R+Σnᵢ。本课没有量测磁盘、内存、延迟或吞吐；“多五份Lucene文档”不能换算成“五倍慢”。</p>
+<h2 id="lookup">5. f23-c02：查到房型，返回的却是酒店</h2>
+<p>先运行02-boundaries。三种酒店投影按hotel_id=h01都命中h01；主文档没有rooms，另外两种保留两房型和四报价明细。在object上，term rooms.room_id=r101命中h01。照搬这个term到nested的根查询得到0，因为房型字段位于隐藏子文档；加上nested path才从房型命中返回酒店。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f23-nested/_search" data-source="projects/travel-search/search/f23/room-nested.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "sort": [
+    {
+      "hotel_id": {
+        "order": "asc"
+      }
+    }
+  ],
+  "query": {
+    "nested": {
+      "path": "rooms",
+      "score_mode": "none",
+      "query": {
+        "term": {
+          "rooms.room_id": {
+            "value": "r101"
+          }
+        }
+      }
+    }
+  }
+}</code></pre><p>这里score_mode=none仅说明不把子文档分数汇入酒店；按hotel_id升序稳定收尾，不讨论相关性。实际命中ID是h01，完整_source仍有r101和r102，查询没有裁掉不匹配数组项。GET /tut-f23-nested/_doc/r101是404：业务房型ID不等于隐藏文档的可寻址_id。GET /tut-f23-offers/_doc/o101则200，因为o101本身是根文档。完整单字段object请求见<a href="../projects/travel-search/search/f23/room-object.json">对照DSL</a>。</p>
+<h2 id="offers">6. 报价边界：每个条件检查同一条offer</h2>
+<p>游客要求两人、双床、含早、可退、CNY单晚700元以内。独立offer已经把一条价目计划展开为一份根文档，filter中的床型、人数、早餐、退改、币种、状态、服务日与价格都取自它自己的字段；结果是o101/h01/r101和o201/h02/r201。这里不需要nested查询，也不把返回单位改叫酒店。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f23-offers/_search · 固定完整条件" data-source="projects/travel-search/search/f23/offers-flex.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "hotel_status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "term": {
+            "offer_status": {
+              "value": "active"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "term": {
+            "service_date": {
+              "value": "2026-11-01"
+            }
+          }
+        },
+        {
+          "term": {
+            "bed_type": {
+              "value": "twin"
+            }
+          }
+        },
+        {
+          "term": {
+            "meal": {
+              "value": "breakfast"
+            }
+          }
+        },
+        {
+          "term": {
+            "cancellation": {
+              "value": "flexible"
+            }
+          }
+        },
+        {
+          "range": {
+            "price_minor": {
+              "gte": 0.0,
+              "lte": 70000.0
+            }
+          }
+        },
+        {
+          "range": {
+            "capacity": {
+              "gte": 2.0
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "offer_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre><p>02共14次HTTP。删currency条件，会多出USD o103；删offer_status，多出关闭价目o202；删hotel_status，多出停业酒店的o301。最后恢复完整DSL，重回[o101,o201]。这些错误版本只为了确认边界，不能拿更便宜的数值覆盖资格校验。价格与active也只是2026-10-26快照的事实，无法保证之后仍有房。</p>
+<p>把需求改成“任意房型、CNY单晚550元以内”，完整<a href="../projects/travel-search/search/f23/offers-budget.json">预算DSL</a>返回[o102,o104,o203]，total=3，所属酒店[h01,h01,h02]。本小结果已完整返回，手工去重是2家酒店；这不是通用酒店计数算法。一个酒店有两条报价命中很正常，F26才系统讨论去重、计数和最低价范围。</p>
+<h2 id="updates">7. f23-c03：只改一个价格，底层仍可能重写整个酒店块</h2>
+<p>03-updates先保存所有根文档的_source和版本。把o101由60000改为63000分，nested模型需要更新酒店h01的_source中对应rate，不能_update/r101。下面脚本同时用房型ID和报价ID定位；找不到就报错，避免静默改错条目。调用还带第一次读取的if_seq_no/if_primary_term，故意复用旧版本会409，其他酒店不被改动。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f23-nested/_update/h01?if_seq_no=读得的值&amp;if_primary_term=读得的值" data-source="projects/travel-search/search/f23/update-nested-price.json"><code>{
+  "script": {
+    "lang": "painless",
+    "source": "boolean found = false; for (def room : ctx._source.rooms) { if (room.room_id == params.room) { for (def rate : room.rates) { if (rate.offer_id == params.offer) { rate.price_minor = params.price; found = true; } } } } if (!found) { throw new IllegalArgumentException('offer absent'); }",
+    "params": {
+      "room": "r101",
+      "offer": "o101",
+      "price": 63000
+    }
+  }
+}</code></pre><p>refresh后，h01版本增加1、目标价格63000，其余字段与h02/h03版本不变。更新API先合成完整_source再生成IndexRequest；nested块随根文档重新索引。本次_segments观察到原段live=5/deleted=3、新段live=3/deleted=0，活动总数仍8：被替换的是h01根＋两个房型。deleted会被merge回收，不是永久写放大计数；根版本、源码路径和当时段观察共同支持结论，不用一次耗时宣称性能优劣。</p>
+<figure class="fig d2-figure" id="fig-updates"><div class="d2-shell"><div class="d2-tools"><span>02 · 改价与更名，代价朝不同方向变化</span><a data-expand-d2 href="diagrams/f23/updates-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f23/updates-light.svg" data-d2-light="diagrams/f23/updates-light.svg" data-d2-dark="diagrams/f23/updates-dark.svg" alt="02 · 改价与更名，代价朝不同方向变化"></div></div><figcaption>箭头组织两种模型的对照阅读，不是应用依次调用两索引。图仅数本课h01的2个nested房型和4条独立报价；省略副本、merge与真实供价同步。 静态图可展开；<a href="diagrams/f23/README.md">图源与生成记录</a>。</figcaption></figure><pre class="code-block" data-label="JSON · POST /tut-f23-offers/_update/o101" data-source="projects/travel-search/search/f23/update-offer-price.json"><code>{
+  "doc": {
+    "price_minor": 63000
+  }
+}</code></pre><p>独立offer的相同改价只让o101版本增加，另外七份_source和版本不变。部分doc是请求表达形式，Lucene仍重新索引这一份完整报价；它并非原地修改一个整数。反过来，酒店更名就体现复制代价：先只更新hotels/h01，offers/o101仍是旧名称，ES不会自动传播。再明确按hotel_id=h01更新四份报价：</p>
+<pre class="code-block" data-label="JSON · POST /tut-f23-offers/_update_by_query?refresh=true&amp;conflicts=abort" data-source="projects/travel-search/search/f23/rename-offers.json"><code>{
+  "query": {
+    "term": {
+      "hotel_id": "h01"
+    }
+  },
+  "script": {
+    "lang": "painless",
+    "source": "ctx._source.hotel_name = params.name",
+    "params": {
+      "name": "西湖湖畔酒店·新名"
+    }
+  }
+}</code></pre><p>实际updated=4、version_conflicts=0、failures=[]。按查询更新不是跨文档事务，发生冲突时之前成功的条目不会自动回滚，必须看条级/失败统计并核对剩余副本。本轮28次HTTP完成改价、旧版本409、错误根ID404、更名复制与精确恢复；恢复60000/原酒店名后显式refresh，再逐份对照固定文件。探索阶段曾先恢复o101但没刷新，就执行按查询恢复：旧搜索视图导致HTTP409，已成功3份/冲突1份；最终流程在两步间增加_refresh，清理后完整复跑。该失败记录保留，不能只写“重试即可”。</p>
+<h2 id="java">8. 同一语义进入Java，返回单位仍清楚</h2>
+<p>F07建立的Boot4.0.8/Temurin25.0.4.1+1工程继续使用官方Java/Rest5 Client9.4.8、Wrapper3.3.4/Maven3.9.11；应用JDK与ES镜像bundled JVM分列记录。POST /api/model/inspect只接受五种固定mode，服务端白名单选择索引与DSL，浏览器不提交索引名或任意查询。下面展示完整查询、字段契约和错误分支；通用连接仍复用EsConfiguration。</p>
+<pre class="code-block" data-label="Java · ModelSearchService 完整关键实现" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/ModelSearchService.java"><code>package dev.esweb.travel;
+
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.ChildScoreMode;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.json.JsonData;
+import co.elastic.clients.json.JsonpSerializable;
+import co.elastic.clients.json.JsonpUtils;
+import java.io.IOException;
+import java.util.List;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+@Service
+public class ModelSearchService {
+    private final ElasticsearchClient client;
+    private final JsonMapper json;
+    public ModelSearchService(ElasticsearchClient client, JsonMapper json) {
+        this.client = client; this.json = json;
+    }
+    public record Card(String id, JsonNode source) {}
+    public record Result(String model, long total, String relation, long tookMs, ModelInput conditions,
+                         JsonNode esRequest, JsonNode esResponse, List&lt;Card&gt; items) {}
+
+    public String model(ModelInput input) {
+        return switch (input.mode()) {
+            case "hotel" -&gt; "hotels";
+            case "object" -&gt; "object";
+            case "nested" -&gt; "nested";
+            case "offers-flex", "offers-budget" -&gt; "offers";
+            default -&gt; throw new IllegalArgumentException("validated mode required");
+        };
+    }
+    public SearchRequest request(ModelInput input) {
+        String model = model(input);
+        Query query;
+        if (model.equals("hotels")) {
+            query = Query.of(q -&gt; q.term(t -&gt; t.field("hotel_id").value("h01")));
+        } else if (model.equals("object")) {
+            query = Query.of(q -&gt; q.term(t -&gt; t.field("rooms.room_id").value("r101")));
+        } else if (model.equals("nested")) {
+            query = Query.of(q -&gt; q.nested(n -&gt; n.path("rooms").scoreMode(ChildScoreMode.None)
+                    .query(r -&gt; r.term(t -&gt; t.field("rooms.room_id").value("r101")))));
+        } else {
+            var filters = new BoolQuery.Builder()
+                    .filter(f -&gt; f.term(t -&gt; t.field("city_code").value("HZ")))
+                    .filter(f -&gt; f.term(t -&gt; t.field("hotel_status").value("open")))
+                    .filter(f -&gt; f.term(t -&gt; t.field("offer_status").value("active")))
+                    .filter(f -&gt; f.term(t -&gt; t.field("currency").value("CNY")))
+                    .filter(f -&gt; f.term(t -&gt; t.field("service_date").value("2026-11-01")));
+            boolean flex = input.mode().equals("offers-flex");
+            if (flex) filters
+                    .filter(f -&gt; f.term(t -&gt; t.field("bed_type").value("twin")))
+                    .filter(f -&gt; f.term(t -&gt; t.field("meal").value("breakfast")))
+                    .filter(f -&gt; f.term(t -&gt; t.field("cancellation").value("flexible")));
+            filters.filter(f -&gt; f.range(r -&gt; r.number(n -&gt; n.field("price_minor")
+                    .gte(0.0).lte(flex ? 70000.0 : 55000.0))));
+            if (flex) filters.filter(f -&gt; f.range(r -&gt; r.number(n -&gt; n.field("capacity").gte(2.0))));
+            query = Query.of(q -&gt; q.bool(filters.build()));
+        }
+        String sortField = model.equals("offers") ? "offer_id" : "hotel_id";
+        return SearchRequest.of(s -&gt; s.index("tut-f23-" + model).size(20)
+                .trackTotalHits(t -&gt; t.enabled(true)).query(query)
+                .sort(so -&gt; so.field(f -&gt; f.field(sortField).order(SortOrder.Asc))));
+    }
+    private JsonNode tree(JsonpSerializable value) {
+        return json.readTree(JsonpUtils.toJsonString(value, client._jsonpMapper()));
+    }
+    private boolean text(JsonNode source, String field) {
+        return source.hasNonNull(field) &amp;&amp; source.get(field).isString() &amp;&amp; !source.get(field).asString().isBlank();
+    }
+    private void validateSource(String model, String id, JsonNode source) {
+        if (source == null || !text(source, "hotel_id") || !text(source, "hotel_name")
+                || !text(source, "city_code") || !text(source, "hotel_status"))
+            throw new AttractionSearchService.IncompleteSearchException();
+        if (!model.equals("offers")) {
+            if (!id.equals(source.get("hotel_id").asString()))
+                throw new AttractionSearchService.IncompleteSearchException();
+            if (!model.equals("hotels") &amp;&amp; (!source.hasNonNull("rooms") || !source.get("rooms").isArray()
+                    || source.get("rooms").isEmpty()))
+                throw new AttractionSearchService.IncompleteSearchException();
+            if (!model.equals("hotels")) for (JsonNode room : source.get("rooms")) {
+                if (!text(room, "room_id") || !text(room, "room_name") || !text(room, "bed_type")
+                        || !room.hasNonNull("capacity") || !room.get("capacity").isIntegralNumber()
+                        || room.get("capacity").asInt() &lt; 1 || !room.hasNonNull("rates")
+                        || !room.get("rates").isArray() || room.get("rates").isEmpty())
+                    throw new AttractionSearchService.IncompleteSearchException();
+                for (JsonNode rate : room.get("rates")) {
+                    if (!text(rate, "offer_id") || !text(rate, "rate_plan_id") || !text(rate, "currency")
+                            || !text(rate, "offer_status") || !text(rate, "meal") || !text(rate, "cancellation")
+                            || !text(rate, "service_date") || !text(rate, "snapshot_at")
+                            || !rate.hasNonNull("price_minor") || !rate.get("price_minor").isIntegralNumber()
+                            || rate.get("price_minor").asLong() &lt; 0)
+                        throw new AttractionSearchService.IncompleteSearchException();
+                }
+            }
+        } else {
+            for (String field : List.of("offer_id", "room_id", "room_name", "bed_type", "rate_plan_id", "service_date",
+                    "meal", "cancellation", "currency", "offer_status", "snapshot_at")) {
+                if (!text(source, field)) throw new AttractionSearchService.IncompleteSearchException();
+            }
+            if (!id.equals(source.get("offer_id").asString()) || !source.hasNonNull("price_minor")
+                    || !source.get("price_minor").isIntegralNumber() || source.get("price_minor").asLong() &lt; 0
+                    || !source.hasNonNull("capacity") || !source.get("capacity").isIntegralNumber()
+                    || source.get("capacity").asInt() &lt; 1)
+                throw new AttractionSearchService.IncompleteSearchException();
+        }
+    }
+    public Result inspect(ModelInput input) throws IOException {
+        var request = request(input);
+        var response = client.search(request, JsonData.class);
+        if (response.timedOut() || response.shards().failed().longValue() != 0
+                || response.hits().total() == null || !response.hits().total().relation().jsonValue().equals("eq"))
+            throw new AttractionSearchService.IncompleteSearchException();
+        String model = model(input);
+        List&lt;Card&gt; cards = response.hits().hits().stream().map(hit -&gt; {
+            JsonNode source = hit.source() == null ? null : json.readTree(hit.source().toJson().toString());
+            validateSource(model, hit.id(), source);
+            if (model.equals("offers") &amp;&amp; (!"HZ".equals(source.get("city_code").asString())
+                    || !"open".equals(source.get("hotel_status").asString())
+                    || !"active".equals(source.get("offer_status").asString())
+                    || !"CNY".equals(source.get("currency").asString())
+                    || !"2026-11-01".equals(source.get("service_date").asString())
+                    || source.get("price_minor").asLong() &gt; (input.mode().equals("offers-flex") ? 70000 : 55000)))
+                throw new AttractionSearchService.IncompleteSearchException();
+            if (model.equals("offers") &amp;&amp; input.mode().equals("offers-flex")
+                    &amp;&amp; (!"twin".equals(source.get("bed_type").asString())
+                    || !"breakfast".equals(source.get("meal").asString())
+                    || !"flexible".equals(source.get("cancellation").asString())
+                    || source.get("capacity").asInt() &lt; 2))
+                throw new AttractionSearchService.IncompleteSearchException();
+            if (hit.sort().size() != 1) throw new AttractionSearchService.IncompleteSearchException();
+            return new Card(hit.id(), source);
+        }).toList();
+        return new Result(model, response.hits().total().value(), response.hits().total().relation().jsonValue(),
+                response.took(), input, tree(request), tree(response), cards);
+    }
+}</code></pre><p>搜索完成后检查timed_out、失败分片、精确total、_id/业务ID、必要字段与排序值，再投影为id/source。完整_source与DSL、客户端重序列化响应随DTO返回用于核对（空_score/max_score会省略，非HTTP原始字节），JSON对象用文本节点显示；展示壳不是对嵌套数据的筛选实现。酒店明细完整保留，报价展示自己的价格、计划和快照时间。</p>
+<details><summary>输入校验与Controller完整错误入口</summary><pre class="code-block" data-label="Java · 输入白名单" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/ModelInput.java"><code>package dev.esweb.travel;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+
+public record ModelInput(@NotNull @Pattern(regexp = "hotel|object|nested|offers-flex|offers-budget") String mode) {}</code></pre><pre class="code-block" data-label="Java · Controller与400分支" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/ModelController.java"><code>package dev.esweb.travel;
+
+import jakarta.validation.Valid;
+import java.io.IOException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+public class ModelController {
+    private final ModelSearchService service;
+    public ModelController(ModelSearchService service) { this.service = service; }
+
+    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
+    public ResponseEntity&lt;ApiErrors.ErrorBody&gt; invalid(Exception error) {
+        return ResponseEntity.badRequest().body(new ApiErrors.ErrorBody("INVALID_MODEL_INPUT",
+                "请选择hotel、object、nested、offers-flex或offers-budget固定案例。"));
+    }
+
+    @PostMapping("/api/model/inspect")
+    public ModelSearchService.Result inspect(@Valid @RequestBody ModelInput input) throws IOException {
+        return service.inspect(input);
+    }
+}</code></pre><p>未知/缺失mode或坏JSON为400；现有全局ApiErrors把ES拒绝映射502、连接/transport错误映射503、不完整响应/字段契约失败映射502。未对真实超时或部分分片失败作故障注入，代码防护不等于实测。</p></details>
+<h2 id="observe">9. 观察窗：把同一批ID和金额核对回来</h2>
+<pre class="code-block" data-label="Bash · 终端二"><code>cd projects/travel-search/backend
+# JAVA_HOME/PATH先选JDK25
+./mvnw -B -ntp clean package
+ES_URL=http://127.0.0.1:19223 APP_PORT=18081 java -jar target/travel-search-0.7.0.jar</code></pre><pre class="code-block" data-label="Bash · 终端一仍在projects/travel-search"><code>bash labs/f23/02-boundaries.sh
+bash labs/f23/03-updates.sh
+bash labs/f23/04-java.sh
+# 以下为可选手工调用，不计90次教学HTTP
+curl --fail-with-body -sS -X POST "$APP_URL/api/model/inspect"   -H 'Content-Type: application/json' --data '{"mode":"offers-flex"}' </code></pre><p>打开本机http://127.0.0.1:18081/f23.html。五个选项依次观察酒店、object单ID、nested单ID、完整报价条件和预算报价。前三项卡片是h01；两种房型模型都显示全部房型，并明确不是所有明细均被选中。后两项是2条和3条报价，逐项核对ID、价格、计划、状态与DSL。切换输入或失败会清空旧卡片，避免沿用上轮价格。</p>
+<p>04另有5次Java请求和5次实际DSL重放，Java内部5次ES搜索另计；全部ID、total与_source逐份一致。真实停掉本课节点后观察503、启动并等待恢复后同Java进程重新查询；缺索引502、必要字段为空502、非法输入400与恢复也单独验收。Pages只承载本文与资产，读者自己启动Java/ES；ES凭据不进入浏览器、URL或Pages。</p>
+<h2 id="repeat">10. 点名清理，再从同一前提完整重做</h2>
+<pre class="code-block" data-label="Bash · 终端一仍在projects/travel-search"><code># 清理本课四索引；DELETE后各GET404，保留其他课与数据卷
+bash labs/f23/cleanup.sh
+export F23_OUT=/tmp/f23-reader-repeat
+bash labs/f23/01-prepare.sh
+bash labs/f23/02-boundaries.sh
+bash labs/f23/03-updates.sh
+bash labs/f23/04-java.sh
+# 完成后只关闭自己启动的Java
+bash labs/f23/cleanup.sh --out /tmp/f23-reader-final-cleanup
+docker compose -f infra/f23/compose.yaml stop es</code></pre><p>第一次Bulk全部created；未清理直接重跑会建索引400、Bulk create共17项409，不能当作新的干净实验。日志目录不覆盖旧收据，重做时换F23_OUT；cleanup仅删除tut-f23-hotels、tut-f23-object、tut-f23-nested、tut-f23-offers。Compose端口仅回环且关闭安全，用于独立教学，不作为生产配置。已有节点、镜像和卷均保留。</p>
+<h2 id="choice">11. 能解释取舍，才算完成本课</h2>
+<p>若只按酒店资料检索，主文档最直接；有少量相对稳定房型、需要酒店为结果单位且要保留房型关联，可评估nested，但要承担隐藏文档与根块更新。报价多、更新频繁、组合条件直接落到报价时，独立offer提供清楚的读写边界，代价是重复酒店字段和后续酒店去重。object适合无需关联数组多字段的明细；不能为了少几份Lucene文档牺牲条件正确性。</p>
+<p>把数据量、每酒店房型/报价分布、报价变更频率、酒店资料变更频率和所需查询列成决策表，再用代表性负载测量。这里测得的是本快照条目数和实际更新范围，没有得出通用容量阈值或吞吐冠军，也没有引入parent-child。下一课F24回到酒店结果：当“便宜”和“含早”分别来自两个房型，如何证明同房型条件与排序价格一致？本课先把边界立住，尚未实施那组机制。</p>
+<details><summary>固定版本依据与必要源码入口</summary><p><a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/nested">官方nested说明</a>与<a href="https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-nested-query">nested query</a>解释对象边界与根命中；行为以ES9.4.0实际执行和固定tag为准。<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/update/UpdateHelper.java">UpdateHelper.prepareUpdateIndexRequest/prepareUpdateScriptRequest</a>生成完整IndexRequest；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/DocumentParser.java">DocumentParser.parseObjectOrNested/RootDocumentParserContext.addDoc</a>创建nested文档；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/mapper/DocumentParserContext.java">DocumentParserContext.createNestedContext</a>给出嵌套上下文；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/engine/InternalEngine.java">InternalEngine.updateDocs</a>更新文档块。四份文件与官方v9.4.0逐字节核对见<a href="../docs/framework-review/20261026-f23-model/sources.json">来源收据</a>，不把当前在线文档的未来默认值当作9.4.0结论。</p><p><a href="../projects/travel-search/labs/f23/README.md">本机实验</a> · <a href="../projects/travel-search/review/f23/README.md">真实两轮</a> · <a href="../docs/framework-review/20261026-f23-model/README.md">内容、图解、HTTP与实际视觉验收</a>。</p></details></section>
+<section class="drills"><h2 id="drills">能力检查</h2>
+<details><summary>1. r101为何不能只用一份“房型价格420元”代表？</summary><p>它有o101含早可退CNY600元、o102无早不可退CNY420元、o103含早可退USD80元三条报价。房型身份不能替代价目计划、币种、状态和服务日；取420再贴含早可退会生成不存在的报价。</p></details>
+<details><summary>2. nested的_count为3、Lucene live为8，哪一个错了？</summary><p>都没错。_count在根范围统计3家酒店，底层还有5个nested房型；rates是object，不增加隐藏文档。报价独立展开则是8个根，不能按同一单位混比。</p></details>
+<details><summary>3. 查r101返回h01，为何卡片里还有r102？</summary><p>nested查子对象并返回酒店根文档，_source保持原始完整数组，不自动裁剪。r101不是可独立GET或_update的根_id；本课没有用inner_hits选择展示条目。</p></details>
+<details><summary>4. 酒店更名后，独立offer会自动读到新名吗？</summary><p>不会。复制字段不是实时关联；本课h01有四份报价副本，必须明确更新并检查failures/冲突/剩余旧值。按查询更新不是跨文档事务，不能凭HTTP成功或主文档新名证明所有副本一致。</p></details>
+<details><summary>5. nested房型里rates仍为object，可以联合查rates.currency与价格吗？</summary><p>不能据此保证来自同一rate。nested只保留rooms层边界，内部rates的多值仍会失去条目关联。本课只按房型ID查全明细，报价条件放在独立offer；需要其他方案时先重定报价边界。</p></details>
+<details><summary>6. 新增h04：两个房型，各四个报价，怎样预测数量并选择模型？</summary><p>酒店主文档/object各新增1个根；本课单层nested新增1根＋2子，共3个Lucene文档；独立offer新增8根。选择还要看查询单位、更新频率和复制成本，不只比8与3。若报价频繁改价、酒店名少变，可评估独立offer；结论需负载测量支持。</p></details>
+<details><summary>7. o101 active、600元，能直接保证现在可订吗？</summary><p>不能。它只表明固定时间的单晚供价快照，不含逐晚库存、实时可售或事务保证。F25才核对连续日期与总价；下单前仍需权威来源核验。</p></details></section>
+<section class="pitfalls"><h2 id="pitfalls">实际陷阱</h2><div class="callout warn"><strong>把nested当成可单条写的房型表</strong><p>隐藏Lucene文档不是独立ES根资源；改一条rate仍重新索引所属酒店块。R＋房型数只适用于本课单层nested且rates为object，不能套到多层嵌套。</p></div><div class="callout warn"><strong>只比较金额，遗漏币种与双层状态</strong><p>USD80不等于CNY80，closed报价与paused酒店都要排除；计划和报价ID也不能互换。实际删条件对照展示每一个错误候选。</p></div><div class="callout warn"><strong>把部分更新与复制传播想成自动事务</strong><p>doc只缩短请求，仍生成完整新文档；更名不会传播，按查询更新可能部分成功。refresh=-1时先刷新再让下一次搜索读取新版，遇到失败按实际条目恢复并逐份核对。</p></div></section>
+<section class="recap"><h2 id="recap">速记</h2><table class="ktable"><thead><tr><th>要分清什么</th><th>本课证据</th></tr></thead><tbody><tr><td>三种身份</td><td>3酒店 / 5房型 / 8报价；room_id不能唯一标识报价</td></tr><tr><td>查询单位</td><td>object/nested返回酒店；独立offers返回报价</td></tr><tr><td>文档数量</td><td>根3/3/3/8，Lucene live3/3/8/8</td></tr><tr><td>更新范围</td><td>nested h01改价替换3个Lucene文档；独立o101只改1根；h01更名需改4报价副本</td></tr><tr><td>准确边界</td><td>rates仍object；本课报价条件只在独立offer执行；单晚快照不保证实时预订</td></tr></tbody></table><p>先确定一份文档代表谁，再让查询条件和更新范围服从这个边界。</p></section>
+<footer class="ch-footer"><button class="read-toggle" type="button" data-ch="f23">标为已读</button><nav class="pager"><a href="f22.html">← F22 搜索质量评估</a><a href="index.html">框架篇目录</a><span>下一课：F24 同房型条件与nested排序（待实施）</span></nav></footer></article></main><footer class="footer">ES 9.4.0 · Lucene 10.4.0 · 框架学习篇</footer><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>

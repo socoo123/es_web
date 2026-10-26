@@ -1,6 +1,6 @@
 # 旅游搜索 Elasticsearch 实验工程
 
-用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业、F13分析链与中文召回、F14中文分词方案比较、F15专有词与词典、F16别名/同义词与繁简及F17提示/拼音与容错已交付，F18已交付BM25与解释评分，F19已交付名称/短语与多字段权重，F20已交付点评/热度与数值评分，F21已交付距离/时效与显式排序，F22–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
+用景点/酒店/房型搜索学习 ES，实验在本机运行。教程从 [F01 导学](../../framework/f01.html)开始，F02 概念推演、F03 首次启动、F07 引入 Spring Boot 4 / JDK 25 与本机搜索展示壳。F01–F03 已完成；F04 字段建模、F05 关键词查询与 F06 组合筛选正文/脚本已交付，真实 ES 待验收；F07 Java接口与本机展示壳、F08多字段与高亮、F09聚合与筛选计数、F10显式排序、F11稳定分页与PIT、F12更新与基础结业、F13分析链与中文召回、F14中文分词方案比较、F15专有词与词典、F16别名/同义词与繁简及F17提示/拼音与容错已交付，F18已交付BM25与解释评分，F19已交付名称/短语与多字段权重，F20已交付点评/热度与数值评分，F21已交付距离/时效与显式排序，F22已交付查询集/标注与质量评估，F23已交付酒店/房型/offer文档边界，F24–F45待实施，验收见 [STATUS.md](../../STATUS.md)。
 
 当前入口是 [F03 首搜](../../framework/f03.html)、[F03 手工实验](labs/f03/README.md)与[两轮真实 ES 记录](review/f03/README.md)，无需前端、Java、数据库或 Kibana。[F04 字段设计与 Bulk](../../framework/f04.html)及其[本机步骤](labs/f04/README.md)已提供；[执行状态](review/f04/README.md)明确记录本环境启动阻塞，尚未两轮实测。F04 从新资源独立开始，不依赖 F03 索引。历史文件、资源与案例 ID 保留：
 
@@ -174,4 +174,8 @@ F10再学习排序切换；不把本课ID次序当推荐排序，不把桶计数
 
 ## F22 · 查询集、标注与质量评估
 
-[正文](../../framework/f22.html) · [本机实验](labs/f22/README.md) · [独立结业](labs/f22/assessment.md) · [固定请求](search/f22) · [两轮证据](review/f22/README.md)。独立19222/tut-f22-attractions、24份资料/8查询完整标注；本机18081/f22.html与quality/evaluate接口。调整/留出分开，Recall@10/nDCG@10、坏例/短结果/未标注/HTTP200内失败均核对；小固定语料不宣称全站改善，F23未实施。
+[正文](../../framework/f22.html) · [本机实验](labs/f22/README.md) · [独立结业](labs/f22/assessment.md) · [固定请求](search/f22) · [两轮证据](review/f22/README.md)。独立19222/tut-f22-attractions、24份资料/8查询完整标注；本机18081/f22.html与quality/evaluate接口。调整/留出分开，Recall@10/nDCG@10、坏例/短结果/未标注/HTTP200内失败均核对；小固定语料不宣称全站改善，酒店阶段见F23。
+
+## F23 · 酒店、房型与offer文档边界
+
+[正文](../../framework/f23.html) · [本机实验](labs/f23/README.md) · [固定样本](data/f23/catalog.json) · [完整请求](search/f23) · [两轮证据](review/f23/README.md)。独立19223，3酒店/5房型/8报价；四投影比较查询单位、Lucene文档数与真实改价/更名更新范围。本机18081/f23.html与model/inspect接口；rates为object只作明细，报价条件在独立offer执行。F24同房型组合条件与排序未启动。

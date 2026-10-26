@@ -122,3 +122,7 @@ POST /api/attractions/synonym-search接受q/cityCode(BJ|SY)/maxPriceFen整数分
 ## F21 距离与核验时效
 
 [实验说明](../labs/f21/README.md)：独立19221/tut-f21-attractions、Java18081，`POST /api/attractions/decay-search`与本机`/f21.html`。六评分模式/三种sort，固定核验原点、可空硬半径与完整解释；版本基线不变，未测整体质量/性能。
+
+## F23 · 酒店文档边界观察
+
+[本机步骤](../labs/f23/README.md)使用独立ES19223，保持同一Boot4/JDK25工程；ModelSearchService按五种固定mode构造官方客户端DSL，POST /api/model/inspect，打开/f23.html核对酒店根文档、房型明细与独立报价。浏览器只访问Java，不保存ES凭据；完整_source、DSL与错误分支可观察，Pages不运行本服务。清理后真实重做见[记录](../review/f23/README.md)。F24未启动。
