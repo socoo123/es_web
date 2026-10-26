@@ -1,0 +1,56 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1",
+    "analysis": {
+      "analyzer": {
+        "lesson_words": {
+          "type": "custom",
+          "tokenizer": "whitespace",
+          "filter": [
+            "lowercase"
+          ]
+        }
+      }
+    },
+    "similarity": {
+      "lesson_bm25": {
+        "type": "BM25",
+        "k1": 1.2,
+        "b": 0.75,
+        "discount_overlaps": true
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "lesson_words",
+        "similarity": "lesson_bm25"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "lesson_words",
+        "similarity": "lesson_bm25"
+      },
+      "ticket_price_fen": {
+        "type": "integer"
+      }
+    }
+  }
+}

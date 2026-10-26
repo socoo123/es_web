@@ -170,4 +170,8 @@ F10再学习排序切换；不把本课ID次序当推荐排序，不把桶计数
 
 ## F21 距离、时效与显式排序
 
-[正文](../../framework/f21.html) · [本机实验](labs/f21/README.md) · [完整查询](search/f21) · [两轮证据](review/f21/README.md)。独立19221/tut-f21-attractions，14份虚构资料；本机18081/f21.html与decay-search接口。gauss/exp、两层合成与三种排序意图，固定核验时间、缺值零奖励和软/硬半径分别核对；整体质量待F22，未实施F22。
+[正文](../../framework/f21.html) · [本机实验](labs/f21/README.md) · [完整查询](search/f21) · [两轮证据](review/f21/README.md)。独立19221/tut-f21-attractions，14份虚构资料；本机18081/f21.html与decay-search接口。gauss/exp、两层合成与三种排序意图，固定核验时间、缺值零奖励和软/硬半径分别核对；质量评估见F22，本节保留F21实验范围。
+
+## F22 · 查询集、标注与质量评估
+
+[正文](../../framework/f22.html) · [本机实验](labs/f22/README.md) · [独立结业](labs/f22/assessment.md) · [固定请求](search/f22) · [两轮证据](review/f22/README.md)。独立19222/tut-f22-attractions、24份资料/8查询完整标注；本机18081/f22.html与quality/evaluate接口。调整/留出分开，Recall@10/nDCG@10、坏例/短结果/未标注/HTTP200内失败均核对；小固定语料不宣称全站改善，F23未实施。

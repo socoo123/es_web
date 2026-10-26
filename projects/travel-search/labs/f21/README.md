@@ -68,4 +68,4 @@ docker compose -f infra/f21/compose.yaml stop es
 
 cleanup只DELETE tut-f21-attractions、GET404，不删其他索引/卷；重复建索引400，重复Bulk create条级409。停止不清持久数据；本课安全关闭且只映射回环端口，不是生产配置。
 
-[完整查询](../../search/f21) · [真实两轮](../../review/f21/README.md) · [图解/HTTP/观察窗](../../../../docs/framework-review/20261026-f21-decay/README.md)。未测整体质量/留出指标、性能、多节点、生产安全、轨迹或持续核验更新。只实施F21；F22尚未实施。
+[完整查询](../../search/f21) · [真实两轮](../../review/f21/README.md) · [图解/HTTP/观察窗](../../../../docs/framework-review/20261026-f21-decay/README.md)。未测整体质量/留出指标、性能、多节点、生产安全、轨迹或持续核验更新。本目录保留F21实验；下一课[F22查询集与质量评估](../f22/README.md)提供独立评估。

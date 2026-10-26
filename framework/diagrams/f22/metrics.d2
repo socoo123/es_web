@@ -1,0 +1,12 @@
+direction: down
+judged: "同一查询的完整等级\n0、1、2、3；不是ES的_score"
+recall: "Recall@10\n前10中等级≥2的份数\n÷ 全部等级≥2的份数"
+rank: "DCG@10\n每名贡献(2^等级−1)/log2(名次+1)"
+ideal: "理想IDCG@10\n全部标注从高到低取前10"
+ndcg: "nDCG@10 = DCG / IDCG\n看相关结果是否靠前"
+macro: "逐查询先算，再等权平均\n分开报告调整集与留出集"
+judged -> recall
+recall -> rank: 另看名次
+rank -> ideal
+ideal -> ndcg
+ndcg -> macro

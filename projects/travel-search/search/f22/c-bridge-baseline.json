@@ -1,0 +1,65 @@
+{
+  "size": 10,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖 桥边",
+            "fields": [
+              "name",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "or"
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ],
+      "minimum_should_match": "0"
+    }
+  },
+  "sort": [
+    {
+      "_score": {
+        "order": "desc"
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}

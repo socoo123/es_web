@@ -1,0 +1,428 @@
+{
+  "requests": [
+    {
+      "id": "h-photo",
+      "request": {
+        "size": 10,
+        "track_total_hits": true,
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "multi_match": {
+                  "query": "西湖 摄影",
+                  "fields": [
+                    "name",
+                    "description"
+                  ],
+                  "type": "best_fields",
+                  "operator": "or"
+                }
+              }
+            ],
+            "filter": [
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0,
+                    "lte": 10000
+                  }
+                }
+              }
+            ],
+            "minimum_should_match": "0",
+            "should": [
+              {
+                "match": {
+                  "name": {
+                    "query": "西湖 摄影",
+                    "operator": "and",
+                    "boost": 2
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "name": {
+                    "query": "西湖 摄影",
+                    "boost": 4
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "sort": [
+          {
+            "_score": {
+              "order": "desc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          }
+        ]
+      },
+      "ratings": [
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a01",
+          "rating": 2
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a02",
+          "rating": 2
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a03",
+          "rating": 2
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a04",
+          "rating": 3
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a05",
+          "rating": 3
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a06",
+          "rating": 2
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a07",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a08",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a09",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a10",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a11",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a12",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a13",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a14",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a15",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a16",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a17",
+          "rating": 1
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a18",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a19",
+          "rating": 3
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a20",
+          "rating": 3
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "x-closed",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "x-city",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "x-budget",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "x-currency",
+          "rating": 0
+        }
+      ]
+    },
+    {
+      "id": "h-walk",
+      "request": {
+        "size": 10,
+        "track_total_hits": true,
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "multi_match": {
+                  "query": "西湖 散步",
+                  "fields": [
+                    "name",
+                    "description"
+                  ],
+                  "type": "best_fields",
+                  "operator": "or"
+                }
+              }
+            ],
+            "filter": [
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0,
+                    "lte": 10000
+                  }
+                }
+              }
+            ],
+            "minimum_should_match": "0",
+            "should": [
+              {
+                "match": {
+                  "name": {
+                    "query": "西湖 散步",
+                    "operator": "and",
+                    "boost": 2
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "name": {
+                    "query": "西湖 散步",
+                    "boost": 4
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "sort": [
+          {
+            "_score": {
+              "order": "desc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          }
+        ]
+      },
+      "ratings": [
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a01",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a02",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a03",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a04",
+          "rating": 3
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a05",
+          "rating": 3
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a06",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a07",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a08",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a09",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a10",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a11",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a12",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a13",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a14",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a15",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a16",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a17",
+          "rating": 1
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a18",
+          "rating": 1
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a19",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "a20",
+          "rating": 3
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "x-closed",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "x-city",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "x-budget",
+          "rating": 0
+        },
+        {
+          "_index": "tut-f22-attractions",
+          "_id": "x-currency",
+          "rating": 0
+        }
+      ]
+    }
+  ],
+  "metric": {
+    "recall": {
+      "k": 10,
+      "relevant_rating_threshold": 2
+    }
+  }
+}

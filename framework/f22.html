@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>F22 · 查询集、标注与搜索质量评估</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"><style>#f22 .d2-view img{min-width:0;max-width:480px;margin-inline:auto}</style></head>
+<body class="framework-page chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="f22" data-ch="f22"><header class="ch-header"><div class="ch-kicker">FRAMEWORK 22 · 实用搜索结业</div><h1>调了权重，<br>怎样证明搜索变好了？</h1><p class="meta-line">前置：F13–F21 召回与评分 · 约65分钟 · 3案例 / 70教学HTTP · 2静态D2 / 0机制播放器</p><p>运营看到“西湖 夜游”的游船提前，准备接受名称加权。另一个游客想拍真实湖景，名称恰好匹配的摄影展厅却仍排第一。F22把判断从一张截图扩到一组需求：先写什么算相关，再让同一份标注检验基线与候选，报告改善、退步和没有解决的错误。</p></header>
+<section class="goal"><h2>学完能用输出证明什么</h2><ul><li>区分查询意图、人工相关等级和ES分数，交付完整查询集、划分与标注口径。</li><li>从真实前10的ID手算Recall@10与nDCG@10，对照_rank_eval和Java，发现未标注与单查询失败。</li><li>冻结候选后审计留出集，选择本批策略并解释残留坏例；独立诊断两条未逐步演示的新需求。</li></ul></section>
+<section class="lesson"><details class="chapter-outline"><summary>本课目录</summary><nav><a href="#problem">1. 一次调权为何不够</a><a href="#judgments">2. 查询集与标注</a><a href="#metrics">3. 两把尺子</a><a href="#prepare">4. 实验前提</a><a href="#adjust">5. 基线与候选</a><a href="#holdout">6. 留出与选择</a><a href="#boundaries">7. 坏案例与口径</a><a href="#java">8. Java计算</a><a href="#observe">9. 本机观察</a><a href="#graduate">10. 独立结业</a><a href="#repeat">11. 清理重做</a><a href="#drills">能力检查</a><a href="#pitfalls">实际陷阱</a><a href="#recap">速记</a></nav></details><p class="diagram-jumps">图解跳转：<a href="#fig-cycle">01 · 调整与留出</a> · <a href="#fig-metrics">02 · 两个指标</a></p>
+<h2 id="problem">1. ES负责执行排序，相关不相关由需求决定</h2>
+<p>ES根据词项、字段和查询计算_score；它不知道游客想乘船，还是只想了解游船历史。增加名称权重可能让码头提前，也可能奖励名叫“夜游纪念品店”的商店。分数变大不是质量变好，不同DSL的分数均值也不是可比较的质量指标。</p>
+<p>本课评价的是“把用户输入翻译成查询”的策略。基线与候选必须使用相同文档快照、硬条件、查询和人工标准，否则变化可能来自资料更新或样本换了。先为每条查询写清需求，再评价每份资料；不能照着当前排序给标签。真实系统还应覆盖查询频率、长尾、城市、无结果、筛选与排序意图，本课只用小而可审计的虚构集合练习方法，不把它称作代表全站的抽样。</p>
+<h2 id="judgments">2. 一条查询对应一份判断，先分组再试参数</h2>
+<p><a href="../projects/travel-search/data/f22/attractions.json">24份固定资料</a>中，a01–a20符合HZ/open/CNY/0至10000分；另四份分别闭园、异城、超预算、异币种，固定判0并由filter排除。所有合格资料都含“西湖”，本课OR查询均有20个候选、返回10个。这样能分清“没进入候选”和“排到第11名以后”，并使主实验的两个nDCG口径一致。</p>
+<table class="ktable" id="samples-table"><thead><tr><th>资料ID</th><th>资料角色</th><th>为何不能只看名字</th></tr></thead><tbody><tr><td>a01–a03 / a06</td><td>三种夜间游船 / 白天游船码头</td><td>均可乘船，白天码头不直接满足夜游</td></tr><tr><td>a04 / a05 / a20</td><td>湖畔步道 / 白堤 / 苏堤</td><td>免费湖岸散步、实景摄影；苏堤有桥边描述</td></tr><tr><td>a07</td><td>游船文化馆</td><td>室内历史模型，不提供乘船</td></tr><tr><td>a08 / a09 / a13</td><td>水族馆 / 博物馆 / 科学馆</td><td>室内科普，可供雨天亲子活动</td></tr><tr><td>a10 / a11 / a15</td><td>摄影展厅 / 散步用品店 / 夜游纪念品店</td><td>名称很像需求，活动却不同</td></tr><tr><td>a12 / a14 / a16–a19</td><td>手作、乐园、导览站、茶室、山林、观景台</td><td>预约、晴天、仅发地图、仅休息、陡坡或需乘船等限制</td></tr></tbody></table>
+<p>人工等级用0–3：3直接满足意图；2满足主要需要但有次要限制；1只作补充；0不满足或不合硬条件。Recall把等级≥2算相关，nDCG保留四级差别。因此1级对nDCG有一点贡献，却不进本课Recall分子。等级描述的是特定需求；a10对“拍真实湖景”判0，对“雨天室内活动”可判2，不能给文档一个永久相关分。</p>
+<p><a href="../projects/travel-search/data/f22/evaluation.json">完整标注</a>是24份×8查询，共192个显式等级，0不是漏填。4条调整查询分别围绕夜游、游船、雨天、亲子；2条留出查询检验实景摄影与免费湖岸散步；另2条独立结业任务不在正文展示输入与次序。标签由本课作者一人按固定意图编写，没有双人独立标注或一致性统计。真实项目宜让标注者看资料而不看策略名/当前名次，对分歧复核，并保留标签版本与理由。</p>
+<figure class="fig d2-figure" id="fig-cycle"><div class="d2-shell"><div class="d2-tools"><span>01 · 先冻结，再审计</span><a data-expand-d2 href="diagrams/f22/cycle-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f22/cycle-light.svg" data-d2-light="diagrams/f22/cycle-light.svg" data-d2-dark="diagrams/f22/cycle-dark.svg" alt="01 · 先冻结，再审计"></div></div><figcaption>箭头表示评估工作的依赖，不是ES内部时间线。留出一旦被用来反复选参数，就失去本轮独立检查的作用。 静态图可展开；<a href="diagrams/f22/README.md">图源与生成记录</a>。</figcaption></figure>
+<p><a href="../projects/travel-search/data/f22/decision-plan.json">决策计划</a>在首次ES实验前冻结：候选仅加名称AND权重2、名称短语权重4，硬资格不变。调整集平均nDCG至少增0.01且Recall不降；冻结候选后，留出两平均指标不降，任何单查询nDCG下降不超过0.05。阈值是本课教学选择，不是ES默认或统计显著性标准。分组按意图设计，相关意图仍会泄漏；两条留出不能支撑总体效果的置信结论。</p>
+<h2 id="metrics">3. Recall看找回多少，nDCG看好结果靠不靠前</h2>
+<p>对于查询q，令R是这份完整标注中等级≥2的文档集合。Recall@10=前10命中R的份数÷|R|，分母不是10，也不是ES的total。本课“西湖 夜游”有6份二值相关资料，基线前10全部找回，Recall=6/6=1；即使第一个是商店，也不会因此降Recall。若只有部分池化标注，这个分母只能反映已知相关资料，不能冒称全库召回率。</p>
+<p>nDCG关注名次：第i名、人工等级g的贡献是(2<sup>g</sup>−1)/log<sub>2</sub>(i+1)，从i=1累计到第10名得到DCG。再把全部标注按等级降序取前10，计算理想IDCG；nDCG=DCG/IDCG。缺少的返回位置贡献0；本课标准IDCG始终由全部标注决定，与实际返回几份无关。高等级靠后会被折扣，0级无贡献。</p>
+<figure class="fig d2-figure" id="fig-metrics"><div class="d2-shell"><div class="d2-tools"><span>02 · 同一份标注，两把不同的尺子</span><a data-expand-d2 href="diagrams/f22/metrics-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f22/metrics-light.svg" data-d2-light="diagrams/f22/metrics-light.svg" data-d2-dark="diagrams/f22/metrics-dark.svg" alt="02 · 同一份标注，两把不同的尺子"></div></div><figcaption>箭头表示本图阅读顺序；Recall与nDCG独立计算，不以彼此为输入。等级是人工判断，不能把ES的_score代入2的指数。 静态图可展开；<a href="diagrams/f22/README.md">图源与生成记录</a>。</figcaption></figure>
+<p>夜游基线的前10等级为[0,0,2,2,1,3,3,3,2,0]，DCG=11.117010，IDCG=19.086516，nDCG=0.582454。候选变为[0,3,3,3,0,2,2,1,2,0]，nDCG=0.744946；两者Recall仍是1。先逐查询计算，再在同一分组等权平均，称宏平均。不是将所有查询的命中分子与分母拼起来，也不是按结果条数加权；真实流量加权必须另行固定权重与来源。</p>
+<p>没有任何相关资料的查询，Recall分母为0、IDCG也可能为0。本课单列这类查询而不混入主平均，探针中按0报告，不能说“没有该找的，所以满分”。空结果与未标注也不同：前者是搜索结果，后者是评价证据不完整。</p>
+<h2 id="prepare">4. f22-c01：固定语料与实验快照</h2>
+<p>独立ES9.4.0/Lucene10.4.0单节点19222，索引tut-f22-attractions，一主零副本、strict、refresh=-1，无插件。name/description均为whitespace/lowercase、显式BM25；空格已给出中文整词，本课不重评中文分词器。Bulk用create、显式refresh；重做前点名清理，避免旧数据和重写结果混入。下面从仓库根目录开始：</p>
+<pre class="code-block" data-label="Bash · 终端一"><code>cd projects/travel-search
+export ES_URL=http://127.0.0.1:19222
+export APP_URL=http://127.0.0.1:18081
+docker compose -f infra/f22/compose.yaml up -d es
+bash infra/f22/wait.sh
+# 已有本课索引先cleanup，再从01重做
+bash labs/f22/01-prepare.sh</code></pre>
+<details><summary>完整settings/mapping与环境约束</summary><pre class="code-block" data-label="JSON · PUT /tut-f22-attractions" data-source="projects/travel-search/search/f22/index.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1",
+    "analysis": {
+      "analyzer": {
+        "lesson_words": {
+          "type": "custom",
+          "tokenizer": "whitespace",
+          "filter": [
+            "lowercase"
+          ]
+        }
+      }
+    },
+    "similarity": {
+      "lesson_bm25": {
+        "type": "BM25",
+        "k1": 1.2,
+        "b": 0.75,
+        "discount_overlaps": true
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "lesson_words",
+        "similarity": "lesson_bm25"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "lesson_words",
+        "similarity": "lesson_bm25"
+      },
+      "ticket_price_fen": {
+        "type": "integer"
+      }
+    }
+  }
+}</code></pre><p>01的9次HTTP依次核对版本、插件、创建、green、Bulk24项created/errors=false、refresh、count24、mapping、settings。四份资格反例仍在索引中，只有搜索结果排除它们。Compose仅回环端口且关闭安全，供隔离教学，不是线上运行配置。</p></details>
+<h2 id="adjust">5. 基线与候选：只改名称奖励</h2>
+<p>基线用best_fields搜索name与description、OR匹配。候选沿用同一个must，再把名称AND和名称短语作为可选奖励，minimum_should_match=0。它不能让原本不匹配的文档靠奖励进入；两种策略均按_score降序、attraction_id升序收尾，打破平分。这里比较的是评分策略，不是同时改分词器、资料和预算。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f22-attractions/_search · 候选完整DSL" data-source="projects/travel-search/search/f22/a-night-candidate.json"><code>{
+  "size": 10,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖 夜游",
+            "fields": [
+              "name",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "or"
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        }
+      ],
+      "minimum_should_match": "0",
+      "should": [
+        {
+          "match": {
+            "name": {
+              "query": "西湖 夜游",
+              "operator": "and",
+              "boost": 2
+            }
+          }
+        },
+        {
+          "match_phrase": {
+            "name": {
+              "query": "西湖 夜游",
+              "boost": 4
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "_score": {
+        "order": "desc"
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre>
+<p>用<a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-rank-eval">官方_rank_eval</a>可把多条搜索请求、每条的ratings和一个指标交给ES。下例保留一个完整查询与24份判断。metric.dcg.normalize=true才计算归一化DCG，k=10强制评估前10；不是把search.size当唯一依据。unknown_doc_rating=0只是本例的计算约定，仍必须检查unrated_docs为空，不能拿这个参数掩盖漏标。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f22-attractions/_rank_eval · 完整单查询例" data-source="projects/travel-search/search/f22/example-ndcg.json"><code>{
+  "requests": [
+    {
+      "id": "a-night",
+      "request": {
+        "size": 10,
+        "track_total_hits": true,
+        "query": {
+          "bool": {
+            "must": [
+              {
+                "multi_match": {
+                  "query": "西湖 夜游",
+                  "fields": [
+                    "name",
+                    "description"
+                  ],
+                  "type": "best_fields",
+                  "operator": "or"
+                }
+              }
+            ],
+            "filter": [
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0,
+                    "lte": 10000
+                  }
+                }
+              }
+            ],
+            "minimum_should_match": "0",
+            "should": [
+              {
+                "match": {
+                  "name": {
+                    "query": "西湖 夜游",
+                    "operator": "and",
+                    "boost": 2
+                  }
+                }
+              },
+              {
+                "match_phrase": {
+                  "name": {
+                    "query": "西湖 夜游",
+                    "boost": 4
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "sort": [
+          {
+            "_score": {
+              "order": "desc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          }
+        ]
+      },
+      "ratings": [
+        {"_index": "tut-f22-attractions", "_id": "a01", "rating": 3},
+        {"_index": "tut-f22-attractions", "_id": "a02", "rating": 3},
+        {"_index": "tut-f22-attractions", "_id": "a03", "rating": 3},
+        {"_index": "tut-f22-attractions", "_id": "a04", "rating": 2},
+        {"_index": "tut-f22-attractions", "_id": "a05", "rating": 2},
+        {"_index": "tut-f22-attractions", "_id": "a06", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a07", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a08", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a09", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a10", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a11", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a12", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a13", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a14", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a15", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a16", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a17", "rating": 1},
+        {"_index": "tut-f22-attractions", "_id": "a18", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "a19", "rating": 1},
+        {"_index": "tut-f22-attractions", "_id": "a20", "rating": 2},
+        {"_index": "tut-f22-attractions", "_id": "x-closed", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "x-city", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "x-budget", "rating": 0},
+        {"_index": "tut-f22-attractions", "_id": "x-currency", "rating": 0}
+      ]
+    }
+  ],
+  "metric": {
+    "dcg": {
+      "k": 10,
+      "normalize": true,
+      "unknown_doc_rating": 0
+    }
+  }
+}</code></pre>
+<p>评Recall时用完整请求中的<code>"metric":{"recall":{"k":10,"relevant_rating_threshold":2}}</code>；两个完整调整集请求随工程交付。先预测游船能上升几位，再运行：</p><pre class="code-block" data-label="Bash · 同一终端"><code>bash labs/f22/02-adjust.sh</code></pre>
+<table class="ktable" id="ranking-table"><thead><tr><th>调整查询</th><th>基线nDCG</th><th>候选nDCG</th><th>两者Recall</th></tr></thead><tbody><tr><td>夜游</td><td>0.582454</td><td>0.744946</td><td>1</td></tr><tr><td>游船</td><td>0.678241</td><td>0.759009</td><td>1</td></tr><tr><td>雨天</td><td>0.852576</td><td>0.852576</td><td>4/6</td></tr><tr><td>亲子</td><td>0.959829</td><td>0.959829</td><td>1</td></tr><tr><td>宏平均</td><td>0.768275</td><td>0.829090</td><td>0.916667</td></tr></tbody></table>
+<p>这是本课两轮真实输出，显示保留六位小数，断言用完整数值。调整平均nDCG增加0.060815、Recall不变，候选通过预定调整门槛。不过夜游a15纪念品店仍第一，游船a07文化馆仍第一；“前几名更好”与“首位已经正确”是不同结论。雨天6份相关资料只返回4份：另两份不是索引里不存在，而是没有挤进前10。</p>
+<h2 id="holdout">6. f22-c02：留出不是另一轮调参数的提示卡</h2>
+<pre class="code-block" data-label="Bash · 冻结后审计"><code>bash labs/f22/03-holdout.sh
+bash labs/f22/04-boundaries.sh</code></pre>
+<table class="ktable" id="holdout-table"><thead><tr><th>留出查询意图</th><th>基线→候选nDCG</th><th>基线→候选Recall</th><th>残留坏例</th></tr></thead><tbody><tr><td>拍真实湖景</td><td>0.745815→0.745815</td><td>7/8→7/8</td><td>a10摄影展厅仍第一，0级</td></tr><tr><td>免费湖岸散步</td><td>0.717391→0.717391</td><td>1→1</td><td>a11用品店仍第一，0级</td></tr><tr><td>宏平均</td><td>0.731603→0.731603</td><td>0.937500→0.937500</td><td>无新增指标退步，也无改善</td></tr></tbody></table>
+<p>候选通过本课冻结的相对门槛，可以选为这份固定教学语料的后续比较策略；证据不足以宣布全站上线。收益仅观察在调整集两查询，留出没有观察到收益，也没有观察到退步。门槛容许原有坏例继续存在，故“通过相对回归”不等于达到产品的绝对质量要求。</p>
+<p>下一步可提出区分“真实活动”和“商品/展览”的资料字段或查询意图方案，再做新的调整实验；本课不直接改标签、删掉难例来抬分。若现在看着摄影与散步结果反复改权重，这两条就成为调整材料，下一轮需要新留出。相似意图、同一批文档、作者单人标签和极小查询数都限制结论，离线指标也不能代替真实游客反馈或线上受控实验。</p>
+<h2 id="boundaries">7. 三类坏案例，要用不同办法定位</h2>
+<p>第一类是候选漏召回：04临时把雨天检索缩到name且AND，只剩a09。水族馆与科学馆没有完整名称词，后来加再多奖励也救不回；恢复多字段OR后回到20候选。第二类是Top10漏召回：雨天的两份相关资料已在20候选内，只是排得靠后。第三类是误入前列：商店和展厅满足词面却不满足意图，应先核对标签/资料语义，再决定召回、权重或业务条件，不能把所有问题都叫分词不好。</p>
+<p>评价流程自身也要回归。04去掉当前第一名a15的标签，ES仍返回HTTP200，但unrated_docs明确列出它；本课判评价不完整。把另一个查询故意写成非法数值条件，_rank_eval也可能HTTP200并带failures，平均只剩成功查询；必须同时要求failures为空、details查询ID齐全、unrated_docs为空。本例dcg的k=0在9.4.0合法且返回0，本课用k=-1触发400，然后恢复合法请求；错误不能靠刷新页面掩盖。</p>
+<div class="callout warn"><strong>ES9.4.0短结果的归一化细节</strong><p>固定源码DiscountedCumulativeGain.evaluate把理想序列截到实际返回份数。只返回a01/a02、完整标注含三份3级文档时，ES给1；本课固定完整IDCG@10则为0.765361，因为第三份没找回。不能将两个数混为同一口径。八条主查询都返回10份，故REST内置值、Python与Java在主实验一致。空结果与全0等级探针均给0，单列而不进入主平均。</p></div>
+<h2 id="java">8. Java复用完整查询，独立计算指标</h2>
+<p>Java用官方客户端发出与REST一致的SearchRequest，每条查询都带相同filter和稳定收尾键。标注来自同一个evaluation.json，在构建时装入jar；浏览器不能提交标签或任意DSL。核心查询与公式如下：IDCG从全部标注取前10，不随返回条数缩短。</p>
+<pre class="code-block" data-label="Java · public SearchRequest request" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/QualityEvaluationService.java" data-lines="51-86"><code>    public SearchRequest request(Task task, String strategy) {
+        var bool = new BoolQuery.Builder()
+                .must(q -&gt; q.multiMatch(m -&gt; m.query(task.text()).fields("name", "description")
+                        .type(TextQueryType.BestFields).operator(Operator.Or)))
+                .filter(q -&gt; q.term(t -&gt; t.field("city_code").value("HZ")))
+                .filter(q -&gt; q.term(t -&gt; t.field("status").value("open")))
+                .filter(q -&gt; q.term(t -&gt; t.field("currency").value("CNY")))
+                .filter(q -&gt; q.range(r -&gt; r.number(n -&gt; n.field("ticket_price_fen").gte(0.0).lte(10000.0))))
+                .minimumShouldMatch("0");
+        if (strategy.equals("candidate")) {
+            bool.should(q -&gt; q.match(m -&gt; m.field("name").query(task.text()).operator(Operator.And).boost(2.0f)));
+            bool.should(q -&gt; q.matchPhrase(m -&gt; m.field("name").query(task.text()).boost(4.0f)));
+        }
+        return new SearchRequest.Builder().index(INDEX).size(K).trackTotalHits(t -&gt; t.enabled(true))
+                .query(q -&gt; q.bool(bool.build()))
+                .sort(s -&gt; s.score(v -&gt; v.order(SortOrder.Desc)))
+                .sort(s -&gt; s.field(f -&gt; f.field("attraction_id").order(SortOrder.Asc))).build();
+    }
+
+    private double dcg(List&lt;Integer&gt; grades) {
+        double value = 0;
+        for (int i = 0; i &lt; grades.size(); i++)
+            value += (Math.pow(2, grades.get(i)) - 1) / (Math.log(i + 2) / Math.log(2));
+        return value;
+    }
+
+    public Metrics metrics(List&lt;Integer&gt; grades, Map&lt;String, Integer&gt; ratings) {
+        long relevant = ratings.values().stream().filter(g -&gt; g &gt;= 2).count();
+        long retrieved = grades.stream().filter(g -&gt; g &gt;= 2).count();
+        // Standard IDCG@10 uses all judged documents, independent of the returned length.
+        double ideal = dcg(ratings.values().stream().sorted(Comparator.reverseOrder()).limit(K).toList());
+        double actual = dcg(grades);
+        return new Metrics(relevant == 0 ? 0 : (double) retrieved / relevant,
+                ideal == 0 ? 0 : actual / ideal, actual, ideal, relevant, retrieved);
+    }
+</code></pre>
+<p>评估循环核对超时、分片失败、总数关系、原文硬条件、业务ID、完整字段和标签覆盖，任何不完整结果返回502，不能继续产出“平均提高”。_score只用于观察ES排序，Java不会把它代入等级公式。</p>
+<pre class="code-block" data-label="Java · 完整评估循环与错误分支" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/QualityEvaluationService.java" data-lines="91-127"><code>    public Result evaluate(QualityInput input) throws IOException {
+        var tasks = fixture.queries().stream().filter(q -&gt; q.split().equals(input.split())).toList();
+        var rows = new ArrayList&lt;Row&gt;();
+        for (var task : tasks) {
+            var request = request(task, input.strategy());
+            var response = client.search(request, QualityAttraction.class);
+            if (response.timedOut() || response.shards().failed().longValue() != 0
+                    || response.hits().total() == null
+                    || !response.hits().total().relation().jsonValue().equals("eq"))
+                throw new AttractionSearchService.IncompleteSearchException();
+            var ids = new ArrayList&lt;String&gt;();
+            var grades = new ArrayList&lt;Integer&gt;();
+            for (var hit : response.hits().hits()) {
+                var source = hit.source();
+                if (source == null || !hit.id().equals(source.attractionId()) || source.name() == null
+                        || source.description() == null || !"HZ".equals(source.cityCode())
+                        || !"open".equals(source.status()) || !"CNY".equals(source.currency())
+                        || source.ticketPriceFen() == null || source.ticketPriceFen() &lt; 0
+                        || source.ticketPriceFen() &gt; 10000 || hit.score() == null || hit.sort().size() != 2
+                        || !task.ratings().containsKey(hit.id()))
+                    throw new AttractionSearchService.IncompleteSearchException();
+                ids.add(hit.id());
+                grades.add(task.ratings().get(hit.id()));
+            }
+            if (new HashSet&lt;&gt;(ids).size() != ids.size())
+                throw new AttractionSearchService.IncompleteSearchException();
+            var metric = metrics(grades, task.ratings());
+            rows.add(new Row(task.id(), task.text(), task.intent(), ids, grades,
+                    metric.recall(), metric.ndcg(), metric.dcg(), metric.ideal_dcg(),
+                    metric.relevant_docs(), metric.relevant_retrieved(), response.hits().total().value(),
+                    tree(request), tree(response)));
+        }
+        if (rows.isEmpty()) throw new AttractionSearchService.IncompleteSearchException();
+        return new Result(input, fixture.version(), K, 2,
+                Map.of("recall", rows.stream().mapToDouble(Row::recall).average().orElseThrow(),
+                       "ndcg", rows.stream().mapToDouble(Row::ndcg).average().orElseThrow()), rows);
+    }</code></pre>
+<p>ES拒绝请求映射502，连接或transport异常映射503，非法输入400。多个查询依次执行，不是一次原子快照；本课用不变语料保证可比，不能在资料持续更新时直接套同样结论。完整通用工程见<a href="../projects/travel-search/backend/pom.xml">锁定pom</a>与<a href="../projects/travel-search/labs/f22/README.md">启动入口</a>。</p>
+<pre class="code-block" data-label="Bash · 终端二，从仓库根目录"><code>cd projects/travel-search/backend
+# JAVA_HOME/PATH先选JDK25
+./mvnw -B -ntp clean package
+ES_URL=http://127.0.0.1:19222 APP_PORT=18081 java -jar target/travel-search-0.7.0.jar</code></pre>
+<pre class="code-block" data-label="Bash · 终端一仍在projects/travel-search"><code>bash labs/f22/05-java.sh
+# 可选手工调用，不计70条教学HTTP
+curl --fail-with-body -sS -X POST "$APP_URL/api/quality/evaluate" -H 'Content-Type: application/json' --data '{"split":"adjust","strategy":"candidate"}'</code></pre>
+<h2 id="observe">9. 在本机窗口核对，不凭卡片观感下结论</h2>
+<p>打开http://127.0.0.1:18081/f22.html，先选调整集基线，记下平均与夜游前10；再切候选，观察a01–a03上升而a15仍第一。切留出摄影与散步，核对0级首位、每条指标以及完整DSL/ES响应。切换条件或失败会清空旧结果；恢复后必须重新提交。实际路径是浏览器→本机Java→ES，Pages只提供本文与图解，不保存凭据，也不要求读者开发前端。</p>
+<h2 id="graduate">10. f22-c03：实用搜索独立结业</h2>
+<p>打开<a href="../projects/travel-search/labs/f22/assessment.md">独立任务</a>，其中两条需求没有在正文逐步演示。先保存自己的相关资料判断、问题分类、修改假设与预期取舍，再看参考结果；不要先选观察窗的assessment或运行揭示脚本。完成后用下面入口核对本课两个固定策略，不提供替你写好的新策略：</p>
+<pre class="code-block" data-label="Bash · 作答保存后揭示固定策略结果"><code>bash labs/f22/06-assessment.sh</code></pre>
+<p>交付应有版本/快照、查询与意图、完整标签依据、基线/改法DSL、逐查询ID/等级/两个指标、好例与坏例、留出使用记录、选择结论和限制。先区分进入候选、挤进前10、相关结果前移三个目标。提出的改法要自己实现并复现，不能把运行现成脚本当成独立完成。下一阶段搜索对象改为酒店与房型：一个酒店里多条条件是否来自同一房型，会先成为文档建模问题；F23尚未实施。</p>
+<h2 id="repeat">11. 清理、再做与实际范围</h2>
+<pre class="code-block" data-label="Bash · 点名清理后完整重做"><code>bash labs/f22/cleanup.sh
+bash labs/f22/01-prepare.sh
+bash labs/f22/02-adjust.sh
+bash labs/f22/03-holdout.sh
+bash labs/f22/04-boundaries.sh
+bash labs/f22/05-java.sh
+bash labs/f22/06-assessment.sh
+# 结束后关闭自己启动的Java，再清理本课索引
+bash labs/f22/cleanup.sh
+docker compose -f infra/f22/compose.yaml stop es</code></pre>
+<p>cleanup只DELETE tut-f22-attractions并GET确认404，不删其他索引、卷或既有节点。重复建索引400、重复Bulk create每项409；请清理后从01重做，不忽略错误。70条教学HTTP=准备与调整21＋留出与边界19＋独立结业8＋Java/REST22；Java内部16次搜索、探活、清理、作者附加和浏览器调用另计。</p>
+<p><a href="../projects/travel-search/review/f22/README.md">真实两轮证据</a>与<a href="../docs/framework-review/20261026-f22-evaluation/README.md">内容、图解、HTTP/视觉证据</a>分列。已验证的只是本课固定单节点资料、标注与策略；未测代表性流量、显著性、标注者一致性、性能、多节点、生产安全或持续更新。超时与部分分片失败保留代码防护，本课未构造这两种运行故障。</p>
+<details><summary>固定版本依据与必要源码入口</summary><p><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/rank-eval/src/main/java/org/elasticsearch/index/rankeval/RecallAtK.java">RecallAtK.evaluate/isRelevant</a>：相关阈值为≥；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/rank-eval/src/main/java/org/elasticsearch/index/rankeval/DiscountedCumulativeGain.java">DiscountedCumulativeGain.evaluate/computeDCG</a>：指数增益、折扣、短结果理想长度；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/rank-eval/src/main/java/org/elasticsearch/index/rankeval/EvaluationMetric.java">EvaluationMetric.combine</a>：查询等权平均；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/rank-eval/src/main/java/org/elasticsearch/index/rankeval/TransportRankEvalAction.java">TransportRankEvalAction</a>：单查询失败与成功结果合成。<a href="../docs/framework-review/20261026-f22-evaluation/sources.json">四份本地与官方tag逐字节核对</a>。应用Boot4.0.8/Temurin25.0.4.1+1/Java与Rest5 Client9.4.8/Wrapper3.3.4/Maven3.9.11；ES bundled JVM另记，不等于应用JDK。</p></details></section>
+<section class="drills"><h2 id="drills">能力检查</h2>
+<details><summary>1. 夜游Recall=1，为什么第一名还能错？</summary><p>Recall只看6份相关资料是否出现在前10，不关心先后。a15判0仍第一；nDCG能惩罚这个位置，但平均nDCG也不会自动满足“首位必须相关”的产品门槛。</p></details>
+<details><summary>2. 雨天Recall是4/6，能否说ES漏索引了两份？</summary><p>不能。主查询20候选里有那两份，只是没进入前10。先看_source、文本匹配与完整候选，再决定改召回还是排序。</p></details>
+<details><summary>3. 1级为什么不计相关，却仍给nDCG贡献？</summary><p>本课把二值阈值固定为2，而分级指标保留1级增益2¹−1=1。若业务另定阈值，必须基线和候选一起按新版本重新计算。</p></details>
+<details><summary>4. 每次看留出结果再调到通过，仍算留出吗？</summary><p>不算本轮独立审计；它已参与选参。保留本次失败与迭代记录，下一轮另备未用于选参的需求，不通过换标签或删除难例作弊。</p></details>
+<details><summary>5. _rank_eval HTTP200就可接受平均吗？</summary><p>还要failures为空、details查询ID完整、unrated_docs为空，并核对指标/标签版本与请求。成功查询的平均不能冒充完整查询集成绩。</p></details>
+<details><summary>6. 为什么两份3级命中会出现1与0.765361两种nDCG？</summary><p>ES9.4.0内置归一化把理想长度截为实际两份；本课标准IDCG@10还考虑第三份3级资料。主查询返回10时两者一致，短结果需明确报告口径。</p></details>
+<details><summary>7. 这次应该选哪个策略，能宣布全站改善吗？</summary><p>按预先门槛，可为固定教学语料选择candidate：调整平均增加0.060815且Recall不降，留出无观察退步；不能宣布全站改善。商店/展厅首位错误、两条留出、单人虚构标注和意图相关性都限制结论。</p></details></section>
+<section class="pitfalls"><h2 id="pitfalls">实际陷阱</h2><div class="callout warn"><strong>把未标注默认为不相关</strong><p>0级是已判断不满足；缺标签是还不知道。删掉坏例标签可能让分母和理想序列改变，指标不再可比。unknown_doc_rating=0不免除覆盖检查。</p></div><div class="callout warn"><strong>平均提高就忽略逐查询退步</strong><p>不同查询的增减会抵消。分开报告调整/留出、逐查询差值与坏例；本轮没有观察到新增退步，也要报告已有首位错误没有消失。</p></div><div class="callout warn"><strong>不同口径或资料快照硬比</strong><p>阈值、K、增益、IDCG长度、标签、字段、分片与查询都影响结果。固定后再比较；短返回的ES归一化细节与持续变化资料必须另说。</p></div></section>
+<section class="recap"><h2 id="recap">速记</h2><table class="ktable"><thead><tr><th>问题</th><th>本课证据</th></tr></thead><tbody><tr><td>什么算好</td><td>每条意图＋24份显式等级；作者单人教学标注</td></tr><tr><td>找回多少</td><td>Recall@10：前10中等级≥2 / 全部等级≥2</td></tr><tr><td>好结果是否靠前</td><td>nDCG@10：分级折扣增益 / 完整标注理想前10</td></tr><tr><td>是否值得选择</td><td>预定门槛、冻结策略、留出逐查询、坏例与限制</td></tr><tr><td>本轮结论</td><td>调整有收益；留出无观察变化；选择仅限固定语料，坏首位仍在</td></tr></tbody></table><p>先写判断标准，再用同一份证据比较；改善和没有解决的问题一起交付。</p></section>
+<footer class="ch-footer"><button class="read-toggle" type="button" data-ch="f22">标为已读</button><nav class="pager"><a href="f21.html">← F21 附近与新鲜</a><a href="index.html">框架篇目录</a><span>下一课：F23 酒店与房型文档边界（待实施）</span></nav></footer></article></main><footer class="footer">ES 9.4.0 · Lucene 10.4.0 · 框架学习篇</footer><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>

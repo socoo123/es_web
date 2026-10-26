@@ -1,0 +1,20 @@
+{
+  "written_before_first_es_run": true,
+  "at": "2026-10-26T01:45:59.268663+00:00",
+  "frozenStrategies": {
+    "baseline": "best_fields(name,description), boosts 1; OR",
+    "candidate": "same eligibility + optional match(name,text,operator=and,boost=2) and match_phrase(name,text,boost=4), minimum_should_match=0"
+  },
+  "adjustGate": {
+    "macroNdcgMinGain": 0.01,
+    "macroRecallNoDecrease": true
+  },
+  "holdoutGate": {
+    "macroNdcgNoDecrease": true,
+    "macroRecallNoDecrease": true,
+    "eachQueryNdcgMaxDrop": 0.05
+  },
+  "ifFail": "keep baseline and record candidate failure; do not retune on holdout",
+  "regression": "hard exclusions absent; judged coverage complete; both h-photo and h-walk retain at least baseline nDCG minus .05",
+  "assessment": "save reader decisions before opening assessment results; author verification is separate from reader attempt"
+}
