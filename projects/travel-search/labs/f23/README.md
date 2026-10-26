@@ -2,7 +2,7 @@
 
 [正文](../../../../framework/f23.html)先解释酒店/房型/报价三种身份，再看搜索单位、隐藏文档与更新范围。本课3家酒店/5房型/8报价，一份[canonical catalog](../../data/f23/catalog.json)生成四个搜索投影；不是生产同时维护四索引的建议。
 
-独立ES9.4.0/Lucene10.4.0、127.0.0.1:19223，一主零副本、strict/refresh=-1、无插件。金额为最小货币单位整数，CNY分/USD美分；单晚2026-11-01，snapshot_at=2026-10-26T00:00:00Z，非实时库存或订单能力。nested只声明rooms，内部rates仍object，仅作完整明细取回；本课报价组合条件全部在独立offer执行。F24多条件nested/inner_hits/sort尚未实施。
+独立ES9.4.0/Lucene10.4.0、127.0.0.1:19223，一主零副本、strict/refresh=-1、无插件。金额为最小货币单位整数，CNY分/USD美分；单晚2026-11-01，snapshot_at=2026-10-26T00:00:00Z，非实时库存或订单能力。nested只声明rooms，内部rates仍object，仅作完整明细取回；本课报价组合条件全部在独立offer执行。后续多条件nested/inner_hits/sort见[F24](../f24/README.md)。
 
 需要Docker/Compose、Bash、curl、Python3；Java需JDK25。终端一从仓库根目录：
 

@@ -125,4 +125,8 @@ POST /api/attractions/synonym-search接受q/cityCode(BJ|SY)/maxPriceFen整数分
 
 ## F23 · 酒店文档边界观察
 
-[本机步骤](../labs/f23/README.md)使用独立ES19223，保持同一Boot4/JDK25工程；ModelSearchService按五种固定mode构造官方客户端DSL，POST /api/model/inspect，打开/f23.html核对酒店根文档、房型明细与独立报价。浏览器只访问Java，不保存ES凭据；完整_source、DSL与错误分支可观察，Pages不运行本服务。清理后真实重做见[记录](../review/f23/README.md)。F24未启动。
+[本机步骤](../labs/f23/README.md)使用独立ES19223，保持同一Boot4/JDK25工程；ModelSearchService按五种固定mode构造官方客户端DSL，POST /api/model/inspect，打开/f23.html核对酒店根文档、房型明细与独立报价。浏览器只访问Java，不保存ES凭据；完整_source、DSL与错误分支可观察，Pages不运行本服务。清理后真实重做见[记录](../review/f23/README.md)。F24增量见下。
+
+## F24 · 同条目条件与价格观察
+
+[本机步骤](../labs/f24/README.md)使用独立ES19224，保留同一Boot4/JDK25基线。新增NestedSearchService与POST /api/nested/inspect，五模式比较object/split错误、同条目匹配与inner_hits、无filter/完整filter的nested排序。打开/f24.html；浏览器仅调用Java，完整DSL/真实inner_hits/源和错误可追溯。F25未开始。

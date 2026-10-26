@@ -1,0 +1,9 @@
+direction: down
+classes: {card: {style: {border-radius: 12; font-size: 18}}}
+predicate: "同一份合格条件\n人数、床型、计划与政策\n币种、状态、日期与预算" {class: card}
+query: "nested.query\n至少一个条目合格\n决定酒店是否入选" {class: card}
+inner: "该查询的 inner_hits\n价格、offer_id 升序\n前 1 条及完整匹配数" {class: card}
+sort: "nested sort.filter\n仅合格条目取 min\n再以 hotel_id 打破同价" {class: card}
+predicate -> query: "用于匹配"
+query -> inner: "取回匹配明细"
+inner -> sort: "条件复用对照" {style.stroke-dash: 4}

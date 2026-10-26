@@ -1,0 +1,9 @@
+direction: down
+classes: {card: {style: {border-radius: 12; font-size: 18}}}
+sample: "h01 两条报价\no101：无早 200 元\no102：含早 800 元" {class: card}
+object: "object 多值字段\n有含早，也有低于 700\n错误：酒店通过" {class: card}
+nested: "同一个 nested 条目\no101 缺早餐\no102 超预算" {class: card}
+result: "没有同条目满足全部条件\n正确：排除 h01" {class: card}
+sample -> object: "丢失条目关联"
+object -> nested: "换模型对照" {style.stroke-dash: 4}
+nested -> result: "按条目判定"

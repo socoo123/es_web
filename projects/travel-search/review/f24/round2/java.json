@@ -1,0 +1,766 @@
+{
+  "reports": [
+    {
+      "mode": "object",
+      "ids": [
+        "h01",
+        "h02",
+        "h03",
+        "h04",
+        "h05",
+        "h07",
+        "h08",
+        "h09"
+      ],
+      "total": 8,
+      "dsl": {
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "hotel_status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "rooms.bed_type": {
+                    "value": "twin"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "rooms.meal": {
+                    "value": "breakfast"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "rooms.cancellation": {
+                    "value": "flexible"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "rooms.rate_plan_id": {
+                    "value": "bf-flex"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "rooms.currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "rooms.offer_status": {
+                    "value": "active"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "rooms.service_date": {
+                    "value": "2026-11-01"
+                  }
+                }
+              },
+              {
+                "range": {
+                  "rooms.capacity": {
+                    "gte": 2.0
+                  }
+                }
+              },
+              {
+                "range": {
+                  "rooms.price_minor": {
+                    "gte": 0.0,
+                    "lte": 70000.0
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "size": 20,
+        "sort": [
+          {
+            "hotel_id": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_total_hits": true
+      }
+    },
+    {
+      "mode": "split",
+      "ids": [
+        "h01",
+        "h02",
+        "h03",
+        "h04",
+        "h05",
+        "h07",
+        "h08",
+        "h09"
+      ],
+      "total": 8,
+      "dsl": {
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "hotel_status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "nested": {
+                  "path": "rooms",
+                  "query": {
+                    "term": {
+                      "rooms.bed_type": {
+                        "value": "twin"
+                      }
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              },
+              {
+                "nested": {
+                  "path": "rooms",
+                  "query": {
+                    "term": {
+                      "rooms.meal": {
+                        "value": "breakfast"
+                      }
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              },
+              {
+                "nested": {
+                  "path": "rooms",
+                  "query": {
+                    "term": {
+                      "rooms.cancellation": {
+                        "value": "flexible"
+                      }
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              },
+              {
+                "nested": {
+                  "path": "rooms",
+                  "query": {
+                    "term": {
+                      "rooms.rate_plan_id": {
+                        "value": "bf-flex"
+                      }
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              },
+              {
+                "nested": {
+                  "path": "rooms",
+                  "query": {
+                    "term": {
+                      "rooms.currency": {
+                        "value": "CNY"
+                      }
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              },
+              {
+                "nested": {
+                  "path": "rooms",
+                  "query": {
+                    "term": {
+                      "rooms.offer_status": {
+                        "value": "active"
+                      }
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              },
+              {
+                "nested": {
+                  "path": "rooms",
+                  "query": {
+                    "term": {
+                      "rooms.service_date": {
+                        "value": "2026-11-01"
+                      }
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              },
+              {
+                "nested": {
+                  "path": "rooms",
+                  "query": {
+                    "range": {
+                      "rooms.capacity": {
+                        "gte": 2.0
+                      }
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              },
+              {
+                "nested": {
+                  "path": "rooms",
+                  "query": {
+                    "range": {
+                      "rooms.price_minor": {
+                        "gte": 0.0,
+                        "lte": 70000.0
+                      }
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              }
+            ]
+          }
+        },
+        "size": 20,
+        "sort": [
+          {
+            "hotel_id": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_total_hits": true
+      }
+    },
+    {
+      "mode": "matched",
+      "ids": [
+        "h02",
+        "h03",
+        "h08"
+      ],
+      "total": 3,
+      "dsl": {
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "hotel_status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "nested": {
+                  "inner_hits": {
+                    "name": "eligible",
+                    "size": 1,
+                    "sort": [
+                      {
+                        "rooms.price_minor": {
+                          "order": "asc"
+                        }
+                      },
+                      {
+                        "rooms.offer_id": {
+                          "order": "asc"
+                        }
+                      }
+                    ]
+                  },
+                  "path": "rooms",
+                  "query": {
+                    "bool": {
+                      "filter": [
+                        {
+                          "term": {
+                            "rooms.bed_type": {
+                              "value": "twin"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.meal": {
+                              "value": "breakfast"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.cancellation": {
+                              "value": "flexible"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.rate_plan_id": {
+                              "value": "bf-flex"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.currency": {
+                              "value": "CNY"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.offer_status": {
+                              "value": "active"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.service_date": {
+                              "value": "2026-11-01"
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "rooms.capacity": {
+                              "gte": 2.0
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "rooms.price_minor": {
+                              "gte": 0.0,
+                              "lte": 70000.0
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              }
+            ]
+          }
+        },
+        "size": 20,
+        "sort": [
+          {
+            "hotel_id": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_total_hits": true
+      }
+    },
+    {
+      "mode": "unfiltered-sort",
+      "ids": [
+        "h02",
+        "h03",
+        "h08"
+      ],
+      "total": 3,
+      "dsl": {
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "hotel_status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "nested": {
+                  "inner_hits": {
+                    "name": "eligible",
+                    "size": 1,
+                    "sort": [
+                      {
+                        "rooms.price_minor": {
+                          "order": "asc"
+                        }
+                      },
+                      {
+                        "rooms.offer_id": {
+                          "order": "asc"
+                        }
+                      }
+                    ]
+                  },
+                  "path": "rooms",
+                  "query": {
+                    "bool": {
+                      "filter": [
+                        {
+                          "term": {
+                            "rooms.bed_type": {
+                              "value": "twin"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.meal": {
+                              "value": "breakfast"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.cancellation": {
+                              "value": "flexible"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.rate_plan_id": {
+                              "value": "bf-flex"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.currency": {
+                              "value": "CNY"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.offer_status": {
+                              "value": "active"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.service_date": {
+                              "value": "2026-11-01"
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "rooms.capacity": {
+                              "gte": 2.0
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "rooms.price_minor": {
+                              "gte": 0.0,
+                              "lte": 70000.0
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              }
+            ]
+          }
+        },
+        "size": 20,
+        "sort": [
+          {
+            "rooms.price_minor": {
+              "missing": "_last",
+              "mode": "min",
+              "nested": {
+                "path": "rooms"
+              },
+              "order": "asc"
+            }
+          },
+          {
+            "hotel_id": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_total_hits": true
+      }
+    },
+    {
+      "mode": "filtered-sort",
+      "ids": [
+        "h03",
+        "h08",
+        "h02"
+      ],
+      "total": 3,
+      "dsl": {
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "hotel_status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "nested": {
+                  "inner_hits": {
+                    "name": "eligible",
+                    "size": 1,
+                    "sort": [
+                      {
+                        "rooms.price_minor": {
+                          "order": "asc"
+                        }
+                      },
+                      {
+                        "rooms.offer_id": {
+                          "order": "asc"
+                        }
+                      }
+                    ]
+                  },
+                  "path": "rooms",
+                  "query": {
+                    "bool": {
+                      "filter": [
+                        {
+                          "term": {
+                            "rooms.bed_type": {
+                              "value": "twin"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.meal": {
+                              "value": "breakfast"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.cancellation": {
+                              "value": "flexible"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.rate_plan_id": {
+                              "value": "bf-flex"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.currency": {
+                              "value": "CNY"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.offer_status": {
+                              "value": "active"
+                            }
+                          }
+                        },
+                        {
+                          "term": {
+                            "rooms.service_date": {
+                              "value": "2026-11-01"
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "rooms.capacity": {
+                              "gte": 2.0
+                            }
+                          }
+                        },
+                        {
+                          "range": {
+                            "rooms.price_minor": {
+                              "gte": 0.0,
+                              "lte": 70000.0
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "score_mode": "none"
+                }
+              }
+            ]
+          }
+        },
+        "size": 20,
+        "sort": [
+          {
+            "rooms.price_minor": {
+              "missing": "_last",
+              "mode": "min",
+              "nested": {
+                "filter": {
+                  "bool": {
+                    "filter": [
+                      {
+                        "term": {
+                          "rooms.bed_type": {
+                            "value": "twin"
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "rooms.meal": {
+                            "value": "breakfast"
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "rooms.cancellation": {
+                            "value": "flexible"
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "rooms.rate_plan_id": {
+                            "value": "bf-flex"
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "rooms.currency": {
+                            "value": "CNY"
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "rooms.offer_status": {
+                            "value": "active"
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "rooms.service_date": {
+                            "value": "2026-11-01"
+                          }
+                        }
+                      },
+                      {
+                        "range": {
+                          "rooms.capacity": {
+                            "gte": 2.0
+                          }
+                        }
+                      },
+                      {
+                        "range": {
+                          "rooms.price_minor": {
+                            "gte": 0.0,
+                            "lte": 70000.0
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                "path": "rooms"
+              },
+              "order": "asc"
+            }
+          },
+          {
+            "hotel_id": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_total_hits": true
+      }
+    }
+  ],
+  "java_internal_es_searches": 5,
+  "status": "passed",
+  "http": 10,
+  "at": "2026-10-26T14:37:34.183655+00:00"
+}
