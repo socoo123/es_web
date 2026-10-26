@@ -118,3 +118,7 @@ POST /api/attractions/synonym-search接受q/cityCode(BJ|SY)/maxPriceFen整数分
 ## F20 点评质量与热度
 
 [实验说明](../labs/f20/README.md)：独立19220/tut-f20-attractions，`POST /api/attractions/signal-search` 与本机 `/f20.html`。固定虚构点评、质量、热度，八模式与完整解释；浏览器→Java→ES。版本基线不变，未测整体质量/性能。
+
+## F21 距离与核验时效
+
+[实验说明](../labs/f21/README.md)：独立19221/tut-f21-attractions、Java18081，`POST /api/attractions/decay-search`与本机`/f21.html`。六评分模式/三种sort，固定核验原点、可空硬半径与完整解释；版本基线不变，未测整体质量/性能。

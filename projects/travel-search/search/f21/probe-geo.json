@@ -1,0 +1,104 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "track_scores": true,
+  "explain": true,
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "term": {
+                "status": {
+                  "value": "open"
+                }
+              }
+            },
+            {
+              "term": {
+                "currency": {
+                  "value": "CNY"
+                }
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            },
+            {
+              "term": {
+                "city_code": {
+                  "value": "HZ"
+                }
+              }
+            },
+            {
+              "bool": {
+                "should": [
+                  {
+                    "range": {
+                      "verified_at": {
+                        "lte": "2026-10-01T00:00:00.000Z"
+                      }
+                    }
+                  },
+                  {
+                    "bool": {
+                      "must_not": [
+                        {
+                          "exists": {
+                            "field": "verified_at"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "minimum_should_match": "1"
+              }
+            }
+          ],
+          "must": [
+            {
+              "match": {
+                "description": {
+                  "query": "西湖 夜游",
+                  "operator": "or"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "gauss": {
+        "location": {
+          "origin": {
+            "lat": 30.25,
+            "lon": 120.15
+          },
+          "scale": "5km",
+          "offset": "1km",
+          "decay": 0.5
+        }
+      },
+      "boost_mode": "replace"
+    }
+  },
+  "sort": [
+    {
+      "_score": {
+        "order": "desc"
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}

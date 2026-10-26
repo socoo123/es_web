@@ -1,0 +1,52 @@
+{
+  "track_scores": true,
+  "sort_by_intent": {
+    "sum": [
+      {
+        "_score": {
+          "order": "desc"
+        }
+      },
+      {
+        "attraction_id": {
+          "order": "asc"
+        }
+      }
+    ],
+    "price": [
+      {
+        "ticket_price_fen": {
+          "order": "asc",
+          "missing": "_last"
+        }
+      },
+      {
+        "attraction_id": {
+          "order": "asc"
+        }
+      }
+    ],
+    "distance": [
+      {
+        "_geo_distance": {
+          "location": [
+            {
+              "lat": 30.25,
+              "lon": 120.15
+            }
+          ],
+          "order": "asc",
+          "unit": "km",
+          "mode": "min",
+          "distance_type": "arc",
+          "ignore_unmapped": false
+        }
+      },
+      {
+        "attraction_id": {
+          "order": "asc"
+        }
+      }
+    ]
+  }
+}

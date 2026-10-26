@@ -1,0 +1,31 @@
+{
+  "size": 20,
+  "explain": true,
+  "track_scores": true,
+  "query": {
+    "function_score": {
+      "query": {
+        "terms": {
+          "attraction_id": [
+            "hz-near",
+            "hz-future"
+          ]
+        }
+      },
+      "exp": {
+        "verified_at": {
+          "origin": "2026-10-01T00:00:00.000Z",
+          "scale": "30d",
+          "offset": "1d",
+          "decay": 0.5
+        }
+      },
+      "boost_mode": "replace"
+    }
+  },
+  "sort": [
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}

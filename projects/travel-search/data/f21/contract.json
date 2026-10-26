@@ -1,0 +1,30 @@
+{
+  "fictional": true,
+  "origin": {
+    "lat": 30.25,
+    "lon": 120.15
+  },
+  "as_of": "2026-10-01T00:00:00.000Z",
+  "description": "空格已给定整词边界，whitespace/lowercase；名称keyword不评分",
+  "verified_at": "运营确认资料仍有效的UTC时刻，不是景点创建时间、浏览时间或营业状态",
+  "currency": "CNY",
+  "ticket_price_fen": "非负整数分",
+  "location": "单值geo_point；极端坐标样本故意错位",
+  "missing": "缺地理或日期保留在候选；guarded规则该项奖励为0；bare反例ES默认缺失衰减为1",
+  "future": "主查询仅允许verified_at<=固定as_of，或日期缺失；future-probe故意去除此硬条件",
+  "geo": {
+    "function": "gauss",
+    "scale": "5km",
+    "offset": "1km",
+    "decay": 0.5,
+    "weight": 0.5
+  },
+  "time": {
+    "function": "exp",
+    "scale": "30d",
+    "offset": "1d",
+    "decay": 0.5,
+    "weight": 0.3
+  },
+  "range": "radiusKm=null无硬半径；不等于无距离奖励；可选半径geo_distance始终在filter"
+}

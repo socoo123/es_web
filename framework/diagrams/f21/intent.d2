@@ -1,0 +1,10 @@
+direction: down
+eligible: "先满足硬条件\n城市 / 开放 / 币种 / 预算\n核验日期不在未来\n可选硬半径"
+candidate: "文本必须命中\n附近的无关山林仍被排除"
+score: "对候选计算综合分\n软衰减不等于距离范围\n0 分也可仍是候选"
+intent: "按用户意图选择首排序键\n综合：_score 降序\n便宜：整数分升序\n附近：距离 km 升序"
+stable: "最后以业务 ID 升序\n同分 / 同价 / 同距时确定次序\n没有坐标的距离是 Infinity"
+eligible -> candidate
+candidate -> score
+score -> intent
+intent -> stable

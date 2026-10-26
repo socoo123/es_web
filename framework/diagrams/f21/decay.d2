@@ -1,0 +1,15 @@
+direction: down
+vars: {
+  d2-config: {
+    theme-id: 4
+  }
+}
+origin: "游客坐标与固定核验时刻\n决定距离与时间差"
+kernels: "两种软衰减\nD：gauss · 1km / 5km\nT：exp · 1d / 30d\n两项 decay 都为 0.5"
+missing: "先处理每项缺值\n有值取衰减；缺值取 0\nG=0.5D；H=0.3T"
+functions: "score_mode 合成函数 F\nsum：G+H\nmultiply：G×H"
+text: "boost_mode 接入文本 B\nsum：B+F\nmultiply：B×F · replace：F"
+origin -> kernels
+kernels -> missing
+missing -> functions
+functions -> text
