@@ -114,3 +114,7 @@ POST /api/attractions/synonym-search接受q/cityCode(BJ|SY)/maxPriceFen整数分
 [手工入口](../labs/f19/README.md)准备独立19219/tut-f19-attractions，Java启动时ES_URL指向该节点。新增POST /api/attractions/weight-search与/f19.html，六模式sum/best/tie/tuned/optional/required；每字段AND，名称match权重1–50整数，tuned额外短语boost4与整名constant_score8。q保留原值，未自动去空格。固定索引/字段/解释ID，不提供任意DSL代理。
 
 结果携带实际搜索/解释请求、客户端序列化响应、完整卡片和解释树；两个ES请求非并发原子视图。400/502/503沿用错误映射，字段不完整502；真实超时/分片部分失败仅代码防护。整名目标提升与夜游摄影展退步同列，未认证全站质量。[两轮实连](../review/f19/README.md)。
+
+## F20 点评质量与热度
+
+[实验说明](../labs/f20/README.md)：独立19220/tut-f20-attractions，`POST /api/attractions/signal-search` 与本机 `/f20.html`。固定虚构点评、质量、热度，八模式与完整解释；浏览器→Java→ES。版本基线不变，未测整体质量/性能。

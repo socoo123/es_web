@@ -1,0 +1,59 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "explain": true,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        },
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        }
+      ],
+      "must": [
+        {
+          "rank_feature": {
+            "field": "quality_rank",
+            "saturation": {
+              "pivot": 4
+            },
+            "boost": 1
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "_score": "desc"
+    },
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}

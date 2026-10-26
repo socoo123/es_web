@@ -1,0 +1,92 @@
+{
+  "at": "2026-10-26T00:56:18.531118+00:00",
+  "scope": "only F20 named index/container/network and our Java process; preserve preexisting ES/resources",
+  "commands": [
+    {
+      "command": [
+        "ps",
+        "-p",
+        "67647",
+        "-o",
+        "command="
+      ],
+      "exit_code": 0,
+      "stdout": "/tmp/es-f07-tooling/jdk-25.0.4.1+1/Contents/Home/bin/java -jar target/travel-search-0.7.0.jar\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/infra/f20/compose.yaml",
+        "down"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f20-es-1 Stopping \n Container es-framework-f20-es-1 Stopped \n Container es-framework-f20-es-1 Removing \n Container es-framework-f20-es-1 Removed \n Network es-framework-f20_default Removing \n Network es-framework-f20_default Removed \n"
+    },
+    {
+      "command": [
+        "docker",
+        "ps",
+        "-a",
+        "--format",
+        "{{.Names}}"
+      ],
+      "exit_code": 0,
+      "stdout": "es-framework-single-es-1\nes-study-secure\nes-study\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "network",
+        "ls",
+        "--format",
+        "{{.Name}}"
+      ],
+      "exit_code": 0,
+      "stdout": "bridge\ndocker_default\nes-framework-single_default\nhost\nnone\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "volume",
+        "inspect",
+        "--format",
+        "{{.Name}}",
+        "es-framework-f20_f20-data"
+      ],
+      "exit_code": 0,
+      "stdout": "es-framework-f20_f20-data\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "inspect",
+        "--format",
+        "{{.Name}} {{.State.Status}} {{.State.Health.Status}}",
+        "es-study-secure"
+      ],
+      "exit_code": 0,
+      "stdout": "/es-study-secure running healthy\n",
+      "stderr": ""
+    }
+  ],
+  "open_contexts_before_delete": 0,
+  "index": "DELETE tut-f20-attractions followed by GET404; raw receipt cleanup-final.jsonl",
+  "java": {
+    "pid": 67647,
+    "signal": "SIGTERM",
+    "port_18080_closed": true,
+    "log_shutdown": true
+  },
+  "retained_volume": "es-framework-f20_f20-data",
+  "preexisting_secure_node": "/es-study-secure running healthy",
+  "container_and_network": "F20 removed, volume retained without -v; preexisting official image/caches retained",
+  "user_state": "no other indices/containers/volumes or browser profiles modified; tests used fresh isolated browser contexts",
+  "status": "passed"
+}

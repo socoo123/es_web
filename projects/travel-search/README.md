@@ -163,3 +163,7 @@ F10再学习排序切换；不把本课ID次序当推荐排序，不把桶计数
 - [本机三案例/92教学请求与重做](labs/f19/README.md)、[固定资料与意图](data/f19/judgments.json)、[完整配置](search/f19/index.json)
 - POST /api/attractions/weight-search，观察窗http://127.0.0.1:18080/f19.html；启动Java时ES_URL指向19219
 - [真实两轮](review/f19/README.md)、[内容/图解/阅读/观察窗](../../docs/framework-review/20261025-f19-weights/README.md)；全站质量/性能/多分片/生产安全未测
+
+## F20 点评质量与热度
+
+[本机实验](labs/f20/README.md) · [完整查询](search/f20) · [两轮记录](review/f20/README.md)

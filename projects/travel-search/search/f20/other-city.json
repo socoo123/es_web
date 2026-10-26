@@ -1,0 +1,85 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "explain": true,
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "term": {
+                "status": {
+                  "value": "open"
+                }
+              }
+            },
+            {
+              "term": {
+                "currency": {
+                  "value": "CNY"
+                }
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            },
+            {
+              "term": {
+                "city_code": {
+                  "value": "SZ"
+                }
+              }
+            }
+          ],
+          "must": [
+            {
+              "match": {
+                "description": {
+                  "query": "西湖 夜游",
+                  "operator": "or"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "functions": [
+        {
+          "field_value_factor": {
+            "field": "quality_score",
+            "factor": 0.2,
+            "modifier": "none",
+            "missing": 4
+          },
+          "weight": 1
+        },
+        {
+          "field_value_factor": {
+            "field": "hot_30d",
+            "factor": 1,
+            "modifier": "ln1p",
+            "missing": 0
+          },
+          "weight": 0.15
+        }
+      ],
+      "score_mode": "sum",
+      "boost_mode": "sum",
+      "max_boost": 1.5
+    }
+  },
+  "sort": [
+    {
+      "_score": "desc"
+    },
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+direction: down
+source: "已审核固定信号\n均分R · 条数v\n热度H · 缺值状态"
+quality: "质量Q=(vR+80)/(v+20)\n5分1评 → 4.048\n4.8分1000评 → 4.784"
+compressed: "函数部分F\n0.2×Q + 0.15×ln(1+H)\n缺Q用4 · 缺H用0"
+cap: "先封顶再加文本\nB + min(F, 1.5)\n总分可以大于1.5"
+source -> quality: "上游计算"
+quality -> compressed: "写入数值字段"
+compressed -> cap: "查询规则"

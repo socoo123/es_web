@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>F20 · 点评质量、热度与 function_score</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"><style>#f20 .d2-view img{min-width:0}</style></head>
+<body class="framework-page chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a href="index.html" class="here">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header>
+<main class="wrap chapter-visual"><article class="chapter" id="f20" data-ch="f20"><header class="ch-header"><div class="ch-kicker">FRAMEWORK 20 · 评分与排序质量</div><h1>热门与好评能加分，<br>为什么不能一味加？</h1><div class="meta-line">约 85 分钟 · 前置：F04–F19 · 3 个执行案例 · 79 条教学 HTTP 请求（清理/探活/构建/附加验收另计） · 2 幅静态 D2 · 0 个机制播放器</div><p class="ch-intro">游客找西湖夜游，两艘游船分别是5分1条点评与4.8分1000条，谁更值得优先展示？一个极热的展厅只在简介提及西湖，能不能靠访问量冲到第一？本课先确定信号的口径和尺度，再用真实评分解释奖励的作用与代价。</p><div class="diagram-jumps"><a href="#fig-signals">信号到封顶 ↓</a><a href="#fig-gates">特征与候选 ↓</a><a href="../projects/travel-search/labs/f20/README.md">本机实验入口 ↗</a></div><details class="chapter-outline"><summary>本课目录</summary><ol><li><a href="#goals">本课目标</a></li><li><a href="#scene">信号负责什么</a></li><li><a href="#samples">固定快照与口径</a></li><li><a href="#quality">均分与点评量</a></li><li><a href="#prepare">独立环境</a></li><li><a href="#average">真实质量对照</a></li><li><a href="#heat">热度尺度</a></li><li><a href="#bounded">压缩与封顶</a></li><li><a href="#missing">缺值与零值</a></li><li><a href="#rank">rank_feature与候选</a></li><li><a href="#java">关键Java</a></li><li><a href="#observe">真实观察窗</a></li><li><a href="#repeat">清理重做</a></li><li><a href="#drills">能力检查</a></li><li><a href="#pitfalls">实际陷阱</a></li><li><a href="#recap">速记与下一课</a></li></ol></details></header>
+<section class="goal"><h2 id="goals">学完能证明什么</h2><ul><li>说明均分、点评条数与热度的不同职责，算出固定先验下的小样本与千评质量分。</li><li>从完整_explain拆出文本、质量、热度和封顶，指出原值、压缩与封顶各自留下的坏案例。</li><li>以真实ID集合区分function_score与rank_feature的候选边界，并在REST、Java与观察窗复现缺值、错误和恢复。</li></ul></section>
+<section class="lesson"><h2 id="scene">1. 文本相关之后，还有“值得推荐吗”</h2>
+<p>F19给名称、短语与整名证据分配了权重，却没有区分两份同样写着“西湖 夜游”的资料。点评反映已体验者的评价，条数提供样本规模，访问热度表示近期注意力；三者不是同一件事。一次访问未必是购买，更不是好评。把它们直接当成同一种分数，会让大数量级的访问量吞掉文本证据。</p>
+<p>Elasticsearch负责根据已索引的字段计算查询分数；它不会自动审核点评、识别刷量，也不会因为字段名叫quality就知道可信度。业务侧先形成口径明确的快照，再写入ES。这里将<strong>质量信号</strong>定义为经点评条数平滑后的均分，将<strong>热度信号</strong>定义为固定30天内去重访问量；二者都只是排序假设。城市、开放状态、币种和预算仍是必须满足的条件。</p>
+<p>先分清两类问题：文本门槛决定谁能入场，数值奖励决定入场者怎样排。主输入“西湖 夜游”在简介中按OR匹配；只含“西湖”的展厅因此是弱相关候选，完全不含两词的山林则不是候选。提高奖励不会替游客补出未表达的活动意图。</p>
+<h2 id="samples">2. 固定11份虚构资料，信号来源先写清</h2>
+<p>快照版本f20-snapshot-v1，时间2026-10-01零时（北京时间）；所有资料、点评、访问量均为<strong>虚构教学数据</strong>。口径假设是已审核、去重、每订单至多一条有效点评，删除/作弊/未审核不计；热度是近30天去重详情访问。审核没有在本课实现，也不拿它认证真实商户。极大热度刻意模拟异常；生产场景还要在采集侧审核和限制。</p>
+<table class="ktable" id="samples-table"><thead><tr><th>ID（HZ默认）</th><th>简介完整原文</th><th>均分R / 条数v</th><th>质量Q / 热度H</th><th>票价分 / 条件</th></tr></thead><tbody><tr><td>hz-small</td><td>西湖 夜游</td><td>5 / 1</td><td>4.047619 / 10</td><td>0 / HZ / open</td></tr><tr><td>hz-steady</td><td>西湖 夜游</td><td>4.8 / 1000</td><td>4.784314 / 10000</td><td>1000 / HZ / open</td></tr><tr><td>hz-fresh</td><td>西湖 夜游</td><td>4.8 / 20</td><td>4.400000 / 10</td><td>2000 / HZ / open</td></tr><tr><td>hz-zero</td><td>西湖 夜游</td><td>缺失 / 0</td><td>4.000000 / 0</td><td>0 / HZ / open</td></tr><tr><td>hz-missing</td><td>西湖 夜游</td><td>缺失 / 缺失</td><td>缺失 / 缺失</td><td>0 / HZ / open</td></tr><tr><td>hz-huge</td><td>西湖 夜游</td><td>4.7 / 1000000000</td><td>4.700000 / 1000000000000000.0</td><td>3000 / HZ / open</td></tr><tr><td>hz-hot</td><td>西湖 公园 山水 绿树 步道 草地 照片 展览 休闲 导览</td><td>4.1 / 100</td><td>4.083333 / 1e+18</td><td>1000 / HZ / open</td></tr><tr><td>hz-noise</td><td>山林 徒步</td><td>4.9 / 100000</td><td>4.899820 / 1e+20</td><td>0 / HZ / open</td></tr><tr><td>hz-closed</td><td>西湖 夜游</td><td>4.9 / 10000</td><td>4.898204 / 1e+19</td><td>0 / HZ / closed</td></tr><tr><td>hz-expensive</td><td>西湖 夜游</td><td>4.9 / 10000</td><td>4.898204 / 1e+19</td><td>20001 / HZ / open</td></tr><tr><td>sz-steady</td><td>西湖 夜游</td><td>4.9 / 10000</td><td>4.898204 / 1e+19</td><td>0 / SZ / open</td></tr></tbody></table><p>表中Q显示六位小数，完整double与名称见<a href="../projects/travel-search/data/f20/attractions.json">原始资料</a>，口径见<a href="../projects/travel-search/data/f20/signals.json">信号契约</a>。六份游船简介相同，方便隔离数值作用；hz-hot是展厅，只命中西湖。hz-zero明确知道点评条数0、热度0，采用先验质量4；hz-missing尚未接入，四类信号字段都缺失，不能把未知解释成0分体验。</p>
+<h2 id="quality">3. 5分一条，为什么不等于稳定的满分质量</h2>
+<p>均分只回答已收到的点评平均多少分。若直接用R/5奖励，5分1评必然胜过4.8分千评，却没有表达我们对小样本不稳定的顾虑。本课先引入一份公开的先验：把每个景点视为先有20条平均4分的参考点评，再与真实有效点评合并，得到Q=(vR+20×4)/(v+20)。这叫<strong>收缩或平滑</strong>：样本少就更靠近4，样本多才更接近自己的均分。</p>
+<p>因此5分1评得到85/21≈4.047619；4.8分1000评得到4880/1020≈4.784314；4.8分20评得到176/40=4.4。0条时分子80、分母20，Q=4，不需要伪造一个review_avg=0。m=20与C=4是本课指定假设，既不是ES默认，也不是从真实网站估计出的参数；Q不是置信区间或“有多大概率值得去”。相同均分下有更多点评会更靠近该均分，并非点评数越多质量必然越高。</p>
+<p>Q在写入前计算一次，查询只读quality_score；review_count不会再直接加一次，避免把条数奖励叠两遍。ES没有因为看见两字段就自动运行这个公式。若审核后删掉点评，应由来源重新计算同版本Q与条数后一起更新，不能只减条数留下旧Q。本课用固定快照隔离评分机制，持续更新在后续数据链路学习。</p>
+<figure class="fig d2-figure" id="fig-signals"><div class="d2-shell"><div class="d2-tools"><strong>01 · 质量先在上游计算，函数部分再受限</strong><a data-expand-d2 href="diagrams/f20/signals-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f20/signals-light.svg" data-d2-light="diagrams/f20/signals-light.svg" data-d2-dark="diagrams/f20/signals-dark.svg" alt="固定信号经平滑质量、数值函数和封顶得到最终分；封顶只限制函数部分"></div></div><figcaption>箭头表示本课数据与规则的依赖关系，省略采集审核、索引执行和并发更新。 静态图可展开；<a href="diagrams/f20/README.md">图源与生成记录</a>。</figcaption></figure>
+<h2 id="prepare">4. f20-c01：建立隔离环境，再对照均分与质量</h2>
+<p>本课新建ES9.4.0/Lucene10.4.0单节点19220、tut-f20-attractions；一主零副本、strict、refresh=-1，无插件。简介whitespace/lowercase、显式BM25 k1=1.2/b=.75/discount_overlaps=true，名称keyword不评分。空格已经给定中文整词边界，不冒充生产中文分词，也不与F19逐字分数横比。所有资源只属于F20。</p>
+<pre class="code-block" data-label="Bash · 仓库根目录，终端一"><code>cd projects/travel-search
+export ES_URL=http://127.0.0.1:19220
+docker compose -f infra/f20/compose.yaml up -d es
+bash infra/f20/wait.sh
+# 若已有本课索引，先用文末cleanup再从01重做
+bash labs/f20/01-quality.sh</code></pre><pre class="code-block" data-label="JSON · PUT /tut-f20-attractions · 完整mapping/settings" data-source="projects/travel-search/search/f20/index.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1",
+    "analysis": {
+      "analyzer": {
+        "lesson_words": {
+          "type": "custom",
+          "tokenizer": "whitespace",
+          "filter": [
+            "lowercase"
+          ]
+        }
+      }
+    },
+    "similarity": {
+      "lesson_bm25": {
+        "type": "BM25",
+        "k1": 1.2,
+        "b": 0.75,
+        "discount_overlaps": true
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "keyword"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "lesson_words",
+        "similarity": "lesson_bm25"
+      },
+      "ticket_price_fen": {
+        "type": "integer"
+      },
+      "review_avg": {
+        "type": "double"
+      },
+      "review_count": {
+        "type": "long"
+      },
+      "quality_score": {
+        "type": "double"
+      },
+      "quality_rank": {
+        "type": "rank_feature",
+        "positive_score_impact": true
+      },
+      "hot_30d": {
+        "type": "double"
+      }
+    }
+  }
+}</code></pre>
+<p>01核对版本/无插件，建索引并等green，Bulk的11个create逐项201、created、errors=false；显式refresh后_count=11，读回实际mapping/settings。字段用double/long保存数值，不把点评和热度写成字符串。positive_score_impact=true是rank_feature的默认，创建请求显式给出；mapping响应会省略这个默认值。脚本按有效配置核对，不因缺少响应文字误称设置失败。</p>
+<h2 id="average">5. 一样的文本，奖励怎样改变真实次序</h2>
+<p>搜索统一前20、track_total_hits=true、explain=true，_score降序、业务ID升序；预算默认0至10000整数分，HZ/open/CNY。text模式的六份游船都是约0.4121029，依业务ID排；展厅约0.063862845。下表均为本固定单分片的真实结果，省略ID前缀hz-；不是手工目标排序。</p>
+<table class="ktable" id="ranking-table"><thead><tr><th>模式</th><th>实际完整次序</th><th>要解释的差异</th></tr></thead><tbody><tr><td>text</td><td>fresh / huge / missing / small / steady / zero / hot</td><td>同文本同分；ID打破平局</td></tr><tr><td>average</td><td>small / fresh / steady / huge / missing / zero / hot</td><td>直接均分让一评满分第一</td></tr><tr><td>quality</td><td>steady / huge / fresh / small / missing / zero / hot</td><td>平滑后千评4.8胜过一评5</td></tr><tr><td>raw</td><td>hot / huge / steady / fresh / small / missing / zero</td><td>原热度压倒文本与质量</td></tr><tr><td>compressed</td><td>hot / huge / steady / fresh / small / missing / zero</td><td>仅压缩还未解决极端信号</td></tr><tr><td>bounded</td><td>huge / steady / fresh / small / hot / missing / zero</td><td>函数封顶；弱相关仍胜过缺信号者</td></tr></tbody></table>
+<p>quality模式对基底文本加0.2Q。small约1.2216268，steady约1.3689656，差别来自Q而不是重新分词。这里选择加法是为了读出贡献；ES的function_score能包住原查询，对其匹配文档应用数值函数。field_value_factor是其中读取单个数值字段的一种函数，不是另一种召回查询，也不代替上游平滑。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f20-attractions/_search · quality完整请求" data-source="projects/travel-search/search/f20/quality.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "explain": true,
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "term": {
+                "status": {
+                  "value": "open"
+                }
+              }
+            },
+            {
+              "term": {
+                "currency": {
+                  "value": "CNY"
+                }
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            },
+            {
+              "term": {
+                "city_code": {
+                  "value": "HZ"
+                }
+              }
+            }
+          ],
+          "must": [
+            {
+              "match": {
+                "description": {
+                  "query": "西湖 夜游",
+                  "operator": "or"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "functions": [
+        {
+          "field_value_factor": {
+            "field": "quality_score",
+            "factor": 0.2,
+            "modifier": "none",
+            "missing": 4
+          },
+          "weight": 1
+        }
+      ],
+      "score_mode": "sum",
+      "boost_mode": "sum",
+      "max_boost": 3.4028235e+38
+    }
+  },
+  "sort": [
+    {
+      "_score": "desc"
+    },
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre>
+<h2 id="heat">6. f20-c02：热度的量纲会吞掉文本</h2>
+<p>执行02，依次看text、raw、quality、compressed、bounded与六次单份解释。raw把H直接加给文本；展厅H=10^18，超过游船的文本差距。它冲到第一，但无关山林即使H=10^20仍不进入，因为基底query没有匹配。数值奖励不会绕过closed、异城、超预算过滤。</p>
+<pre class="code-block" data-label="Bash · 同一终端"><code>bash labs/f20/02-popularity.sh</code></pre>
+<p>热度是访问次数，文本分和Q/5则在更小尺度。简单换一个weight可能适配今天的数据，却会被明天的极值再次突破。compressed使用自然对数ln(1+H)再乘0.15：0映射0，10映射约2.398，10^18映射约41.447。增长被压缩，却仍无有限上界，所以不能把“对数”称为封顶。</p>
+<h2 id="bounded">7. 先合并函数，再封顶，最后与文本合成</h2>
+<p>我们把两个信号写成F=0.2Q+0.15ln(1+H)。<code>score_mode=sum</code>合并两个函数；各函数weight先乘自己的结果。<code>max_boost=1.5</code>对整个F取min；<code>boost_mode=sum</code>才把受限函数与文本B相加：最终B+min(F,1.5)。三者分工不同；本课全显式给出，不沿用默认multiply。这个封顶不是每个函数各封1.5，也不是最终_score不得超过1.5。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f20-attractions/_search · bounded完整请求" data-source="projects/travel-search/search/f20/bounded.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "explain": true,
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "term": {
+                "status": {
+                  "value": "open"
+                }
+              }
+            },
+            {
+              "term": {
+                "currency": {
+                  "value": "CNY"
+                }
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            },
+            {
+              "term": {
+                "city_code": {
+                  "value": "HZ"
+                }
+              }
+            }
+          ],
+          "must": [
+            {
+              "match": {
+                "description": {
+                  "query": "西湖 夜游",
+                  "operator": "or"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "functions": [
+        {
+          "field_value_factor": {
+            "field": "quality_score",
+            "factor": 0.2,
+            "modifier": "none",
+            "missing": 4
+          },
+          "weight": 1
+        },
+        {
+          "field_value_factor": {
+            "field": "hot_30d",
+            "factor": 1,
+            "modifier": "ln1p",
+            "missing": 0
+          },
+          "weight": 0.15
+        }
+      ],
+      "score_mode": "sum",
+      "boost_mode": "sum",
+      "max_boost": 1.5
+    }
+  },
+  "sort": [
+    {
+      "_score": "desc"
+    },
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre>
+<p>展厅的完整解释显示B≈0.063862845、质量贡献≈0.816666667、热度贡献≈6.216979751，函数和≈7.0336464；取min后只留1.5，总分≈1.5638628。huge和steady也都达到1.5，文本相同，最终约1.9121029，按ID让huge先于steady。封顶会丢失“已经超过上限”的信号差异，这是收益也有代价，不能把两者并列理解为质量相同。</p>
+<p>compressed的展厅约7.0975094仍排第一；bounded把它降到第五，却仍高于missing与zero的约1.2121029。上限限制了最多加多少，不保证每份强文本资料都排在弱文本前。若业务要求完整活动意图，应改进文本条件或其他信号，而不是把本课1.5宣布为通用最优参数。BM25与语料统计也会变化，今天的相对尺度要在查询集上复核。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f20-attractions/_explain/hz-hot · 复用bounded完整query"><code>{
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "term": {
+                "status": {
+                  "value": "open"
+                }
+              }
+            },
+            {
+              "term": {
+                "currency": {
+                  "value": "CNY"
+                }
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0,
+                  "lte": 10000
+                }
+              }
+            },
+            {
+              "term": {
+                "city_code": {
+                  "value": "HZ"
+                }
+              }
+            }
+          ],
+          "must": [
+            {
+              "match": {
+                "description": {
+                  "query": "西湖 夜游",
+                  "operator": "or"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "functions": [
+        {
+          "field_value_factor": {
+            "field": "quality_score",
+            "factor": 0.2,
+            "modifier": "none",
+            "missing": 4
+          },
+          "weight": 1
+        },
+        {
+          "field_value_factor": {
+            "field": "hot_30d",
+            "factor": 1,
+            "modifier": "ln1p",
+            "missing": 0
+          },
+          "weight": 0.15
+        }
+      ],
+      "score_mode": "sum",
+      "boost_mode": "sum",
+      "max_boost": 1.5
+    }
+  }
+}</code></pre>
+<h2 id="missing">8. 缺值、已知0与非法函数要分别处理</h2>
+<p>field_value_factor先用实际字段值，缺失时才用missing，再乘factor，最后应用modifier；weight在外层。quality缺失用4，H缺失用0，因此missing与已知0热度得到同一奖励，但原文仍保留未知和已知的区别。missing不是补写文档，也不替换已有0。显式factor=0.1时热度函数是0.15ln(1+0.1H)，不是0.015ln(1+H)。03有真实公式核对。</p>
+<p>ln(0)无效；本课用hz-zero单独触发ln的400，再切回ln1p恢复。删除missing参数后，对hz-missing评分同样400；恢复missing=0后成功。函数要求非负得分，不能依赖max_boost修好负数或非法对数，因为函数先计算。数值字段本身允许多值，field_value_factor只取其中第一个数值，本课来源契约只写单值，未演示用数组代表点评集合。</p>
+<pre class="code-block" data-label="Bash · 边界与恢复案例"><code>bash labs/f20/03-boundaries.sh</code></pre>
+<h2 id="rank">9. f20-c03：rank_feature是特征查询，也影响候选</h2>
+<p>另一种候选方案是把正向静态Q同时写入quality_rank，mapping为rank_feature。它要求单值、严格正数；普通double字段不能直接被rank_feature查询替代。03真实写入0、负数、多值均400，失败资料未留下。这个字段适合评分特征，不支持普通排序或聚合；需要原始数值展示、排序或统计时，保留quality_score等普通字段。它没有自动提供上游来源与审核。</p>
+<p>rank模式把文本放must、特征放should，显式minimum_should_match=0。饱和函数设置pivot=4、boost=1，特征分=S/(S+4)，到S=4时为0.5，继续增大逐渐靠近1。本例七份候选保持不变，次序为steady/huge/fresh/small/zero/hot/missing。missing没有quality_rank，不获得特征奖励，但仍凭文本保留。</p>
+<pre class="code-block" data-label="JSON · POST /tut-f20-attractions/_search · rank完整请求" data-source="projects/travel-search/search/f20/rank.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "explain": true,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 10000
+            }
+          }
+        },
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        }
+      ],
+      "must": [
+        {
+          "match": {
+            "description": {
+              "query": "西湖 夜游",
+              "operator": "or"
+            }
+          }
+        }
+      ],
+      "should": [
+        {
+          "rank_feature": {
+            "field": "quality_rank",
+            "saturation": {
+              "pivot": 4
+            },
+            "boost": 1
+          }
+        }
+      ],
+      "minimum_should_match": "0"
+    }
+  },
+  "sort": [
+    {
+      "_score": "desc"
+    },
+    {
+      "attraction_id": "asc"
+    }
+  ]
+}</code></pre>
+<p>S是索引编码后的特征值，不保证等于_source的double。rank_feature保留9位有效精度，存在约0.4%的相对误差；例如山林原Q≈4.899820036，解释中S=4.890625，特征分≈0.55008787。断言用真实S核对公式，不能要求它与quality的double加分完全一致。这里显式pivot避免默认估计受语料影响；并未测试性能，track_total_hits=true也没有验证官方文档所述的跳过非竞争命中收益。</p>
+<p>若去掉文本，只要求特征作must，即rank-only，山林因Q高排第一，missing因为没特征退出。它仍有城市/开放/预算过滤，但回答的已是“有质量特征的景点”，不再是“西湖夜游”。function_score只给基底query候选评分；rank_feature是一个查询子句，放在哪里会改变bool门槛。两者不能只按公式外观互换。</p>
+<figure class="fig d2-figure" id="fig-gates"><div class="d2-shell"><div class="d2-tools"><strong>02 · 信号奖励与文本门槛分开看</strong><a data-expand-d2 href="diagrams/f20/gates-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f20/gates-light.svg" data-d2-light="diagrams/f20/gates-light.svg" data-d2-dark="diagrams/f20/gates-dark.svg" alt="function_score保持基底候选；rank_feature放should或单独must产生不同候选集合"></div></div><figcaption>有向边说明本课规则的依赖与反例改动；隐形边只排版，省略内部调度。 静态图可展开；<a href="diagrams/f20/README.md">图源与生成记录</a>。</figcaption></figure>
+<details><summary>版本依据与目标源码入口</summary><p>固定ES9.4.0源码：<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/lucene/search/function/FieldValueFactorFunction.java">FieldValueFactorFunction → score</a>核对缺值、factor与modifier顺序；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/lucene/search/function/FunctionScoreQuery.java">FunctionScoreQuery → computeScore</a>核对函数聚合；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/common/lucene/search/function/CombineFunction.java">CombineFunction.SUM → combine/explain</a>核对先封顶再加文本；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/mapper-extras/src/main/java/org/elasticsearch/index/mapper/extras/RankFeatureFieldMapper.java">RankFeatureFieldMapper</a>与<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/modules/mapper-extras/src/main/java/org/elasticsearch/index/mapper/extras/RankFeatureQueryBuilder.java">RankFeatureQueryBuilder</a>核对字段/查询边界。另参阅<a href="https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-function-score-query">官方函数文档</a>、<a href="https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/rank-feature">特征类型</a>和<a href="https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-rank-feature-query">特征查询</a>；<a href="../docs/framework-review/20261026-f20-signals/sources.json">固定来源收据</a>分列源码与当前文档。</p></details>
+<h2 id="java">10. REST语义先确定，再看关键Java</h2>
+<p>沿用Boot4.0.8、Temurin25.0.4.1+1、官方Java API与Rest5 Client9.4.8、Wrapper3.3.4/Maven3.9.11；服务连ES9.4.0，ES bundled JVM独立记录。服务端固定索引、字段、八种规则和可解释ID，浏览器不提交任意DSL。输入约束、完整规则构造如下；共同的服务样板见<a href="../projects/travel-search/backend/src/main/java/dev/esweb/travel/SignalSearchService.java">完整文件</a>。</p>
+<pre class="code-block" data-label="Java · 输入约束" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/SignalInput.java"><code>package dev.esweb.travel;
+
+import jakarta.validation.constraints.*;
+
+public record SignalInput(
+        @NotBlank @Size(max = 60) String q,
+        @NotNull @Pattern(regexp = "HZ|SZ") String cityCode,
+        @NotNull @Min(0) @Max(100000000) Integer maxPriceFen,
+        @NotNull @Pattern(regexp = "text|raw|average|quality|compressed|bounded|rank|rank-only") String mode,
+        @NotNull @Pattern(regexp = "hz-(small|steady|fresh|zero|missing|huge|hot|noise|closed|expensive)|sz-steady") String explainId) {
+}</code></pre><pre class="code-block" data-label="Java · 完整查询构造" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/SignalSearchService.java" data-lines="41-80"><code>    public SearchRequest request(SignalInput input) {
+        Query text = Query.of(q -&gt; q.match(m -&gt; m.field("description").query(input.q()).operator(Operator.Or)));
+        Query feature = Query.of(q -&gt; q.rankFeature(r -&gt; r.field("quality_rank")
+                .saturation(v -&gt; v.pivot(4.0f)).boost(1.0f)));
+        var bool = new BoolQuery.Builder()
+                .filter(f -&gt; f.term(t -&gt; t.field("status").value("open")))
+                .filter(f -&gt; f.term(t -&gt; t.field("currency").value("CNY")))
+                .filter(f -&gt; f.range(r -&gt; r.number(n -&gt; n.field("ticket_price_fen")
+                        .gte(0.0).lte(input.maxPriceFen().doubleValue()))))
+                .filter(f -&gt; f.term(t -&gt; t.field("city_code").value(input.cityCode())));
+        bool.must(input.mode().equals("rank-only") ? feature : text);
+        if (input.mode().equals("rank")) bool.should(feature).minimumShouldMatch("0");
+        Query base = Query.of(q -&gt; q.bool(bool.build()));
+        Query scored = base;
+        if (!List.of("text", "rank", "rank-only").contains(input.mode())) {
+            FunctionScore quality = FunctionScore.of(f -&gt; f.weight(1.0)
+                    .fieldValueFactor(v -&gt; v.field("quality_score").factor(0.2)
+                            .modifier(FieldValueFactorModifier.None).missing(4.0)));
+            FunctionScore heat = FunctionScore.of(f -&gt; f.weight(0.15)
+                    .fieldValueFactor(v -&gt; v.field("hot_30d").factor(1.0)
+                            .modifier(FieldValueFactorModifier.Ln1p).missing(0.0)));
+            List&lt;FunctionScore&gt; functions = switch (input.mode()) {
+                case "raw" -&gt; List.of(FunctionScore.of(f -&gt; f.weight(1.0).fieldValueFactor(v -&gt;
+                        v.field("hot_30d").factor(1.0).modifier(FieldValueFactorModifier.None).missing(0.0))));
+                case "average" -&gt; List.of(FunctionScore.of(f -&gt; f.weight(1.0).fieldValueFactor(v -&gt;
+                        v.field("review_avg").factor(0.2).modifier(FieldValueFactorModifier.None).missing(4.0))));
+                case "quality" -&gt; List.of(quality);
+                default -&gt; List.of(quality, heat);
+            };
+            double cap = input.mode().equals("bounded") ? 1.5 : 3.4028235e38;
+            scored = Query.of(q -&gt; q.functionScore(f -&gt; f.query(base).functions(functions)
+                    .scoreMode(FunctionScoreMode.Sum).boostMode(FunctionBoostMode.Sum).maxBoost(cap)));
+        }
+        Query finalQuery = scored;
+        return SearchRequest.of(s -&gt; s.index(INDEX).size(20)
+                .trackTotalHits(t -&gt; t.enabled(true)).explain(true)
+                .query(finalQuery)
+                .sort(srt -&gt; srt.score(sco -&gt; sco.order(SortOrder.Desc)))
+                .sort(srt -&gt; srt.field(f -&gt; f.field("attraction_id").order(SortOrder.Asc))));
+    }</code></pre>
+<p>所有卡片返回点评、Q、H与完整解释；缺失信号允许null，不把它当数据损坏。身份、名称、简介、硬条件、得分、sort与解释则必须完整。搜索超时/分片失败/字段不完整拒绝为502；输入400、ES拒绝502、连接不可用503，不把失败展示成空结果。搜索与单份解释复用<strong>整个query</strong>，包括过滤；两次独立请求不构成并发更新下的原子快照。</p>
+<pre class="code-block" data-label="Java · 响应校验、投影与完整query解释" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/SignalSearchService.java" data-lines="86-115"><code>    public Result search(SignalInput input) throws IOException {
+        var request = request(input);
+        var response = client.search(request, SignalAttraction.class);
+        if (response.timedOut() || response.shards().failed().longValue() != 0
+                || response.hits().total() == null || !response.hits().total().relation().jsonValue().equals("eq"))
+            throw new AttractionSearchService.IncompleteSearchException();
+        var cards = response.hits().hits().stream().map(hit -&gt; {
+            var s = hit.source();
+            if (s == null || !hit.id().equals(s.attractionId()) || s.name() == null
+                    || s.description() == null || !input.cityCode().equals(s.cityCode())
+                    || !"open".equals(s.status()) || !"CNY".equals(s.currency())
+                    || s.ticketPriceFen() == null || s.ticketPriceFen() &lt; 0
+                    || s.ticketPriceFen() &gt; input.maxPriceFen() || hit.score() == null
+                    || hit.explanation() == null || hit.sort().size() != 2)
+                throw new AttractionSearchService.IncompleteSearchException();
+            return new Card(hit.id(), s.name(), s.description(), s.cityCode(), s.ticketPriceFen(),
+                    s.currency(), s.status(), s.reviewAvg(), s.reviewCount(), s.qualityScore(), s.hot30d(), hit.score(), hit.sort().stream().map(v -&gt; (Object) v._get()).toList(),
+                    tree(hit.explanation()));
+        }).toList();
+        // Both calls use the same complete query, including filters. No writes occur in this observer.
+        // They are separate requests, not one atomic snapshot under concurrent updates.
+        var explainRequest = ExplainRequest.of(e -&gt; e.index(INDEX).id(input.explainId()).query(request.query()));
+        var explained = client.explain(explainRequest, SignalAttraction.class);
+        if (!INDEX.equals(explained.index()) || !input.explainId().equals(explained.id())
+                || explained.explanation() == null)
+            throw new AttractionSearchService.IncompleteSearchException();
+        return new Result(response.hits().total().value(), response.hits().total().relation().jsonValue(),
+                response.took(), input, tree(request), tree(response),
+                "/" + INDEX + "/_explain/" + input.explainId(), tree(explainRequest), tree(explained), cards);
+    }</code></pre><pre class="code-block" data-label="Java · 本课输入错误分支" data-source="projects/travel-search/backend/src/main/java/dev/esweb/travel/SignalController.java" data-lines="15-20"><code>    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
+    public ResponseEntity&lt;ApiErrors.ErrorBody&gt; invalid(Exception error) {
+        return ResponseEntity.badRequest().body(new ApiErrors.ErrorBody("INVALID_SIGNAL_INPUT",
+                "请填写1至60字符关键词、HZ或SZ、非负整数分预算，并选择列出的模式与解释ID。"));
+    }
+</code></pre>
+<p>通用异常映射沿用<a href="../projects/travel-search/backend/src/main/java/dev/esweb/travel/ApiErrors.java">ApiErrors</a>；超时/部分分片失败只检查了代码防护，本课未构造这两类故障。真实缺索引、字段破坏、停机与恢复单独留记录。</p>
+<pre class="code-block" data-label="Bash · 仓库根目录，终端二"><code>cd projects/travel-search/backend
+# JAVA_HOME/PATH先选择JDK25
+./mvnw -B -ntp clean package
+ES_URL=http://127.0.0.1:19220 APP_PORT=18080 java -jar target/travel-search-0.7.0.jar</code></pre><pre class="code-block" data-label="Bash · 终端一仍在projects/travel-search"><code>bash labs/f20/04-java.sh
+curl --fail-with-body -sS -X POST http://127.0.0.1:18080/api/attractions/signal-search -H 'Content-Type: application/json' --data-binary @search/f20/input-bounded.json</code></pre><pre class="code-block" data-label="JSON · Java请求体" data-source="projects/travel-search/search/f20/input-bounded.json"><code>{
+  "q": "西湖 夜游",
+  "cityCode": "HZ",
+  "maxPriceFen": 10000,
+  "mode": "bounded",
+  "explainId": "hz-hot"
+}</code></pre>
+<p>04用11种固定输入逐一调用Java，再将实际返回的搜索DSL与_explain请求重放到REST；对照完整原文、信号、票价、ID、总数、次序、score、sort和解释树。官方客户端float经double再序列化会展开小数，采用微小数值容忍并保留原始响应，不宣称输出字节相同。JSON中的index来自Java请求对象，实际HTTP路径已经指定索引；重放DSL时也固定本课路径。</p>
+<h2 id="observe">11. 用课程提供的窗口观察，不开发前端</h2>
+<p>打开本机<a href="http://127.0.0.1:18080/f20.html">/f20.html</a>。保持默认输入，先切text→average→quality，看small与steady换位；再切raw→compressed→bounded，看展厅从第一变第五，展开完整解释找到函数和、maxBoost与根。切rank时missing仍在，rank-only时山林进入、missing消失。再切回bounded，预算改0只剩small/missing/zero，SZ只剩异城一份，“海滩”是成功的零命中；rank-only忽略关键词，不能拿它验证文本空集。</p>
+<p>窗口按实际输入显示DSL、客户端序列化的完整ES响应与DTO；卡片信号来自_source对应值，单份解释可选closed、异城或超预算。matched=false根为0，即使子树有文本贡献也不是候选分。条件变化或错误会清空旧卡片/DSL/解释，避免旧排名冒充新结果。真实路径是浏览器→本机Java→ES；Pages只承载教程，ES凭据留在服务端，不进入浏览器、URL或仓库。</p>
+<h2 id="repeat">12. 清理重做，才能证明前提可恢复</h2>
+<p>首次创建会得到created；重复01建索引400，重复Bulk create条级409。不要忽略后继续。cleanup仅点名DELETE tut-f20-attractions并GET核对404；不删除其他课索引或卷。停止容器不清持久化数据，重新启动后旧索引仍可能在。</p>
+<pre class="code-block" data-label="Bash · 两轮独立重做与结束"><code>bash labs/f20/cleanup.sh
+bash labs/f20/01-quality.sh
+bash labs/f20/02-popularity.sh
+bash labs/f20/03-boundaries.sh
+bash labs/f20/04-java.sh
+# 结束；关闭自己启动的Java
+bash labs/f20/cleanup.sh
+docker compose -f infra/f20/compose.yaml stop es</code></pre>
+<p><a href="../projects/travel-search/review/f20/README.md">真实ES与Java两轮证据</a>、<a href="../docs/framework-review/20261026-f20-signals/README.md">图解、HTTP、视觉与观察窗证据</a>分别记录。只证明固定单节点单主分片样本；未测全站质量、留出查询集、性能、多节点、生产安全与持续更新。</p></section>
+<section class="drills"><h2 id="drills">能力检查：先预测，再展开</h2><details><summary>把1条5分复制成1000条5分，Q会怎样？</summary><p>从85/21约4.048靠近5，变为5080/1020约4.980；并不意味着允许复制真实点评。上游必须先去重。</p></details><details><summary>为什么raw里山林没有因10^20热度进场？</summary><p>function_score包住的基底query必须先匹配西湖或夜游，并满足硬条件。热度只给这些候选评分。rank-only去掉文本门槛才会让山林进入。</p></details><details><summary>ln1p之后极值还会压倒文本吗？</summary><p>会。本例compressed展厅仍第一；ln1p增长变慢但无有限上界，需要结合权重、封顶和真实查询集验证。</p></details><details><summary>max_boost=1.5，为什么结果还能1.912？</summary><p>它限制函数合并值F，boost_mode=sum再加文本B。最终B+min(F,1.5)，并未把最终分限制到1.5。</p></details><details><summary>missing=4是否把文档中的0改为4？</summary><p>不会。missing只在字段缺失时替代，之后还经过factor/modifier。它不写回_source，也不改变已存在0。已知零热度和缺失热度可同奖励而来源含义不同。</p></details><details><summary>rank_feature的S为什么不是原Q，缺特征会不会被排除？</summary><p>S经过特征编码，约0.4%相对精度误差；按解释中的S计算饱和。文本must、特征should时缺特征仅不加分；特征单独must则会被排除。</p></details><details><summary>封顶后展厅仍高于无信号游船，是否说明参数已成功？</summary><p>只能说明极值作用受限，不能据此宣布质量改善。它仍是已知坏案例；还要标注意图、评估不同输入和退步，不能靠一条结果选生产规则。</p></details></section><section class="pitfalls"><h2 id="pitfalls">实际陷阱</h2><div class="callout warn"><strong>信号叫质量，不代表已经可信。</strong>ES只读字段；审核、去重、窗口、缺失状态和同版本重算属于来源契约。平滑先验不能代替反作弊或统计评估。</div><div class="callout warn"><strong>压缩与封顶限制的对象不同。</strong>ln1p没有有限上界；max_boost限制合并函数值，不能修复非法函数，也不保证文本相关者全部在前。</div><div class="callout warn"><strong>替换查询类型可能已经换了候选问题。</strong>function_score给基底候选评分；rank_feature缺值不匹配该子句。必须明确must/should及文本门槛，不能只比较最终小数。</div></section>
+<section class="recap"><h2 id="recap">速记：奖励需要来源、尺度与边界</h2><table class="ktable"><thead><tr><th>问题</th><th>本课结论</th></tr></thead><tbody><tr><td>点评质量</td><td>先用固定口径算Q=(vR+80)/(v+20)，5分1评约4.048，4.8分千评约4.784</td></tr><tr><td>热度</td><td>访问量不是好评；原值压倒文本，ln1p只压缩不封顶</td></tr><tr><td>函数与文本</td><td>本课score_mode=sum、boost_mode=sum，B+min(0.2Q+0.15ln(1+H),1.5)</td></tr><tr><td>缺值与0</td><td>缺Q用4、缺H用0；既有0不被missing替换，ln(0)仍非法</td></tr><tr><td>rank_feature</td><td>单值正数、特征精度；S/(S+4)，should加分与must门槛分开</td></tr><tr><td>当前限制</td><td>封顶仍可能抬弱相关；固定样本不证明全站质量或性能</td></tr></tbody></table><p>先确定信号在说什么，再决定它能加多少；每次改规则，都核对候选、解释和退步。现在还没表达远近与更新时间，下一课F21将把距离、时效与用户显式排序放到同一取舍中。</p></section>
+<footer class="ch-footer"><button class="read-toggle" data-ch="f20">✓ 标记为已读</button><nav class="pager"><a href="f19.html">← F19 名称与多字段权重</a><a href="index.html">框架篇目录</a><span>F21 距离、时效与显式排序 · 待编写</span></nav></footer>
+</article></main><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>
