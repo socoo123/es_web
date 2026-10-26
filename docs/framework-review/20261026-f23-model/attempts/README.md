@@ -13,3 +13,5 @@
 [archive.json](archive.json)记录原始JSONL压缩文件与原始/压缩SHA-256；gzip原样保存内容。正文、预期与最终脚本保持一致，没有把失败隐藏或把未测性能写成结论。
 
 最终检查收据的早期执行还遇到两处工具问题：自审JSON的自由文本status先改为统一的passed＋独立范围字段；系统Python缺Playwright，最终在已记录的既有浏览器venv运行checks.py。没有修改站点检查器或跳过真实实验。
+
+线上首次验收[原始收据](publication-first-attempt.json.gz)：精确9fb8b8f构建成功、14资产逐字节相同、6组交互和3段剪贴板完成，但把F22主题切换取消的6次浅色SVG请求计作严格网络失败。无JS错误或业务请求。发布检查器增加MutationObserver的src旧→新记录，并要求同一浏览器组的替换SVG已完整解码，才把该条归类为主题取消；保留全部原始requestfailed，任何无替换证据的失败仍拒绝。不改站点检查器或教程代码。

@@ -14,7 +14,7 @@ def git(*args):return subprocess.check_output(['git',*args],cwd=ROOT,text=True).
 def api(path):return json.loads(subprocess.check_output(['gh','api',path],cwd=ROOT,text=True))
 def sha(b):return hashlib.sha256(b).hexdigest()
 p=argparse.ArgumentParser();p.add_argument('--sha',required=True);p.add_argument('--out',default='/tmp/es-f23-publication.json');a=p.parse_args();base='https://socoo123.github.io/es_web/'
-r={'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'expected_commit':a.sha,'assets':[],'matrix':[],'js_errors':[],'request_failures':[],'business_requests':[]}
+r={'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'expected_commit':a.sha,'assets':[],'matrix':[],'js_errors':[],'request_failures':[],'business_requests':[],'f22_theme_loads':[]}
 try:
  r['local_head']=git('rev-parse','HEAD');r['git_status_before']=git('status','--porcelain');require(r['local_head']==a.sha and not r['git_status_before'],'exact clean local commit')
  r['remote_head']=git('ls-remote','origin','refs/heads/main').split()[0];require(r['remote_head']==a.sha,'remote exact SHA')
@@ -29,13 +29,17 @@ try:
   for width in [1440,390,320]:
    for theme in ['light','dark']:
     c=browser.new_context(viewport={'width':width,'height':1000},reduced_motion='reduce',permissions=['clipboard-read','clipboard-write']);c.add_init_script(f"if(!localStorage.getItem('es-web:theme'))localStorage.setItem('es-web:theme','{theme}')")
-    page=c.new_page();page.on('pageerror',lambda e:r['js_errors'].append(str(e)));page.on('requestfailed',lambda req:r['request_failures'].append({'url':req.url,'failure':req.failure}))
+    c.add_init_script('''window.__f23ImageChanges=[];new MutationObserver(events=>{for(const e of events){if(e.target.tagName==='IMG' && e.oldValue && e.oldValue!==e.target.getAttribute('src'))window.__f23ImageChanges.push({old:new URL(e.oldValue,location.href).href,current:e.target.src});}}).observe(document,{subtree:true,attributes:true,attributeFilter:['src'],attributeOldValue:true});''')
+    group={'width':width,'initial_theme':theme}
+    page=c.new_page();page.on('pageerror',lambda e:r['js_errors'].append(str(e)));page.on('requestfailed',lambda req,g=group.copy():r['request_failures'].append({'group':g,'url':req.url,'failure':req.failure}))
     c.on('request',lambda req:r['business_requests'].append(req.url) if any(x in req.url for x in ['127.0.0.1','localhost:','/api/model/inspect']) else None)
     page.goto(base+'framework/f23.html?audit='+a.sha,wait_until='networkidle');reading.diagrams(page,theme);layout=reading.measure(page);anchors=reading.anchors(page)
     for fold in page.locator('details').all():fold.locator('summary').click();require(fold.get_attribute('open') is not None,'fold opens');fold.locator('summary').click()
     page.locator('.theme-toggle').click();other='dark' if theme=='light' else 'light';reading.diagrams(page,other);page.reload(wait_until='networkidle');reading.diagrams(page,other)
     page.locator('.read-toggle').click();page.reload(wait_until='networkidle');require(page.locator('.read-toggle').evaluate("e=>e.classList.contains('is-on')"),'read persists')
     page.locator('.pager a[href="f22.html"]').click();page.wait_for_load_state('networkidle');require(page.locator('.pager a[href="f23.html"]').count()==1,'F22 next')
+    f22_images=reading.diagrams(page,other)
+    r['f22_theme_loads'].append({'group':group.copy(),'loaded_images':f22_images,'src_changes':page.evaluate('window.__f23ImageChanges')})
     page.locator('.pager a[href="f23.html"]').click();page.wait_for_load_state('networkidle');page.locator('.pager a[href="index.html"]').click();page.wait_for_load_state('networkidle');require(page.locator('[data-ch="f23"]').evaluate("e=>e.classList.contains('is-read')"),'directory read badge');page.locator('.curriculum-lesson-link[href="f23.html"]').click();page.wait_for_load_state('networkidle')
     require(page.locator('a[href="f24.html"]').count()==0,'F24 pending without broken link')
     r['matrix'].append({'width':width,'initial_theme':theme,'layout':layout,'anchors':len(anchors),'folds':page.locator('details').count(),'theme_reload_progress_navigation':'passed'})
@@ -50,7 +54,18 @@ try:
      r['diagram_popups']='both actual live SVGs opened'
     c.close()
   browser.close()
- require(not r['js_errors'] and not r['request_failures'] and not r['business_requests'],'online JS/network/business isolation')
+ # Preserve every abort. A src replacement is accepted only with same-group
+ # MutationObserver old->new evidence AND a successfully decoded final image.
+ r['verified_theme_cancellations']=[];r['unexplained_request_failures']=[]
+ for failure in r['request_failures']:
+  proofs=[proof for proof in r['f22_theme_loads'] if proof['group']==failure['group']]
+  match=next(({'failure':failure,'change':change,'loaded_replacement':image} for proof in proofs for change in proof['src_changes'] for image in proof['loaded_images']
+   if failure['failure']=='net::ERR_ABORTED' and failure['url']==change['old']
+   and change['current']==image['src'] and image['width']>0 and image['height']>0
+   and failure['url'] in [base+'framework/diagrams/f22/'+slug+'-'+t+'.svg' for slug in ['cycle','metrics'] for t in ['light','dark']]),None)
+  if match:r['verified_theme_cancellations'].append(match)
+  else:r['unexplained_request_failures'].append(failure)
+ require(not r['js_errors'] and not r['unexplained_request_failures'] and not r['business_requests'],'online JS/network/business isolation; each accepted abort requires actual replacement proof')
  r['git_status_after']=git('status','--porcelain');require(not r['git_status_after'],'final clean tree');r['remote_head_after']=git('ls-remote','origin','refs/heads/main').split()[0];require(r['remote_head_after']==a.sha,'remote unchanged');r['status']='passed'
 finally:pathlib.Path(a.out).write_text(json.dumps(r,ensure_ascii=False,indent=2)+'\n')
 print('Exact commit/Pages build +14 byte-identical live assets +6 browser groups passed; clean tree:',a.sha)
