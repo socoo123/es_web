@@ -1,0 +1,9 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+candidate: "品质顺序中的 6 家候选\nh03 → h04 → h02 → h01 → h05 → h06" {class: card}
+local: "只取前 2 家\nh03 三条都不合格，移除\n仅剩 h04；不自动补进 h02" {class: card}
+full: "完整取 6 家并核对\nh03 移除后保留 5 家\nh04 → h02 → h01 → h05 → h06" {class: card}
+boundary: "比较范围决定承诺\n每家报价完整 ≠ 酒店范围完整\n100 家 / 每家 20 条是本课保护上限" {class: card}
+candidate -> local: size = 2
+local -> full: 切回完整范围，重新执行
+full -> boundary: 两层完整性都核对

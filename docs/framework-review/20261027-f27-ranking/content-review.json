@@ -1,0 +1,98 @@
+{
+  "at": "2026-10-27T13:57:49.868667+00:00",
+  "status": "passed",
+  "reviewer": "root author self-review",
+  "independent_review": false,
+  "reasoning_runtime": "See reasoning.json; requested model/effort cannot be set or read back here.",
+  "chinese_chars_outside_code": 5304,
+  "cases": 3,
+  "teaching_http": 27,
+  "diagrams": 2,
+  "players": 0,
+  "drills": 8,
+  "pitfalls": 4,
+  "rounds": [
+    {
+      "round": 1,
+      "teaching_http": 27,
+      "additional_http": 51,
+      "initial_cleanup_http": 2,
+      "receipts": "projects/travel-search/review/f27/round1"
+    },
+    {
+      "round": 2,
+      "teaching_http": 27,
+      "additional_http": 51,
+      "initial_cleanup_http": 2,
+      "receipts": "projects/travel-search/review/f27/round2"
+    }
+  ],
+  "checks": [
+    {
+      "topic": "业务与职责",
+      "finding": "F26最低价不能代替酒店意图；ES排酒店，Java逐晚核对并排酒店内房型，Pages教程与本机观察窗分开。",
+      "evidence": "framework/f27.html#problem"
+    },
+    {
+      "topic": "模型边界",
+      "finding": "本课一个根文档一酒店，nested只用于同报价条件；明确根total数酒店、更新根文档代价，未把F26报价计数搬来。",
+      "evidence": "framework/f27.html#sample"
+    },
+    {
+      "topic": "酒店主键",
+      "finding": "三种模式独立主键；track_scores不改显式sort；品质缺值_last/距离缺值Infinity、同值hotel_id稳定。",
+      "evidence": "projects/travel-search/review/f27/round2/hotels.json"
+    },
+    {
+      "topic": "两层相互关系",
+      "finding": "两组房型模式完整DSL相同；默认酒店最终次序相同，h01所选60000变80000但最低仍60000。",
+      "evidence": "projects/travel-search/review/f27/round2/rooms.json"
+    },
+    {
+      "topic": "偏好与硬条件",
+      "finding": "含早→可退→总价为显式词典序，不是通用最优；两个require在同nested中独立，默认不缩集合。",
+      "evidence": "projects/travel-search/review/f27/round2/errors.json"
+    },
+    {
+      "topic": "逐晚与时效",
+      "finding": "同offer/币种/日期，缺价不补0；固定上海参考时刻与300秒人为规则。Duration直接比较，不截断小数秒。",
+      "evidence": "projects/travel-search/backend/src/main/java/dev/esweb/travel/HotelRankingService.java"
+    },
+    {
+      "topic": "业务拒绝与资料异常",
+      "finding": "a05缺价/c01旧库存/c02缺晚/c03售罄逐条拒绝；根投影不等于固定表时整个请求502，两者区分。",
+      "evidence": "projects/travel-search/review/f27/round2/errors.jsonl"
+    },
+    {
+      "topic": "范围",
+      "finding": "完整与top2、根与inner两层完整性检查；107/100实际502先于未知source检查；组内>20不冒称注入。",
+      "evidence": "framework/f27.html#coverage"
+    },
+    {
+      "topic": "独立能力",
+      "finding": "运河新需求h07/g01、h08/i01，均65000分；同品质由hotel_id，g02不可退/i02 USD硬排除。",
+      "evidence": "projects/travel-search/review/f27/round2/boundary.json"
+    },
+    {
+      "topic": "输入与失败",
+      "finding": "本课DTO严格JSON布尔；10输入错误400，strict/重复/Bulk冲突、源错配与截断502恢复，连接503另由浏览器实际验证。",
+      "evidence": "projects/travel-search/review/f27/round2/errors.json"
+    },
+    {
+      "topic": "可复现与片段",
+      "finding": "本课独立19227/tut-f27-hotels，固定schema/数据/refresh；JSON/Java片段逐字来自工程，关键查询/资格/投影/错误可见。",
+      "evidence": "framework/f27.html"
+    },
+    {
+      "topic": "因果与练习",
+      "finding": "图源/正文/表格/8练习答案/4陷阱/速记使用同ID、金额和规则，next只引出F28，未提前实施。",
+      "evidence": "framework/diagrams/f27"
+    }
+  ],
+  "limitations": [
+    "No global quality claim; fixed synthetic signal and tiny presegmented corpus.",
+    "No production quote/booking, multi-node, performance or concurrent snapshot protocol.",
+    "Future inventory timestamps, exactly 300 seconds, MIN_STAY, inner group >20, timeouts/partial shard failure not separately injected.",
+    "Browser, visual, build, diagram and ES receipts are separate evidence categories."
+  ]
+}

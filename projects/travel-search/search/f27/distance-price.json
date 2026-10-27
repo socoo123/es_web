@@ -1,0 +1,132 @@
+{
+  "size": 100,
+  "track_total_hits": true,
+  "track_scores": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "西湖",
+            "fields": [
+              "name_search^5",
+              "description"
+            ],
+            "type": "best_fields",
+            "operator": "and"
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "hotel_status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "nested": {
+            "path": "offers",
+            "score_mode": "none",
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "term": {
+                      "offers.offer_status": {
+                        "value": "active"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.bed_type": {
+                        "value": "twin"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.currency": {
+                        "value": "CNY"
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.capacity": {
+                        "gte": 2.0
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.window_start": {
+                        "lte": "2026-11-01"
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.window_end_exclusive": {
+                        "gte": "2026-11-03"
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.max_available_rooms": {
+                        "gte": 1.0
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "inner_hits": {
+              "name": "eligible_offers",
+              "size": 20,
+              "sort": [
+                {
+                  "offers.offer_id": {
+                    "order": "asc"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "_geo_distance": {
+        "location": [
+          {
+            "lat": 30.25,
+            "lon": 120.15
+          }
+        ],
+        "order": "asc",
+        "unit": "m",
+        "distance_type": "arc",
+        "mode": "min",
+        "ignore_unmapped": false
+      }
+    },
+    {
+      "hotel_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}

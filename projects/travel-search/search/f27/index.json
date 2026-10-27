@@ -1,0 +1,88 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "hotel_id": {
+        "type": "keyword"
+      },
+      "hotel_name": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "hotel_status": {
+        "type": "keyword"
+      },
+      "snapshot_id": {
+        "type": "keyword"
+      },
+      "name_search": {
+        "type": "text",
+        "analyzer": "whitespace"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "whitespace"
+      },
+      "quality_signal": {
+        "type": "integer",
+        "coerce": false
+      },
+      "location": {
+        "type": "geo_point"
+      },
+      "offers": {
+        "type": "nested",
+        "dynamic": "strict",
+        "properties": {
+          "offer_id": {
+            "type": "keyword"
+          },
+          "room_id": {
+            "type": "keyword"
+          },
+          "rate_plan_id": {
+            "type": "keyword"
+          },
+          "offer_status": {
+            "type": "keyword"
+          },
+          "bed_type": {
+            "type": "keyword"
+          },
+          "meal": {
+            "type": "keyword"
+          },
+          "cancellation": {
+            "type": "keyword"
+          },
+          "currency": {
+            "type": "keyword"
+          },
+          "capacity": {
+            "type": "integer",
+            "coerce": false
+          },
+          "max_available_rooms": {
+            "type": "integer",
+            "coerce": false
+          },
+          "window_start": {
+            "type": "date",
+            "format": "strict_date"
+          },
+          "window_end_exclusive": {
+            "type": "date",
+            "format": "strict_date"
+          }
+        }
+      }
+    }
+  }
+}

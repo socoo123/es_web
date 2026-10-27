@@ -130,3 +130,7 @@ POST /api/attractions/synonym-search接受q/cityCode(BJ|SY)/maxPriceFen整数分
 ## F24 · 同条目条件与价格观察
 
 [本机步骤](../labs/f24/README.md)使用独立ES19224，保留同一Boot4/JDK25基线。新增NestedSearchService与POST /api/nested/inspect，五模式比较object/split错误、同条目匹配与inner_hits、无filter/完整filter的nested排序。打开/f24.html；浏览器仅调用Java，完整DSL/真实inner_hits/源和错误可追溯。F25未开始。
+
+## F27 · 酒店与房型分层排序
+
+新增[HotelRankingService](src/main/java/dev/esweb/travel/HotelRankingService.java)、输入与Controller；POST /api/hotel-ranking/inspect，本机/f27.html。使用[本课入口](../labs/f27/README.md)启动独立19227节点后构建，ES_URL=http://127.0.0.1:19227 APP_PORT=18081。酒店三种排序与房型两种排序独立；只有两个require标记改变硬过滤；完整候选/inner_hits都检查截断。固定逐晚表由Maven打包为f27/stay-table.json，固定时刻核对，不代表实时可订。

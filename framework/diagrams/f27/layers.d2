@@ -1,0 +1,9 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+hotel: "酒店层：哪家适合这次搜索\n相关性 / 品质信号 / 距固定点距离\n同值时 hotel_id 升序" {class: card}
+check: "逐晚资格：哪些报价可以进入比较\n同一报价覆盖两晚、库存足、价格完整\n库存时刻在固定 5 分钟阈值内" {class: card}
+room: "房型层：这家酒店里选哪条\n总价模式：总价 → 稳定键\n偏好：含早 → 可退 → 总价 → 稳定键" {class: card}
+card: "酒店卡片：保留酒店层次序\nh01 选 a03：800 元；最低 a01：600 元\n偏好所选价格与酒店最低价分别标注" {class: card}
+hotel -> check: ES 取候选与匹配报价
+check -> room: Java 排除不合格报价
+room -> card: 酒店内重排，不跨酒店
