@@ -1,0 +1,64 @@
+{
+  "at": "2026-10-27T14:53:41.860563+00:00",
+  "reason": "empty discovery.seed_hosts environment became null in Elasticsearch overrides; changed to self transport address; incomplete attempt intentionally terminated",
+  "commands": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f28/compose.yaml",
+        "-f",
+        "projects/travel-search/infra/f28/wrong.yaml",
+        "logs",
+        "--no-color",
+        "es3"
+      ],
+      "status": 0,
+      "stdout": "es3-1  | org.elasticsearch.ElasticsearchParseException: null-valued setting found for key [discovery.seed_hosts] found at line number [2], column number [22]\nes3-1  | \tat org.elasticsearch.common.settings.Settings.validateValue(Settings.java:841)\nes3-1  | \tat org.elasticsearch.common.settings.Settings.fromXContent(Settings.java:816)\nes3-1  | \tat org.elasticsearch.common.settings.Settings.fromXContent(Settings.java:760)\nes3-1  | \tat org.elasticsearch.common.settings.Settings$Builder.loadFromStream(Settings.java:1311)\nes3-1  | \tat org.elasticsearch.node.InternalSettingsPreparer.loadOverrides(InternalSettingsPreparer.java:148)\nes3-1  | \tat org.elasticsearch.node.InternalSettingsPreparer.prepareEnvironment(InternalSettingsPreparer.java:54)\nes3-1  | \tat org.elasticsearch.common.cli.EnvironmentAwareCommand.createEnv(EnvironmentAwareCommand.java:105)\nes3-1  | \tat org.elasticsearch.common.cli.EnvironmentAwareCommand.execute(EnvironmentAwareCommand.java:55)\nes3-1  | \tat org.elasticsearch.cli.Command.mainWithoutErrorHandling(Command.java:107)\nes3-1  | \tat org.elasticsearch.cli.Command.main(Command.java:54)\nes3-1  | \tat org.elasticsearch.launcher.CliToolLauncher.main(CliToolLauncher.java:74)\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f28/compose.yaml",
+        "-f",
+        "projects/travel-search/infra/f28/wrong.yaml",
+        "rm",
+        "-f",
+        "es3"
+      ],
+      "status": 0,
+      "stdout": "Going to remove es-framework-f28-es3-1\n",
+      "stderr": " Container es-framework-f28-es3-1 Removing \n Container es-framework-f28-es3-1 Removed \n"
+    },
+    {
+      "command": [
+        "docker",
+        "volume",
+        "rm",
+        "es-framework-f28-wrong-data"
+      ],
+      "status": 0,
+      "stdout": "es-framework-f28-wrong-data\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f28/compose.yaml",
+        "up",
+        "-d",
+        "--no-deps",
+        "es3"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f28-es2-1 Running \n Container es-framework-f28-es1-1 Running \n Container es-framework-f28-es3-1 Creating \n Container es-framework-f28-es3-1 Created \n Container es-framework-f28-es3-1 Starting \n Container es-framework-f28-es3-1 Started \n"
+    }
+  ]
+}

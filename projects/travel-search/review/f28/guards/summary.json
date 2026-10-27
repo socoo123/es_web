@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "command": [
+        "python3",
+        "projects/travel-search/labs/f28/lab.py",
+        "first",
+        "--out",
+        "projects/travel-search/review/f28/guards/existing-volumes"
+      ],
+      "exit_code": 1,
+      "expected_rejection": true,
+      "no_http_or_compose_mutation": true,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f28/lab.py\", line 205, in <module>\n    if __name__=='__main__':main()\n                            ^^^^^^\n  File \"/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f28/lab.py\", line 200, in main\n    else:globals()[a.stage]()\n         ^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f28/lab.py\", line 107, in first\n    check(p.returncode!=0,'First-start refuses existing F28 volume: '+volume+'; use existing/restart, or explicit reset for disposable lesson data.')\n  File \"/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f28/lab.py\", line 14, in check\n    if not ok: raise AssertionError(detail)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: First-start refuses existing F28 volume: es-framework-f28-n1-data; use existing/restart, or explicit reset for disposable lesson data.\n",
+      "reason": {
+        "stage": "first",
+        "error": "First-start refuses existing F28 volume: es-framework-f28-n1-data; use existing/restart, or explicit reset for disposable lesson data."
+      }
+    },
+    {
+      "command": [
+        "python3",
+        "projects/travel-search/labs/f28/lab.py",
+        "reset",
+        "--out",
+        "projects/travel-search/review/f28/guards/reset-without-delete-flag"
+      ],
+      "exit_code": 1,
+      "expected_rejection": true,
+      "no_http_or_compose_mutation": true,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f28/lab.py\", line 205, in <module>\n    if __name__=='__main__':main()\n                            ^^^^^^\n  File \"/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f28/lab.py\", line 199, in main\n    if a.stage=='reset':reset(a.delete_f28_data)\n                        ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f28/lab.py\", line 189, in reset\n    check(confirm,'reset requires --delete-f28-data; deletes ONLY four named disposable F28 volumes')\n  File \"/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f28/lab.py\", line 14, in check\n    if not ok: raise AssertionError(detail)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: reset requires --delete-f28-data; deletes ONLY four named disposable F28 volumes\n",
+      "reason": {
+        "stage": "reset",
+        "error": "reset requires --delete-f28-data; deletes ONLY four named disposable F28 volumes"
+      }
+    }
+  ]
+}

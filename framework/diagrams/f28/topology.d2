@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+entry: "本机浏览器 → Java 搜索服务\nJava 用 HTTP 连接 es2:9200\n宿主端口 19229" {class: card}
+two: "es2 · travel-f28-02\nmaster + data + ingest\n本次请求的协调节点；可保存分片" {class: card}
+one: "es1 · travel-f28-01\nmaster 候选；不保存业务分片\n当选者由实际 master_node 确认" {class: card}
+three: "es3 · travel-f28-03\nmaster + data；可保存分片\n每个主分片和它的副本分处 es2 / es3" {class: card}
+proof: "身份核对：三端点 GET / 的 UUID 相同\n_nodes 有 3 个节点，角色符合配置\n_cat/shards 有 2P + 2R，主副不在同节点" {class: card}
+entry -> two: HTTP 请求
+two <-> one: 容器网络 transport 9300
+one <-> three: 容器网络 transport 9300
+three -> proof: 用真实输出核对

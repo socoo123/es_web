@@ -1,0 +1,62 @@
+{
+  "reason": "join-rejection transport log precedes HTTP service startup; added explicit root-readiness wait before GET /",
+  "commands": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f28/compose.yaml",
+        "-f",
+        "projects/travel-search/infra/f28/join-wrong.yaml",
+        "stop",
+        "es3"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f28-es3-1 Stopping \n Container es-framework-f28-es3-1 Stopped \n"
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f28/compose.yaml",
+        "-f",
+        "projects/travel-search/infra/f28/join-wrong.yaml",
+        "rm",
+        "-f",
+        "es3"
+      ],
+      "exit": 0,
+      "stdout": "Going to remove es-framework-f28-es3-1\n",
+      "stderr": " Container es-framework-f28-es3-1 Removing \n Container es-framework-f28-es3-1 Removed \n"
+    },
+    {
+      "command": [
+        "docker",
+        "volume",
+        "rm",
+        "es-framework-f28-wrong-data"
+      ],
+      "exit": 0,
+      "stdout": "es-framework-f28-wrong-data\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f28/compose.yaml",
+        "up",
+        "-d",
+        "--no-deps",
+        "es3"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f28-es2-1 Running \n Container es-framework-f28-es1-1 Running \n Container es-framework-f28-es3-1 Creating \n Container es-framework-f28-es3-1 Created \n Container es-framework-f28-es3-1 Starting \n Container es-framework-f28-es3-1 Started \n"
+    }
+  ]
+}

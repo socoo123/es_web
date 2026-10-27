@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+fresh: "首次组群：三份全新数据目录\nseed_hosts 找候选节点\ninitial_master_nodes 在三节点写同一名单" {class: card}
+formed: "完成引导：共同的集群 UUID\n持久卷保存节点身份、元数据与数据分片\n此时移除 initial_master_nodes" {class: card}
+restart: "已有集群：保留三份原卷\n只用 compose.yaml 重建 / 完整重启\n不再带 bootstrap.yaml，不加 down -v" {class: card}
+verify: "重启后检查身份和内容\nUUID、3 个 node ID 不变；master 可变化\n6 份文档 / 完整字段 / 查询 p01、p02 不变" {class: card}
+wrong: "反例：es3 改挂专用空的 wrong-data\nsingle-node 会形成另一个 UUID\n改回 seed_hosts 不会合并已有集群" {class: card}
+fresh -> formed: 发现 + 首次引导
+formed -> restart: 保留持久身份
+restart -> verify: 等待分配完成后核对
+verify -> wrong: 另做受控错误实验，随后挂回原卷

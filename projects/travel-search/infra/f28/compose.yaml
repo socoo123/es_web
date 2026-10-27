@@ -1,0 +1,43 @@
+name: es-framework-f28
+x-common: &common
+  image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+  environment: &environment
+    cluster.name: travel-f28-lab
+    network.host: 0.0.0.0
+    transport.port: 9300
+    discovery.seed_hosts: es1:9300,es2:9300,es3:9300
+    xpack.security.enabled: "false"
+    xpack.ml.enabled: "false"
+    ES_JAVA_OPTS: -Xms256m -Xmx256m
+  mem_limit: 768m
+  ulimits:
+    nofile: {soft: 65535, hard: 65535}
+services:
+  es1:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f28-01
+      node.roles: master
+    ports: ["127.0.0.1:19228:9200"]
+    volumes: ["n1-data:/usr/share/elasticsearch/data"]
+  es2:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f28-02
+      node.roles: master,data,ingest
+    ports: ["127.0.0.1:19229:9200"]
+    volumes: ["n2-data:/usr/share/elasticsearch/data"]
+  es3:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f28-03
+      node.roles: master,data
+    ports: ["127.0.0.1:19230:9200"]
+    volumes: ["n3-data:/usr/share/elasticsearch/data"]
+volumes:
+  n1-data: {name: es-framework-f28-n1-data}
+  n2-data: {name: es-framework-f28-n2-data}
+  n3-data: {name: es-framework-f28-n3-data}

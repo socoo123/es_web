@@ -1,0 +1,219 @@
+{
+  "at": "2026-10-27T15:11:37.995415+00:00",
+  "status": "passed",
+  "reviewer": "root author self-review",
+  "independent_review": false,
+  "reasoning_runtime": "See reasoning.json; requested gpt-6.1-sol/max cannot be set/read back by this entry point.",
+  "chinese_chars_outside_code": 5299,
+  "cases": 3,
+  "teaching_http_per_round": 72,
+  "diagrams": 2,
+  "players": 0,
+  "drills": 8,
+  "pitfalls": 4,
+  "rounds": [
+    {
+      "round": 1,
+      "uuid": "J73brxk7TIC76PSrq_OdDw",
+      "node_ids": {
+        "travel-f28-02": "qwzzrFOtRPW7xIEwixvgoA",
+        "travel-f28-03": "J6lJ-wyiTG-Igl2E-SCPDA",
+        "travel-f28-01": "rND9p0eDTHKlXM19WD8qVw"
+      },
+      "master_initial": "travel-f28-02",
+      "master_after_restart": "travel-f28-03",
+      "master_after_mistake": "travel-f28-02",
+      "wrong_uuid": "M9WhjhTbScGWRFuoot0r9w",
+      "observed_diagnostic": "join_validation_rejected",
+      "teaching_http": 72,
+      "wait_http": 60,
+      "java_calls": 5,
+      "java_statuses": [
+        502,
+        200,
+        503,
+        200,
+        200
+      ],
+      "case_http": [
+        26,
+        22,
+        24
+      ],
+      "stages": {
+        "first": {
+          "stage": "first",
+          "passed": true,
+          "teaching_http": 12,
+          "wait_http": 32,
+          "commands": 6,
+          "boundaries": [
+            "one Docker VM, not three physical hosts",
+            "no routing, failure-election, capacity or performance claims",
+            "no authentication: loopback-only teaching endpoints"
+          ]
+        },
+        "prepare": {
+          "stage": "prepare",
+          "passed": true,
+          "teaching_http": 14,
+          "wait_http": 1,
+          "commands": 0,
+          "boundaries": [
+            "one Docker VM, not three physical hosts",
+            "no routing, failure-election, capacity or performance claims",
+            "no authentication: loopback-only teaching endpoints"
+          ]
+        },
+        "restart": {
+          "stage": "restart",
+          "passed": true,
+          "teaching_http": 22,
+          "wait_http": 15,
+          "commands": 5,
+          "boundaries": [
+            "one Docker VM, not three physical hosts",
+            "no routing, failure-election, capacity or performance claims",
+            "no authentication: loopback-only teaching endpoints"
+          ]
+        },
+        "mistake": {
+          "stage": "mistake",
+          "passed": true,
+          "teaching_http": 24,
+          "wait_http": 12,
+          "commands": 22,
+          "boundaries": [
+            "one Docker VM, not three physical hosts",
+            "no routing, failure-election, capacity or performance claims",
+            "no authentication: loopback-only teaching endpoints"
+          ]
+        }
+      }
+    },
+    {
+      "round": 2,
+      "uuid": "R5g1NciQR3-tPFU7KtduAQ",
+      "node_ids": {
+        "travel-f28-01": "ai3GibpjR9SUFF1JZFx47g",
+        "travel-f28-02": "JGKTSLr3RnyqYDpdCi29gg",
+        "travel-f28-03": "QngedE0cSyuitKE4NuITCA"
+      },
+      "master_initial": "travel-f28-03",
+      "master_after_restart": "travel-f28-03",
+      "master_after_mistake": "travel-f28-02",
+      "wrong_uuid": "53v6HVq8T2-WbUTW1BV4xg",
+      "observed_diagnostic": "independent_cluster_does_not_discover",
+      "teaching_http": 72,
+      "wait_http": 62,
+      "java_calls": 5,
+      "java_statuses": [
+        502,
+        200,
+        503,
+        200,
+        200
+      ],
+      "case_http": [
+        26,
+        22,
+        24
+      ],
+      "stages": {
+        "first": {
+          "stage": "first",
+          "passed": true,
+          "teaching_http": 12,
+          "wait_http": 32,
+          "commands": 6,
+          "boundaries": [
+            "one Docker VM, not three physical hosts",
+            "no routing, failure-election, capacity or performance claims",
+            "no authentication: loopback-only teaching endpoints"
+          ]
+        },
+        "prepare": {
+          "stage": "prepare",
+          "passed": true,
+          "teaching_http": 14,
+          "wait_http": 1,
+          "commands": 0,
+          "boundaries": [
+            "one Docker VM, not three physical hosts",
+            "no routing, failure-election, capacity or performance claims",
+            "no authentication: loopback-only teaching endpoints"
+          ]
+        },
+        "restart": {
+          "stage": "restart",
+          "passed": true,
+          "teaching_http": 22,
+          "wait_http": 17,
+          "commands": 5,
+          "boundaries": [
+            "one Docker VM, not three physical hosts",
+            "no routing, failure-election, capacity or performance claims",
+            "no authentication: loopback-only teaching endpoints"
+          ]
+        },
+        "mistake": {
+          "stage": "mistake",
+          "passed": true,
+          "teaching_http": 24,
+          "wait_http": 12,
+          "commands": 36,
+          "boundaries": [
+            "one Docker VM, not three physical hosts",
+            "no routing, failure-election, capacity or performance claims",
+            "no authentication: loopback-only teaching endpoints"
+          ]
+        }
+      }
+    }
+  ],
+  "checks": [
+    {
+      "topic": "业务位置",
+      "finding": "从F27的单进程进入运行拓扑；用相同查询和完整数据证明身份/角色/副本，Pages与本机服务职责明确。"
+    },
+    {
+      "topic": "身份",
+      "finding": "同名不等于同UUID，三入口/三成员/实际master交叉核对，跨独立轮次UUID不同、每轮内部一致。"
+    },
+    {
+      "topic": "角色与端口",
+      "finding": "三个master候选/两个data/一个ingest；每节点都协调，master与当选master分开；宿主HTTP与容器transport地址空间明确。"
+    },
+    {
+      "topic": "首启与持久重启",
+      "finding": "初始名单只在新卷首启；实际移除后重建/完整重启，保留原UUID与node ID。master和主副归属允许变化。"
+    },
+    {
+      "topic": "业务数据",
+      "finding": "2P+2R、p/r不同数据节点、全6份_source/字段/计数、固定查询三入口p01/p02、60元/0元，不以green或_count代替完整内容。"
+    },
+    {
+      "topic": "Java",
+      "finding": "复用F07无新增Controller；完整查询/失败分支及客户端/异常源码可见，DSL与REST精确相等并实际重放，单入口客户端不声称HA。"
+    },
+    {
+      "topic": "反例与恢复",
+      "finding": "专用错误空卷形成另一UUID，改seed不合并；实际日志区分明确拒绝和独立集群不发现；只删错误空卷、挂回原卷后完整核对。"
+    },
+    {
+      "topic": "章节边界",
+      "finding": "无F29实现，不教routing或故障选举；同Docker VM不证明跨机器容灾，ingest只核角色，不冒称管道执行。"
+    },
+    {
+      "topic": "可读与重做",
+      "finding": "880px、双主题、局部滚动/展开、复制、独立已读、8折叠练习/4陷阱；重启与删除数据重做明确分开。"
+    }
+  ],
+  "limitations": [
+    "one Docker VM, no physical-host fault tolerance",
+    "no routing/failure election/scaling/capacity/performance/security/CDC validation",
+    "ingest role only, no pipeline execution",
+    "unchanged single ES_URL Java client, no automatic endpoint discovery/failover",
+    "HTTP reading, actual visual review, Java build and ES cluster receipts are separate"
+  ]
+}

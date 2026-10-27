@@ -1,0 +1,183 @@
+{
+  "at": "2026-10-27T15:14:21.427173+00:00",
+  "commands": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/infra/f28/compose.yaml",
+        "down"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": " Container es-framework-f28-es1-1 Stopping \n Container es-framework-f28-es2-1 Stopping \n Container es-framework-f28-es3-1 Stopping \n Container es-framework-f28-es1-1 Stopped \n Container es-framework-f28-es1-1 Removing \n Container es-framework-f28-es1-1 Removed \n Container es-framework-f28-es3-1 Stopped \n Container es-framework-f28-es3-1 Removing \n Container es-framework-f28-es2-1 Stopped \n Container es-framework-f28-es2-1 Removing \n Container es-framework-f28-es3-1 Removed \n Container es-framework-f28-es2-1 Removed \n Network es-framework-f28_default Removing \n Network es-framework-f28_default Removed \n"
+    },
+    {
+      "command": [
+        "docker",
+        "ps",
+        "-a",
+        "--filter",
+        "label=com.docker.compose.project=es-framework-f28",
+        "--format",
+        "{{.Names}}"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "network",
+        "inspect",
+        "es-framework-f28_default"
+      ],
+      "exit_code": 1,
+      "stdout": "[]\n",
+      "stderr": "Error response from daemon: network es-framework-f28_default not found\n"
+    },
+    {
+      "command": [
+        "docker",
+        "volume",
+        "inspect",
+        "es-framework-f28-n1-data"
+      ],
+      "exit_code": 0,
+      "stdout": "[\n    {\n        \"CreatedAt\": \"2026-10-27T23:06:31+08:00\",\n        \"Driver\": \"local\",\n        \"Labels\": {\n            \"com.docker.compose.config-hash\": \"d21d2ceea3fbcafffb1027af223b93ec3c637598e02e00046785fd30dd299116\",\n            \"com.docker.compose.project\": \"es-framework-f28\",\n            \"com.docker.compose.version\": \"5.2.0\",\n            \"com.docker.compose.volume\": \"n1-data\"\n        },\n        \"Mountpoint\": \"/var/lib/docker/volumes/es-framework-f28-n1-data/_data\",\n        \"Name\": \"es-framework-f28-n1-data\",\n        \"Options\": null,\n        \"Scope\": \"local\"\n    }\n]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "volume",
+        "inspect",
+        "es-framework-f28-n2-data"
+      ],
+      "exit_code": 0,
+      "stdout": "[\n    {\n        \"CreatedAt\": \"2026-10-27T23:06:31+08:00\",\n        \"Driver\": \"local\",\n        \"Labels\": {\n            \"com.docker.compose.config-hash\": \"46306b359ad30841948e8ee3ba3d59ab5e170b380d6d4cff975b30529bcdf4ff\",\n            \"com.docker.compose.project\": \"es-framework-f28\",\n            \"com.docker.compose.version\": \"5.2.0\",\n            \"com.docker.compose.volume\": \"n2-data\"\n        },\n        \"Mountpoint\": \"/var/lib/docker/volumes/es-framework-f28-n2-data/_data\",\n        \"Name\": \"es-framework-f28-n2-data\",\n        \"Options\": null,\n        \"Scope\": \"local\"\n    }\n]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "volume",
+        "inspect",
+        "es-framework-f28-n3-data"
+      ],
+      "exit_code": 0,
+      "stdout": "[\n    {\n        \"CreatedAt\": \"2026-10-27T23:06:31+08:00\",\n        \"Driver\": \"local\",\n        \"Labels\": {\n            \"com.docker.compose.config-hash\": \"68fa012a70cac87879da394d2b7867c7f74ec63a647a49894a3eee60dbfce3a3\",\n            \"com.docker.compose.project\": \"es-framework-f28\",\n            \"com.docker.compose.version\": \"5.2.0\",\n            \"com.docker.compose.volume\": \"n3-data\"\n        },\n        \"Mountpoint\": \"/var/lib/docker/volumes/es-framework-f28-n3-data/_data\",\n        \"Name\": \"es-framework-f28-n3-data\",\n        \"Options\": null,\n        \"Scope\": \"local\"\n    }\n]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "volume",
+        "inspect",
+        "es-framework-f28-wrong-data"
+      ],
+      "exit_code": 1,
+      "stdout": "[]\n",
+      "stderr": "Error response from daemon: get es-framework-f28-wrong-data: no such volume\n"
+    }
+  ],
+  "scope": "Only F28 index/Java PID/compose containers and network; preserve three normal volumes/image and original secure node.",
+  "pre_existing_secure_before": {
+    "Pid": 55523,
+    "StartedAt": "2026-10-13T14:50:26.458013369Z",
+    "Running": true,
+    "Status": "running",
+    "HealthStatus": "healthy"
+  },
+  "final_identity": {
+    "uuid": "R5g1NciQR3-tPFU7KtduAQ",
+    "node_ids": {
+      "travel-f28-02": "JGKTSLr3RnyqYDpdCi29gg",
+      "travel-f28-03": "QngedE0cSyuitKE4NuITCA",
+      "travel-f28-01": "ai3GibpjR9SUFF1JZFx47g"
+    },
+    "roles": {
+      "travel-f28-02": [
+        "data",
+        "ingest",
+        "master"
+      ],
+      "travel-f28-03": [
+        "data",
+        "master"
+      ],
+      "travel-f28-01": [
+        "master"
+      ]
+    },
+    "master_node": "JGKTSLr3RnyqYDpdCi29gg",
+    "master_name": "travel-f28-02",
+    "es": {
+      "number": "9.4.0",
+      "build_flavor": "default",
+      "build_type": "docker",
+      "build_hash": "2e8528e92361c3399724226deaf2b46f933e925b",
+      "build_date": "2026-04-30T15:05:34.751113474Z",
+      "build_snapshot": false,
+      "lucene_version": "10.4.0",
+      "minimum_wire_compatibility_version": "8.19.0",
+      "minimum_index_compatibility_version": "8.0.0"
+    },
+    "jvm": {
+      "travel-f28-02": "26.0.1",
+      "travel-f28-03": "26.0.1",
+      "travel-f28-01": "26.0.1"
+    },
+    "bootstrap_present": false
+  },
+  "f28_before_cleanup": [
+    {
+      "node": 1,
+      "running": true,
+      "oom_killed": false,
+      "started_at": "2026-10-27T15:07:56.889166511Z"
+    },
+    {
+      "node": 2,
+      "running": true,
+      "oom_killed": false,
+      "started_at": "2026-10-27T15:07:56.888242307Z"
+    },
+    {
+      "node": 3,
+      "running": true,
+      "oom_killed": false,
+      "started_at": "2026-10-27T15:09:40.595615943Z"
+    }
+  ],
+  "java_cleanup": {
+    "pid": 95889,
+    "command_verified": "/tmp/es-f07-tooling/jdk-25.0.4.1+1/Contents/Home/bin/java -jar target/travel-search-0.7.0.jar",
+    "signal": "SIGTERM",
+    "port_18081_closed": true
+  },
+  "pre_existing_secure_after": {
+    "Pid": 55523,
+    "StartedAt": "2026-10-13T14:50:26.458013369Z",
+    "Running": true,
+    "Status": "running",
+    "HealthStatus": "healthy"
+  },
+  "secure_unchanged_fields": [
+    "Pid",
+    "StartedAt",
+    "Running",
+    "Status",
+    "HealthStatus"
+  ],
+  "secure_container_id_not_claimed": "Baseline captured State only; no initial container ID available.",
+  "passed": true,
+  "preserved_volumes": [
+    "es-framework-f28-n1-data",
+    "es-framework-f28-n2-data",
+    "es-framework-f28-n3-data"
+  ],
+  "wrong_volume_absent": true
+}

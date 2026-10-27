@@ -1,0 +1,10 @@
+# Deliberate error: es3 gets a NEW disposable data directory.
+# Original n3-data is retained, never edited or removed by this case.
+services:
+  es3:
+    environment:
+      discovery.type: single-node
+      discovery.seed_hosts: 127.0.0.1:9300
+    volumes: ["wrong-data:/usr/share/elasticsearch/data"]
+volumes:
+  wrong-data: {name: es-framework-f28-wrong-data}
