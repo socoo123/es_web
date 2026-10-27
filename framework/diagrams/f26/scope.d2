@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+offers: "前2条报价 → o01 / o05\n核对总价100000 / 120000分\n酒店内便宜报价也可能没进来" {class: card}
+hotels: "前2家酒店 → h01 / h02\n完整核对这两家的5条报价\n最低总价80000 / 100000分" {class: card}
+outside: "候选范围外的h04 / h05\n起价各30000分，比前两家起价高\n两晚却各60000分，比两家总价都低" {class: card}
+full: "全部10条候选逐晚核对\n7条合格offer / 4家合格酒店\nh04 / h05 / h01 / h02" {class: card}
+limit: "精确只属于这份固定快照与条件\n两晚 / 一间 / CNY，不含税费\n省略实时供价、并发更新和订单" {class: card}
+offers -> hotels: 扩大酒店内范围
+hotels -> outside: 仍可能遗漏酒店 {style.stroke-dash: 4}
+outside -> full: 扩大为完整候选集合
+full -> limit: 同价按hotel_id稳定排列

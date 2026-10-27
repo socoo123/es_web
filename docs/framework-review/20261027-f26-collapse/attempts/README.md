@@ -1,0 +1,9 @@
+# F26 探索记录（不是正式通过证据）
+
+正式前的两次命令从backend目录引用仓库根路径，报FileNotFoundError，未改变业务资源；修正工作目录后继续。初始GET mapping断言发现ES省略默认doc_values:true，改为仅规范化该项后完整比对。Java按官方客户端将collapse.inner_hits序列化成数组；固定REST图源也改为数组语法，再精确比较完整JSON，不放松比较。
+
+f26-explore首次准备在mapping比较处停止；f26-explore2的prepare/collapse/inner通过，stays在top-hotels的inner_hits对象/数组表示比较处停止；f26-explore3验证修正后的Java与附加错误。其后为o07补上离店日3日记录，形成1日/3日两端间缺2日的清楚反例，重新生成资料、构建并重新执行正式两轮。这些探索不与round1/round2混合统计。
+
+阅读首轮完成12组及全部交互后，在最终本地链接检查发现尚未生成content-review.json而停止；补齐收据后重做。观察窗初始脚本使用inner_text读取折叠区，返回空字符串，0次Java调用前停止；改用text_content读取完整JSON，不改产品。初始JSON与日志保留，不计最终通过。
+
+最终复核：原组溢出注入min_price=5000让未知附加报价抢到代表位，Java可能先因未知资料拒绝，不能据此单独证明组截断分支。最终lab改为组测试价格999999，保持已知o01代表；额外真实REST断言代表源相等、组total14/返回10，再调用Java502。附加HTTP由28增至29，正式两轮重做；原两轮移至pre-guard目录，不作为最终组截断证据。产品Java代码没有改动。

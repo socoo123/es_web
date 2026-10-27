@@ -1,0 +1,143 @@
+{
+  "size": 10,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "hotel_status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "term": {
+            "offer_status": {
+              "value": "active"
+            }
+          }
+        },
+        {
+          "term": {
+            "bed_type": {
+              "value": "twin"
+            }
+          }
+        },
+        {
+          "term": {
+            "meal": {
+              "value": "breakfast"
+            }
+          }
+        },
+        {
+          "term": {
+            "cancellation": {
+              "value": "flexible"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "range": {
+            "capacity": {
+              "gte": 2.0
+            }
+          }
+        },
+        {
+          "range": {
+            "window_start": {
+              "lte": "2026-11-01"
+            }
+          }
+        },
+        {
+          "range": {
+            "window_end_exclusive": {
+              "gte": "2026-11-03"
+            }
+          }
+        },
+        {
+          "range": {
+            "max_available_rooms": {
+              "gte": 1.0
+            }
+          }
+        },
+        {
+          "exists": {
+            "field": "min_price_minor"
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "min_price_minor": {
+        "order": "asc"
+      }
+    },
+    {
+      "hotel_id": {
+        "order": "asc"
+      }
+    },
+    {
+      "offer_id": {
+        "order": "asc"
+      }
+    }
+  ],
+  "aggregations": {
+    "candidate_hotels": {
+      "cardinality": {
+        "field": "hotel_id",
+        "precision_threshold": 100
+      }
+    }
+  },
+  "collapse": {
+    "field": "hotel_id",
+    "inner_hits": [
+      {
+        "name": "offers",
+        "size": 2,
+        "sort": [
+          {
+            "min_price_minor": {
+              "order": "asc"
+            }
+          },
+          {
+            "hotel_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "offer_id": {
+              "order": "asc"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

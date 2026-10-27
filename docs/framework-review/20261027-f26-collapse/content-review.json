@@ -1,0 +1,68 @@
+{
+  "at": "2026-10-27T01:24:54.795963+00:00",
+  "reviewer": "root author self-review; no independent agent",
+  "scope": "F26 only and required navigation/current summaries/shared project",
+  "status": "passed with stated runtime and scale limits",
+  "findings": [
+    {
+      "topic": "Teaching order",
+      "result": "Business question before ES definitions, sample, full DSL/Java, actual outputs and counterexamples; 7 exercises, 3 pitfalls, next F27 rationale."
+    },
+    {
+      "topic": "Three collections",
+      "result": "16 offer documents/9 hotels in input; ES 10 candidates/6 hotels; fixed nightly eligibility 7 offers/4 hotels. Hits total, returned group size, inner total and cardinality estimate kept distinct."
+    },
+    {
+      "topic": "Collapse semantics",
+      "result": "One representative per single-valued keyword hotel_id, explicit doc_values; outer order independent from inner size/order; original query plus hotel filter verified in fixed source and actual full group expansions."
+    },
+    {
+      "topic": "Lowest-price scope",
+      "result": "h01 room-only o04 excluded by meal, root o01 min nightly10000 differs from stay100000; hotel minimum o02 stay80000; no min nightly times nights shortcut. CNY/one room/two adult/Nov1-3 fixed; no tax/FX/booking guarantee."
+    },
+    {
+      "topic": "Top K counterexamples",
+      "result": "2 offers misses lower stay totals inside hotels; 2 whole hotels misses h04/h05 outside scope, each stay60000. Complete fixed10 collection yields h04,h05,h01,h02; all within-hotel offer IDs/order independently asserted."
+    },
+    {
+      "topic": "Completeness and errors",
+      "result": "All set size100 and selected group inner size10 are limits, not exactness guarantees; require relation eq and returned cardinality equality. Real overflow/stale/source errors fail502; actual invalid400/index502/stopped ES503 recover. Timeout/partial shard guards not fault-injected."
+    },
+    {
+      "topic": "Java parity",
+      "result": "Three complete requests exactly match canonical REST JSON, actual replay compares all hits/source/ID/sort/total/inner_hits, normalizing only omitted null scoring values. Snapshot/source exact equality and entire nightly rows checked."
+    },
+    {
+      "topic": "Version evidence",
+      "result": "ES9.4.0/Lucene10.4.0/Boot4.0.8/application JDK25.0.4.1+1/client9.4.8; bundled ES JVM26.0.1+8 separate. Fixed source files match official bytes; no benchmark claims."
+    },
+    {
+      "topic": "Engineering integration",
+      "result": "Only F26 controller/service/input, static supplied shell, fixed resources and POM extra resource; existing earlier lesson behavior not redesigned. Main starts read-only file snapshot and no frontend code taught."
+    },
+    {
+      "topic": "Recovery and reproducibility",
+      "result": "Each formal round starts with named index deletion/404; explicit refresh -1 and single node; conflicts recorded; receipts never overwritten. Temporary injected docs deleted by ID, source restored."
+    },
+    {
+      "topic": "Final guard-test refinement",
+      "result": "Unknown injected offers are priced999999 in group-overflow case so known o01 remains representative; extra REST proves exact source and inner total14/returned10 before Java502. Final two rounds repeat with 29 added HTTP operations. Java product implementation unchanged; former receipts preserved in attempts."
+    }
+  ],
+  "limitations": [
+    "Runtime model/reasoning configuration not settable/readable here; no claim that requested gpt-6.1-sol/max is enabled.",
+    "No independent reviewer; author reviewed all teaching/code/diagram/answer scopes.",
+    "Immutable prepared synthetic snapshot only. No representative performance, large data full traversal, multishard/node, random concurrency, live pricing, production security or inventory transaction.",
+    "F27 final exercise is manual inference, not an implemented additional hotel."
+  ],
+  "corrections": [
+    {
+      "old": "Raw GET mapping expected to echo explicit default doc_values:true",
+      "new": "Compare whole mapping after removing only that default from expected schema; actual collapse requires it."
+    },
+    {
+      "old": "Canonical collapse inner_hits object differed from Java serialized list",
+      "new": "Use official accepted array syntax, compare exact JSON."
+    }
+  ]
+}

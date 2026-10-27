@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+query: "完整条件先筛选\n含早 / 可退 / CNY / 双床\n日期两端与库存摘要仍只是必要条件" {class: card}
+flat: "匹配10条offer · 6家候选酒店\nhits.total=10 · cardinality本次=6\n完整10条去重才确认酒店数6" {class: card}
+group: "按hotel_id折叠\n外层按单晚起价、酒店ID、报价ID升序\nh01代表o01：起价10000分" {class: card}
+inner: "inner_hits展开当前匹配报价\nh01合格于ES条件的报价共3条\nsize=2仅返回o01 / o02" {class: card}
+boundary: "折叠没有改变聚合或文档总数\n代表报价、展示条数、组内总数各有含义\n起价和入住总价仍需分开" {class: card}
+query -> flat: 匹配报价
+flat -> group: 同酒店选排序第一条
+group -> inner: 原查询加酒店条件
+inner -> boundary: 阅读各自范围
