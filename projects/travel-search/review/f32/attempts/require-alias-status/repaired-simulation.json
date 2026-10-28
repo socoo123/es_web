@@ -1,0 +1,51 @@
+{
+  "template": {
+    "settings": {
+      "index": {
+        "routing": {
+          "allocation": {
+            "include": {
+              "_tier_preference": "data_content"
+            }
+          }
+        },
+        "refresh_interval": "-1",
+        "number_of_shards": "2",
+        "number_of_replicas": "1"
+      }
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "attraction_id": {
+          "type": "keyword"
+        },
+        "city_code": {
+          "type": "keyword"
+        },
+        "currency": {
+          "type": "keyword"
+        },
+        "location": {
+          "type": "geo_point"
+        },
+        "name": {
+          "type": "text",
+          "analyzer": "whitespace"
+        },
+        "source_batch": {
+          "type": "keyword"
+        },
+        "status": {
+          "type": "keyword"
+        },
+        "ticket_price_fen": {
+          "type": "integer",
+          "coerce": false
+        }
+      }
+    },
+    "aliases": {}
+  },
+  "overlapping": []
+}

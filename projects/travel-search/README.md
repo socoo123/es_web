@@ -205,3 +205,5 @@ F29 独立三节点与路由实验入口：[labs/f29/README.md](labs/f29/README.
 F30独立四进程故障与恢复入口：[labs/f30/README.md](labs/f30/README.md)；复用F07单入口观察窗，分别核对投票多数、业务分片与入口错误；真实两轮、资源试案OOM及恢复见[review/f30](review/f30/README.md)。
 
 F31独立分配与扩缩容入口：[labs/f31/README.md](labs/f31/README.md)；复用F07观察窗，实际核对same_shard/filter/disk_threshold拒绝、加入第三数据节点、排空后停机与split/shrink/reindex条件。两轮81教学REST＋7 Java调用及快照边界见[review/f31](review/f31/README.md)。
+
+F32独立模板与读写alias入口：[labs/f32/README.md](labs/f32/README.md)；复用F07搜索与观察窗，ES_INDEX固定read alias，写入用独立官方客户端。两轮85教学REST＋6 Java搜索＋6客户端写入，优先级/模拟/实际继承、唯一写索引与错误恢复见[review/f32](review/f32/README.md)。

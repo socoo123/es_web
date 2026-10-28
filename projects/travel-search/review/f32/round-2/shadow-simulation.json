@@ -1,0 +1,35 @@
+{
+  "template": {
+    "settings": {
+      "index": {
+        "routing": {
+          "allocation": {
+            "include": {
+              "_tier_preference": "data_content"
+            }
+          }
+        },
+        "refresh_interval": "-1",
+        "number_of_shards": "3",
+        "number_of_replicas": "0"
+      }
+    },
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "name": {
+          "type": "keyword"
+        }
+      }
+    },
+    "aliases": {}
+  },
+  "overlapping": [
+    {
+      "name": "tut-f32-attractions",
+      "index_patterns": [
+        "tut-f32-attractions-v*"
+      ]
+    }
+  ]
+}

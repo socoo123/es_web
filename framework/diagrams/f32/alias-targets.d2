@@ -1,0 +1,22 @@
+grid-columns: 1
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+read: "查询入口 · attractions-read" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "浏览器 → Java → read alias → 目标索引\nES_INDEX 固定为 tut-f32-attractions-read" {class: card}
+  b: "读 v001：p01 为 60 元\n误读 v001 + v002：4 条命中，业务 ID 重复" {class: card}
+  c: "读空 v003：HTTP 200，0 条\n修到 v002：p01 为 65 元；应用没有重启" {class: card}
+}
+write: "写入入口 · attractions-write" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "写入任务 → write alias → 唯一写索引\n最终 v001 = false，v002 = true，p08 落 v002" {class: card}
+  b: "is_write_index 只决定写入目标\n用这个 alias 搜索仍会覆盖两个目标" {class: card}
+  c: "require_alias = true 检查目标确为 alias\n它不验证指向、字段或资料是否正确" {class: card}
+}
+boundary: "入口与数据各自核对" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "两个 alias 独立，不复制或追平数据\nv001 有 p07；v002 有 p08；没有跨版本去重" {class: card}
+  b: "read / write 是本课命名约定\n授权与凭据留给 F35；迁移流程留给 F33" {class: card}
+}

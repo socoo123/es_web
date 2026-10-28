@@ -1,0 +1,39 @@
+name: es-framework-f32
+x-common: &common
+  image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+  labels: {esweb.lesson: f32}
+  mem_limit: 640m
+  environment: &environment
+    cluster.name: travel-f32-lab
+    network.host: 0.0.0.0
+    transport.port: 9300
+    discovery.seed_hosts: n1:9300
+    xpack.security.enabled: "false"
+    xpack.ml.enabled: "false"
+    ES_JAVA_OPTS: -Xms192m -Xmx192m
+  ulimits:
+    nofile: {soft: 65535, hard: 65535}
+services:
+  n1:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f32-n1
+      node.roles: master,data,ingest
+    ports: ["127.0.0.1:19632:9200"]
+    volumes: ["n1-data:/usr/share/elasticsearch/data"]
+  n2:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f32-n2
+      node.roles: data
+    ports: ["127.0.0.1:19633:9200"]
+    volumes: ["n2-data:/usr/share/elasticsearch/data"]
+volumes:
+  n1-data:
+    name: es-framework-f32-n1-data
+    labels: {esweb.lesson: f32}
+  n2-data:
+    name: es-framework-f32-n2-data
+    labels: {esweb.lesson: f32}
