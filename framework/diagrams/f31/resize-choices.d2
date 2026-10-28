@@ -1,0 +1,25 @@
+grid-columns: 1
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+source: "固定快照 · 6 份景点资料" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "tut-f31-attractions：2 主 / routing shards = 8\n添加节点只改变放置；不会自动改变主片数" {class: card}
+}
+split: "split · 新目标 4 主" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "源停止写入，目标不存在，磁盘可容纳操作\n4 是 2 的倍数，且整除显式 routing shards 8" {class: card}
+  b: "目标 3 不满足倍数；目标 6 不整除 8\n本课合法：2 → 4；不是原索引原地加片" {class: card}
+}
+shrink: "shrink · 新目标 2 主" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "split4 源停止写入、绿色\n每个源分片至少一份同在 n1；2 整除 4" {class: card}
+  b: "四片分散两节点时拒绝；集中后 4 → 2\n目标清除临时 require；仍须核对字段与查询" {class: card}
+}
+reindex: "reindex · 新目标 3 主" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "另建 3 主目标及完整 mapping；源可读 _source\n重新读取并写入文档；不用 split 的倍数条件" {class: card}
+  b: "三个目标都不是持续同步链路\n源 p01 后改成 65 元，目标仍是快照中的 60 元" {class: card}
+}

@@ -1,0 +1,37 @@
+{
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "refresh_interval": "-1",
+    "number_of_routing_shards": 8,
+    "routing.allocation.require._name": "travel-f31-n1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "whitespace"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "ticket_price_fen": {
+        "type": "integer",
+        "coerce": false
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "location": {
+        "type": "geo_point"
+      }
+    }
+  }
+}

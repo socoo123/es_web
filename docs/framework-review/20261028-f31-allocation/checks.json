@@ -1,0 +1,96 @@
+{
+  "at": "2026-10-28T11:38:03.113058+00:00",
+  "checks": [
+    {
+      "command": [
+        "node",
+        "tools/check.mjs"
+      ],
+      "exit_code": 0,
+      "stdout": "✓ 章节骨架:30 页齐全(stub 0 / 正式 30)\n✓ index 卡片与链接一致\n✓ 注册表:实验 823 个,动画 22 个\n✓ 章节页 data-exp / data-flow 引用全部可解析\n✓ 版本锚点、Bulk 换行与深链凭据检查通过\n✓ 框架篇:31 课结构、链接与工程片段已检查\n\n全部通过 ✅\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "tools/sync-framework-code.mjs",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "框架篇代码片段与工程文件一致\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f31/compose.yaml",
+        "--profile",
+        "extra",
+        "config",
+        "-q"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f31/compose.yaml",
+        "-f",
+        "projects/travel-search/infra/f31/bootstrap.yaml",
+        "--profile",
+        "extra",
+        "config",
+        "-q"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "python_files": [
+    "docs/framework-review/20261028-f31-allocation/generate-diagrams.py",
+    "docs/framework-review/20261028-f31-allocation/monitor-existing.py",
+    "docs/framework-review/20261028-f31-allocation/content-review.py",
+    "docs/framework-review/20261028-f31-allocation/checks.py",
+    "docs/framework-review/20261028-f31-allocation/observe-shell.py",
+    "docs/framework-review/20261028-f31-allocation/reading-review.py",
+    "docs/framework-review/20261028-f31-allocation/record-runtime.py",
+    "docs/framework-review/20261028-f31-allocation/visual-detail.py",
+    "docs/framework-review/20261028-f31-allocation/make-contacts.py",
+    "projects/travel-search/labs/f31/lab.py"
+  ],
+  "json_files": 101,
+  "jsonl_ndjson_lines": 682,
+  "diagram_and_visual_hashes_match": true,
+  "shared_backend_unchanged": true,
+  "nojekyll_present": true,
+  "java": "actual clean build/dependency tree/runtime separately recorded; no test source",
+  "passed": true
+}

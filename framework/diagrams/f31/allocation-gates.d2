@@ -1,0 +1,21 @@
+grid-columns: 1
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+filter: "案例一 · 为 0 号分片再放一份副本" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "n1 已有这组分片的主片\nsame_shard = NO：同组两份不能同节点" {class: card}
+  b: "require._name 只准 n1\nn2 与新增 n3：filter = NO" {class: card}
+  c: "移除索引级 require，保留 2 主 / 每主 1 副\n四份拷贝 STARTED；逐份核对 6 个景点" {class: card}
+}
+disk: "案例二 · 合格节点还要有磁盘余量" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "人为要求至少 10 TiB 可用；实际远低于此\n增加每主第 2 份副本：disk_threshold = NO" {class: card}
+  b: "恢复低 / 高 / flood 阈值后等六份启动\n再回到每主 1 副；没有实际写满磁盘" {class: card}
+}
+drain: "缩容 · 先迁走，再停数据节点" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "exclude n2 → 等待迁移完成、n2 零分片\n确认 PEER / DONE、字段与搜索结果，再停 n2" {class: card}
+  b: "n1 + n3 仍保存四份拷贝\n最后恢复 n2，排空 n3，回到初始两节点" {class: card}
+}
