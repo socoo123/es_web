@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+a: "初态：1 主 + 1 副，分居 m3 / d1\n实验前确认 master 在 m1 / m2" {class: card}
+b: "停实际主片节点\n存活的同步副本提升；primary term 增长\nyellow：搜索成功，1 拷贝确认改价" {class: card}
+c: "原节点带原卷回归\nPEER 恢复完成，逐份核对 7000 分\ngreen：两份拷贝再次可用" {class: card}
+d: "再同时停 m3 / d1\nm1 / m2 保留 2 票与 master；业务主片不可用\nred：搜索 / 写入失败，元数据仍可修改" {class: card}
+e: "两数据节点带原卷回归\n等待分片 STARTED，再核对 6 份完整字段\n恢复后的 p01 = 7000 分" {class: card}
+a -> b: 检测节点失联后重新分配角色
+b -> c: 回归与同步，不能只看进程启动
+c -> d: 独立的第二次数据故障
+d -> e: 恢复原有数据拷贝

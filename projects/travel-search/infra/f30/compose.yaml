@@ -1,0 +1,67 @@
+name: es-framework-f30
+x-common: &common
+  image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+  labels: {esweb.lesson: f30}
+  environment: &environment
+    cluster.name: travel-f30-lab
+    network.host: 0.0.0.0
+    transport.port: 9300
+    discovery.seed_hosts: m1:9300,m2:9300,m3:9300
+    xpack.security.enabled: "false"
+    xpack.ml.enabled: "false"
+  ulimits:
+    nofile: {soft: 65535, hard: 65535}
+services:
+  m1:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f30-m1
+      node.roles: master
+      ES_JAVA_OPTS: -Xms128m -Xmx128m
+    mem_limit: 512m
+    ports: ["127.0.0.1:19430:9200"]
+    volumes: ["m1-data:/usr/share/elasticsearch/data"]
+  m2:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f30-m2
+      node.roles: master
+      ES_JAVA_OPTS: -Xms128m -Xmx128m
+    mem_limit: 512m
+    ports: ["127.0.0.1:19431:9200"]
+    volumes: ["m2-data:/usr/share/elasticsearch/data"]
+  m3:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f30-m3
+      node.roles: master,data,ingest
+      ES_JAVA_OPTS: -Xms192m -Xmx192m
+    mem_limit: 640m
+    ports: ["127.0.0.1:19432:9200"]
+    volumes: ["m3-data:/usr/share/elasticsearch/data"]
+  d1:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f30-d1
+      node.roles: data
+      ES_JAVA_OPTS: -Xms192m -Xmx192m
+    mem_limit: 640m
+    ports: ["127.0.0.1:19433:9200"]
+    volumes: ["d1-data:/usr/share/elasticsearch/data"]
+volumes:
+  m1-data:
+    name: es-framework-f30-m1-data
+    labels: {esweb.lesson: f30}
+  m2-data:
+    name: es-framework-f30-m2-data
+    labels: {esweb.lesson: f30}
+  m3-data:
+    name: es-framework-f30-m3-data
+    labels: {esweb.lesson: f30}
+  d1-data:
+    name: es-framework-f30-d1-data
+    labels: {esweb.lesson: f30}
