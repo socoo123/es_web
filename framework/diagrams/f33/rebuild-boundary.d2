@@ -1,0 +1,22 @@
+grid-columns: 1
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+first: "1 · 完成一次复制，不代表建立同步" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "v001 · name = keyword，1 主 / 每主 1 副\np01 = 6000 分；p02 存在；p07 不存在" {class: card}
+  b: "_source → reindex → 按目标 mapping 重新索引\nv002 · name = text / whitespace，2 主 / 每主 1 副" {class: card}
+  c: "复制结束后：两版均为 6 条，字段相同\n旧版查询西湖为 0；新版命中 p01、p02" {class: card}
+}
+drift: "2 · 旧版继续变化，条数可以掩盖差异" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "旧版改 p01 = 6500 分，删除 p02，新增 p07\nv001 与 v002 仍各 6 条，ID 与价格已经不同" {class: card}
+  b: "向非空 v002 再次 reindex：5 更新 + 1 新建\n源中没有 p02，不会自动删除目标中的 p02 → 7 条" {class: card}
+}
+freeze: "3 · 本课采用可核对的暂停写入窗口" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "暂停全部写入者 → v001 添加 write block → refresh\n写 p09 返回 403；查询入口仍读 v001" {class: card}
+  b: "删除尚未上线的 v002 → 按新配置重建 → reindex\n两版均 6 条；全 ID / 字段一致；p02 两边均不存在" {class: card}
+  c: "目标查询验证：p01 = 6500 分，p07 = 1500 分\n满足门槛后才能切换；持续追平留给 F41" {class: card}
+}

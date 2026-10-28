@@ -1,0 +1,22 @@
+grid-columns: 1
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+before: "A · 暂停写入，完成新旧核对" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "浏览器 → 同一 Java 进程 → attractions-read → v001\n写入任务 → attractions-write → v001（写阻断）" {class: card}
+  b: "read / write 均只挂一版；_source 集合相同\n目标 v002 的字段规则和代表查询另行验证" {class: card}
+}
+swap: "B · 一次 _aliases 更新两个入口" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "remove v001 的 read / write，均 must_exist = true\nadd v002 的 read = false、write = true" {class: card}
+  b: "四动作一起提交；回读实际 alias，再发新请求\nJava 配置与进程不变：西湖命中 p01、p07" {class: card}
+  c: "原子性覆盖入口关系，不复制文档\n不取消在途请求，不提供跨读写请求的事务" {class: card}
+}
+rollback: "C · 回滚窗口与恢复写入分开" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "窗口内未写新版：反向四动作 → 回旧版\n资料未丢，但 keyword 的旧召回行为也随之回来" {class: card}
+  b: "再次切到新版，再允许写入 p08 → 只落 v002\nv001 无 p08，此时不能仅反向 alias 宣称安全回滚" {class: card}
+  c: "旧版保留用于核对，不是备份\nF34 学独立快照恢复；F41 学持续变更与追平" {class: card}
+}
