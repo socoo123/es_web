@@ -1,0 +1,132 @@
+{
+  "all_ids": [
+    "r01",
+    "r02",
+    "r03",
+    "r04",
+    "r05",
+    "r06"
+  ],
+  "routed_without_filter": [
+    "r01",
+    "r02",
+    "r04",
+    "r05"
+  ],
+  "filtered_ids": [
+    "r01",
+    "r02"
+  ],
+  "wrong_routing_ids": [],
+  "copies": [
+    {
+      "node_id": "W709m0Z7QKyMC3rTExG20A",
+      "node": "travel-f29-03",
+      "primary": true,
+      "profile_id": "[W709m0Z7QKyMC3rTExG20A][tut-f29-routed][0]",
+      "ids": [
+        "r01",
+        "r02"
+      ],
+      "shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      }
+    },
+    {
+      "node_id": "x6HbzauxReeo4a7d8Oh1Yw",
+      "node": "travel-f29-02",
+      "primary": false,
+      "profile_id": "[x6HbzauxReeo4a7d8Oh1Yw][tut-f29-routed][0]",
+      "ids": [
+        "r01",
+        "r02"
+      ],
+      "shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+      }
+    }
+  ],
+  "final_layout": {
+    "settings": {
+      "index.creation_date": "1793153843580",
+      "index.number_of_replicas": "1",
+      "index.number_of_shards": "2",
+      "index.provided_name": "tut-f29-routed",
+      "index.refresh_interval": "-1",
+      "index.routing.allocation.include._tier_preference": "data_content",
+      "index.uuid": "3rTSPfq_Qdutxi68GVTfig",
+      "index.version.created": "9094000"
+    },
+    "mapping": {
+      "dynamic": "strict",
+      "_routing": {
+        "required": true
+      },
+      "properties": {
+        "attraction_id": {
+          "type": "keyword"
+        },
+        "city_code": {
+          "type": "keyword"
+        },
+        "currency": {
+          "type": "keyword"
+        },
+        "location": {
+          "type": "geo_point"
+        },
+        "name": {
+          "type": "text",
+          "analyzer": "whitespace"
+        },
+        "status": {
+          "type": "keyword"
+        },
+        "ticket_price_fen": {
+          "type": "integer",
+          "coerce": false
+        }
+      }
+    },
+    "shards": [
+      {
+        "index": "tut-f29-routed",
+        "shard": "0",
+        "prirep": "p",
+        "state": "STARTED",
+        "docs": "4",
+        "node": "travel-f29-03"
+      },
+      {
+        "index": "tut-f29-routed",
+        "shard": "0",
+        "prirep": "r",
+        "state": "STARTED",
+        "docs": "4",
+        "node": "travel-f29-02"
+      },
+      {
+        "index": "tut-f29-routed",
+        "shard": "1",
+        "prirep": "r",
+        "state": "STARTED",
+        "docs": "2",
+        "node": "travel-f29-03"
+      },
+      {
+        "index": "tut-f29-routed",
+        "shard": "1",
+        "prirep": "p",
+        "state": "STARTED",
+        "docs": "2",
+        "node": "travel-f29-02"
+      }
+    ]
+  }
+}

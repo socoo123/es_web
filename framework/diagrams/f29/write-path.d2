@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+request: "运营更新景点 r01\nPUT /…/_doc/r01?routing=HZ" {class: card}
+coordinate: "收到请求的节点负责协调\nHZ 选择分片组 0，与入口端口无关" {class: card}
+primary: "分片组 0 · 当前主分片 P0\n检查并执行写入" {class: card}
+replica: "分片组 0 · 同步副本 R0\n执行复制操作，位于另一个 data 节点" {class: card}
+ack: "本课两拷贝健康：写入成功数为 2\n副本不增加逻辑景点数；搜索前显式 refresh" {class: card}
+request -> coordinate: HTTP 到入口
+coordinate -> primary: 内部转发到当前主片
+primary -> replica: 复制操作
+replica -> ack: 同步拷贝完成后确认

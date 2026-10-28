@@ -1,0 +1,160 @@
+{
+  "at": "2026-10-28T02:17:47.054249+00:00",
+  "passed": true,
+  "reviewer": "root author self-review, not independent review",
+  "reasoning_entry": "cannot set/read back latest gpt-6.1-sol/max; reasoning.json",
+  "chinese_characters_without_code": 5039,
+  "figures": 2,
+  "code_blocks": 24,
+  "drills": 8,
+  "pitfalls": 4,
+  "rounds": [
+    {
+      "round": 1,
+      "teaching_http": 62,
+      "case_http": [
+        21,
+        28,
+        13
+      ],
+      "sdk_calls": 13,
+      "verification_http": 5,
+      "actual_default_shards": {
+        "p04": 0,
+        "p05": 0,
+        "p01": 1,
+        "p02": 1,
+        "p03": 1,
+        "p06": 1
+      },
+      "copies": [
+        {
+          "node_id": "x6HbzauxReeo4a7d8Oh1Yw",
+          "node": "travel-f29-02",
+          "primary": false,
+          "profile_id": "[x6HbzauxReeo4a7d8Oh1Yw][tut-f29-routed][0]",
+          "ids": [
+            "r01",
+            "r02"
+          ],
+          "shards": {
+            "total": 1,
+            "successful": 1,
+            "skipped": 0,
+            "failed": 0
+          }
+        },
+        {
+          "node_id": "W709m0Z7QKyMC3rTExG20A",
+          "node": "travel-f29-03",
+          "primary": true,
+          "profile_id": "[W709m0Z7QKyMC3rTExG20A][tut-f29-routed][0]",
+          "ids": [
+            "r01",
+            "r02"
+          ],
+          "shards": {
+            "total": 1,
+            "successful": 1,
+            "skipped": 0,
+            "failed": 0
+          }
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "teaching_http": 62,
+      "case_http": [
+        21,
+        28,
+        13
+      ],
+      "sdk_calls": 13,
+      "verification_http": 5,
+      "actual_default_shards": {
+        "p04": 0,
+        "p05": 0,
+        "p01": 1,
+        "p02": 1,
+        "p03": 1,
+        "p06": 1
+      },
+      "copies": [
+        {
+          "node_id": "W709m0Z7QKyMC3rTExG20A",
+          "node": "travel-f29-03",
+          "primary": true,
+          "profile_id": "[W709m0Z7QKyMC3rTExG20A][tut-f29-routed][0]",
+          "ids": [
+            "r01",
+            "r02"
+          ],
+          "shards": {
+            "total": 1,
+            "successful": 1,
+            "skipped": 0,
+            "failed": 0
+          }
+        },
+        {
+          "node_id": "x6HbzauxReeo4a7d8Oh1Yw",
+          "node": "travel-f29-02",
+          "primary": false,
+          "profile_id": "[x6HbzauxReeo4a7d8Oh1Yw][tut-f29-routed][0]",
+          "ids": [
+            "r01",
+            "r02"
+          ],
+          "shards": {
+            "total": 1,
+            "successful": 1,
+            "skipped": 0,
+            "failed": 0
+          }
+        }
+      ]
+    }
+  ],
+  "review": [
+    {
+      "topic": "范围与业务因果",
+      "verdict": "通过",
+      "basis": "先解释资料定位与搜索范围；仅F29，F30为遗留问题；没有新Controller或前端功能声称。"
+    },
+    {
+      "topic": "分片组与创建版本",
+      "verdict": "通过",
+      "basis": "2主1副、逻辑6份与物理拷贝分开；新建普通未分区且无resize限定，新旧公式以索引创建版本分支。"
+    },
+    {
+      "topic": "错值与业务路由",
+      "verdict": "通过",
+      "basis": "HZ/FZ同片、HZ/SH跨片，每轮实际_search_shards；400必填与404跨片/同片成功区分；同_id跨片重复并点名恢复。"
+    },
+    {
+      "topic": "范围与读取拷贝",
+      "verdict": "通过",
+      "basis": "全索引2组/限定1组；FZ同组仍被城市filter剔除；_only_nodes/profile实际执行节点与primary字段关联，不拿候选列表证明执行。"
+    },
+    {
+      "topic": "Java契约与展示壳",
+      "verdict": "通过",
+      "basis": "独立官方客户端完整CRUD/搜索/错误分支，query builder复用F07；路由是地址参数。原展示壳只观测默认索引，没有routing输入；REST独立重放核对。"
+    },
+    {
+      "topic": "可复现与边界",
+      "verdict": "通过",
+      "basis": "固定JSON/NDJSON、fresh输出、显式refresh、逐项created、点名清理后重做；真实调用与源码/图/阅读分列；无性能/故障容灾结论。"
+    }
+  ],
+  "corrections_during_authoring": [
+    "Selected SH as cross-shard value after FZ proved same-shard; fixed Java constants/fixtures accordingly before formal rounds.",
+    "Replaced sequential full→limited diagram boxes with one explicit independent-request comparison card.",
+    "Included full routed mapping and duplicate PUT body; fixed Java excerpt boundaries."
+  ],
+  "published_lesson_errata": "No prior F29 lesson existed; no old lesson content changed except F28 next link.",
+  "sha256": {
+    "framework/f29.html": "1e5d34d5838c835df2ff68835ee65f7433cfa3052f997345621178ac85568307"
+  }
+}

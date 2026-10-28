@@ -1,0 +1,197 @@
+{
+  "settings": {
+    "index.creation_date": "1793153840134",
+    "index.number_of_replicas": "1",
+    "index.number_of_shards": "2",
+    "index.provided_name": "tut-f29-default",
+    "index.refresh_interval": "-1",
+    "index.routing.allocation.include._tier_preference": "data_content",
+    "index.uuid": "6M7BmpbUSRaU4VKKw1swqQ",
+    "index.version.created": "9094000"
+  },
+  "mapping": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "location": {
+        "type": "geo_point"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "whitespace"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "ticket_price_fen": {
+        "type": "integer",
+        "coerce": false
+      }
+    }
+  },
+  "shards": [
+    {
+      "index": "tut-f29-default",
+      "shard": "0",
+      "prirep": "r",
+      "state": "STARTED",
+      "docs": "2",
+      "node": "travel-f29-03"
+    },
+    {
+      "index": "tut-f29-default",
+      "shard": "0",
+      "prirep": "p",
+      "state": "STARTED",
+      "docs": "2",
+      "node": "travel-f29-02"
+    },
+    {
+      "index": "tut-f29-default",
+      "shard": "1",
+      "prirep": "p",
+      "state": "STARTED",
+      "docs": "4",
+      "node": "travel-f29-03"
+    },
+    {
+      "index": "tut-f29-default",
+      "shard": "1",
+      "prirep": "r",
+      "state": "STARTED",
+      "docs": "4",
+      "node": "travel-f29-02"
+    }
+  ],
+  "actual_document_shards": {
+    "p04": 0,
+    "p05": 0,
+    "p01": 1,
+    "p02": 1,
+    "p03": 1,
+    "p06": 1
+  },
+  "search_ids": [
+    "p01",
+    "p02"
+  ],
+  "java": {
+    "total": 2,
+    "totalRelation": "eq",
+    "esTookMs": 13,
+    "conditions": {
+      "q": "西湖",
+      "cityCode": "HZ",
+      "maxPriceFen": 20000,
+      "latitude": 30.25,
+      "longitude": 120.15,
+      "radiusKm": 3.0
+    },
+    "esRequest": {
+      "_source": {
+        "includes": [
+          "attraction_id",
+          "name",
+          "city_code",
+          "ticket_price_fen",
+          "currency",
+          "status",
+          "location"
+        ]
+      },
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "term": {
+                "city_code": {
+                  "value": "HZ"
+                }
+              }
+            },
+            {
+              "term": {
+                "currency": {
+                  "value": "CNY"
+                }
+              }
+            },
+            {
+              "range": {
+                "ticket_price_fen": {
+                  "gte": 0.0,
+                  "lte": 20000.0
+                }
+              }
+            },
+            {
+              "term": {
+                "status": {
+                  "value": "open"
+                }
+              }
+            },
+            {
+              "geo_distance": {
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                },
+                "distance": "3.0km",
+                "distance_type": "arc"
+              }
+            }
+          ],
+          "must": [
+            {
+              "match": {
+                "name": {
+                  "operator": "or",
+                  "query": "西湖"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "size": 20,
+      "sort": [
+        {
+          "attraction_id": {
+            "order": "asc"
+          }
+        }
+      ],
+      "track_scores": true,
+      "track_total_hits": true
+    },
+    "items": [
+      {
+        "id": "p01",
+        "name": "西湖 湖畔",
+        "cityCode": "HZ",
+        "ticketPriceFen": 6000,
+        "currency": "CNY",
+        "status": "open",
+        "score": 0.35667494
+      },
+      {
+        "id": "p02",
+        "name": "西湖 公园",
+        "cityCode": "HZ",
+        "ticketPriceFen": 0,
+        "currency": "CNY",
+        "status": "open",
+        "score": 0.35667494
+      }
+    ]
+  }
+}

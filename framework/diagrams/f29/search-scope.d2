@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+question: "游客查杭州：query 仍过滤 city_code=HZ\n先选分片组，再为每组选择一份拷贝" {class: card}
+scope: "比较两条独立请求\n无 routing：组 0 + 组 1（2 组）\nrouting=HZ：只选组 0（1 组）" {class: card}
+copy: "每个目标组：主或副中选一份读取\n本课用 _only_nodes + profile 分别核对 P0 / R0" {class: card}
+filter: "同组还有 FZ 的 r04\nrouting 不是城市过滤，也不是访问权限" {class: card}
+result: "完整 query 均得到 r01、r02\n只改 routing=SH 会漏掉杭州资料" {class: card}
+question -> scope: 决定目标组
+scope -> copy: 选择读取拷贝
+copy -> filter: 在所选分片上执行 query
+filter -> result: 协调并汇总结果

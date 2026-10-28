@@ -1,0 +1,573 @@
+{
+  "routes": {
+    "HZ": 0,
+    "FZ": 0,
+    "SZ": 0,
+    "NJ": 0,
+    "SH": 1,
+    "BJ": 0
+  },
+  "events": [
+    {
+      "method": "PUT",
+      "path": "/tut-f29-routed",
+      "request": {
+        "settings": {
+          "number_of_shards": 2,
+          "number_of_replicas": 1,
+          "refresh_interval": "-1"
+        },
+        "mappings": {
+          "dynamic": "strict",
+          "properties": {
+            "attraction_id": {
+              "type": "keyword"
+            },
+            "name": {
+              "type": "text",
+              "analyzer": "whitespace"
+            },
+            "city_code": {
+              "type": "keyword"
+            },
+            "ticket_price_fen": {
+              "type": "integer",
+              "coerce": false
+            },
+            "currency": {
+              "type": "keyword"
+            },
+            "status": {
+              "type": "keyword"
+            },
+            "location": {
+              "type": "geo_point"
+            }
+          },
+          "_routing": {
+            "required": true
+          }
+        }
+      },
+      "status": 200,
+      "response": {
+        "acknowledged": true,
+        "shards_acknowledged": true,
+        "index": "tut-f29-routed"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/tut-f29-routed/_search_shards?routing=HZ",
+      "request": null,
+      "status": 200,
+      "response": {
+        "nodes": {
+          "W709m0Z7QKyMC3rTExG20A": {
+            "name": "travel-f29-03",
+            "ephemeral_id": "ch72h3bWTzeGPURODPPCsg",
+            "transport_address": "172.20.0.4:9300",
+            "external_id": "travel-f29-03",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "transform.config_version": "10.0.0",
+              "xpack.installed": "true"
+            },
+            "roles": [
+              "data",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          }
+        },
+        "indices": {
+          "tut-f29-routed": {}
+        },
+        "shards": [
+          [
+            {
+              "state": "STARTED",
+              "primary": true,
+              "node": "W709m0Z7QKyMC3rTExG20A",
+              "relocating_node": null,
+              "shard": 0,
+              "index": "tut-f29-routed",
+              "allocation_id": {
+                "id": "y4R3t_7nRt-iF_YVGCWxCg"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/tut-f29-routed/_search_shards?routing=FZ",
+      "request": null,
+      "status": 200,
+      "response": {
+        "nodes": {
+          "x6HbzauxReeo4a7d8Oh1Yw": {
+            "name": "travel-f29-02",
+            "ephemeral_id": "cz4pNICXS8aNQIqNtOnF-g",
+            "transport_address": "172.20.0.3:9300",
+            "external_id": "travel-f29-02",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "xpack.installed": "true",
+              "transform.config_version": "10.0.0"
+            },
+            "roles": [
+              "data",
+              "ingest",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          },
+          "W709m0Z7QKyMC3rTExG20A": {
+            "name": "travel-f29-03",
+            "ephemeral_id": "ch72h3bWTzeGPURODPPCsg",
+            "transport_address": "172.20.0.4:9300",
+            "external_id": "travel-f29-03",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "transform.config_version": "10.0.0",
+              "xpack.installed": "true"
+            },
+            "roles": [
+              "data",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          }
+        },
+        "indices": {
+          "tut-f29-routed": {}
+        },
+        "shards": [
+          [
+            {
+              "state": "STARTED",
+              "primary": true,
+              "node": "W709m0Z7QKyMC3rTExG20A",
+              "relocating_node": null,
+              "shard": 0,
+              "index": "tut-f29-routed",
+              "allocation_id": {
+                "id": "y4R3t_7nRt-iF_YVGCWxCg"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            },
+            {
+              "state": "INITIALIZING",
+              "primary": false,
+              "node": "x6HbzauxReeo4a7d8Oh1Yw",
+              "relocating_node": null,
+              "shard": 0,
+              "index": "tut-f29-routed",
+              "recovery_source": {
+                "type": "PEER"
+              },
+              "allocation_id": {
+                "id": "MIPSZf44R-GEmqbkbV8WuQ"
+              },
+              "unassigned_info": {
+                "reason": "INDEX_CREATED",
+                "at": "2026-10-28T01:55:51.721Z",
+                "delayed": false,
+                "allocation_status": "no_attempt"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/tut-f29-routed/_search_shards?routing=SZ",
+      "request": null,
+      "status": 200,
+      "response": {
+        "nodes": {
+          "x6HbzauxReeo4a7d8Oh1Yw": {
+            "name": "travel-f29-02",
+            "ephemeral_id": "cz4pNICXS8aNQIqNtOnF-g",
+            "transport_address": "172.20.0.3:9300",
+            "external_id": "travel-f29-02",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "xpack.installed": "true",
+              "transform.config_version": "10.0.0"
+            },
+            "roles": [
+              "data",
+              "ingest",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          },
+          "W709m0Z7QKyMC3rTExG20A": {
+            "name": "travel-f29-03",
+            "ephemeral_id": "ch72h3bWTzeGPURODPPCsg",
+            "transport_address": "172.20.0.4:9300",
+            "external_id": "travel-f29-03",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "transform.config_version": "10.0.0",
+              "xpack.installed": "true"
+            },
+            "roles": [
+              "data",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          }
+        },
+        "indices": {
+          "tut-f29-routed": {}
+        },
+        "shards": [
+          [
+            {
+              "state": "STARTED",
+              "primary": true,
+              "node": "W709m0Z7QKyMC3rTExG20A",
+              "relocating_node": null,
+              "shard": 0,
+              "index": "tut-f29-routed",
+              "allocation_id": {
+                "id": "y4R3t_7nRt-iF_YVGCWxCg"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            },
+            {
+              "state": "INITIALIZING",
+              "primary": false,
+              "node": "x6HbzauxReeo4a7d8Oh1Yw",
+              "relocating_node": null,
+              "shard": 0,
+              "index": "tut-f29-routed",
+              "recovery_source": {
+                "type": "PEER"
+              },
+              "allocation_id": {
+                "id": "MIPSZf44R-GEmqbkbV8WuQ"
+              },
+              "unassigned_info": {
+                "reason": "INDEX_CREATED",
+                "at": "2026-10-28T01:55:51.721Z",
+                "delayed": false,
+                "allocation_status": "no_attempt"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/tut-f29-routed/_search_shards?routing=NJ",
+      "request": null,
+      "status": 200,
+      "response": {
+        "nodes": {
+          "x6HbzauxReeo4a7d8Oh1Yw": {
+            "name": "travel-f29-02",
+            "ephemeral_id": "cz4pNICXS8aNQIqNtOnF-g",
+            "transport_address": "172.20.0.3:9300",
+            "external_id": "travel-f29-02",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "xpack.installed": "true",
+              "transform.config_version": "10.0.0"
+            },
+            "roles": [
+              "data",
+              "ingest",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          },
+          "W709m0Z7QKyMC3rTExG20A": {
+            "name": "travel-f29-03",
+            "ephemeral_id": "ch72h3bWTzeGPURODPPCsg",
+            "transport_address": "172.20.0.4:9300",
+            "external_id": "travel-f29-03",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "transform.config_version": "10.0.0",
+              "xpack.installed": "true"
+            },
+            "roles": [
+              "data",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          }
+        },
+        "indices": {
+          "tut-f29-routed": {}
+        },
+        "shards": [
+          [
+            {
+              "state": "STARTED",
+              "primary": true,
+              "node": "W709m0Z7QKyMC3rTExG20A",
+              "relocating_node": null,
+              "shard": 0,
+              "index": "tut-f29-routed",
+              "allocation_id": {
+                "id": "y4R3t_7nRt-iF_YVGCWxCg"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            },
+            {
+              "state": "INITIALIZING",
+              "primary": false,
+              "node": "x6HbzauxReeo4a7d8Oh1Yw",
+              "relocating_node": null,
+              "shard": 0,
+              "index": "tut-f29-routed",
+              "recovery_source": {
+                "type": "PEER"
+              },
+              "allocation_id": {
+                "id": "MIPSZf44R-GEmqbkbV8WuQ"
+              },
+              "unassigned_info": {
+                "reason": "INDEX_CREATED",
+                "at": "2026-10-28T01:55:51.721Z",
+                "delayed": false,
+                "allocation_status": "no_attempt"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/tut-f29-routed/_search_shards?routing=SH",
+      "request": null,
+      "status": 200,
+      "response": {
+        "nodes": {
+          "x6HbzauxReeo4a7d8Oh1Yw": {
+            "name": "travel-f29-02",
+            "ephemeral_id": "cz4pNICXS8aNQIqNtOnF-g",
+            "transport_address": "172.20.0.3:9300",
+            "external_id": "travel-f29-02",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "xpack.installed": "true",
+              "transform.config_version": "10.0.0"
+            },
+            "roles": [
+              "data",
+              "ingest",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          },
+          "W709m0Z7QKyMC3rTExG20A": {
+            "name": "travel-f29-03",
+            "ephemeral_id": "ch72h3bWTzeGPURODPPCsg",
+            "transport_address": "172.20.0.4:9300",
+            "external_id": "travel-f29-03",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "transform.config_version": "10.0.0",
+              "xpack.installed": "true"
+            },
+            "roles": [
+              "data",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          }
+        },
+        "indices": {
+          "tut-f29-routed": {}
+        },
+        "shards": [
+          [
+            {
+              "state": "STARTED",
+              "primary": true,
+              "node": "x6HbzauxReeo4a7d8Oh1Yw",
+              "relocating_node": null,
+              "shard": 1,
+              "index": "tut-f29-routed",
+              "allocation_id": {
+                "id": "VjP_6giYQ4ajyagaYrrgcw"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            },
+            {
+              "state": "INITIALIZING",
+              "primary": false,
+              "node": "W709m0Z7QKyMC3rTExG20A",
+              "relocating_node": null,
+              "shard": 1,
+              "index": "tut-f29-routed",
+              "recovery_source": {
+                "type": "PEER"
+              },
+              "allocation_id": {
+                "id": "uwILvuaoSfCKSzVRz_s1UA"
+              },
+              "unassigned_info": {
+                "reason": "INDEX_CREATED",
+                "at": "2026-10-28T01:55:51.721Z",
+                "delayed": false,
+                "allocation_status": "no_attempt"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/tut-f29-routed/_search_shards?routing=BJ",
+      "request": null,
+      "status": 200,
+      "response": {
+        "nodes": {
+          "x6HbzauxReeo4a7d8Oh1Yw": {
+            "name": "travel-f29-02",
+            "ephemeral_id": "cz4pNICXS8aNQIqNtOnF-g",
+            "transport_address": "172.20.0.3:9300",
+            "external_id": "travel-f29-02",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "xpack.installed": "true",
+              "transform.config_version": "10.0.0"
+            },
+            "roles": [
+              "data",
+              "ingest",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          },
+          "W709m0Z7QKyMC3rTExG20A": {
+            "name": "travel-f29-03",
+            "ephemeral_id": "ch72h3bWTzeGPURODPPCsg",
+            "transport_address": "172.20.0.4:9300",
+            "external_id": "travel-f29-03",
+            "attributes": {
+              "ml.config_version": "12.0.0",
+              "transform.config_version": "10.0.0",
+              "xpack.installed": "true"
+            },
+            "roles": [
+              "data",
+              "master"
+            ],
+            "version": "9.4.0",
+            "min_index_version": 8000099,
+            "max_index_version": 9094000
+          }
+        },
+        "indices": {
+          "tut-f29-routed": {}
+        },
+        "shards": [
+          [
+            {
+              "state": "STARTED",
+              "primary": true,
+              "node": "W709m0Z7QKyMC3rTExG20A",
+              "relocating_node": null,
+              "shard": 0,
+              "index": "tut-f29-routed",
+              "allocation_id": {
+                "id": "y4R3t_7nRt-iF_YVGCWxCg"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            },
+            {
+              "state": "INITIALIZING",
+              "primary": false,
+              "node": "x6HbzauxReeo4a7d8Oh1Yw",
+              "relocating_node": null,
+              "shard": 0,
+              "index": "tut-f29-routed",
+              "recovery_source": {
+                "type": "PEER"
+              },
+              "allocation_id": {
+                "id": "MIPSZf44R-GEmqbkbV8WuQ"
+              },
+              "unassigned_info": {
+                "reason": "INDEX_CREATED",
+                "at": "2026-10-28T01:55:51.721Z",
+                "delayed": false,
+                "allocation_status": "no_attempt"
+              },
+              "relocation_failure_info": {
+                "failed_attempts": 0
+              }
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/tut-f29-routed",
+      "request": null,
+      "status": 200,
+      "response": {
+        "acknowledged": true
+      }
+    }
+  ]
+}
