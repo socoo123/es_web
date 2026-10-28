@@ -1,0 +1,20 @@
+grid-columns: 1
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+live: "1 · 副本保存当前状态，帮助承受节点失效" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "实时索引 · 2 主 / 每主 1 副，跨 n1 / n2\n起初 p01 = 6000 分，p02 存在，共 6 条" {class: card}
+  b: "备份完成后改价 + 误删 → 主副本都接收变化\n两节点分别读取：p01 = 6500 分，无 p02，共 5 条" {class: card}
+}
+backup: "2 · 仓库保留已完成快照中的历史资料" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "before-delete · SUCCESS，2 分片成功 / 0 失败\n2 指原分片数；不是主副本共 4 份各做一次备份" {class: card}
+  b: "独立恢复名 → 完整 ID / 字段 / mapping / 查询核对\np01 = 6000 分，p02 再现，共 6 条；实时索引仍 5 条" {class: card}
+}
+boundary: "3 · 本课证明恢复路径，未证明物理容灾" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "n1、n2 同挂仓库卷，同一路径 + path.repo\n数据卷与仓库卷仍在同一 Docker VM / 宿主盘" {class: card}
+  b: "实际容灾还需独立故障域、访问保护与定期恢复演练\n误删传播到副本；仓库丢失也会失去备份" {class: card}
+}

@@ -1,0 +1,20 @@
+grid-columns: 1
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+repository: "第一关 · 能访问仓库，不代表已备份" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "错误路径不在 path.repo → 500，修正后验证两节点\naccepted = true 只说明任务被接收 → 继续查终态" {class: card}
+}
+complete: "第二关 · 终态和失败分片必须一起看" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "before-delete：SUCCESS，2 成功 / 0 失败\n可进入完整恢复核对，仍不能只凭状态切换入口" {class: card}
+  b: "missing-primary 元数据：PARTIAL，2 成功 / 1 失败\n_status 却显示 SUCCESS；risk 仅在 n2，停 n2 后缺失主分片，备份不含该资料" {class: card}
+  c: "默认拒绝恢复不完整索引 → 500\n显式 partial = true：恢复可返回 200，risk 却从 1 条变 0 条" {class: card}
+}
+restore: "第三关 · 恢复到隔离名字，证明资料可用" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "直接恢复到已打开同名索引 → 500\nrename + 不恢复全局状态 / alias → 独立目标" {class: card}
+  b: "核对全字段、6 条、p01 / p02、查询与副本可读\n再移动 read alias；原实时索引与写入边界单独处理" {class: card}
+}

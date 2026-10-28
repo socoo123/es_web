@@ -1,0 +1,51 @@
+name: es-framework-f34
+x-common: &common
+  image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+  labels: {esweb.lesson: f34}
+  mem_limit: 640m
+  environment: &environment
+    cluster.name: travel-f34-lab
+    network.host: 0.0.0.0
+    transport.port: 9300
+    path.repo: /mnt/f34-repository
+    discovery.seed_hosts: n1:9300
+    xpack.security.enabled: "false"
+    xpack.ml.enabled: "false"
+    ES_JAVA_OPTS: -Xms192m -Xmx192m
+  ulimits:
+    nofile: {soft: 65535, hard: 65535}
+services:
+  repo-init:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    labels: {esweb.lesson: f34}
+    user: "0:0"
+    network_mode: none
+    entrypoint: /bin/sh
+    command: ["-c", "chown 1000:0 /mnt/f34-repository && chmod 0770 /mnt/f34-repository"]
+    volumes: ["snapshots:/mnt/f34-repository"]
+  n1:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f34-n1
+      node.roles: master,data,ingest
+    ports: ["127.0.0.1:19834:9200"]
+    volumes: ["n1-data:/usr/share/elasticsearch/data", "snapshots:/mnt/f34-repository"]
+  n2:
+    <<: *common
+    environment:
+      <<: *environment
+      node.name: travel-f34-n2
+      node.roles: data
+    ports: ["127.0.0.1:19835:9200"]
+    volumes: ["n2-data:/usr/share/elasticsearch/data", "snapshots:/mnt/f34-repository"]
+volumes:
+  n1-data:
+    name: es-framework-f34-n1-data
+    labels: {esweb.lesson: f34}
+  n2-data:
+    name: es-framework-f34-n2-data
+    labels: {esweb.lesson: f34}
+  snapshots:
+    name: es-framework-f34-snapshots
+    labels: {esweb.lesson: f34}
