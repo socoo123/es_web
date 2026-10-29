@@ -1,0 +1,37 @@
+{
+  "at": "2026-10-29T01:02:03.047491+00:00",
+  "attempts": [
+    {
+      "path": "projects/travel-search/review/f35/init",
+      "summary_passed": false,
+      "observed_cause": "OpenSSL default config missing",
+      "repair": "Explicitly generate and pass a private lab openssl.cnf; init-retry passed"
+    },
+    {
+      "path": "projects/travel-search/review/f35/setup",
+      "summary_passed": false,
+      "observed_cause": "Transport full verified Docker numeric publish IP absent from initial SAN",
+      "repair": "Preserve full; fixed isolated network/IP and re-sign node certs"
+    },
+    {
+      "path": "projects/travel-search/review/f35/setup-retry",
+      "summary_passed": false,
+      "observed_cause": "Nodes Info filters SSL detail settings, so verification_mode absent in API output",
+      "repair": "Check actual container env configuration plus enabled TLS and successful two-node membership"
+    },
+    {
+      "path": "projects/travel-search/review/f35/attempt-guard",
+      "summary_passed": false,
+      "observed_cause": "Internal ILM/deprecation log data streams triggered overly narrow foreign-index guard",
+      "repair": "Allow only the named internal prefixes; still refuse unrelated business indices"
+    },
+    {
+      "path": "projects/travel-search/review/f35/attempt-recreate-status",
+      "summary_passed": false,
+      "observed_cause": "Deleted p02 recreated returns201; assertion initially accepted200 only",
+      "repair": "Use200 for p01 update and201 for p02 recreate; final two rounds passed"
+    }
+  ],
+  "diagram_initial_failure": "D2 rejected raw newline in quoted label; replaced with escaped newline in source and regenerated via CLI",
+  "not_formal_passes": true
+}

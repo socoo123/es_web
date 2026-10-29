@@ -1,0 +1,19 @@
+grid-columns: 1
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+search: "游客搜索 · 复用观察窗" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "浏览器 → 本机 Java 搜索服务 → HTTPS → ES\nreader key 只留在 Java；read alias 上的 read 权限" {class: card}
+  b: "搜索 p01 / p02；不授予 cluster monitor\n拒绝写入、物理名读取和安全管理" {class: card}
+}
+writer: "写入任务 · 独立凭据" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "write alias 上的 index + delete 权限\n可覆盖 p01 / 删除 p02；不授予搜索、refresh 或建索引" {class: card}
+}
+admin: "管理员 · 仅准备和修复" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "预建 mapping / alias、管理用户与密钥、执行 refresh\n不把 elastic 管理凭据交给 Java 搜索服务" {class: card}
+  b: "替换密钥文件不会更新已建客户端\n本课撤销旧 key → 替换文件 → 重启 Java → 核对恢复" {class: card}
+}
