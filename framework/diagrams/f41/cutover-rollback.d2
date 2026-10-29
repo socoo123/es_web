@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+fence: "来源提交 cutover 检查点\nKafka offset 12 → H=13；保存该边界的 SQL 投影" {class: card}
+gate: "切换前两版都停在 next=13\n全量完成、字段 / 删除一致、refresh 完成；失败则保留 v1" {class: card}
+switch: "业务继续产生 H 之后的变化，先留在队列\n单次 alias 操作把查询入口从 v1 切到 v2" {class: card}
+new: "v2 追到 rollback 检查点 next=16\n新价72元、p04已删；v1 仍13，此时拒绝回滚" {class: card}
+mirror: "v1 也追到 next=16 并核对完整投影\nalias 回到 v1，仍是72元；两版继续消费到19" {class: card}
+fence -> gate: "同一分区中先前变化排在标记之前"
+gate -> switch: "两个固定 ingest alias 不随查询切换"
+switch -> new: "切换不是追平；后续仍有正常消费延迟"
+new -> mirror: "保留旧索引，还必须维持旧版投影和检查点"

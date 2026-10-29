@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f41/lab.py", line 314, in <module>
+    elif ARGS.action=='run':lab.run()
+                            ^^^^^^^^^
+  File "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f41/lab.py", line 229, in run
+    self.snapshot_open();self.sql('during-snapshot.sql');self.snapshot_close();high=self.fence('backfill')
+    ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f41/lab.py", line 139, in snapshot_open
+    position=self.positions();check(position['end']==3 and position['begin']==0,'Clean three-row starting point required')
+             ^^^^^^^^^^^^^^^^
+  File "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f41/lab.py", line 92, in positions
+    values,r=java('inspect');check(r.returncode==0,r.stderr);return values[-1]
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f41/lab.py", line 14, in check
+    if not ok:raise AssertionError(detail)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Exception in thread "main" org.apache.kafka.common.KafkaException: Failed to create new KafkaAdminClient
+	at org.apache.kafka.clients.admin.KafkaAdminClient.createInternal(KafkaAdminClient.java:569)
+	at org.apache.kafka.clients.admin.KafkaAdminClient.createInternal(KafkaAdminClient.java:514)
+	at org.apache.kafka.clients.admin.Admin.create(Admin.java:133)
+	at F41Worker.inspect(F41Worker.java:108)
+	at F41Worker.main(F41Worker.java:181)
+Caused by: org.apache.kafka.common.config.ConfigException: The specified value of default.api.timeout.ms must be no smaller than the value of request.timeout.ms.
+	at org.apache.kafka.clients.admin.KafkaAdminClient.configureDefaultApiTimeoutMs(KafkaAdminClient.java:653)
+	at org.apache.kafka.clients.admin.KafkaAdminClient.<init>(KafkaAdminClient.java:612)
+	at org.apache.kafka.clients.admin.KafkaAdminClient.createInternal(KafkaAdminClient.java:564)
+	... 4 more

@@ -1,0 +1,55 @@
+{
+  "at": "2026-10-29T15:23:21.175795+00:00",
+  "author": "root session self-review",
+  "independent_agent": false,
+  "passed": true,
+  "criteria": [
+    {
+      "item": "single-lesson scope / teaching sequence",
+      "result": "Only F41 plus necessary directory, F40 next-link and current progress; 5353 Chinese characters excluding code; 7 sections, 3 cases, 20 code blocks, 13 details including 8 drills, 4 pitfalls, 2 static D2 / 0 players."
+    },
+    {
+      "item": "F33 difference and continuous source writes",
+      "result": "SQL RR transaction holds the original view while a second session commits 5 complete document events; no full-backfill write freeze. Source fence is a short ordinary cooperating-writer transaction, no zero-delay claim."
+    },
+    {
+      "item": "snapshot / increment overlap and deletion",
+      "result": "Capture L=3 before snapshot; v2 consumes newer events first, late p01/p02 snapshot noop; p03 supplied by full export. Clock and ES marker retained; later replay all noop."
+    },
+    {
+      "item": "canonical projection / dual versions",
+      "result": "Source immutable JSONB + per-entity revisions shared by snapshot and CDC; schema1/2 fingerprints distinct. v2 adds deterministic CNY price_band from existing facts. Code and snapshot fixed within a generation."
+    },
+    {
+      "item": "source fence / bounded comparison",
+      "result": "Single topic partition and task, append-only transaction protocol; actual fence offset 12=>H13. Both groups exactly H13; end15/backlog2 explicitly documented and compared with saved fence projection, not current DB."
+    },
+    {
+      "item": "failures / commits / cutover",
+      "result": "Incomplete full export, lag, actual 403 blocks and lagging rollback all rejected without alias change. Failed v2 batch has 3 item403 and no commit; unblocking replays and verifies before atomic alias action."
+    },
+    {
+      "item": "rollback continuing writes",
+      "result": "Fixed ingest aliases and separate consumer groups survive read alias switch. v1 catches up from13 to16 before rollback; same observer PID returns72; both continue to19 and return76/48."
+    },
+    {
+      "item": "limits and recovery record",
+      "result": "Single VM/broker/partition, serial local workers, cooperating source writers, no HA/distributed barrier/exactly-once/automatic crash recovery or throughput claims. Alias/local-job crash window and retention/incompatible-source fields explicitly constrained."
+    },
+    {
+      "item": "manual instructions / cleanup",
+      "result": "Prepare/snapshot/fence/drain/load/gate/switch and expected failure nonzero instructions aligned with code. Named cleanup includes source offsets/clock/outbox/topic/groups/three indices/job; secrets and named volumes preserved."
+    },
+    {
+      "item": "evidence separation",
+      "result": "Two full rounds and browser stable-stage responses, diagram receipts, official source hashes, HTTP checks and actual visual review separate. Incomplete run01/02 and compile-only pre-start probe retained; no independent xhigh/max readback claim."
+    }
+  ],
+  "prepublication_corrections": [
+    "Use existing Playwright environment after import failure.",
+    "Set Kafka request.timeout.ms=10000 below default.api.timeout.ms=20000 for Admin as well as Consumer.",
+    "Source ReindexRequest moved to server path; retain initial 404 then verify correct v9.4.0 file.",
+    "Display full Java method bodies and exact HTTP count; do not imply late-fence data already consumed."
+  ],
+  "published_f41_errata": "First delivery: no prior published F41 text to correct."
+}

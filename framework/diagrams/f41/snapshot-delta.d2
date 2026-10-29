@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+low: "先保存 Kafka 起点 L=3，再打开 SQL 快照\n快照读到：p01 / 60元、p02 / 0元、p03 / 30元" {class: card}
+write: "快照事务仍打开，另一会话继续提交业务变化\np01 改价 / 城市变更，p02 删除，新增 p04" {class: card}
+delta: "v2 消费 L 到检查点 H=9\np01 已到修订号3；p02 保留删除标记2；p04 修订号2" {class: card}
+full: "故意让旧全量最后写入 v2\np01 / p02 的修订号1被拒绝；p03 修订号1补入" {class: card}
+check: "全量完成 + 分区 next=9 + 全字段核对\n两版都有 p01 / 65元、p04 / 45元，p02 不可搜索" {class: card}
+low -> write: "起点早于快照；不是从全量结束时开始订阅"
+write -> delta: "追加 outbox、Debezium 与单分区日志"
+delta -> full: "增量和全量共享同一实体修订号守卫"
+full -> check: "快照不会补回已删除资料，也不会覆盖新价"

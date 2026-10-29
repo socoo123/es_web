@@ -1,0 +1,15 @@
+if (ctx._source.containsKey('sync_revision')) {
+  if (params.revision < ctx._source.sync_revision) {
+    ctx.op = 'noop';
+    return;
+  }
+  if (params.revision == ctx._source.sync_revision) {
+    if (ctx._source.sync_hash != params.document.sync_hash) {
+      throw new IllegalArgumentException('same revision with different payload');
+    }
+    ctx.op = 'noop';
+    return;
+  }
+}
+ctx._source.clear();
+ctx._source.putAll(params.document);

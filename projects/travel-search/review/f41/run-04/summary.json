@@ -1,0 +1,177 @@
+{
+  "at": "2026-10-29T15:19:07.900847+00:00",
+  "passed": true,
+  "cases": 3,
+  "source_events": 19,
+  "document_events": 15,
+  "fences": 4,
+  "worker_runs": 16,
+  "http_requests": 92,
+  "final_positions": {
+    "topic": "travel_f41.f41.projection_event",
+    "end": 19,
+    "begin": 0,
+    "topic_id": "8O6nxDZqSEyN3WvznX3v4g",
+    "partition": 0,
+    "kafka_cluster_id": "ZjQxbGFiLXNpbmdsZS1ub2Rl",
+    "committed_next": {
+      "v1": 19,
+      "v2": 19
+    },
+    "kind": "positions"
+  },
+  "final_revisions": {
+    "p01": 6,
+    "p02": 2,
+    "p03": 2,
+    "p04": 5
+  },
+  "active": "v1",
+  "observation_process_same_pid": 65542,
+  "workers": [
+    {
+      "name": "seed-v1",
+      "args": [
+        "seed",
+        "v1",
+        0
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "initial-v1",
+      "args": [
+        "drain",
+        "v1",
+        3
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "seed-v2",
+      "args": [
+        "seed",
+        "v2",
+        3
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "backfill-live",
+      "args": [
+        "drain",
+        "v1",
+        9
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "delta-before-snapshot",
+      "args": [
+        "drain",
+        "v2",
+        9
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "snapshot-load",
+      "args": [
+        "snapshot",
+        "v2",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f41/.local/snapshot.json"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "cutover-live",
+      "args": [
+        "drain",
+        "v1",
+        13
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "blocked-new-target",
+      "args": [
+        "drain",
+        "v2",
+        13
+      ],
+      "exit_code": 1
+    },
+    {
+      "name": "resume-new-target",
+      "args": [
+        "drain",
+        "v2",
+        13
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "new-after-switch",
+      "args": [
+        "drain",
+        "v2",
+        16
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "old-mirror-catchup",
+      "args": [
+        "drain",
+        "v1",
+        16
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "final-v1",
+      "args": [
+        "drain",
+        "v1",
+        19
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "final-v2",
+      "args": [
+        "drain",
+        "v2",
+        19
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "late-snapshot-again",
+      "args": [
+        "snapshot",
+        "v2",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f41/.local/snapshot.json"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "empty-v1",
+      "args": [
+        "drain",
+        "v1",
+        19
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "empty-v2",
+      "args": [
+        "drain",
+        "v2",
+        19
+      ],
+      "exit_code": 0
+    }
+  ]
+}
