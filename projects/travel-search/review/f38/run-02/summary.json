@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-29T12:44:52.281017+00:00",
+  "passed": true,
+  "cases": 3,
+  "http_by_case": {
+    "identity": 5,
+    "c01-snapshot": 13,
+    "c02-changes": 13,
+    "c03-restart": 15
+  },
+  "http_by_base": {
+    "http://127.0.0.1:20238": 28,
+    "http://127.0.0.1:18238": 13,
+    "http://127.0.0.1:18088": 5
+  },
+  "total_recorded_http": 46,
+  "kafka_event_count": 11,
+  "consumer_final": {
+    "kind": "summary",
+    "mode": "drain",
+    "committed_next": 11,
+    "observed_end": 11,
+    "processed": 0
+  },
+  "final_documents": {
+    "p01": {
+      "name": "西湖 游船",
+      "status": "open",
+      "currency": "CNY",
+      "location": {
+        "lat": 30.25,
+        "lon": 120.15
+      },
+      "city_code": "HZ",
+      "attraction_id": "p01",
+      "ticket_price_fen": 7000
+    },
+    "p04": {
+      "name": "西湖 码头",
+      "status": "open",
+      "currency": "CNY",
+      "location": {
+        "lat": 30.253,
+        "lon": 120.153
+      },
+      "city_code": "HZ",
+      "attraction_id": "p04",
+      "ticket_price_fen": 1800
+    }
+  },
+  "binlog_test": "Same server and original volumes; file position grew while stopped; DDL read after history restore; empty-history failure and restoration tested; no purge/long-outage test",
+  "limits": [
+    "One MySQL primary, one Kafka partition, one consumer and immutable business keys",
+    "Graceful Connect stop/start with original Kafka offsets and schema history; no crash/exactly-once proof",
+    "No multi-table projection, arbitrary out-of-order delivery, retry/DLQ or online rebuild"
+  ]
+}

@@ -1,0 +1,214 @@
+{
+  "at": "2026-10-29T12:46:32.366043+00:00",
+  "java_application": [
+    "openjdk version \"25.0.4.1\" 2026-08-18 LTS",
+    "OpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)",
+    "OpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)"
+  ],
+  "maven": [
+    "Apache Maven 3.9.11 (3e54c93a704957b63ee3494413a2b544fd3d825b)",
+    "Maven home: /Users/zy/.m2/wrapper/dists/apache-maven-3.9.11/a2d47e15",
+    "Java version: 25.0.4.1, vendor: Eclipse Adoptium, runtime: /private/tmp/es-f29-tooling/jdk-25.0.4.1+1/Contents/Home",
+    "Default locale: zh_CN_#Hans, platform encoding: UTF-8",
+    "OS name: \"mac os x\", version: \"26.3.1\", arch: \"aarch64\", family: \"mac\""
+  ],
+  "build": "Clean package/backend classpath and F38 Kafka client classpath actually completed; no test sources; no unit-test claim",
+  "build_log": "build.json.gz",
+  "containers": [
+    {
+      "service": "mysql",
+      "container_id": "64ea761dcd8f3f451956e9be96b4ed0ca16070281743a8ba779420978d8bbc28",
+      "image": "mysql:8.4.5@sha256:679e7e924f38a3cbb62a3d7df32924b83f7321a602d3f9f967c01b3df18495d6",
+      "image_id": "sha256:679e7e924f38a3cbb62a3d7df32924b83f7321a602d3f9f967c01b3df18495d6",
+      "repo_digests": [
+        "mysql@sha256:679e7e924f38a3cbb62a3d7df32924b83f7321a602d3f9f967c01b3df18495d6"
+      ],
+      "running": true,
+      "started_at": "2026-10-29T12:35:56.348929577Z",
+      "OOMKilled": false,
+      "memory_limit": 536870912,
+      "ports": {
+        "3306/tcp": null,
+        "33060/tcp": null
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "es-framework-f38_mysql-data",
+          "destination": "/var/lib/mysql"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/lesson"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/run/secrets/mysql-password"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/run/secrets/admin-cnf"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/run/secrets/cdc-cnf"
+        }
+      ]
+    },
+    {
+      "service": "kafka",
+      "container_id": "37cfbd6d268ae2374e5832904c76cfe5bba38489adc810b3beb65e7463d793e8",
+      "image": "apache/kafka:4.0.1@sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9",
+      "image_id": "sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9",
+      "repo_digests": [
+        "apache/kafka@sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9"
+      ],
+      "running": true,
+      "started_at": "2026-10-29T12:35:56.348512022Z",
+      "OOMKilled": false,
+      "memory_limit": 536870912,
+      "ports": {
+        "9092/tcp": null,
+        "9094/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "29238"
+          }
+        ]
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "es-framework-f38_kafka-data",
+          "destination": "/var/lib/kafka/data"
+        },
+        {
+          "type": "volume",
+          "name": "8e74c27e01db5439f0b06896abca4d55c0ccbe8abde42042e3ec9ee35bb14bb1",
+          "destination": "/etc/kafka/secrets"
+        },
+        {
+          "type": "volume",
+          "name": "e4c5c2f1b5ab4526308f72a7c3a962d7c7299655be882e84d8cfcba787d9564d",
+          "destination": "/mnt/shared/config"
+        }
+      ]
+    },
+    {
+      "service": "connect",
+      "container_id": "92a7e474e23b69f0a5427e00c6c8e5c2a3f251fccf419ad8d0adee2aa70a1aa3",
+      "image": "quay.io/debezium/connect:3.3.1.Final@sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443",
+      "image_id": "sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443",
+      "repo_digests": [
+        "quay.io/debezium/connect@sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443"
+      ],
+      "running": true,
+      "started_at": "2026-10-29T12:43:48.272475329Z",
+      "OOMKilled": false,
+      "memory_limit": 671088640,
+      "ports": {
+        "8083/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "18238"
+          }
+        ],
+        "8778/tcp": null,
+        "9092/tcp": null
+      },
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/run/secrets/cdc-properties"
+        },
+        {
+          "type": "volume",
+          "name": "0abc191317a1bfff0c23529a2d3df8a550944deed8b9667091f6ac071e0a2124",
+          "destination": "/kafka/config"
+        },
+        {
+          "type": "volume",
+          "name": "817c19972a27b7b31483211cd97da2bc2387cc00180c0b1d43d5d3b1ea839017",
+          "destination": "/kafka/data"
+        },
+        {
+          "type": "volume",
+          "name": "79b7d09ebba52645d45f771e4e7b1829c174e45c159d239fc1f46fc7e7eee449",
+          "destination": "/kafka/logs"
+        }
+      ]
+    },
+    {
+      "service": "es",
+      "container_id": "7c1d19d35c58aeb3a6fe470d1a81ae008d087f842eda0af355a60f3305848fd7",
+      "image": "docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+      "image_id": "sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84",
+      "repo_digests": [
+        "docker.elastic.co/elasticsearch/elasticsearch@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84"
+      ],
+      "running": true,
+      "started_at": "2026-10-29T12:35:56.348249734Z",
+      "OOMKilled": false,
+      "memory_limit": 805306368,
+      "ports": {
+        "9200/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "20238"
+          }
+        ],
+        "9300/tcp": null
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "es-framework-f38_es-data",
+          "destination": "/usr/share/elasticsearch/data"
+        }
+      ]
+    }
+  ],
+  "artifact_sha256": {
+    "backend/target/travel-search-0.7.0.jar": "da8dc25ff4b8b1efa2b6172e498fed5f7d7a8672a0dfc8ccddbf853271753210",
+    "backend/pom.xml": "56d4baa4c64d479cf9a51ccfbac8a8357ee3909cb50b1869c5793873967a5b31",
+    "labs/f38/pom.xml": "295c13b54b1c1b027dd3eae69f5a2ad7d1ee398b8f3f607a7d02bb0772fafc9f",
+    "labs/f38/java/F38Consumer.java": "f0cdf2c15a58fc706ae836fbd7290ca726d19bf62293dda62f58b782529cbdda",
+    "infra/f38/compose.yaml": "d251f4af88a1a2dcb134236cabeb0908ef2033519bc1befda048805c77952e5d",
+    "cdc/f38/connector.json": "d7848106ae0b679c3e7bca667bc3d063d38bcf0f9b538473c4532c85c0276073",
+    "search/f38/create.json": "4235cb87bc4258046123f10ecb61ee49a2b4128f1ecd7f2e44528b6bfb8f55f8",
+    "labs/f38/lab.py": "0242c34d81f94475bda1f69b8e3d7144f25112709538d9f36327bfb20ddf841d",
+    "data/f38/setup.sql": "c3e52c7f94d180367a86cb30b090d105e37063cc12e12005ec5affaaefa23eb3",
+    "data/f38/offline.sql": "74223409367422da5a282e0bddfb13360e1837cc1fd64a2304140406d01a10e4"
+  },
+  "source_snapshot": "Completed business configuration for run-02/run-03 and follow; final source contains added identity assertions, checked against both saved rounds",
+  "credentials_in_output": false,
+  "passed": true,
+  "binlog_versions_and_fields": "MySQL 8.4.5, log_bin=1, ROW/FULL, empty row_value_options, expire=604800, GTID OFF; recorded per-round identities",
+  "kafka_classpath_artifacts": [
+    {
+      "name": "kafka-clients-4.0.1.jar",
+      "bytes": 9188926,
+      "sha256": "ef3e6bc207822302c36c4c5870007fdfc76659c033eb7e4e079db3b34f30443c"
+    },
+    {
+      "name": "zstd-jni-1.5.6-6.jar",
+      "bytes": 7325504,
+      "sha256": "1f85db623bf653860d10e13e7b1ca6609301f66994dc93784c92a66019516bb9"
+    },
+    {
+      "name": "lz4-java-1.8.0.jar",
+      "bytes": 682804,
+      "sha256": "d74a3334fb35195009b338a951f918203d6bbca3d1d359033dc33edd1cadc9ef"
+    },
+    {
+      "name": "snappy-java-1.1.10.5.jar",
+      "bytes": 2299797,
+      "sha256": "0f3f1857ed33116583f480b4df5c0218836c47bfbc9c6221c0d73f356decf37b"
+    }
+  ]
+}

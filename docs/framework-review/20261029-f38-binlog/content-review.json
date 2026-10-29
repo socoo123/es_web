@@ -1,0 +1,77 @@
+{
+  "at": "2026-10-29T12:50:23.755801+00:00",
+  "reviewer": "Root author self-review, no independent sub-agent",
+  "reasoning_record": "reasoning.json",
+  "scope": [
+    "F38 only",
+    "F37 footer next-link only",
+    "Necessary catalog/progress/prompt entries"
+  ],
+  "page_statistics": {
+    "chinese_characters_excluding_code": 4918,
+    "code_blocks": 23,
+    "details": 19,
+    "capability_checks": 8,
+    "pitfalls": 4,
+    "cases": 3,
+    "static_d2": 2,
+    "mechanism_players": 0,
+    "teaching_http_per_round": {
+      "ES_REST": 26,
+      "Connect_REST": 10,
+      "Java_search": 5
+    },
+    "consumer_index_delete_per_round": 9
+  },
+  "reviewed_claims": [
+    "Business database owns facts; ES stores a search projection; no frontend development",
+    "ROW vs FULL vs DDL distinguished; actual server configuration verified",
+    "initial snapshots vs streaming and controlled restart; no repeated snapshot claim",
+    "Permissions use actual CDC login SELECT and denied UPDATE1142",
+    "MySQL key/before/after/source shape compared with F37 evidence",
+    "Explicit Java source adapter; fixed fields and index/delete rules; no old-write protection claim",
+    "Source file/pos/row, Connect offset, Java group offset and history kept distinct",
+    "Original history restores schema before offline ALTER is consumed; added field decoded but not projected",
+    "Source offsets with empty history fail, original history restoration resumes; no binlog purging claim",
+    "Named cleanup/repeat; original data volumes and secrets retained; only F38 services removed"
+  ],
+  "real_rounds": [
+    {
+      "round": "run-02",
+      "business_events": 11,
+      "next_offset": 11,
+      "binlog_file": "mysql-bin.000003",
+      "before_pos": 6066,
+      "offline_pos": 7499,
+      "history_missing_actual_failure": true,
+      "schema_ddl_and_new_column_validated": true,
+      "full_fields_and_deletions_equal_sql": true,
+      "real_browser_calls": 20,
+      "rest_replays_for_browser": 20,
+      "identity_assertions_audited": true
+    },
+    {
+      "round": "run-03",
+      "business_events": 11,
+      "next_offset": 11,
+      "binlog_file": "mysql-bin.000003",
+      "before_pos": 11418,
+      "offline_pos": 12851,
+      "history_missing_actual_failure": true,
+      "schema_ddl_and_new_column_validated": true,
+      "full_fields_and_deletions_equal_sql": true,
+      "real_browser_calls": 20,
+      "rest_replays_for_browser": 20,
+      "identity_assertions_audited": true
+    }
+  ],
+  "follow_separate": true,
+  "factual_corrections": "New F38 lesson, no published old lesson errata; the history CLI multiline parsing preflight failure is recorded separately",
+  "limits": [
+    "One MySQL server / one business partition / one consumer / immutable primary keys",
+    "Short graceful worker restart, original volumes/binlog still present",
+    "No long outage/binlog purge/crash/HA/GTID failover, performance, arbitrary reordering/retry/DLQ or multi-table projection",
+    "No cross-system exactly-once transaction claim"
+  ],
+  "passed": true
+}

@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+a: "商家提交 · MySQL / InnoDB\n同一张景点表，业务键 attraction_id" {class: card}
+b: "MySQL binlog · ROW / FULL\n行变化与 DDL；位置为 file / pos / row" {class: card}
+c: "Debezium MySQL · initial → streaming\n快照 r；借助 schema history 解释日志中的表结构" {class: card}
+d: "Kafka · 业务 topic，1 分区\nkey = p01；r / c / u / d 与 null tombstone" {class: card}
+e: "复用 Java 投影规则 · 1 消费者\nopen → index；closed / d → delete；成功后 commit" {class: card}
+f: "ES 写入 → 显式 refresh → 搜索可见\n浏览器通过既有 Java 搜索服务观察价格与删除" {class: card}
+a -> b: "事务提交"
+b -> c: "读取日志；来源位置另存 Connect offsets"
+c -> d: "发布行事件；history 不作为业务事件消费"
+d -> e: "从 Java group 的下一 offset 继续"
+e -> f: "官方 ES Java Client 写入；查询独立发生"

@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+a: "停止整个 Connect worker，保留原卷\nMySQL binlog、Connect source offset、schema history、Java group" {class: card}
+b: "停机期间 · ALTER + 改价 + 新增 + 删除\n同一 binlog 文件位置增长；Kafka 仍 7 条，ES 仍旧" {class: card}
+c: "恢复原 worker · 从历史结构与来源位置继续\n读取 ALTER，随后正确解码 source_note 与价格" {class: card}
+d: "Kafka 新增 u / c / d + tombstone\n本轮没有新增 r；Java 尚未消费时 ES 仍旧" {class: card}
+e: "原 Java group 消费到 next = 11，再 refresh\np01 = 7000 分、p04 = 1800 分；p02 / p03 为 404" {class: card}
+f: "对照：保留来源 offset，却指向空 history\ntask FAILED；恢复原 history 后 RUNNING，继续消费 0 条" {class: card}
+a -> b: "本课受控正常停机"
+b -> c: "所需 binlog 仍在；原 history 可用"
+c -> d: "先核对事件与来源字段"
+d -> e: "写入成功后提交；完整字段与删除对账"
+e -> f: "单独验证缺失 history 的错误与恢复"

@@ -1,0 +1,29 @@
+{
+  "name": "f38-mysql",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "database.hostname": "mysql",
+    "database.port": "3306",
+    "database.user": "f38_cdc",
+    "database.password": "${file:/run/secrets/cdc-properties:password}",
+    "database.server.id": "54038",
+    "database.ssl.mode": "disabled",
+    "database.allowPublicKeyRetrieval": "true",
+    "topic.prefix": "travel_f38",
+    "database.include.list": "travel_f38",
+    "table.include.list": "travel_f38.attraction",
+    "snapshot.mode": "initial",
+    "snapshot.locking.mode": "minimal",
+    "include.schema.changes": "false",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
+    "schema.history.internal.kafka.topic": "f38-schema-history",
+    "schema.history.internal.kafka.recovery.attempts": "10",
+    "tombstones.on.delete": "true",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "poll.interval.ms": "200"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "at": "2026-10-29T12:55:34.309896+00:00",
+  "commands": [
+    {
+      "command": [
+        "node",
+        "tools/check.mjs"
+      ],
+      "exit_code": 0,
+      "stdout": "✓ 章节骨架:30 页齐全(stub 0 / 正式 30)\n✓ index 卡片与链接一致\n✓ 注册表:实验 823 个,动画 22 个\n✓ 章节页 data-exp / data-flow 引用全部可解析\n✓ 版本锚点、Bulk 换行与深链凭据检查通过\n✓ 框架篇:38 课结构、链接与工程片段已检查\n\n全部通过 ✅\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "tools/sync-framework-code.mjs",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "框架篇代码片段与工程文件一致\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        "projects/travel-search/labs/f38/java.sh",
+        "projects/travel-search/labs/f38/requests.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "py_compile",
+        "projects/travel-search/labs/f38/lab.py",
+        "docs/framework-review/20261029-f38-binlog/reading-review.py",
+        "docs/framework-review/20261029-f38-binlog/supplement-review.py",
+        "docs/framework-review/20261029-f38-binlog/observe-shell.py",
+        "docs/framework-review/20261029-f38-binlog/follow-review.py",
+        "docs/framework-review/20261029-f38-binlog/create-contacts.py",
+        "docs/framework-review/20261029-f38-binlog/final-checks.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "final_rounds_verified": [
+    "run-02",
+    "run-03"
+  ],
+  "http_calls_per_formal_round": 41,
+  "consumer_writes_per_formal_round": 9,
+  "credentials_absent_from_scoped_artifacts": true,
+  "secrets_ignored_and_modes_verified": true,
+  "f38_services_removed": true,
+  "preserved_named_volumes": [
+    "es-framework-f38_es-data",
+    "es-framework-f38_kafka-data",
+    "es-framework-f38_mysql-data"
+  ],
+  "other_running_containers": [
+    "es-study-secure"
+  ],
+  "passed": true
+}
