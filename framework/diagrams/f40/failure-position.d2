@@ -1,0 +1,15 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+a: "同一 root 分区拉取 offset 7、8、9\n开始时 committed_next = 7" {class: card}
+b: "真实 Bulk：p01=200、p02=400、p03=200\nHTTP 200；前后两项已经生效，没有整体回滚" {class: card}
+c: "默认 block：p02 未解决，进程停止\ncommitted_next 仍 7，不能越过失败的 8" {class: card}
+d: "明确选择 park 后重启，再处理同一批\np01=noop、p02=400、p03=noop" {class: card}
+e: "p02 原消息、错误和来源位置写入 DLQ\n等 broker 确认；失败则仍不提交" {class: card}
+f: "全部条目已有明确去向，才提交 next = 10\np02 搜索资料仍旧；隔离不等于业务修复" {class: card}
+g: "审核纠正 p02 载荷，经同一版本守卫重放\n字段正确后 refresh 搜索；重复修复 noop" {class: card}
+a -> b: "逐条检查 ID、status 与 error"
+b -> c: "只要有未解决项，这一批就不提交"
+c -> d: "成功项可以安全再次到来"
+d -> e: "稳定 DLQ key = topic : partition : offset"
+e -> f: "只推进这个分区的位置"
+f -> g: "保留原 DLQ，另存修复证据"

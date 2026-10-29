@@ -1,0 +1,713 @@
+{
+  "at": "2026-10-29T14:33:05.880166+00:00",
+  "stage": "initial",
+  "calls": [
+    {
+      "width": 1440,
+      "theme": "light",
+      "java": {
+        "total": 2,
+        "totalRelation": "eq",
+        "esTookMs": 6,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "match": {
+                    "name": {
+                      "operator": "or",
+                      "query": "西湖"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "p01",
+            "name": "西湖 游船",
+            "cityCode": "HZ",
+            "ticketPriceFen": 6000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.13353139
+          },
+          {
+            "id": "p02",
+            "name": "西湖 步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.13353139
+          }
+        ]
+      },
+      "rest_replay": {
+        "took": 5,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": 0.13353139,
+          "hits": [
+            {
+              "_index": "tut-f40-attractions-v001",
+              "_id": "p01",
+              "_score": 0.13353139,
+              "_source": {
+                "name": "西湖 游船",
+                "attraction_id": "p01",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "ticket_price_fen": 6000,
+                "status": "open"
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f40-attractions-v001",
+              "_id": "p02",
+              "_score": 0.13353139,
+              "_source": {
+                "name": "西湖 步道",
+                "attraction_id": "p02",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.151,
+                  "lat": 30.251
+                },
+                "ticket_price_fen": 0,
+                "status": "open"
+              },
+              "sort": [
+                "p02"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "width": 1440,
+      "theme": "dark",
+      "java": {
+        "total": 2,
+        "totalRelation": "eq",
+        "esTookMs": 6,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "match": {
+                    "name": {
+                      "operator": "or",
+                      "query": "西湖"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "p01",
+            "name": "西湖 游船",
+            "cityCode": "HZ",
+            "ticketPriceFen": 6000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.13353139
+          },
+          {
+            "id": "p02",
+            "name": "西湖 步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.13353139
+          }
+        ]
+      },
+      "rest_replay": {
+        "took": 3,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": 0.13353139,
+          "hits": [
+            {
+              "_index": "tut-f40-attractions-v001",
+              "_id": "p01",
+              "_score": 0.13353139,
+              "_source": {
+                "name": "西湖 游船",
+                "attraction_id": "p01",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "ticket_price_fen": 6000,
+                "status": "open"
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f40-attractions-v001",
+              "_id": "p02",
+              "_score": 0.13353139,
+              "_source": {
+                "name": "西湖 步道",
+                "attraction_id": "p02",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.151,
+                  "lat": 30.251
+                },
+                "ticket_price_fen": 0,
+                "status": "open"
+              },
+              "sort": [
+                "p02"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "java": {
+        "total": 2,
+        "totalRelation": "eq",
+        "esTookMs": 4,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "match": {
+                    "name": {
+                      "operator": "or",
+                      "query": "西湖"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "p01",
+            "name": "西湖 游船",
+            "cityCode": "HZ",
+            "ticketPriceFen": 6000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.13353139
+          },
+          {
+            "id": "p02",
+            "name": "西湖 步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.13353139
+          }
+        ]
+      },
+      "rest_replay": {
+        "took": 4,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": 0.13353139,
+          "hits": [
+            {
+              "_index": "tut-f40-attractions-v001",
+              "_id": "p01",
+              "_score": 0.13353139,
+              "_source": {
+                "name": "西湖 游船",
+                "attraction_id": "p01",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "ticket_price_fen": 6000,
+                "status": "open"
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f40-attractions-v001",
+              "_id": "p02",
+              "_score": 0.13353139,
+              "_source": {
+                "name": "西湖 步道",
+                "attraction_id": "p02",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.151,
+                  "lat": 30.251
+                },
+                "ticket_price_fen": 0,
+                "status": "open"
+              },
+              "sort": [
+                "p02"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "java": {
+        "total": 2,
+        "totalRelation": "eq",
+        "esTookMs": 5,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "match": {
+                    "name": {
+                      "operator": "or",
+                      "query": "西湖"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "p01",
+            "name": "西湖 游船",
+            "cityCode": "HZ",
+            "ticketPriceFen": 6000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.13353139
+          },
+          {
+            "id": "p02",
+            "name": "西湖 步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.13353139
+          }
+        ]
+      },
+      "rest_replay": {
+        "took": 3,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": 0.13353139,
+          "hits": [
+            {
+              "_index": "tut-f40-attractions-v001",
+              "_id": "p01",
+              "_score": 0.13353139,
+              "_source": {
+                "name": "西湖 游船",
+                "attraction_id": "p01",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "ticket_price_fen": 6000,
+                "status": "open"
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f40-attractions-v001",
+              "_id": "p02",
+              "_score": 0.13353139,
+              "_source": {
+                "name": "西湖 步道",
+                "attraction_id": "p02",
+                "city_code": "HZ",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.151,
+                  "lat": 30.251
+                },
+                "ticket_price_fen": 0,
+                "status": "open"
+              },
+              "sort": [
+                "p02"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "js_errors": [],
+  "http_errors": [],
+  "direct_es": [],
+  "screenshots": [
+    "screenshots/initial-1440-light.png",
+    "screenshots/initial-1440-dark.png",
+    "screenshots/initial-390-light.png",
+    "screenshots/initial-390-dark.png"
+  ],
+  "browser": "156.0.8078.4",
+  "passed": true
+}

@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+clock: "业务事务持有共同写锁\n同一景点的 clock、完整快照与 outbox 一起提交" {class: card}
+new: "先消费 related topic\np01 revision 4：7000 分、杭州城区、夜景" {class: card}
+old: "后消费 root topic\np01 revision 3：旧城市名；脚本判旧，noop" {class: card}
+gone: "物理删除根记录，再提交 revision 5\nES 保留 sync_deleted=true 与修订号；搜索排除" {class: card}
+replay: "重新放入 revision 4 的完整旧文档\n4 < 5 → noop；p01 仍不在搜索中" {class: card}
+open: "重新开放产生 revision 6\n6 > 5 → 完整替换；旧字段随之清除" {class: card}
+clock -> new: "revision 来自共同的实体时钟，不来自 offset"
+new -> old: "演示跨 topic 的逆序交付"
+old -> gone: "删除也必须携带递增版本"
+gone -> replay: "保留标记期间，不依赖 ES 短期删除版本"
+replay -> open: "合法新状态仍可前进"

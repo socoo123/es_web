@@ -1,0 +1,30 @@
+{
+  "scripted_upsert": true,
+  "script": {
+    "lang": "painless",
+    "source": "if (ctx._source.containsKey('sync_revision')) {\n  if (params.revision < ctx._source.sync_revision) {\n    ctx.op = 'noop';\n    return;\n  }\n  if (params.revision == ctx._source.sync_revision) {\n    if (ctx._source.sync_hash != params.document.sync_hash) {\n      throw new IllegalArgumentException('same revision with different payload');\n    }\n    ctx.op = 'noop';\n    return;\n  }\n}\nctx._source.clear();\nctx._source.putAll(params.document);\n",
+    "params": {
+      "revision": 2,
+      "document": {
+        "name": "西湖 游船",
+        "tags": [
+          "夜游"
+        ],
+        "status": "open",
+        "currency": "CNY",
+        "location": {
+          "lat": 30.25,
+          "lon": 120.15
+        },
+        "city_code": "HZ",
+        "city_name": "杭州",
+        "sync_deleted": false,
+        "attraction_id": "p01",
+        "sync_revision": 2,
+        "ticket_price_fen": 6500,
+        "sync_hash": "01a4934b5f4fb18f5e653481d9931dbda055e7f003834160d2c06e5612e88bf2"
+      }
+    }
+  },
+  "upsert": {}
+}

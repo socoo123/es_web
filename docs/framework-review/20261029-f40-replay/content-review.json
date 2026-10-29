@@ -1,0 +1,36 @@
+{
+  "at": "2026-10-29T14:47:10.664374+00:00",
+  "reviewer": "root self-review, no independent agent",
+  "chinese_characters_excluding_code": 5574,
+  "cases": 4,
+  "source_events": 17,
+  "code_blocks": 23,
+  "details_total": 13,
+  "capability_questions": 8,
+  "pitfalls": 4,
+  "d2_sources": 2,
+  "d2_svg_assets": 4,
+  "mechanism_players": 0,
+  "verdicts": {
+    "business_position_and_ES_role": "explained before API/code",
+    "source_revision_contract": "cooperative transaction lock + entity clock + immutable complete outbox; all affected IDs published in same transaction",
+    "cross_topic_versioning": "does not compare partition offsets; complete snapshots required",
+    "deletion": "clock and ES marker retained; filtered alias does not filter GET",
+    "idempotence": "same ID insufficient; equal revision and exact payload fingerprint required; conflicting payload blocks",
+    "offsets": "manual per partition, after full batch applied/noop/durably parked; no crossing unresolved gap",
+    "failures": "only known item mapping 400 may park; script/config/unknown errors stop; bounded transient retry and unknown outcomes covered",
+    "DLQ": "ack awaited before source commit, duplicate isolation possible, retained original pending record and offline repair audit",
+    "visibility": "explicit refresh; GET, search and consumer commit distinguished",
+    "scope": "single VM/broker/partition/consumer; serial cooperating writers; no HA/throughput/online rebuild/exactly-once claim",
+    "source_and_runtime_versions": "official fixed-tag target files HTTP200 match local; build/runtime receipts separate",
+    "snippets": "source ranges synchronized; commit excerpt starts at apply and includes commitSync"
+  },
+  "corrections_before_publication": [
+    "read chunked transport requests in fault proxy",
+    "revoke database CONNECT grant before dropping CDC role",
+    "restrict park to known mapping data failures, not all status 400",
+    "keep final Java source ranges synchronized after error-classification edit"
+  ],
+  "historical_published_lesson_errata": [],
+  "passed": true
+}
