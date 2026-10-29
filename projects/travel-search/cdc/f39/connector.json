@@ -1,0 +1,27 @@
+{
+  "name": "f39-pg",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "f39_cdc",
+    "database.password": "${file:/run/secrets/cdc-properties:password}",
+    "database.dbname": "travel_f39",
+    "topic.prefix": "travel_f39",
+    "plugin.name": "pgoutput",
+    "slot.name": "f39_slot",
+    "slot.drop.on.stop": "false",
+    "publication.name": "f39_publication",
+    "publication.autocreate.mode": "disabled",
+    "table.include.list": "f39.city,f39.attraction,f39.attraction_tag",
+    "snapshot.mode": "initial",
+    "tombstones.on.delete": "true",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "poll.interval.ms": "200",
+    "status.update.interval.ms": "1000"
+  }
+}

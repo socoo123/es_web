@@ -1,0 +1,58 @@
+{
+  "passed": true,
+  "source": "run-03/reopened-apply.json",
+  "method": "POST",
+  "path": "/_bulk?require_alias=true",
+  "content_type": "application/x-ndjson",
+  "body": "{\"index\":{\"_index\":\"tut-f39-attractions-write\",\"_id\":\"p02\"}}\n{\"name\": \"西湖 步道\", \"tags\": [\"亲水\", \"夜景\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.251, \"lon\": 120.151}, \"city_code\": \"HZ\", \"city_name\": \"杭州城区\", \"attraction_id\": \"p02\", \"ticket_price_fen\": 0}\n",
+  "status": 200,
+  "response": {
+    "errors": false,
+    "took": 0,
+    "items": [
+      {
+        "index": {
+          "_index": "tut-f39-attractions-v001",
+          "_id": "p02",
+          "_version": 11,
+          "result": "updated",
+          "_shards": {
+            "total": 1,
+            "successful": 1,
+            "failed": 0
+          },
+          "_seq_no": 25,
+          "_primary_term": 1,
+          "status": 200
+        }
+      }
+    ]
+  },
+  "get_after": {
+    "_index": "tut-f39-attractions-v001",
+    "_id": "p02",
+    "_version": 11,
+    "_seq_no": 25,
+    "_primary_term": 1,
+    "found": true,
+    "_source": {
+      "name": "西湖 步道",
+      "tags": [
+        "亲水",
+        "夜景"
+      ],
+      "status": "open",
+      "currency": "CNY",
+      "location": {
+        "lat": 30.251,
+        "lon": 120.151
+      },
+      "city_code": "HZ",
+      "city_name": "杭州城区",
+      "attraction_id": "p02",
+      "ticket_price_fen": 0
+    }
+  },
+  "same_final_document": true,
+  "separate_from_round_http_counts": true
+}

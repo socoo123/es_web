@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+a: "三张业务表 · 三个事件 topic\ncity / attraction / attraction_tag" {class: card}
+b: "Java 读取事件中的旧、新归属\nFULL before + after；不是把行直接写成文档" {class: card}
+c: "城市 HZ 改名 → p01、p02\n景点 p01 改价 → p01\n标签 t02 转移 → 旧 p01 ∪ 新 p02" {class: card}
+d: "每个事件建立只读数据库快照\n受影响 ID 去重；按当前三表重算完整文档" {class: card}
+e: "Bulk 以景点 ID 写入\nopen → index 整份；closed / 不存在 → delete" {class: card}
+f: "核对全部条目后提交该分区 offset\n显式 refresh 后用搜索验证；跨 topic 无全局次序" {class: card}
+a -> b: "Debezium 行事件；key 是表的主键"
+b -> c: "路由规则决定受影响的景点"
+c -> d: "不是三个表各建一个搜索索引"
+d -> e: "包含 city_name、tags 与整数分价格"
+e -> f: "不构成数据库 / ES / Kafka 的原子事务"

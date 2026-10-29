@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+a: "原状态\np01.tags = [亲水, 夜游]；p02.tags = [亲水]" {class: card}
+b: "数据库提交 t02 的归属和名称变化\nbefore: p01 / 夜游 → after: p02 / 夜景" {class: card}
+c: "反例 · 只修改新 p02\n夜间标签搜索仍命中 p01、p02；旧夜游残留" {class: card}
+d: "正确路由 · 重算旧 p01 与新 p02\np01.tags = [亲水]；p02.tags = [亲水, 夜景]" {class: card}
+e: "再删除 p01 最后一条标签 t01\n由 before 找到 p01；完整 index 明确写 tags = []" {class: card}
+f: "根记录的资格决定文档是否存在\np02 下架 → delete；p03 物理删及级联 → delete\np02 重开 → 当前城市、标签、价格重新组装" {class: card}
+a -> b: "表主键 t02 不变，外键 attraction_id 改变"
+b -> c: "实测错误做法：只看 after"
+c -> d: "index 完整覆盖；移除旧标签"
+d -> e: "删除行不等于可以丢掉旧归属"
+e -> f: "孩子变化重算父文档；根删除移除整份文档"

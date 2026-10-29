@@ -1,0 +1,184 @@
+[
+  {
+    "kind": "applied",
+    "topic": "travel_f39.f39.city",
+    "partition": 0,
+    "offset": 2,
+    "key": {
+      "city_code": "HZ"
+    },
+    "projection": {
+      "items": [
+        {
+          "status": 200,
+          "id": "p01",
+          "result": "updated"
+        },
+        {
+          "status": 200,
+          "id": "p02",
+          "result": "updated"
+        }
+      ],
+      "bulk_ndjson": "{\"index\":{\"_id\":\"p01\",\"_index\":\"tut-f39-attractions-write\"}}\n{\"name\": \"西湖 游船\", \"tags\": [\"亲水\", \"夜游\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"city_code\": \"HZ\", \"city_name\": \"杭州城区\", \"attraction_id\": \"p01\", \"ticket_price_fen\": 6500}\n{\"index\":{\"_id\":\"p02\",\"_index\":\"tut-f39-attractions-write\"}}\n{\"name\": \"西湖 步道\", \"tags\": [\"亲水\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.251, \"lon\": 120.151}, \"city_code\": \"HZ\", \"city_name\": \"杭州城区\", \"attraction_id\": \"p02\", \"ticket_price_fen\": 0}\n",
+      "operations": [
+        {
+          "id": "p01",
+          "op": "index",
+          "document": {
+            "name": "西湖 游船",
+            "tags": [
+              "亲水",
+              "夜游"
+            ],
+            "status": "open",
+            "currency": "CNY",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            },
+            "city_code": "HZ",
+            "city_name": "杭州城区",
+            "attraction_id": "p01",
+            "ticket_price_fen": 6500
+          }
+        },
+        {
+          "id": "p02",
+          "op": "index",
+          "document": {
+            "name": "西湖 步道",
+            "tags": [
+              "亲水"
+            ],
+            "status": "open",
+            "currency": "CNY",
+            "location": {
+              "lat": 30.251,
+              "lon": 120.151
+            },
+            "city_code": "HZ",
+            "city_name": "杭州城区",
+            "attraction_id": "p02",
+            "ticket_price_fen": 0
+          }
+        }
+      ],
+      "affected_ids": [
+        "p01",
+        "p02"
+      ]
+    },
+    "committed_next": 3
+  },
+  {
+    "kind": "applied",
+    "topic": "travel_f39.f39.attraction_tag",
+    "partition": 0,
+    "offset": 3,
+    "key": {
+      "tag_id": "t04"
+    },
+    "projection": {
+      "items": [
+        {
+          "status": 200,
+          "id": "p03",
+          "result": "updated"
+        }
+      ],
+      "bulk_ndjson": "{\"index\":{\"_id\":\"p03\",\"_index\":\"tut-f39-attractions-write\"}}\n{\"name\": \"西湖 园林\", \"tags\": [\"亲子\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 31.32, \"lon\": 120.62}, \"city_code\": \"SZ\", \"city_name\": \"苏州\", \"attraction_id\": \"p03\", \"ticket_price_fen\": 3000}\n",
+      "operations": [
+        {
+          "id": "p03",
+          "op": "index",
+          "document": {
+            "name": "西湖 园林",
+            "tags": [
+              "亲子"
+            ],
+            "status": "open",
+            "currency": "CNY",
+            "location": {
+              "lat": 31.32,
+              "lon": 120.62
+            },
+            "city_code": "SZ",
+            "city_name": "苏州",
+            "attraction_id": "p03",
+            "ticket_price_fen": 3000
+          }
+        }
+      ],
+      "affected_ids": [
+        "p03"
+      ]
+    },
+    "committed_next": 4
+  },
+  {
+    "kind": "applied",
+    "topic": "travel_f39.f39.attraction",
+    "partition": 0,
+    "offset": 3,
+    "key": {
+      "attraction_id": "p01"
+    },
+    "projection": {
+      "items": [
+        {
+          "status": 200,
+          "id": "p01",
+          "result": "updated"
+        }
+      ],
+      "bulk_ndjson": "{\"index\":{\"_id\":\"p01\",\"_index\":\"tut-f39-attractions-write\"}}\n{\"name\": \"西湖 游船\", \"tags\": [\"亲水\", \"夜游\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"city_code\": \"HZ\", \"city_name\": \"杭州城区\", \"attraction_id\": \"p01\", \"ticket_price_fen\": 6500}\n",
+      "operations": [
+        {
+          "id": "p01",
+          "op": "index",
+          "document": {
+            "name": "西湖 游船",
+            "tags": [
+              "亲水",
+              "夜游"
+            ],
+            "status": "open",
+            "currency": "CNY",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            },
+            "city_code": "HZ",
+            "city_name": "杭州城区",
+            "attraction_id": "p01",
+            "ticket_price_fen": 6500
+          }
+        }
+      ],
+      "affected_ids": [
+        "p01"
+      ]
+    },
+    "committed_next": 4
+  },
+  {
+    "positions": {
+      "travel_f39.f39.city": {
+        "observed_end": 3,
+        "committed_next": 3
+      },
+      "travel_f39.f39.attraction_tag": {
+        "observed_end": 4,
+        "committed_next": 4
+      },
+      "travel_f39.f39.attraction": {
+        "observed_end": 4,
+        "committed_next": 4
+      }
+    },
+    "mode": "drain",
+    "kind": "summary",
+    "processed": 3
+  }
+]

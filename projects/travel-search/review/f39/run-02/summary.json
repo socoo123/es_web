@@ -1,0 +1,72 @@
+{
+  "at": "2026-10-29T13:06:35.953653+00:00",
+  "passed": true,
+  "cases": 3,
+  "http_by_case": {
+    "identity": 5,
+    "c01-snapshot": 13,
+    "c02-shared-and-transfer": 13,
+    "c03-delete-and-status": 19
+  },
+  "http_by_base": {
+    "http://127.0.0.1:20339": 37,
+    "http://127.0.0.1:18339": 6,
+    "http://127.0.0.1:18089": 7
+  },
+  "total_recorded_http": 50,
+  "kafka_events": 20,
+  "consumer_bulk_requests": 17,
+  "consumer_bulk_items": 20,
+  "final_positions": {
+    "travel_f39.f39.city": {
+      "observed_end": 3,
+      "committed_next": 3
+    },
+    "travel_f39.f39.attraction_tag": {
+      "observed_end": 9,
+      "committed_next": 9
+    },
+    "travel_f39.f39.attraction": {
+      "observed_end": 8,
+      "committed_next": 8
+    }
+  },
+  "final_documents": {
+    "p01": {
+      "name": "西湖 游船",
+      "tags": [],
+      "status": "open",
+      "currency": "CNY",
+      "location": {
+        "lat": 30.25,
+        "lon": 120.15
+      },
+      "city_code": "HZ",
+      "city_name": "杭州城区",
+      "attraction_id": "p01",
+      "ticket_price_fen": 6500
+    },
+    "p02": {
+      "name": "西湖 步道",
+      "tags": [
+        "亲水",
+        "夜景"
+      ],
+      "status": "open",
+      "currency": "CNY",
+      "location": {
+        "lat": 30.251,
+        "lon": 120.151
+      },
+      "city_code": "HZ",
+      "city_name": "杭州城区",
+      "attraction_id": "p02",
+      "ticket_price_fen": 0
+    }
+  },
+  "limits": [
+    "One PostgreSQL primary, 3 topics with 1 partition each, 1 consumer, immutable keys",
+    "Paused writes per finite stage; current-state reads, no event-time or cross-topic transaction snapshot",
+    "No arbitrary crash/out-of-order/late replay, retries/DLQ/HA/large fanout or performance validation"
+  ]
+}

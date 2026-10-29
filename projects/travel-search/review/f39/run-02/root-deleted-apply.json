@@ -1,0 +1,111 @@
+[
+  {
+    "kind": "applied",
+    "topic": "travel_f39.f39.attraction_tag",
+    "partition": 0,
+    "offset": 7,
+    "key": {
+      "tag_id": "t04"
+    },
+    "projection": {
+      "operations": [
+        {
+          "op": "delete",
+          "id": "p03"
+        }
+      ],
+      "bulk_ndjson": "{\"delete\":{\"_index\":\"tut-f39-attractions-write\",\"_id\":\"p03\"}}\n",
+      "items": [
+        {
+          "result": "deleted",
+          "id": "p03",
+          "status": 200
+        }
+      ],
+      "affected_ids": [
+        "p03"
+      ]
+    },
+    "committed_next": 8
+  },
+  {
+    "kind": "applied",
+    "topic": "travel_f39.f39.attraction_tag",
+    "partition": 0,
+    "offset": 8,
+    "key": {
+      "tag_id": "t04"
+    },
+    "projection": {
+      "operations": [],
+      "bulk_ndjson": "",
+      "items": [],
+      "affected_ids": []
+    },
+    "committed_next": 9
+  },
+  {
+    "kind": "applied",
+    "topic": "travel_f39.f39.attraction",
+    "partition": 0,
+    "offset": 5,
+    "key": {
+      "attraction_id": "p03"
+    },
+    "projection": {
+      "operations": [
+        {
+          "op": "delete",
+          "id": "p03"
+        }
+      ],
+      "bulk_ndjson": "{\"delete\":{\"_index\":\"tut-f39-attractions-write\",\"_id\":\"p03\"}}\n",
+      "items": [
+        {
+          "result": "not_found",
+          "id": "p03",
+          "status": 404
+        }
+      ],
+      "affected_ids": [
+        "p03"
+      ]
+    },
+    "committed_next": 6
+  },
+  {
+    "kind": "applied",
+    "topic": "travel_f39.f39.attraction",
+    "partition": 0,
+    "offset": 6,
+    "key": {
+      "attraction_id": "p03"
+    },
+    "projection": {
+      "operations": [],
+      "bulk_ndjson": "",
+      "items": [],
+      "affected_ids": []
+    },
+    "committed_next": 7
+  },
+  {
+    "kind": "summary",
+    "mode": "drain",
+    "positions": {
+      "travel_f39.f39.city": {
+        "observed_end": 3,
+        "committed_next": 3
+      },
+      "travel_f39.f39.attraction_tag": {
+        "observed_end": 9,
+        "committed_next": 9
+      },
+      "travel_f39.f39.attraction": {
+        "observed_end": 7,
+        "committed_next": 7
+      }
+    },
+    "processed": 4
+  }
+]

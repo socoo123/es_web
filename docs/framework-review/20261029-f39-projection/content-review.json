@@ -1,0 +1,121 @@
+{
+  "at": "2026-10-29T13:14:52.327906+00:00",
+  "passed": true,
+  "review_type": "author self-review against scope, source, two live rounds and actual reading",
+  "counts": {
+    "hanzi_outside_code": 4668,
+    "cases": 3,
+    "code_blocks": 26,
+    "details": 17,
+    "drills": 8,
+    "pitfalls": 4,
+    "static_d2": 2,
+    "players": 0
+  },
+  "checks": [
+    {
+      "topic": "Business problem and document boundary",
+      "finding": "City/attraction/tag rows project into attraction IDs; no one-table-one-index promise, no frontend task",
+      "evidence": [
+        "framework/f39.html#problem",
+        "data/f39/setup.sql",
+        "run-02/c01-complete.json"
+      ]
+    },
+    {
+      "topic": "Old/new association and FULL",
+      "finding": "Stable tag key t02; before p01 and after p02; update/delete require non-key old attraction_id",
+      "evidence": [
+        "run-02/c02-transfer-events.json",
+        "run-03/c02-transfer-events.json",
+        "run-02/permissions.json"
+      ]
+    },
+    {
+      "topic": "Real negative case and correction",
+      "finding": "after-only partial update leaves p01 in night query; old+new full recomputation removes it",
+      "evidence": [
+        "run-02/c02-naive-residual.json",
+        "run-02/c02-fixed-night.json",
+        "run-03/transferred-apply.json"
+      ]
+    },
+    {
+      "topic": "Current-state snapshot",
+      "finding": "Single read-only REPEATABLE READ transaction per event; no event-time/cross-topic snapshot or distributed atomicity claim",
+      "evidence": [
+        "labs/f39/java/F39Consumer.java:55",
+        "labs/f39/java/F39Consumer.java:119",
+        "framework/f39.html#conditions"
+      ]
+    },
+    {
+      "topic": "Empty children/status/physical root/cascade/reopen",
+      "finding": "Explicit []; closed or absent root deletes; cascade repeated delete accepted; reopen recomputes current fields",
+      "evidence": [
+        "run-03/empty-tags-complete.json",
+        "run-03/root-deleted-apply.json",
+        "run-03/reopened-complete.json"
+      ]
+    },
+    {
+      "topic": "Bulk and offset separation",
+      "finding": "17 Bulk/20 items per round, 3 tombstones; current partition commits after successful apply; failures/replay left F40",
+      "evidence": [
+        "run-02/summary.json",
+        "run-03/summary.json",
+        "rest-bulk-replay.json"
+      ]
+    },
+    {
+      "topic": "Observation window boundary",
+      "finding": "Existing UI shows price and lifecycle only; no tags/city-name UI claimed, full ES source and night query verified separately",
+      "evidence": [
+        "run-03/initial-browser.json",
+        "run-03/reopened-browser.json",
+        "run-03/c03-final-night.json"
+      ]
+    },
+    {
+      "topic": "Repeatability and limitations",
+      "finding": "Two rounds separated by cleanup; independent PG environment, no F40-F45 implementation; real follow separately tested",
+      "evidence": [
+        "cleanup-02/summary.json",
+        "follow/summary.json",
+        "labs/f39/README.md"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://debezium.io/documentation/reference/3.3/connectors/postgresql.html",
+      "purpose": "FULL old rows and row envelopes"
+    },
+    {
+      "url": "https://www.postgresql.org/docs/17/transaction-iso.html",
+      "purpose": "Repeatable-read snapshot"
+    },
+    {
+      "url": "https://jdbc.postgresql.org/documentation/use/",
+      "purpose": "Properties connection"
+    },
+    {
+      "url": "https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-bulk",
+      "purpose": "index replacement, partial updates and Bulk item outcomes"
+    },
+    {
+      "url": "https://www.elastic.co/docs/reference/elasticsearch/clients/java/usage/indexing-bulk",
+      "purpose": "Official Java Bulk usage"
+    }
+  ],
+  "errata": {
+    "existing_lesson_changed": false,
+    "planned_negative_case": "after-only update fails old-owner cleanup, deliberately reproduced and fixed",
+    "startup_preflight": "run-01 launched before start completed; Connect transient RemoteDisconnected, no business setup; excluded from formal rounds"
+  },
+  "limits": [
+    "Single author, not an independent review",
+    "Root model/effort cannot be configured or read back",
+    "Hotel/room example is explanatory analogy; only attraction data actually run"
+  ]
+}
