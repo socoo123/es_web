@@ -1,0 +1,91 @@
+{
+  "begin_sql": "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSELECT current_setting('transaction_isolation'), count(*) FROM f36.attraction;\nSELECT jsonb_build_object('op', op, 'id', id, 'document', document)\nFROM f36.search_projection ORDER BY id;\n\n\\echo F36_SNAPSHOT_READY\n",
+  "first_stdout": "repeatable read|2\n{\"id\": \"p01\", \"op\": \"index\", \"document\": {\"name\": \"西湖 游船\", \"tags\": [\"亲子\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.25000, \"lon\": 120.15000}, \"city_code\": \"HZ\", \"city_name\": \"杭州（旅游展示名）\", \"attraction_id\": \"p01\", \"ticket_price_fen\": 6000}}\n{\"id\": \"p02\", \"op\": \"index\", \"document\": {\"name\": \"西湖 步道\", \"tags\": [\"步行\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.25100, \"lon\": 120.15100}, \"city_code\": \"HZ\", \"city_name\": \"杭州（旅游展示名）\", \"attraction_id\": \"p02\", \"ticket_price_fen\": 0}}\n",
+  "second_stdout": "{\"id\": \"p01\", \"op\": \"index\", \"document\": {\"name\": \"西湖 游船\", \"tags\": [\"亲子\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.25000, \"lon\": 120.15000}, \"city_code\": \"HZ\", \"city_name\": \"杭州（旅游展示名）\", \"attraction_id\": \"p01\", \"ticket_price_fen\": 6000}}\n{\"id\": \"p02\", \"op\": \"index\", \"document\": {\"name\": \"西湖 步道\", \"tags\": [\"步行\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.25100, \"lon\": 120.15100}, \"city_code\": \"HZ\", \"city_name\": \"杭州（旅游展示名）\", \"attraction_id\": \"p02\", \"ticket_price_fen\": 0}}\n",
+  "first_projection": [
+    {
+      "id": "p01",
+      "op": "index",
+      "document": {
+        "name": "西湖 游船",
+        "tags": [
+          "亲子"
+        ],
+        "status": "open",
+        "currency": "CNY",
+        "location": {
+          "lat": 30.25,
+          "lon": 120.15
+        },
+        "city_code": "HZ",
+        "city_name": "杭州（旅游展示名）",
+        "attraction_id": "p01",
+        "ticket_price_fen": 6000
+      }
+    },
+    {
+      "id": "p02",
+      "op": "index",
+      "document": {
+        "name": "西湖 步道",
+        "tags": [
+          "步行"
+        ],
+        "status": "open",
+        "currency": "CNY",
+        "location": {
+          "lat": 30.251,
+          "lon": 120.151
+        },
+        "city_code": "HZ",
+        "city_name": "杭州（旅游展示名）",
+        "attraction_id": "p02",
+        "ticket_price_fen": 0
+      }
+    }
+  ],
+  "second_projection": [
+    {
+      "id": "p01",
+      "op": "index",
+      "document": {
+        "name": "西湖 游船",
+        "tags": [
+          "亲子"
+        ],
+        "status": "open",
+        "currency": "CNY",
+        "location": {
+          "lat": 30.25,
+          "lon": 120.15
+        },
+        "city_code": "HZ",
+        "city_name": "杭州（旅游展示名）",
+        "attraction_id": "p01",
+        "ticket_price_fen": 6000
+      }
+    },
+    {
+      "id": "p02",
+      "op": "index",
+      "document": {
+        "name": "西湖 步道",
+        "tags": [
+          "步行"
+        ],
+        "status": "open",
+        "currency": "CNY",
+        "location": {
+          "lat": 30.251,
+          "lon": 120.151
+        },
+        "city_code": "HZ",
+        "city_name": "杭州（旅游展示名）",
+        "attraction_id": "p02",
+        "ticket_price_fen": 0
+      }
+    }
+  ],
+  "same": true,
+  "boundary": "first SELECT, not BEGIN; not a CDC checkpoint"
+}

@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+a: "① 会话 A · 固定读视图\nREPEATABLE READ 的第一条 SELECT\np01 = 6000 分；p02 在售；没有 p03" {class: card}
+b: "② 会话 B · 一个事务提交\np01 → 6500 分；p02 → closed\n新增 p03 = 3000 分" {class: card}
+c: "③ 会话 A · 再读仍是旧视图\n导入旧快照并 refresh\n搜索还是 p01 / p02，漏掉三种变化" {class: card}
+d: "④ 本课受控补齐 · 暂停其他写入\n人工已知键 p01 / p02 / p03，重读当前投影\nindex p01、delete p02、index p03" {class: card}
+e: "⑤ 核对两层结果\nGET 已新而 SEARCH 仍旧 → refresh\n完整字段一致；搜索 p01 / p03" {class: card}
+a -> b: "快照事务保持打开"
+b -> c: "数据库提交不改变旧读视图"
+c -> d: "没有自动事件，需人工处理"
+d -> e: "写入成功与搜索可见分开"

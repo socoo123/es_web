@@ -1,0 +1,18 @@
+direction: down
+classes: {card: {style: {font-size: 20; border-radius: 10}}}
+source: "业务数据库 · 三张表" {
+  grid-columns: 1
+  style.font-size: 23
+  a: "city：HZ → 杭州\nattraction：p01 / p02、价格、状态、坐标" {class: card}
+  b: "attraction_tag：同一景点的多个标签\n城市改名会影响同城多个景点" {class: card}
+}
+project: "SQL 投影 · 按景点组装\nJOIN 城市、汇总 tags；业务键为 attraction_id" {class: card}
+file: "JSON 文件 · 一景点一条操作\nopen → index 整份文档；closed → delete" {class: card}
+java: "Java 官方客户端 · 有限文件导入\n_id = p01；逐条检查 Bulk 结果；本课无事件消费" {class: card}
+es: "ES 搜索投影 · 可重建\n显式 refresh 后，搜索才读到本轮变化" {class: card}
+visitor: "游客浏览器 → 本机 Java → ES\n复用搜索观察窗，核对 ID 与整数分价格" {class: card}
+source -> project: "读取表行"
+project -> file: "导出当前投影"
+file -> java: "手动执行"
+java -> es: "index / delete"
+es -> visitor: "返回搜索结果"

@@ -1,0 +1,1079 @@
+{
+  "at": "2026-10-29T01:21:59.605037+00:00",
+  "commands": [
+    {
+      "args": [
+        "python3",
+        "labs/f36/lab.py",
+        "cleanup",
+        "--out",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/cleanup-before"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/requests.sh",
+        "prepare",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/java.sh",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/initial.ndjson"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/requests.sh",
+        "refresh"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/requests.sh",
+        "related",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/java.sh",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/related.ndjson"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/requests.sh",
+        "refresh"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/requests.sh",
+        "change"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f36/compose.yaml",
+        "cp",
+        "postgres:/tmp/f36-snapshot.ndjson",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/snapshot.ndjson"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "infra/f36/compose.yaml",
+        "cp",
+        "postgres:/tmp/f36-snapshot-again.ndjson",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/snapshot-again.ndjson"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "cmp",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/snapshot.ndjson",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/snapshot-again.ndjson"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "labs/f36/to-bulk.py",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/snapshot.ndjson"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "curl",
+        "--fail-with-body",
+        "-sS",
+        "-X",
+        "POST",
+        "http://127.0.0.1:20036/tut-f36-attractions-write/_bulk?require_alias=true",
+        "-H",
+        "Content-Type: application/x-ndjson",
+        "--data-binary",
+        "@/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/snapshot.bulk.ndjson"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/requests.sh",
+        "refresh"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/requests.sh",
+        "delta",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/java.sh",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/delta.ndjson"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/requests.sh",
+        "refresh"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/java.sh",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/review/f36/manual/work/delta.ndjson"
+      ],
+      "returncode": 0
+    },
+    {
+      "args": [
+        "bash",
+        "labs/f36/requests.sh",
+        "refresh"
+      ],
+      "returncode": 0
+    }
+  ],
+  "checks": [
+    {
+      "path": "/tut-f36-attractions-read/_search",
+      "app": false,
+      "status": 200,
+      "response": {
+        "took": 1,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p01",
+              "_score": null,
+              "_source": {
+                "name": "西湖 游船",
+                "tags": [
+                  "亲子",
+                  "游船"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                },
+                "city_code": "HZ",
+                "city_name": "杭州",
+                "attraction_id": "p01",
+                "ticket_price_fen": 6000
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p02",
+              "_score": null,
+              "_source": {
+                "name": "西湖 步道",
+                "tags": [
+                  "步行"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.251,
+                  "lon": 120.151
+                },
+                "city_code": "HZ",
+                "city_name": "杭州",
+                "attraction_id": "p02",
+                "ticket_price_fen": 0
+              },
+              "sort": [
+                "p02"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/tut-f36-attractions-read/_search",
+      "app": false,
+      "status": 200,
+      "response": {
+        "took": 2,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p01",
+              "_score": null,
+              "_source": {
+                "name": "西湖 游船",
+                "tags": [
+                  "亲子",
+                  "游船"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                },
+                "city_code": "HZ",
+                "city_name": "杭州",
+                "attraction_id": "p01",
+                "ticket_price_fen": 6000
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p02",
+              "_score": null,
+              "_source": {
+                "name": "西湖 步道",
+                "tags": [
+                  "步行"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.251,
+                  "lon": 120.151
+                },
+                "city_code": "HZ",
+                "city_name": "杭州",
+                "attraction_id": "p02",
+                "ticket_price_fen": 0
+              },
+              "sort": [
+                "p02"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/tut-f36-attractions-read/_search",
+      "app": false,
+      "status": 200,
+      "response": {
+        "took": 1,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p01",
+              "_score": null,
+              "_source": {
+                "name": "西湖 游船",
+                "tags": [
+                  "亲子"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p01",
+                "ticket_price_fen": 6000
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p02",
+              "_score": null,
+              "_source": {
+                "name": "西湖 步道",
+                "tags": [
+                  "步行"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.251,
+                  "lon": 120.151
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p02",
+                "ticket_price_fen": 0
+              },
+              "sort": [
+                "p02"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/tut-f36-attractions-read/_search",
+      "app": false,
+      "status": 200,
+      "response": {
+        "took": 1,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p01",
+              "_score": null,
+              "_source": {
+                "name": "西湖 游船",
+                "tags": [
+                  "亲子"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p01",
+                "ticket_price_fen": 6000
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p02",
+              "_score": null,
+              "_source": {
+                "name": "西湖 步道",
+                "tags": [
+                  "步行"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.251,
+                  "lon": 120.151
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p02",
+                "ticket_price_fen": 0
+              },
+              "sort": [
+                "p02"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/api/attractions/search",
+      "app": true,
+      "status": 200,
+      "response": {
+        "total": 2,
+        "totalRelation": "eq",
+        "esTookMs": 2,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "match": {
+                    "name": {
+                      "operator": "or",
+                      "query": "西湖"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "p01",
+            "name": "西湖 游船",
+            "cityCode": "HZ",
+            "ticketPriceFen": 6000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.05715841
+          },
+          {
+            "id": "p02",
+            "name": "西湖 步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.05715841
+          }
+        ]
+      }
+    },
+    {
+      "path": "/tut-f36-attractions-read/_doc/p01",
+      "app": false,
+      "status": 200,
+      "response": {
+        "_index": "tut-f36-attractions-v001",
+        "_id": "p01",
+        "_version": 5,
+        "_seq_no": 8,
+        "_primary_term": 1,
+        "found": true,
+        "_source": {
+          "name": "西湖 游船",
+          "tags": [
+            "亲子"
+          ],
+          "status": "open",
+          "currency": "CNY",
+          "location": {
+            "lat": 30.25,
+            "lon": 120.15
+          },
+          "city_code": "HZ",
+          "city_name": "杭州（旅游展示名）",
+          "attraction_id": "p01",
+          "ticket_price_fen": 6500
+        }
+      }
+    },
+    {
+      "path": "/tut-f36-attractions-read/_doc/p02",
+      "app": false,
+      "status": 404,
+      "response": {
+        "_index": "tut-f36-attractions-v001",
+        "_id": "p02",
+        "found": false
+      }
+    },
+    {
+      "path": "/tut-f36-attractions-read/_search",
+      "app": false,
+      "status": 200,
+      "response": {
+        "took": 0,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p01",
+              "_score": null,
+              "_source": {
+                "name": "西湖 游船",
+                "tags": [
+                  "亲子"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p01",
+                "ticket_price_fen": 6000
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p02",
+              "_score": null,
+              "_source": {
+                "name": "西湖 步道",
+                "tags": [
+                  "步行"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.251,
+                  "lon": 120.151
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p02",
+                "ticket_price_fen": 0
+              },
+              "sort": [
+                "p02"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/api/attractions/search",
+      "app": true,
+      "status": 200,
+      "response": {
+        "total": 2,
+        "totalRelation": "eq",
+        "esTookMs": 1,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "match": {
+                    "name": {
+                      "operator": "or",
+                      "query": "西湖"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "p01",
+            "name": "西湖 游船",
+            "cityCode": "HZ",
+            "ticketPriceFen": 6000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.05715841
+          },
+          {
+            "id": "p02",
+            "name": "西湖 步道",
+            "cityCode": "HZ",
+            "ticketPriceFen": 0,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.05715841
+          }
+        ]
+      }
+    },
+    {
+      "path": "/tut-f36-attractions-read/_search",
+      "app": false,
+      "status": 200,
+      "response": {
+        "took": 0,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p01",
+              "_score": null,
+              "_source": {
+                "name": "西湖 游船",
+                "tags": [
+                  "亲子"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p01",
+                "ticket_price_fen": 6500
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p03",
+              "_score": null,
+              "_source": {
+                "name": "西湖 湿地",
+                "tags": [
+                  "观鸟"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.252,
+                  "lon": 120.152
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p03",
+                "ticket_price_fen": 3000
+              },
+              "sort": [
+                "p03"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/api/attractions/search",
+      "app": true,
+      "status": 200,
+      "response": {
+        "total": 2,
+        "totalRelation": "eq",
+        "esTookMs": 3,
+        "conditions": {
+          "q": "西湖",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "match": {
+                    "name": {
+                      "operator": "or",
+                      "query": "西湖"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "p01",
+            "name": "西湖 游船",
+            "cityCode": "HZ",
+            "ticketPriceFen": 6500,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.046520013
+          },
+          {
+            "id": "p03",
+            "name": "西湖 湿地",
+            "cityCode": "HZ",
+            "ticketPriceFen": 3000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.046520013
+          }
+        ]
+      }
+    },
+    {
+      "path": "/tut-f36-attractions-read/_search",
+      "app": false,
+      "status": 200,
+      "response": {
+        "took": 1,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 2,
+            "relation": "eq"
+          },
+          "max_score": null,
+          "hits": [
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p01",
+              "_score": null,
+              "_source": {
+                "name": "西湖 游船",
+                "tags": [
+                  "亲子"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.25,
+                  "lon": 120.15
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p01",
+                "ticket_price_fen": 6500
+              },
+              "sort": [
+                "p01"
+              ]
+            },
+            {
+              "_index": "tut-f36-attractions-v001",
+              "_id": "p03",
+              "_score": null,
+              "_source": {
+                "name": "西湖 湿地",
+                "tags": [
+                  "观鸟"
+                ],
+                "status": "open",
+                "currency": "CNY",
+                "location": {
+                  "lat": 30.252,
+                  "lon": 120.152
+                },
+                "city_code": "HZ",
+                "city_name": "杭州（旅游展示名）",
+                "attraction_id": "p03",
+                "ticket_price_fen": 3000
+              },
+              "sort": [
+                "p03"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "snapshot": {
+    "first_stdout": "repeatable read|2\n",
+    "end_stdout": "",
+    "identical_files": true
+  },
+  "missing_delete_404_without_error_accepted": true,
+  "passed": true
+}

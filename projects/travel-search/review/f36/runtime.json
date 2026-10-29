@@ -1,0 +1,142 @@
+{
+  "at": "2026-10-29T01:22:44.753286+00:00",
+  "java_application": [
+    "openjdk version \"25.0.4.1\" 2026-08-18 LTS",
+    "OpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)",
+    "OpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)"
+  ],
+  "build": "clean package / dependency:build-classpath / dependency:tree passed; no test source, no unit-test pass claimed",
+  "containers": [
+    {
+      "service": "postgres",
+      "id": "460a25d00151701cdf68899fdd786bb1f5aa305807934ede465120895630a3b1",
+      "image": "postgres:17.5-bookworm",
+      "image_id": "sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4",
+      "state": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 980304,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-10-29T01:12:47.448118187Z",
+        "FinishedAt": "0001-01-01T00:00:00Z",
+        "Health": {
+          "Status": "healthy",
+          "FailingStreak": 0,
+          "Log": [
+            {
+              "Start": "2026-10-29T09:22:30.28704297+08:00",
+              "End": "2026-10-29T09:22:30.325118753+08:00",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            },
+            {
+              "Start": "2026-10-29T09:22:33.195111774+08:00",
+              "End": "2026-10-29T09:22:33.231172476+08:00",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            },
+            {
+              "Start": "2026-10-29T09:22:36.232650353+08:00",
+              "End": "2026-10-29T09:22:36.268726401+08:00",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            },
+            {
+              "Start": "2026-10-29T09:22:39.27462011+08:00",
+              "End": "2026-10-29T09:22:39.330758793+08:00",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            },
+            {
+              "Start": "2026-10-29T09:22:42.199894855+08:00",
+              "End": "2026-10-29T09:22:42.242681022+08:00",
+              "ExitCode": 0,
+              "Output": "/var/run/postgresql:5432 - accepting connections\n"
+            }
+          ]
+        }
+      },
+      "memory_limit": 268435456,
+      "ports": {},
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "es-framework-f36_pg-data",
+          "destination": "/var/lib/postgresql/data",
+          "read_write": true
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/lesson",
+          "read_write": false
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/run/secrets/pg-password",
+          "read_write": false
+        }
+      ]
+    },
+    {
+      "service": "es",
+      "id": "1757412c26396c19365c48e5db14eb3db9330afe38bcbe8c67ffe58a6d1ae73a",
+      "image": "docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+      "image_id": "sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84",
+      "state": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 980320,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-10-29T01:12:47.447372469Z",
+        "FinishedAt": "0001-01-01T00:00:00Z"
+      },
+      "memory_limit": 805306368,
+      "ports": {
+        "9200/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "20036"
+          }
+        ]
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "es-framework-f36_es-data",
+          "destination": "/usr/share/elasticsearch/data",
+          "read_write": true
+        }
+      ]
+    }
+  ],
+  "artifact_sha256": {
+    "projects/travel-search/backend/target/travel-search-0.7.0.jar": "efd227fcfaeddb408463dfc17514eb2ecbf36b5ac2592f5e4197961ce19b7e02",
+    "projects/travel-search/backend/pom.xml": "56d4baa4c64d479cf9a51ccfbac8a8357ee3909cb50b1869c5793873967a5b31",
+    "projects/travel-search/labs/f36/java/ProjectionImport.java": "a7a1e8c485a17cb5da55d211e8eb21ffa0fb2be0f1b2b4fd1914a246539797da",
+    "projects/travel-search/infra/f36/compose.yaml": "1b61009ecb3ee7ca1d2248a1f4faad3f2730ae450f1cbee2a1878f42f0a1e83d"
+  },
+  "secret_file_committed": false,
+  "passed": true,
+  "maven": [
+    "Apache Maven 3.9.11 (3e54c93a704957b63ee3494413a2b544fd3d825b)",
+    "Maven home: /Users/zy/.m2/wrapper/dists/apache-maven-3.9.11/a2d47e15",
+    "Java version: 25.0.4.1, vendor: Eclipse Adoptium, runtime: /private/tmp/es-f29-tooling/jdk-25.0.4.1+1/Contents/Home",
+    "Default locale: zh_CN_#Hans, platform encoding: UTF-8",
+    "OS name: \"mac os x\", version: \"26.3.1\", arch: \"aarch64\", family: \"mac\""
+  ],
+  "postgres_repo_digests": [
+    "postgres@sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4"
+  ]
+}

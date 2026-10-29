@@ -1,0 +1,41 @@
+name: es-framework-f36
+services:
+  postgres:
+    image: postgres:17.5-bookworm@sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4
+    environment:
+      POSTGRES_USER: travel
+      POSTGRES_DB: travel_f36
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg-password
+    secrets:
+      - pg-password
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ../../data/f36:/lesson:ro
+    mem_limit: 256m
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U travel -d travel_f36"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    environment:
+      cluster.name: travel-f36-lab
+      node.name: travel-f36-es
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms256m -Xmx256m
+    ports:
+      - "127.0.0.1:20036:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    mem_limit: 768m
+    ulimits:
+      nofile: {soft: 65535, hard: 65535}
+volumes:
+  pg-data:
+  es-data:
+secrets:
+  pg-password:
+    file: .local/pg-password.txt
