@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+pg: "PostgreSQL · 事务提交与 WAL\npublication 选表；pgoutput 解码；slot 保留所需位置" {class: card}
+connect: "Debezium · 运行于 Kafka Connect\n首次快照 r → 后续 c / u / d；来源位置为 LSN" {class: card}
+kafka: "Kafka · 单分区事件日志\nkey = attraction_id；每条记录有 partition / offset" {class: card}
+java: "Java · 串行消费并生成单表投影\nopen → index；closed / d → delete；成功后提交下一 offset" {class: card}
+es: "ES · 派生搜索文档\n_id = 业务键；写入确认与搜索可见分开核对" {class: card}
+visitor: "游客浏览器 → 本机 Java 搜索服务 → ES\n使用既有观察窗；Pages 只承载教程" {class: card}
+pg -> connect: "逻辑变更流"
+connect -> kafka: "事件与 key"
+kafka -> java: "消费，保留原始信封"
+java -> es: "官方客户端写入"
+es -> visitor: "本课显式 refresh 后核对搜索"

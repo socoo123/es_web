@@ -1,0 +1,86 @@
+{
+  "at": "2026-10-29T11:34:44.832919+00:00",
+  "author_self_review": true,
+  "independent_review": false,
+  "reasoning": "reasoning.json",
+  "scope": "F37 and only required availability/progress/navigation",
+  "body_chinese_characters": 5269,
+  "cases": 3,
+  "code_blocks": 22,
+  "details": 17,
+  "drills": 8,
+  "pitfalls": 4,
+  "static_d2": 2,
+  "mechanism_players": 0,
+  "checks": [
+    {
+      "topic": "Business-first / ES responsibility",
+      "result": "PG is authoritative; ES derived projection; explain traveler-visible before/after before setup"
+    },
+    {
+      "topic": "WAL / decoding / publication / slot",
+      "result": "Separate responsibilities and source reading position; PG17 official references"
+    },
+    {
+      "topic": "Artifact versions",
+      "result": "PG17.5 digest / Kafka broker4.0.1 digest / Debezium3.3.1.Final digest; embedded Connect4.1.0 and Java Kafka4.0.1 distinguished; Boot4/JDK25 and ES JVM separate"
+    },
+    {
+      "topic": "Privileges and replica identity",
+      "result": "Actual non-superuser CDC reads/replicates; UPDATE42501; NOTHING delete refused in rolled-back transaction; no persistent destructive identity change"
+    },
+    {
+      "topic": "Snapshot and streaming",
+      "result": "initial r x2, then c/u/u, d/null; snapshot.source.lsn not a per-message identifier; original payload retained"
+    },
+    {
+      "topic": "Delete envelope",
+      "result": "Current non-key before fields are zero/empty placeholders; only immutable business key used; closed update distinguished from d; tombstone distinguished from d"
+    },
+    {
+      "topic": "Java event contract",
+      "result": "Full mapping/status/delete branches shown; disable auto commit; individual offset+1 only after ES response; errors exit without committing current/later records"
+    },
+    {
+      "topic": "Recovery evidence",
+      "result": "Actual worker stop/start with original slot and Kafka state; PG changes while Kafka/ES old, then Kafka new/ES old; group7->11, final fields/absence, zero-record restart"
+    },
+    {
+      "topic": "Retention",
+      "result": "WAL position difference measured; not disk size; explicit max_slot_wal_keep_size128MB vs default-1, checkpoint constraints; lost-slot/long downtime untested"
+    },
+    {
+      "topic": "Reader entrypoints",
+      "result": "drain and inspect checked in both formal rounds; follow checked with two live updates separately; shell remains Browser->Java->ES; no frontend/Controller change"
+    },
+    {
+      "topic": "Repeat/cleanup",
+      "result": "Source offsets reset while connector stopped, then connector/slot/publication/schema/role/topic/group/ES removed; revoke DB CONNECT before DROP ROLE; original named volumes and local secrets retained"
+    },
+    {
+      "topic": "Snippet equality",
+      "result": "tools/sync-framework-code.mjs --check; all source snippets match checked-in project files"
+    }
+  ],
+  "corrections_during_work": [
+    "Kafka heap/cleaner buffer adjusted after initial startup OOM",
+    "Default plugin parent path restored; worker config env CONNECT_ prefixes made explicit",
+    "Role cleanup revokes known DB CONNECT grant",
+    "Final ES amount mapping long matches PG bigint; preliminary integer round excluded from final two",
+    "Java excerpt ranges fixed to include entire methods before HTTP verification"
+  ],
+  "limitations": [
+    "No independent agent review or verified requested reasoning configuration",
+    "Graceful stop/start only; no arbitrary crash, HA, exactly-once, out-of-order, DLQ, multi-table, primary key mutation, TOAST, TRUNCATE, sustained rebuild, disk-fill or slot-loss test"
+  ],
+  "sources": [
+    "https://www.postgresql.org/docs/17/logicaldecoding-explanation.html",
+    "https://www.postgresql.org/docs/17/logical-replication-publication.html",
+    "https://www.postgresql.org/docs/17/view-pg-replication-slots.html",
+    "https://www.postgresql.org/docs/17/runtime-config-replication.html",
+    "https://debezium.io/documentation/reference/3.3/connectors/postgresql.html",
+    "https://github.com/debezium/debezium/blob/v3.3.1.Final/debezium-connector-postgres/src/main/java/io/debezium/connector/postgresql/PostgresConnectorConfig.java",
+    "https://kafka.apache.org/40/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html"
+  ],
+  "passed": true
+}

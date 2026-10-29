@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+a: "停前 · 三处位置分别保存\nPG slot / Connect source offset / Java group offset" {class: card}
+b: "停止 Connect worker，保留原卷和 slot\nPG 改价、新增、物理删除；slot inactive，所需 WAL 暂留" {class: card}
+c: "停机中 · 来源已变，Kafka 与 ES 仍旧\nLSN 距离增长，不代表磁盘实际文件字节数" {class: card}
+d: "启动原 worker · 从保存的位置继续\nKafka 收到 u / c / d + tombstone；本轮没有新增 r" {class: card}
+e: "Java 尚未消费 · Kafka 已新，ES 仍旧\n以同一个 group 继续，成功写入后提交下一 offset" {class: card}
+f: "显式 refresh 并核对完整字段与删除\np01 = 7000 分、p04 = 1800 分；p02 / p03 不存在" {class: card}
+a -> b: "本课受控停机"
+b -> c: "提交 offline.sql"
+c -> d: "确认 slot 未 lost，恢复读取"
+d -> e: "先观察中间状态"
+e -> f: "消费、写入、refresh、搜索"

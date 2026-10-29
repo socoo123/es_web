@@ -1,0 +1,35 @@
+kafka-1  | [2026-10-29 11:13:27,383] INFO [MetadataLoader id=1] InitializeNewPublishers: initializing MetadataVersionPublisher(id=1) with a snapshot at offset 7 (org.apache.kafka.image.loader.MetadataLoader)
+kafka-1  | [2026-10-29 11:13:27,388] INFO [MetadataLoader id=1] InitializeNewPublishers: initializing BrokerMetadataPublisher with a snapshot at offset 7 (org.apache.kafka.image.loader.MetadataLoader)
+kafka-1  | [2026-10-29 11:13:27,386] INFO [BrokerLifecycleManager id=1] Successfully registered broker 1 with broker epoch 7 (kafka.server.BrokerLifecycleManager)
+kafka-1  | [2026-10-29 11:13:27,390] INFO [BrokerMetadataPublisher id=1] Publishing initial metadata at offset OffsetAndEpoch(offset=7, epoch=1) with metadata.version Optional[4.0-IV3]. (kafka.server.metadata.BrokerMetadataPublisher)
+kafka-1  | [2026-10-29 11:13:27,392] INFO Loading logs from log dirs ArrayBuffer(/var/lib/kafka/data) (kafka.log.LogManager)
+kafka-1  | [2026-10-29 11:13:27,397] INFO No logs found to be loaded in /var/lib/kafka/data (kafka.log.LogManager)
+kafka-1  | [2026-10-29 11:13:27,405] INFO [BrokerLifecycleManager id=1] The broker has caught up. Transitioning from STARTING to RECOVERY. (kafka.server.BrokerLifecycleManager)
+kafka-1  | [2026-10-29 11:13:27,406] INFO [BrokerServer id=1] Finished waiting for the controller to acknowledge that we are caught up (kafka.server.BrokerServer)
+kafka-1  | [2026-10-29 11:13:27,407] INFO [BrokerServer id=1] Waiting for the initial broker metadata update to be published (kafka.server.BrokerServer)
+kafka-1  | [2026-10-29 11:13:27,434] INFO Loaded 0 logs in 20ms (kafka.log.LogManager)
+kafka-1  | [2026-10-29 11:13:27,442] INFO Starting log cleanup with a period of 300000 ms. (kafka.log.LogManager)
+kafka-1  | [2026-10-29 11:13:27,450] INFO [BrokerLifecycleManager id=1] The broker is in RECOVERY. (kafka.server.BrokerLifecycleManager)
+kafka-1  | [2026-10-29 11:13:27,452] INFO Starting log flusher with a default period of 9223372036854775807 ms. (kafka.log.LogManager)
+kafka-1  | [2026-10-29 11:13:27,607] ERROR Encountered fatal fault: Error starting LogManager (org.apache.kafka.server.fault.ProcessTerminatingFaultHandler)
+kafka-1  | java.lang.OutOfMemoryError: Java heap space
+kafka-1  | 	at java.base/java.nio.HeapByteBuffer.<init>(Unknown Source) ~[?:?]
+kafka-1  | 	at java.base/java.nio.ByteBuffer.allocate(Unknown Source) ~[?:?]
+kafka-1  | 	at org.apache.kafka.storage.internals.log.SkimpyOffsetMap.<init>(SkimpyOffsetMap.java:84) ~[kafka-storage-4.0.1.jar:?]
+kafka-1  | 	at kafka.log.LogCleaner$CleanerThread.<init>(LogCleaner.scala:357) ~[kafka_2.13-4.0.1.jar:?]
+kafka-1  | 	at kafka.log.LogCleaner.$anonfun$startup$2(LogCleaner.scala:154) ~[kafka_2.13-4.0.1.jar:?]
+kafka-1  | 	at kafka.log.LogCleaner$$Lambda/0x000000c8040ef380.apply$mcVI$sp(Unknown Source) ~[?:?]
+kafka-1  | 	at scala.collection.immutable.Range.foreach$mVc$sp(Range.scala:190) ~[scala-library-2.13.15.jar:?]
+kafka-1  | 	at kafka.log.LogCleaner.startup(LogCleaner.scala:153) ~[kafka_2.13-4.0.1.jar:?]
+kafka-1  | 	at kafka.log.LogManager.startupWithConfigOverrides(LogManager.scala:633) ~[kafka_2.13-4.0.1.jar:?]
+kafka-1  | 	at kafka.log.LogManager.startup(LogManager.scala:576) ~[kafka_2.13-4.0.1.jar:?]
+kafka-1  | 	at kafka.server.metadata.BrokerMetadataPublisher.initializeManagers(BrokerMetadataPublisher.scala:306) [kafka_2.13-4.0.1.jar:?]
+kafka-1  | 	at kafka.server.metadata.BrokerMetadataPublisher.onMetadataUpdate(BrokerMetadataPublisher.scala:129) [kafka_2.13-4.0.1.jar:?]
+kafka-1  | 	at org.apache.kafka.image.loader.MetadataLoader.initializeNewPublishers(MetadataLoader.java:308) [kafka-metadata-4.0.1.jar:?]
+kafka-1  | 	at org.apache.kafka.image.loader.MetadataLoader.lambda$scheduleInitializeNewPublishers$0(MetadataLoader.java:265) [kafka-metadata-4.0.1.jar:?]
+kafka-1  | 	at org.apache.kafka.image.loader.MetadataLoader$$Lambda/0x0000003801445e08.run(Unknown Source) [kafka-metadata-4.0.1.jar:?]
+kafka-1  | 	at org.apache.kafka.queue.KafkaEventQueue$EventContext.run(KafkaEventQueue.java:132) [kafka-server-common-4.0.1.jar:?]
+kafka-1  | 	at org.apache.kafka.queue.KafkaEventQueue$EventHandler.handleEvents(KafkaEventQueue.java:215) [kafka-server-common-4.0.1.jar:?]
+kafka-1  | 	at org.apache.kafka.queue.KafkaEventQueue$EventHandler.run(KafkaEventQueue.java:186) [kafka-server-common-4.0.1.jar:?]
+kafka-1  | 	at java.base/java.lang.Thread.runWith(Unknown Source) [?:?]
+kafka-1  | 	at java.base/java.lang.Thread.run(Unknown Source) [?:?]

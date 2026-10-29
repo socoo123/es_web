@@ -1,0 +1,87 @@
+{
+  "at": "2026-10-29T11:38:20.809330+00:00",
+  "commands": [
+    {
+      "command": [
+        "node",
+        "tools/check.mjs"
+      ],
+      "exit_code": 0,
+      "stdout": "✓ 章节骨架:30 页齐全(stub 0 / 正式 30)\n✓ index 卡片与链接一致\n✓ 注册表:实验 823 个,动画 22 个\n✓ 章节页 data-exp / data-flow 引用全部可解析\n✓ 版本锚点、Bulk 换行与深链凭据检查通过\n✓ 框架篇:37 课结构、链接与工程片段已检查\n\n全部通过 ✅\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "tools/sync-framework-code.mjs",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "框架篇代码片段与工程文件一致\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        "projects/travel-search/labs/f37/java.sh",
+        "projects/travel-search/labs/f37/requests.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "py_compile",
+        "projects/travel-search/labs/f37/lab.py",
+        "docs/framework-review/20261029-f37-wal/follow-review.py",
+        "docs/framework-review/20261029-f37-wal/reading-review.py",
+        "docs/framework-review/20261029-f37-wal/observe-shell.py",
+        "docs/framework-review/20261029-f37-wal/create-contacts.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "final_rounds_verified": [
+    "run-02",
+    "run-03"
+  ],
+  "credentials_absent_in_artifacts": true,
+  "secrets_ignored_and_modes_verified": true,
+  "f37_services_removed": true,
+  "preserved_named_volumes": [
+    "es-framework-f37_es-data",
+    "es-framework-f37_kafka-data",
+    "es-framework-f37_pg-data"
+  ],
+  "other_running_containers": [
+    "es-study-secure"
+  ],
+  "passed": true
+}

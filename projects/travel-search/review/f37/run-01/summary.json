@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-29T11:17:19.514343+00:00",
+  "passed": true,
+  "cases": 3,
+  "http_by_case": {
+    "identity": 5,
+    "c01-snapshot": 13,
+    "c02-changes": 13,
+    "c03-restart": 12
+  },
+  "http_by_base": {
+    "http://127.0.0.1:20137": 28,
+    "http://127.0.0.1:18137": 10,
+    "http://127.0.0.1:18087": 5
+  },
+  "total_recorded_http": 43,
+  "kafka_event_count": 11,
+  "consumer_final": {
+    "mode": "drain",
+    "kind": "summary",
+    "processed": 0,
+    "observed_end": 11,
+    "committed_next": 11
+  },
+  "final_documents": {
+    "p01": {
+      "attraction_id": "p01",
+      "name": "西湖 游船",
+      "city_code": "HZ",
+      "ticket_price_fen": 7000,
+      "currency": "CNY",
+      "status": "open",
+      "location": {
+        "lat": 30.25,
+        "lon": 120.15
+      }
+    },
+    "p04": {
+      "attraction_id": "p04",
+      "name": "西湖 码头",
+      "city_code": "HZ",
+      "ticket_price_fen": 1800,
+      "currency": "CNY",
+      "status": "open",
+      "location": {
+        "lat": 30.253,
+        "lon": 120.153
+      }
+    }
+  },
+  "wal_test": "Inactive slot retained restart_lsn; observed distance grew; no disk fill/slot invalidation test",
+  "limits": [
+    "One PG primary, one Kafka partition, one consumer and immutable business keys",
+    "Graceful Connect stop/start with original Kafka offsets/PG slot; no crash/exactly-once proof",
+    "No multi-table projection, arbitrary out-of-order delivery, retry/DLQ or online rebuild"
+  ]
+}

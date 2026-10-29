@@ -1,0 +1,191 @@
+{
+  "at": "2026-10-29T11:30:54.675103+00:00",
+  "java_application": [
+    "openjdk version \"25.0.4.1\" 2026-08-18 LTS",
+    "OpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)",
+    "OpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)"
+  ],
+  "build": "Boot4/JDK25 package and backend classpath completed successfully in this session; no test sources, no unit-test pass claimed",
+  "containers": [
+    {
+      "service": "connect",
+      "image": "quay.io/debezium/connect:3.3.1.Final@sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443",
+      "image_id": "sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443",
+      "repo_digests": [
+        "quay.io/debezium/connect@sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443"
+      ],
+      "running": true,
+      "OOMKilled": false,
+      "memory_limit": 671088640,
+      "ports": {
+        "8083/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "18137"
+          }
+        ],
+        "8778/tcp": null,
+        "9092/tcp": null
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "ee450988c9213c5d88c511873f2eb99d04ae7ca9ba0f8fdb95369bad1affc6c5",
+          "destination": "/kafka/config"
+        },
+        {
+          "type": "volume",
+          "name": "ff705cea73056cad81d7b503c267e73d6efd1f03fa1581733ce9f9f21ba143aa",
+          "destination": "/kafka/data"
+        },
+        {
+          "type": "volume",
+          "name": "60387f48bb86da49251b3cfc60f0516a100e2c8d86d1bf7455f55cc02973d672",
+          "destination": "/kafka/logs"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/run/secrets/cdc-properties"
+        }
+      ]
+    },
+    {
+      "service": "es",
+      "image": "docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+      "image_id": "sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84",
+      "repo_digests": [
+        "docker.elastic.co/elasticsearch/elasticsearch@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84"
+      ],
+      "running": true,
+      "OOMKilled": false,
+      "memory_limit": 805306368,
+      "ports": {
+        "9200/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "20137"
+          }
+        ],
+        "9300/tcp": null
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "es-framework-f37_es-data",
+          "destination": "/usr/share/elasticsearch/data"
+        }
+      ]
+    },
+    {
+      "service": "kafka",
+      "image": "apache/kafka:4.0.1@sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9",
+      "image_id": "sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9",
+      "repo_digests": [
+        "apache/kafka@sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9"
+      ],
+      "running": true,
+      "OOMKilled": false,
+      "memory_limit": 536870912,
+      "ports": {
+        "9092/tcp": null,
+        "9094/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "29137"
+          }
+        ]
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "es-framework-f37_kafka-data",
+          "destination": "/var/lib/kafka/data"
+        },
+        {
+          "type": "volume",
+          "name": "222c302fb32e5fd7171656ea8d9002c05df703f2c078aa5e3de8678547562337",
+          "destination": "/etc/kafka/secrets"
+        },
+        {
+          "type": "volume",
+          "name": "ffed85e969554d7a5e4b55130a123c91c94200647ef8ed27ead3acf9e6bf7fb6",
+          "destination": "/mnt/shared/config"
+        }
+      ]
+    },
+    {
+      "service": "postgres",
+      "image": "postgres:17.5-bookworm@sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4",
+      "image_id": "sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4",
+      "repo_digests": [
+        "postgres@sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4"
+      ],
+      "running": true,
+      "OOMKilled": false,
+      "memory_limit": 268435456,
+      "ports": {
+        "5432/tcp": null
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "es-framework-f37_pg-data",
+          "destination": "/var/lib/postgresql/data"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/lesson"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/run/secrets/pg-password"
+        }
+      ]
+    }
+  ],
+  "artifact_sha256": {
+    "backend/target/travel-search-0.7.0.jar": "ec2371e790283a7843a7e7ae4b65b03d525886ef34eb115c11af3710fd3aaa6e",
+    "backend/pom.xml": "56d4baa4c64d479cf9a51ccfbac8a8357ee3909cb50b1869c5793873967a5b31",
+    "labs/f37/pom.xml": "b01d8aaddffa4d01fb197c9afed119086df9a40e183a0d7b60dea895bbfd233e",
+    "labs/f37/java/F37Consumer.java": "089aea6af170e2e14e8122540cb987ac3aaa2fb5d35c5780d895e27c5b13661a",
+    "infra/f37/compose.yaml": "8da5383d3357fb81fb343f006230c1b7aa1680bf21816a81fe43d532ec1f34aa",
+    "search/f37/create.json": "4235cb87bc4258046123f10ecb61ee49a2b4128f1ecd7f2e44528b6bfb8f55f8"
+  },
+  "credentials_in_output": false,
+  "source_snapshot_at": "Final configuration used by run-02 and run-03; hashes recorded after execution",
+  "passed": true,
+  "build_log": "build.json.gz",
+  "maven": [
+    "Apache Maven 3.9.11 (3e54c93a704957b63ee3494413a2b544fd3d825b)",
+    "Maven home: /Users/zy/.m2/wrapper/dists/apache-maven-3.9.11/a2d47e15",
+    "Java version: 25.0.4.1, vendor: Eclipse Adoptium, runtime: /private/tmp/es-f29-tooling/jdk-25.0.4.1+1/Contents/Home",
+    "Default locale: zh_CN_#Hans, platform encoding: UTF-8",
+    "OS name: \"mac os x\", version: \"26.3.1\", arch: \"aarch64\", family: \"mac\""
+  ],
+  "build_verified_at": "2026-10-29T11:31:40.662503+00:00",
+  "kafka_classpath_artifacts": [
+    {
+      "name": "kafka-clients-4.0.1.jar",
+      "bytes": 9188926,
+      "sha256": "ef3e6bc207822302c36c4c5870007fdfc76659c033eb7e4e079db3b34f30443c"
+    },
+    {
+      "name": "zstd-jni-1.5.6-6.jar",
+      "bytes": 7325504,
+      "sha256": "1f85db623bf653860d10e13e7b1ca6609301f66994dc93784c92a66019516bb9"
+    },
+    {
+      "name": "lz4-java-1.8.0.jar",
+      "bytes": 682804,
+      "sha256": "d74a3334fb35195009b338a951f918203d6bbca3d1d359033dc33edd1cadc9ef"
+    },
+    {
+      "name": "snappy-java-1.1.10.5.jar",
+      "bytes": 2299797,
+      "sha256": "0f3f1857ed33116583f480b4df5c0218836c47bfbc9c6221c0d73f356decf37b"
+    }
+  ]
+}

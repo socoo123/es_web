@@ -1,0 +1,3 @@
+初次Kafka以192MiB堆启动，LogCleaner默认去重缓冲导致Java heap space；尚未创建业务资源或执行正式案例。调整为256MiB堆、16MiB去重缓冲后重启，正式两轮另存。
+作者曾将plugin.path设到单个插件目录，4.1.0的隔离扫描未发现PostgresConnector；恢复镜像默认父目录/kafka/connect。初次等待期间还修正了Connect HTML错误页的解析和非快捷环境变量CONNECT_前缀。均发生在正式案例前。
+最早完整run-01的ES金额为integer；为对应PG bigint最终改long，run-02与清理后的run-03才是最终配置两轮。初次cleanup-01在DROP ROLE时因数据库CONNECT授权残留失败，已修正为显式REVOKE CONNECT后DROP；cleanup-01-fixed与后续清理均通过。
