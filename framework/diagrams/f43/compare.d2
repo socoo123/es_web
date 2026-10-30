@@ -1,0 +1,13 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+bulk: "c01 · 先比较导入\n2千 → 1万份；批次 100 → 500；并发 1 → 4" {class: card}
+mix: "c02 · 同一万份，加入持续改价\n4 搜索 → 4 搜索 + 1 改价 → 8 搜索 + 1 改价" {class: card}
+single: "同一节点，1主 → 2主\n检验更多分片的扇出与调度成本" {class: card}
+pair: "保持 2主0副，1节点 → 2节点\n核对主片确实分布；同 Docker VM 并未增加物理 CPU" {class: card}
+replica: "保持 2节点2主，0副 → 1副\n读取候选与复制写入同时变化，不预设结果一定更快" {class: card}
+reject: "c03 · 受控拒绝与恢复\n临时 1KiB 写入压力限额 → 真实 429 → 有限退避 → 恢复配置" {class: card}
+bulk -> mix: "语料、mapping 与查询固定"
+mix -> single: "回到 4 搜索 + 1 改价"
+single -> pair: "先等待分配结束，再测量"
+pair -> replica: "保留布局与实际资源记录"
+replica -> reject: "故障案例独立；不是自然容量上限"

@@ -1,0 +1,37 @@
+name: es-framework-f43
+x-es: &es
+  image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84
+  mem_limit: 768m
+  cpus: 1.0
+  ulimits:
+    nofile: {soft: 65535, hard: 65535}
+services:
+  n1:
+    <<: *es
+    environment:
+      cluster.name: travel-f43-lab
+      node.name: f43-n1
+      node.roles: master,data,ingest
+      node.processors: 1
+      discovery.seed_hosts: n1
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms256m -Xmx256m
+    ports: ["127.0.0.1:20743:9200"]
+    volumes: [n1-data:/usr/share/elasticsearch/data]
+  n2:
+    <<: *es
+    environment:
+      cluster.name: travel-f43-lab
+      node.name: f43-n2
+      node.roles: data,ingest
+      node.processors: 1
+      discovery.seed_hosts: n1
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms256m -Xmx256m
+    ports: ["127.0.0.1:20744:9200"]
+    volumes: [n2-data:/usr/share/elasticsearch/data]
+volumes:
+  n1-data:
+  n2-data:

@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+input: "固定输入与资源\n语料 SHA-256 / 查询 / 分片 / CPU / 堆 / refresh" {class: card}
+warm: "准备与预热单列\nJava 构建、客户端启动、导入、分配与预热不混入正式窗口" {class: card}
+window: "固定并发的闭环窗口\n4 搜索线程；可加 1 个改价线程，每批 20 份完整文档" {class: card}
+evidence: "两路并行观测\n客户端：起止 / 成功 / 错误 / 延迟分位数\nES：计数器差 / 写入压力 / GC / 堆 / 磁盘" {class: card}
+verify: "先核对正确，再解释测量\n全部 _source / ID / 总数 / 搜索与 Java；窗口短就保留不确定性" {class: card}
+input -> warm: "一次只改一个主要条件"
+warm -> window: "预热后开始统计"
+window -> evidence: "慢请求降低闭环发出速率；监控也有开销"
+evidence -> verify: "吞吐包含尾部排空；计数器区间另含预热"

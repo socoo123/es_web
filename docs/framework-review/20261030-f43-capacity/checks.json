@@ -1,0 +1,599 @@
+{
+  "at": "2026-10-30T02:04:27.940604+00:00",
+  "passed": true,
+  "commands": [
+    {
+      "args": [
+        "node",
+        "tools/check.mjs"
+      ],
+      "status": 0,
+      "stdout": "✓ 章节骨架:30 页齐全(stub 0 / 正式 30)\n✓ index 卡片与链接一致\n✓ 注册表:实验 823 个,动画 22 个\n✓ 章节页 data-exp / data-flow 引用全部可解析\n✓ 版本锚点、Bulk 换行与深链凭据检查通过\n✓ 框架篇:43 课结构、链接与工程片段已检查\n\n全部通过 ✅\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "node",
+        "tools/sync-framework-code.mjs",
+        "--check"
+      ],
+      "status": 0,
+      "stdout": "框架篇代码片段与工程文件一致\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "bash",
+        "-n",
+        "projects/travel-search/labs/f43/java.sh"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/Users/zy/.pyenv/versions/3.11.8/bin/python3",
+        "-m",
+        "py_compile",
+        "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f43/lab.py"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/Users/zy/.pyenv/versions/3.11.8/bin/python3",
+        "-m",
+        "py_compile",
+        "/Users/zy/ai_web_page/es_web/docs/framework-review/20261030-f43-capacity/final-checks.py"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/Users/zy/.pyenv/versions/3.11.8/bin/python3",
+        "-m",
+        "py_compile",
+        "/Users/zy/ai_web_page/es_web/docs/framework-review/20261030-f43-capacity/archive-run.py"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/Users/zy/.pyenv/versions/3.11.8/bin/python3",
+        "-m",
+        "py_compile",
+        "/Users/zy/ai_web_page/es_web/docs/framework-review/20261030-f43-capacity/observe-shell.py"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/Users/zy/.pyenv/versions/3.11.8/bin/python3",
+        "-m",
+        "py_compile",
+        "/Users/zy/ai_web_page/es_web/docs/framework-review/20261030-f43-capacity/reading-review.py"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/Users/zy/.pyenv/versions/3.11.8/bin/python3",
+        "-m",
+        "py_compile",
+        "/Users/zy/ai_web_page/es_web/docs/framework-review/20261030-f43-capacity/detail-review.py"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/Users/zy/.pyenv/versions/3.11.8/bin/python3",
+        "-m",
+        "py_compile",
+        "/Users/zy/ai_web_page/es_web/docs/framework-review/20261030-f43-capacity/recompute.py"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/Users/zy/.pyenv/versions/3.11.8/bin/python3",
+        "-m",
+        "py_compile",
+        "/Users/zy/ai_web_page/es_web/docs/framework-review/20261030-f43-capacity/make-contacts.py"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f43/compose.yaml",
+        "config",
+        "--format",
+        "json"
+      ],
+      "status": 0,
+      "stdout": "{\n  \"name\": \"es-framework-f43\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"es-framework-f43_default\",\n      \"ipam\": {}\n    }\n  },\n  \"services\": {\n    \"n1\": {\n      \"cpus\": 1,\n      \"command\": null,\n      \"entrypoint\": null,\n      \"environment\": {\n        \"ES_JAVA_OPTS\": \"-Xms256m -Xmx256m\",\n        \"cluster.name\": \"travel-f43-lab\",\n        \"discovery.seed_hosts\": \"n1\",\n        \"node.name\": \"f43-n1\",\n        \"node.processors\": \"1\",\n        \"node.roles\": \"master,data,ingest\",\n        \"xpack.ml.enabled\": \"false\",\n        \"xpack.security.enabled\": \"false\"\n      },\n      \"image\": \"docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\",\n      \"mem_limit\": \"805306368\",\n      \"networks\": {\n        \"default\": null\n      },\n      \"ports\": [\n        {\n          \"mode\": \"ingress\",\n          \"host_ip\": \"127.0.0.1\",\n          \"target\": 9200,\n          \"published\": \"20743\",\n          \"protocol\": \"tcp\"\n        }\n      ],\n      \"ulimits\": {\n        \"nofile\": {\n          \"soft\": 65535,\n          \"hard\": 65535\n        }\n      },\n      \"volumes\": [\n        {\n          \"type\": \"volume\",\n          \"source\": \"n1-data\",\n          \"target\": \"/usr/share/elasticsearch/data\",\n          \"volume\": {}\n        }\n      ]\n    },\n    \"n2\": {\n      \"cpus\": 1,\n      \"command\": null,\n      \"entrypoint\": null,\n      \"environment\": {\n        \"ES_JAVA_OPTS\": \"-Xms256m -Xmx256m\",\n        \"cluster.name\": \"travel-f43-lab\",\n        \"discovery.seed_hosts\": \"n1\",\n        \"node.name\": \"f43-n2\",\n        \"node.processors\": \"1\",\n        \"node.roles\": \"data,ingest\",\n        \"xpack.ml.enabled\": \"false\",\n        \"xpack.security.enabled\": \"false\"\n      },\n      \"image\": \"docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\",\n      \"mem_limit\": \"805306368\",\n      \"networks\": {\n        \"default\": null\n      },\n      \"ports\": [\n        {\n          \"mode\": \"ingress\",\n          \"host_ip\": \"127.0.0.1\",\n          \"target\": 9200,\n          \"published\": \"20744\",\n          \"protocol\": \"tcp\"\n        }\n      ],\n      \"ulimits\": {\n        \"nofile\": {\n          \"soft\": 65535,\n          \"hard\": 65535\n        }\n      },\n      \"volumes\": [\n        {\n          \"type\": \"volume\",\n          \"source\": \"n2-data\",\n          \"target\": \"/usr/share/elasticsearch/data\",\n          \"volume\": {}\n        }\n      ]\n    }\n  },\n  \"volumes\": {\n    \"n1-data\": {\n      \"name\": \"es-framework-f43_n1-data\"\n    },\n    \"n2-data\": {\n      \"name\": \"es-framework-f43_n2-data\"\n    }\n  },\n  \"x-es\": {\n    \"cpus\": 1,\n    \"image\": \"docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\",\n    \"mem_limit\": \"768m\",\n    \"ulimits\": {\n      \"nofile\": {\n        \"hard\": 65535,\n        \"soft\": 65535\n      }\n    }\n  }\n}",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f43/compose.yaml",
+        "-f",
+        "projects/travel-search/infra/f43/bootstrap.yaml",
+        "config",
+        "--format",
+        "json"
+      ],
+      "status": 0,
+      "stdout": "{\n  \"name\": \"es-framework-f43\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"es-framework-f43_default\",\n      \"ipam\": {}\n    }\n  },\n  \"services\": {\n    \"n1\": {\n      \"cpus\": 1,\n      \"command\": null,\n      \"entrypoint\": null,\n      \"environment\": {\n        \"ES_JAVA_OPTS\": \"-Xms256m -Xmx256m\",\n        \"cluster.initial_master_nodes\": \"f43-n1\",\n        \"cluster.name\": \"travel-f43-lab\",\n        \"discovery.seed_hosts\": \"n1\",\n        \"node.name\": \"f43-n1\",\n        \"node.processors\": \"1\",\n        \"node.roles\": \"master,data,ingest\",\n        \"xpack.ml.enabled\": \"false\",\n        \"xpack.security.enabled\": \"false\"\n      },\n      \"image\": \"docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\",\n      \"mem_limit\": \"805306368\",\n      \"networks\": {\n        \"default\": null\n      },\n      \"ports\": [\n        {\n          \"mode\": \"ingress\",\n          \"host_ip\": \"127.0.0.1\",\n          \"target\": 9200,\n          \"published\": \"20743\",\n          \"protocol\": \"tcp\"\n        }\n      ],\n      \"ulimits\": {\n        \"nofile\": {\n          \"soft\": 65535,\n          \"hard\": 65535\n        }\n      },\n      \"volumes\": [\n        {\n          \"type\": \"volume\",\n          \"source\": \"n1-data\",\n          \"target\": \"/usr/share/elasticsearch/data\",\n          \"volume\": {}\n        }\n      ]\n    },\n    \"n2\": {\n      \"cpus\": 1,\n      \"command\": null,\n      \"entrypoint\": null,\n      \"environment\": {\n        \"ES_JAVA_OPTS\": \"-Xms256m -Xmx256m\",\n        \"cluster.name\": \"travel-f43-lab\",\n        \"discovery.seed_hosts\": \"n1\",\n        \"node.name\": \"f43-n2\",\n        \"node.processors\": \"1\",\n        \"node.roles\": \"data,ingest\",\n        \"xpack.ml.enabled\": \"false\",\n        \"xpack.security.enabled\": \"false\"\n      },\n      \"image\": \"docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\",\n      \"mem_limit\": \"805306368\",\n      \"networks\": {\n        \"default\": null\n      },\n      \"ports\": [\n        {\n          \"mode\": \"ingress\",\n          \"host_ip\": \"127.0.0.1\",\n          \"target\": 9200,\n          \"published\": \"20744\",\n          \"protocol\": \"tcp\"\n        }\n      ],\n      \"ulimits\": {\n        \"nofile\": {\n          \"soft\": 65535,\n          \"hard\": 65535\n        }\n      },\n      \"volumes\": [\n        {\n          \"type\": \"volume\",\n          \"source\": \"n2-data\",\n          \"target\": \"/usr/share/elasticsearch/data\",\n          \"volume\": {}\n        }\n      ]\n    }\n  },\n  \"volumes\": {\n    \"n1-data\": {\n      \"name\": \"es-framework-f43_n1-data\"\n    },\n    \"n2-data\": {\n      \"name\": \"es-framework-f43_n2-data\"\n    }\n  },\n  \"x-es\": {\n    \"cpus\": 1,\n    \"image\": \"docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\",\n    \"mem_limit\": \"768m\",\n    \"ulimits\": {\n      \"nofile\": {\n        \"hard\": 65535,\n        \"soft\": 65535\n      }\n    }\n  }\n}",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "docker",
+        "compose",
+        "-f",
+        "projects/travel-search/infra/f43/compose.yaml",
+        "-f",
+        "projects/travel-search/infra/f43/pressure.yaml",
+        "config",
+        "--format",
+        "json"
+      ],
+      "status": 0,
+      "stdout": "{\n  \"name\": \"es-framework-f43\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"es-framework-f43_default\",\n      \"ipam\": {}\n    }\n  },\n  \"services\": {\n    \"n1\": {\n      \"cpus\": 1,\n      \"command\": null,\n      \"entrypoint\": null,\n      \"environment\": {\n        \"ES_JAVA_OPTS\": \"-Xms256m -Xmx256m\",\n        \"cluster.name\": \"travel-f43-lab\",\n        \"discovery.seed_hosts\": \"n1\",\n        \"indexing_pressure.memory.limit\": \"1kb\",\n        \"node.name\": \"f43-n1\",\n        \"node.processors\": \"1\",\n        \"node.roles\": \"master,data,ingest\",\n        \"xpack.ml.enabled\": \"false\",\n        \"xpack.security.enabled\": \"false\"\n      },\n      \"image\": \"docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\",\n      \"mem_limit\": \"805306368\",\n      \"networks\": {\n        \"default\": null\n      },\n      \"ports\": [\n        {\n          \"mode\": \"ingress\",\n          \"host_ip\": \"127.0.0.1\",\n          \"target\": 9200,\n          \"published\": \"20743\",\n          \"protocol\": \"tcp\"\n        }\n      ],\n      \"ulimits\": {\n        \"nofile\": {\n          \"soft\": 65535,\n          \"hard\": 65535\n        }\n      },\n      \"volumes\": [\n        {\n          \"type\": \"volume\",\n          \"source\": \"n1-data\",\n          \"target\": \"/usr/share/elasticsearch/data\",\n          \"volume\": {}\n        }\n      ]\n    },\n    \"n2\": {\n      \"cpus\": 1,\n      \"command\": null,\n      \"entrypoint\": null,\n      \"environment\": {\n        \"ES_JAVA_OPTS\": \"-Xms256m -Xmx256m\",\n        \"cluster.name\": \"travel-f43-lab\",\n        \"discovery.seed_hosts\": \"n1\",\n        \"node.name\": \"f43-n2\",\n        \"node.processors\": \"1\",\n        \"node.roles\": \"data,ingest\",\n        \"xpack.ml.enabled\": \"false\",\n        \"xpack.security.enabled\": \"false\"\n      },\n      \"image\": \"docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\",\n      \"mem_limit\": \"805306368\",\n      \"networks\": {\n        \"default\": null\n      },\n      \"ports\": [\n        {\n          \"mode\": \"ingress\",\n          \"host_ip\": \"127.0.0.1\",\n          \"target\": 9200,\n          \"published\": \"20744\",\n          \"protocol\": \"tcp\"\n        }\n      ],\n      \"ulimits\": {\n        \"nofile\": {\n          \"soft\": 65535,\n          \"hard\": 65535\n        }\n      },\n      \"volumes\": [\n        {\n          \"type\": \"volume\",\n          \"source\": \"n2-data\",\n          \"target\": \"/usr/share/elasticsearch/data\",\n          \"volume\": {}\n        }\n      ]\n    }\n  },\n  \"volumes\": {\n    \"n1-data\": {\n      \"name\": \"es-framework-f43_n1-data\"\n    },\n    \"n2-data\": {\n      \"name\": \"es-framework-f43_n2-data\"\n    }\n  },\n  \"x-es\": {\n    \"cpus\": 1,\n    \"image\": \"docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84\",\n    \"mem_limit\": \"768m\",\n    \"ulimits\": {\n      \"nofile\": {\n        \"hard\": 65535,\n        \"soft\": 65535\n      }\n    }\n  }\n}",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/Users/zy/.pyenv/versions/3.11.8/bin/python3",
+        "/Users/zy/ai_web_page/es_web/docs/framework-review/20261030-f43-capacity/recompute.py"
+      ],
+      "status": 0,
+      "stdout": "Retained measurement audit passed\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/tmp/es-framework-d2-20261013/d2",
+        "fmt",
+        "--check",
+        "/Users/zy/ai_web_page/es_web/framework/diagrams/f43/compare.d2"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/tmp/es-framework-d2-20261013/d2",
+        "validate",
+        "/Users/zy/ai_web_page/es_web/framework/diagrams/f43/compare.d2"
+      ],
+      "status": 0,
+      "stdout": "Success! [/Users/zy/ai_web_page/es_web/framework/diagrams/f43/compare.d2] is valid D2.\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/tmp/es-framework-d2-20261013/d2",
+        "fmt",
+        "--check",
+        "/Users/zy/ai_web_page/es_web/framework/diagrams/f43/measurement.d2"
+      ],
+      "status": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/tmp/es-framework-d2-20261013/d2",
+        "validate",
+        "/Users/zy/ai_web_page/es_web/framework/diagrams/f43/measurement.d2"
+      ],
+      "status": 0,
+      "stdout": "Success! [/Users/zy/ai_web_page/es_web/framework/diagrams/f43/measurement.d2] is valid D2.\n",
+      "stderr": ""
+    }
+  ],
+  "json_parsed": [
+    "docs/framework-review/20261030-f43-capacity/lesson-inventory.json",
+    "docs/framework-review/20261030-f43-capacity/http-review.json",
+    "docs/framework-review/20261030-f43-capacity/workspace-state.json",
+    "docs/framework-review/20261030-f43-capacity/guards.json",
+    "docs/framework-review/20261030-f43-capacity/detail-review.json",
+    "docs/framework-review/20261030-f43-capacity/visual-review.json",
+    "docs/framework-review/20261030-f43-capacity/reasoning.json",
+    "docs/framework-review/20261030-f43-capacity/source-evidence.json",
+    "docs/framework-review/20261030-f43-capacity/recomputed.json",
+    "docs/framework-review/20261030-f43-capacity/content-review.json",
+    "docs/framework-review/20261030-f43-capacity/result-tables.json",
+    "docs/framework-review/20261030-f43-capacity/contacts.json",
+    "docs/framework-review/20261030-f43-capacity/attempts/detail-before-desktop-fit-check.json",
+    "docs/framework-review/20261030-f43-capacity/attempts/preflight-summary.json",
+    "docs/framework-review/20261030-f43-capacity/attempts/reading-before-results.json",
+    "framework/diagrams/f43/generation.json",
+    "projects/travel-search/search/f43/shell-request.json",
+    "projects/travel-search/search/f43/query.json",
+    "projects/travel-search/search/f43/create.json",
+    "projects/travel-search/review/f43/run-02/initial-java-search.json",
+    "projects/travel-search/review/f43/run-02/c02-single-2p-mixed-layout.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b500-w4-after.json",
+    "projects/travel-search/review/f43/run-02/summary.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p1r-mixed-before.json",
+    "projects/travel-search/review/f43/run-02/c03-recovered-verified.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p-mixed-after.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-search-before.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b100-w1-verified.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p-mixed-verified.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b500-w1-after.json",
+    "projects/travel-search/review/f43/run-02/c02-single-2p-mixed-verified.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-mixed-layout.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p-mixed-layout.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b500-w4.json",
+    "projects/travel-search/review/f43/run-02/changed-java-search.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b100-w1.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-8search-layout.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p1r-mixed-import.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-search-import.json",
+    "projects/travel-search/review/f43/run-02/http-accounting.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-search-prices.json",
+    "projects/travel-search/review/f43/run-02/changed-browser.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b500-w4-verified.json",
+    "projects/travel-search/review/f43/run-02/c01-n2000-b100-w1.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b500-w1-verified.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b100-w1-before.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-8search-after.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b500-w4-before.json",
+    "projects/travel-search/review/f43/run-02/corpus-2000.json",
+    "projects/travel-search/review/f43/run-02/c03-rejected.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-search-verified.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-mixed-before.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p-mixed-before.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b100-w1-after.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-mixed-after.json",
+    "projects/travel-search/review/f43/run-02/c02-single-2p-mixed-before.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-search-layout.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-8search-import.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p1r-mixed-layout.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b500-w1-before.json",
+    "projects/travel-search/review/f43/run-02/archive-manifest.json",
+    "projects/travel-search/review/f43/run-02/c02-single-2p-mixed-after.json",
+    "projects/travel-search/review/f43/run-02/c01-n2000-b100-w1-before.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-mixed-verified.json",
+    "projects/travel-search/review/f43/run-02/corpus-10000.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-mixed-import.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-8search-verified.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p-mixed-import.json",
+    "projects/travel-search/review/f43/run-02/c03-recovered.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p1r-mixed-verified.json",
+    "projects/travel-search/review/f43/run-02/container-resources.json",
+    "projects/travel-search/review/f43/run-02/c02-pair-2p1r-mixed-after.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-search-after.json",
+    "projects/travel-search/review/f43/run-02/c03-normal.json",
+    "projects/travel-search/review/f43/run-02/initial-browser.json",
+    "projects/travel-search/review/f43/run-02/c01-n2000-b100-w1-verified.json",
+    "projects/travel-search/review/f43/run-02/c01-n2000-b100-w1-after.json",
+    "projects/travel-search/review/f43/run-02/c03-before.json",
+    "projects/travel-search/review/f43/run-02/c01-n10000-b500-w1.json",
+    "projects/travel-search/review/f43/run-02/environment.json",
+    "projects/travel-search/review/f43/run-02/c02-single-1p-8search-before.json",
+    "projects/travel-search/review/f43/run-02/c02-single-2p-mixed-import.json",
+    "projects/travel-search/review/f43/run-02/c03-after.json",
+    "projects/travel-search/review/f43/run-01/initial-java-search.json",
+    "projects/travel-search/review/f43/run-01/c02-single-2p-mixed-layout.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b500-w4-after.json",
+    "projects/travel-search/review/f43/run-01/summary.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p1r-mixed-before.json",
+    "projects/travel-search/review/f43/run-01/c03-recovered-verified.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p-mixed-after.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-search-before.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b100-w1-verified.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p-mixed-verified.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b500-w1-after.json",
+    "projects/travel-search/review/f43/run-01/c02-single-2p-mixed-verified.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-mixed-layout.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p-mixed-layout.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b500-w4.json",
+    "projects/travel-search/review/f43/run-01/changed-java-search.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b100-w1.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-8search-layout.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p1r-mixed-import.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-search-import.json",
+    "projects/travel-search/review/f43/run-01/http-accounting.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-search-prices.json",
+    "projects/travel-search/review/f43/run-01/changed-browser.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b500-w4-verified.json",
+    "projects/travel-search/review/f43/run-01/c01-n2000-b100-w1.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b500-w1-verified.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b100-w1-before.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-8search-after.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b500-w4-before.json",
+    "projects/travel-search/review/f43/run-01/corpus-2000.json",
+    "projects/travel-search/review/f43/run-01/c03-rejected.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-search-verified.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-mixed-before.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p-mixed-before.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b100-w1-after.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-mixed-after.json",
+    "projects/travel-search/review/f43/run-01/c02-single-2p-mixed-before.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-search-layout.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-8search-import.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p1r-mixed-layout.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b500-w1-before.json",
+    "projects/travel-search/review/f43/run-01/archive-manifest.json",
+    "projects/travel-search/review/f43/run-01/c02-single-2p-mixed-after.json",
+    "projects/travel-search/review/f43/run-01/c01-n2000-b100-w1-before.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-mixed-verified.json",
+    "projects/travel-search/review/f43/run-01/corpus-10000.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-mixed-import.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-8search-verified.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p-mixed-import.json",
+    "projects/travel-search/review/f43/run-01/c03-recovered.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p1r-mixed-verified.json",
+    "projects/travel-search/review/f43/run-01/container-resources.json",
+    "projects/travel-search/review/f43/run-01/c02-pair-2p1r-mixed-after.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-search-after.json",
+    "projects/travel-search/review/f43/run-01/c03-normal.json",
+    "projects/travel-search/review/f43/run-01/initial-browser.json",
+    "projects/travel-search/review/f43/run-01/c01-n2000-b100-w1-verified.json",
+    "projects/travel-search/review/f43/run-01/c01-n2000-b100-w1-after.json",
+    "projects/travel-search/review/f43/run-01/c03-before.json",
+    "projects/travel-search/review/f43/run-01/c01-n10000-b500-w1.json",
+    "projects/travel-search/review/f43/run-01/environment.json",
+    "projects/travel-search/review/f43/run-01/c02-single-1p-8search-before.json",
+    "projects/travel-search/review/f43/run-01/c02-single-2p-mixed-import.json",
+    "projects/travel-search/review/f43/run-01/c03-after.json"
+  ],
+  "markdown_links": [
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "../../../framework/f43.html"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "../../../projects/travel-search/review/f43/README.md"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "content-review.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "lesson-inventory.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "source-evidence.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "../../../framework/diagrams/f43/README.md"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "http-review.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "detail-review.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "visual-review.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "contacts.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "recomputed.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "archive-run.py"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "guards.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "workspace-state.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "checks.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "reasoning.json"
+    ],
+    [
+      "docs/framework-review/20261030-f43-capacity/README.md",
+      "attempts/"
+    ],
+    [
+      "framework/diagrams/f43/README.md",
+      "generation.json"
+    ],
+    [
+      "framework/diagrams/f43/README.md",
+      "../../../docs/framework-review/20261030-f43-capacity/README.md"
+    ],
+    [
+      "framework/diagrams/f43/README.md",
+      "../../../projects/travel-search/review/f43/README.md"
+    ],
+    [
+      "projects/travel-search/labs/f43/README.md",
+      "../../../../framework/f43.html"
+    ],
+    [
+      "projects/travel-search/labs/f43/README.md",
+      "../../review/f43/README.md"
+    ],
+    [
+      "projects/travel-search/labs/f43/README.md",
+      "../../../../docs/framework-review/20261030-f43-capacity/README.md"
+    ],
+    [
+      "projects/travel-search/labs/f43/README.md",
+      "java/F43Bulk.java"
+    ],
+    [
+      "projects/travel-search/labs/f43/README.md",
+      "lab.py"
+    ],
+    [
+      "projects/travel-search/labs/f43/README.md",
+      "../../infra/f43/compose.yaml"
+    ],
+    [
+      "projects/travel-search/labs/f43/README.md",
+      "../../search/f43/create.json"
+    ],
+    [
+      "projects/travel-search/labs/f43/README.md",
+      "../../search/f43/query.json"
+    ],
+    [
+      "projects/travel-search/labs/f43/README.md",
+      "../../search/f43/shell-request.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "../../../../framework/f43.html"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "../../labs/f43/README.md"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "build.log"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "java-compile.log"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-01/summary.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-01/environment.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-01/http-accounting.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-01/archive-manifest.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-02/summary.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-02/environment.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-02/http-accounting.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-02/archive-manifest.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-01/initial-browser.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-01/changed-browser.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-02/initial-browser.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "run-02/changed-browser.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "start01/"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "cleanup01/"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "cleanup02/"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "down/"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "../../../../docs/framework-review/20261030-f43-capacity/workspace-state.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "../../../../docs/framework-review/20261030-f43-capacity/recompute.py"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "../../../../docs/framework-review/20261030-f43-capacity/recomputed.json"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "../../../../docs/framework-review/20261030-f43-capacity/archive-run.py"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "../../../../docs/framework-review/20261030-f43-capacity/attempts/preflight-note.md"
+    ],
+    [
+      "projects/travel-search/review/f43/README.md",
+      "../../../../docs/framework-review/20261030-f43-capacity/README.md"
+    ]
+  ],
+  "f42_only_next_link_changed": true,
+  "no_generated_cache_or_local_identity_in_changes": true,
+  "diagram_hashes_equal": true,
+  "source_whitespace_check": {
+    "status": 0,
+    "scope": "all staged source/doc changes, excluding literal F43 stdout/stderr evidence",
+    "raw_log_trailing_spaces": "Maven/Compose original output retained verbatim; not rewritten"
+  }
+}

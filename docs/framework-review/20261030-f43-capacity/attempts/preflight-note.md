@@ -1,0 +1,1 @@
+Preflight passed all three cases. It preceded the final admission-boundary check, monitor-error propagation, actual container quota receipt, index stats and file lock. Formal run-01/run-02 use the final measurement logic. A prior wrong-working-directory invocation was refused before HTTP. No preflight numbers are used in the final lesson tables.
