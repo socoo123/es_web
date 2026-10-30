@@ -1,0 +1,153 @@
+{
+  "at": "2026-10-30T01:15:52.255131+00:00",
+  "key": "audit",
+  "generation": "ace9d5b7b726791d",
+  "index_uuid": "yd4sT4sPQj-dOyAmth6ivA",
+  "topic_id": "TQ2w19ITTESnvnv9gvVxpQ",
+  "high": 8,
+  "positions": {
+    "committed_next": {
+      "v1": 8
+    },
+    "kind": "positions",
+    "topic": "travel_f42.f42.projection_event",
+    "end": 8,
+    "begin": 0,
+    "topic_id": "TQ2w19ITTESnvnv9gvVxpQ",
+    "partition": 0,
+    "kafka_cluster_id": "ZjQybGFiLXNpbmdsZS1ub2Rl",
+    "observed_at": "2026-10-30T01:15:52.197186Z"
+  },
+  "expected_documents": [
+    "{\"name\": \"西湖 游船\", \"tags\": [\"夜游\"], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.25, \"lon\": 120.15}, \"city_code\": \"HZ\", \"city_name\": \"杭州\", \"sync_deleted\": false, \"attraction_id\": \"p01\", \"sync_revision\": 3, \"ticket_price_fen\": 7000}",
+    "{\"sync_deleted\": true, \"attraction_id\": \"p02\", \"sync_revision\": 2}",
+    "{\"name\": \"西湖 园林\", \"tags\": [], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 31.32, \"lon\": 120.62}, \"city_code\": \"SZ\", \"city_name\": \"苏州\", \"sync_deleted\": false, \"attraction_id\": \"p03\", \"sync_revision\": 1, \"ticket_price_fen\": 3000}",
+    "{\"name\": \"西湖 夜游\", \"tags\": [], \"status\": \"open\", \"currency\": \"CNY\", \"location\": {\"lat\": 30.252, \"lon\": 120.152}, \"city_code\": \"HZ\", \"city_name\": \"杭州\", \"sync_deleted\": false, \"attraction_id\": \"p04\", \"sync_revision\": 1, \"ticket_price_fen\": 4500}"
+  ],
+  "raw_count": {
+    "expected": 4,
+    "actual": 3
+  },
+  "live_count": {
+    "expected": 3,
+    "actual": 3
+  },
+  "findings": [
+    {
+      "id": "p01",
+      "kind": "field_mismatch",
+      "fields": [
+        "ticket_price_fen"
+      ],
+      "actual": {
+        "sync_hash": "67f97a2f90b27ae29dc6c4b05f7f2b5d751b8366881a147ad6a0930a7d185ed7",
+        "sync_revision": 3,
+        "city_code": "HZ",
+        "ticket_price_fen": 6500,
+        "tags": [
+          "夜游"
+        ],
+        "sync_deleted": false,
+        "city_name": "杭州",
+        "projection_schema": 1,
+        "name": "西湖 游船",
+        "attraction_id": "p01",
+        "currency": "CNY",
+        "location": {
+          "lon": 120.15,
+          "lat": 30.25
+        },
+        "status": "open"
+      },
+      "expected": {
+        "name": "西湖 游船",
+        "tags": [
+          "夜游"
+        ],
+        "status": "open",
+        "currency": "CNY",
+        "location": {
+          "lat": 30.25,
+          "lon": 120.15
+        },
+        "city_code": "HZ",
+        "city_name": "杭州",
+        "sync_deleted": false,
+        "attraction_id": "p01",
+        "sync_revision": 3,
+        "ticket_price_fen": 7000,
+        "projection_schema": 1,
+        "sync_hash": "67f97a2f90b27ae29dc6c4b05f7f2b5d751b8366881a147ad6a0930a7d185ed7"
+      }
+    },
+    {
+      "id": "p02",
+      "kind": "deletion_residual",
+      "fields": [
+        "city_code",
+        "city_name",
+        "currency",
+        "location",
+        "name",
+        "status",
+        "sync_deleted",
+        "sync_hash",
+        "sync_revision",
+        "tags",
+        "ticket_price_fen"
+      ],
+      "actual": {
+        "name": "西湖 步道",
+        "tags": [
+          "亲水"
+        ],
+        "status": "open",
+        "currency": "CNY",
+        "location": {
+          "lat": 30.251,
+          "lon": 120.151
+        },
+        "city_code": "HZ",
+        "city_name": "杭州",
+        "sync_deleted": false,
+        "attraction_id": "p02",
+        "sync_revision": 1,
+        "ticket_price_fen": 0,
+        "projection_schema": 1,
+        "sync_hash": "6b0cb2e5de5dc44ed98c437c35c332745c9e9c9b1f051b16a5897d228808bdec"
+      },
+      "expected": {
+        "sync_deleted": true,
+        "attraction_id": "p02",
+        "sync_revision": 2,
+        "projection_schema": 1,
+        "sync_hash": "5e9853f09eca66e4fd17585d8713f1349bc47dd2e18312bdfbdf962b4527fa7d"
+      }
+    },
+    {
+      "id": "p04",
+      "kind": "missing",
+      "fields": [],
+      "actual": null,
+      "expected": {
+        "name": "西湖 夜游",
+        "tags": [],
+        "status": "open",
+        "currency": "CNY",
+        "location": {
+          "lat": 30.252,
+          "lon": 120.152
+        },
+        "city_code": "HZ",
+        "city_name": "杭州",
+        "sync_deleted": false,
+        "attraction_id": "p04",
+        "sync_revision": 1,
+        "ticket_price_fen": 4500,
+        "projection_schema": 1,
+        "sync_hash": "b680ffddfe991a3b40b832080c1c346ffa4ec76fb5ceb25c0034a911300afc2a"
+      }
+    }
+  ],
+  "clean": false
+}

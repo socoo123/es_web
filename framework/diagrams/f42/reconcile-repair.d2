@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+boundary: "同一来源边界 H=8\n保存 SQL 完整投影；消费 next=8\nrefresh 后读取物理索引" {class: card}
+compare: "开放条数同为3，内容却不同\np01旧价 / p02删除残留 / p04缺失" {class: card}
+plan: "逐业务键比较全部字段与删除\n记录修订号、Topic ID、索引 UUID、代次" {class: card}
+repair: "锁住合作写入者，重查当前 SQL\n来源已变：拒绝旧计划，建立新边界\n来源未变：emit 更高修订号的完整事件" {class: card}
+verify: "补偿后新建来源边界 H=12\n条级成功 → next=12 → refresh\n完整字段 / 删除 / 游客查询复验" {class: card}
+boundary -> compare: "条数相等不能验收"
+compare -> plan: "指纹相同也要比较实际字段"
+plan -> repair: "未知 ID / 目标版本超前 → 拒绝自动补偿"
+repair -> verify: "只有来源未变，才同事务递增 clock / 追加事件"

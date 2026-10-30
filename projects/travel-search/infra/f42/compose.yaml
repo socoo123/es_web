@@ -1,0 +1,89 @@
+name: es-framework-f42
+services:
+  postgres:
+    image: postgres:17.5-bookworm@sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4
+    command: [postgres, -c, wal_level=logical, -c, max_replication_slots=4, -c, max_wal_senders=4, -c, max_slot_wal_keep_size=128MB]
+    environment:
+      POSTGRES_USER: travel
+      POSTGRES_DB: travel_f42
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg-password
+    secrets: [pg-password]
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ../../data/f42:/lesson:ro
+    ports: ["127.0.0.1:15442:5432"]
+    mem_limit: 256m
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U travel -d travel_f42"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  kafka:
+    image: apache/kafka:4.0.1@sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9
+    environment:
+      CLUSTER_ID: ZjQybGFiLXNpbmdsZS1ub2Rl
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://127.0.0.1:29342
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx256m
+      KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE: 16777216
+    ports: ["127.0.0.1:29342:9094"]
+    volumes: [kafka-data:/var/lib/kafka/data]
+    mem_limit: 512m
+  connect:
+    image: quay.io/debezium/connect:3.3.1.Final@sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: f42-connect
+      CONFIG_STORAGE_TOPIC: f42-connect-configs
+      OFFSET_STORAGE_TOPIC: f42-connect-offsets
+      STATUS_STORAGE_TOPIC: f42-connect-status
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_PARTITIONS: 1
+      CONNECT_STATUS_STORAGE_PARTITIONS: 1
+      OFFSET_FLUSH_INTERVAL_MS: 1000
+      CONNECT_CONFIG_PROVIDERS: file
+      CONNECT_CONFIG_PROVIDERS_FILE_CLASS: org.apache.kafka.common.config.provider.FileConfigProvider
+      HEAP_OPTS: -Xms256m -Xmx256m
+    ports: ["127.0.0.1:18342:8083"]
+    secrets: [cdc-properties]
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_started}
+    mem_limit: 640m
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0
+    environment:
+      cluster.name: travel-f42-lab
+      node.name: travel-f42-es
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms256m -Xmx256m
+    ports: ["127.0.0.1:20642:9200"]
+    volumes: [es-data:/usr/share/elasticsearch/data]
+    mem_limit: 768m
+    ulimits:
+      nofile: {soft: 65535, hard: 65535}
+volumes:
+  pg-data:
+  kafka-data:
+  es-data:
+secrets:
+  pg-password: {file: .local/pg-password.txt}
+  cdc-properties: {file: .local/cdc.properties}

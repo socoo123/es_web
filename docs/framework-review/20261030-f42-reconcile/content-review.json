@@ -1,0 +1,58 @@
+{
+  "at": "2026-10-30T01:20:03.693178+00:00",
+  "scope": "F42 only, plus navigation and current progress summaries",
+  "reviewer": "author self-review, no independent agent",
+  "han_excluding_code": 4683,
+  "goals": 3,
+  "cases": 3,
+  "code_blocks": 23,
+  "details": 10,
+  "ability_checks": 8,
+  "pitfalls": 4,
+  "diagrams": 2,
+  "mechanism_players": 0,
+  "verified": [
+    "DB canonical snapshot -> Java projection distinction",
+    "cooperating transaction lock before writes and fences",
+    "timestamp identity and cross-clock limits",
+    "GET vs search before and after explicit refresh",
+    "complete IDs, types, fields and deletion at the exact retained H",
+    "same revision/hash noops cannot repair drifted actual fields",
+    "new revision from current source; stale plan atomic rejection",
+    "source events, Bulk items, HTTP, shell observations counted separately",
+    "manual three-case commands and cleanup replay match project"
+  ],
+  "prepublication_corrections": [
+    {
+      "issue": "F07 result order expected as price order",
+      "correction": "use attraction_id ascending; failed run kept"
+    },
+    {
+      "issue": "Path in summary not JSON serializable",
+      "correction": "serialize worker args as strings; clean rerun"
+    },
+    {
+      "issue": "Connect nonJSON during startup",
+      "correction": "retry JSONDecodeError only in bounded readiness wait"
+    },
+    {
+      "issue": "PAUSED misread as WAL not captured",
+      "correction": "actual timestamps locate pre-Kafka capture/queue/publication segment only"
+    },
+    {
+      "issue": "wide branch diagram shrank text",
+      "correction": "D2 source changed to vertical layout and regenerated"
+    },
+    {
+      "issue": "lazy images stalled whole-lesson ready check",
+      "correction": "small offline diagrams eager-loaded; added standard diagram shell"
+    }
+  ],
+  "errata": "First F42 delivery; no previously published F42 claim to correct. Prepublication fixes above are not retroactive errata.",
+  "limits": [
+    "single partition/local coordination/cooperating writers",
+    "controlled pauses and explicit refresh, not latency benchmark",
+    "small fixed complete set, not production scan",
+    "no arbitrary crash, HA, cross-partition barrier or retention exhaustion"
+  ]
+}

@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+db: "① DB 当前事实：p01 = 65元\n记录事务前后客户端时刻；outbox 时间不是精确提交时刻" {class: card}
+capture: "② 捕获到 Kafka：end 3 → 4\n暂停 connector 时 end=next=3，lag=0 仍然漏看新价" {class: card}
+consumer: "③ Java 收到事件并生成完整投影\n记录业务 ID / revision / offset、接收与投影结束时间" {class: card}
+ack: "④ ES 条级成功，再提交 next=4\n实时 GET 已65元；搜索仍60元；写入确认独立留档" {class: card}
+search: "⑤ refresh 后搜索首次观测到65元\n记录最后旧值与首次新值之间的探测区间" {class: card}
+db -> capture: "对照 source.ts_ms / ts_ms；跨时钟差只能估计"
+capture -> consumer: "end=4 / next=3 说明已在消息层积压"
+consumer -> ack: "投影错误、条级失败、提交位置分别检查"
+ack -> search: "本课 refresh_interval=-1，主动刷新以固定对照"

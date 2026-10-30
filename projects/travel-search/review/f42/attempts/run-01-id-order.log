@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f42/lab.py", line 302, in <module>
+    if ARGS.action in ['prepare','run','cleanup','pause','resume','corrupt','refresh']:getattr(lab,ARGS.action)()
+                                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f42/lab.py", line 219, in run
+    self.prepare();self.app_start();self.observe('initial',[('p02',0),('p01',6000)])
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f42/lab.py", line 113, in observe
+    check([(x['id'],x['ticketPriceFen']) for x in value['items']]==want,value)
+  File "/Users/zy/ai_web_page/es_web/projects/travel-search/labs/f42/lab.py", line 14, in check
+    if not ok:raise AssertionError(detail)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'total': 2, 'totalRelation': 'eq', 'esTookMs': 100, 'conditions': {'q': '西湖', 'cityCode': 'HZ', 'maxPriceFen': 20000, 'latitude': 30.25, 'longitude': 120.15, 'radiusKm': 3.0}, 'esRequest': {'_source': {'includes': ['attraction_id', 'name', 'city_code', 'ticket_price_fen', 'currency', 'status', 'location']}, 'query': {'bool': {'filter': [{'term': {'city_code': {'value': 'HZ'}}}, {'term': {'currency': {'value': 'CNY'}}}, {'range': {'ticket_price_fen': {'gte': 0.0, 'lte': 20000.0}}}, {'term': {'status': {'value': 'open'}}}, {'geo_distance': {'location': {'lat': 30.25, 'lon': 120.15}, 'distance': '3.0km', 'distance_type': 'arc'}}], 'must': [{'match': {'name': {'operator': 'or', 'query': '西湖'}}}]}}, 'size': 20, 'sort': [{'attraction_id': {'order': 'asc'}}], 'track_scores': True, 'track_total_hits': True}, 'items': [{'id': 'p01', 'name': '西湖 游船', 'cityCode': 'HZ', 'ticketPriceFen': 6000, 'currency': 'CNY', 'status': 'open', 'score': 0.13353139}, {'id': 'p02', 'name': '西湖 步道', 'cityCode': 'HZ', 'ticketPriceFen': 0, 'currency': 'CNY', 'status': 'open', 'score': 0.13353139}]}

@@ -1,0 +1,15 @@
+{
+  "plan": "audit",
+  "ids": [
+    "p01",
+    "p02",
+    "p04"
+  ],
+  "started": "2026-10-30T01:13:06.508524+00:00",
+  "finished": "2026-10-30T01:13:06.624867+00:00",
+  "exit_code": 0,
+  "sql": "BEGIN;\nSELECT pg_advisory_xact_lock(42042);\nCREATE TEMP TABLE repair_expected AS SELECT '[\"{\\\"name\\\": \\\"西湖 游船\\\", \\\"tags\\\": [\\\"夜游\\\"], \\\"status\\\": \\\"open\\\", \\\"currency\\\": \\\"CNY\\\", \\\"location\\\": {\\\"lat\\\": 30.25, \\\"lon\\\": 120.15}, \\\"city_code\\\": \\\"HZ\\\", \\\"city_name\\\": \\\"杭州\\\", \\\"sync_deleted\\\": false, \\\"attraction_id\\\": \\\"p01\\\", \\\"sync_revision\\\": 3, \\\"ticket_price_fen\\\": 7000}\", \"{\\\"sync_deleted\\\": true, \\\"attraction_id\\\": \\\"p02\\\", \\\"sync_revision\\\": 2}\", \"{\\\"name\\\": \\\"西湖 园林\\\", \\\"tags\\\": [], \\\"status\\\": \\\"open\\\", \\\"currency\\\": \\\"CNY\\\", \\\"location\\\": {\\\"lat\\\": 31.32, \\\"lon\\\": 120.62}, \\\"city_code\\\": \\\"SZ\\\", \\\"city_name\\\": \\\"苏州\\\", \\\"sync_deleted\\\": false, \\\"attraction_id\\\": \\\"p03\\\", \\\"sync_revision\\\": 1, \\\"ticket_price_fen\\\": 3000}\", \"{\\\"name\\\": \\\"西湖 夜游\\\", \\\"tags\\\": [], \\\"status\\\": \\\"open\\\", \\\"currency\\\": \\\"CNY\\\", \\\"location\\\": {\\\"lat\\\": 30.252, \\\"lon\\\": 120.152}, \\\"city_code\\\": \\\"HZ\\\", \\\"city_name\\\": \\\"杭州\\\", \\\"sync_deleted\\\": false, \\\"attraction_id\\\": \\\"p04\\\", \\\"sync_revision\\\": 1, \\\"ticket_price_fen\\\": 4500}\"]'::jsonb AS value;\n-- Caller created repair_expected(value jsonb), an array of canonical JSON texts.\n-- Keep the transaction lock until ALL affected IDs have emitted new revisions.\nDO $$\nBEGIN\n  IF (SELECT jsonb_agg(f42.envelope(attraction_id)::text ORDER BY attraction_id)\n      FROM f42.projection_clock)\n     IS DISTINCT FROM (SELECT value FROM repair_expected) THEN\n    RAISE EXCEPTION 'stale repair plan: current source differs; audit again';\n  END IF;\nEND $$;\n\nSELECT f42.emit('p01');\nSELECT f42.emit('p02');\nSELECT f42.emit('p04');\nCOMMIT;\n",
+  "stdout": "\n4\n3\n2\n",
+  "stderr": "",
+  "target_direct_writes": 0
+}

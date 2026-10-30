@@ -1,0 +1,77 @@
+{
+  "at": "2026-10-30T01:14:10.020030+00:00",
+  "application_java": {
+    "args": [
+      "/tmp/es-f29-tooling/jdk-25.0.4.1+1/Contents/Home/bin/java",
+      "-version"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "openjdk version \"25.0.4.1\" 2026-08-18 LTS\nOpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)\n"
+  },
+  "es_bundled_java": {
+    "args": [
+      "docker",
+      "compose",
+      "-f",
+      "infra/f42/compose.yaml",
+      "exec",
+      "-T",
+      "es",
+      "/usr/share/elasticsearch/jdk/bin/java",
+      "-version"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "openjdk version \"26.0.1\" 2026-04-21\nOpenJDK Runtime Environment (build 26.0.1+8-34)\nOpenJDK 64-Bit Server VM (build 26.0.1+8-34, mixed mode, sharing)\n"
+  },
+  "docker": {
+    "args": [
+      "docker",
+      "--version"
+    ],
+    "exit_code": 0,
+    "stdout": "Docker version 29.6.1, build 8900f1d330\n",
+    "stderr": ""
+  },
+  "images": [
+    {
+      "service": "postgres",
+      "image": "postgres:17.5-bookworm@sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4",
+      "image_id": "sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4",
+      "digests": [
+        "postgres@sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4"
+      ]
+    },
+    {
+      "service": "kafka",
+      "image": "apache/kafka:4.0.1@sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9",
+      "image_id": "sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9",
+      "digests": [
+        "apache/kafka@sha256:9a129e03121d46d74349a480f8f17082df3dd411b28281c9eabb95cf096370b9"
+      ]
+    },
+    {
+      "service": "connect",
+      "image": "quay.io/debezium/connect:3.3.1.Final@sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443",
+      "image_id": "sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443",
+      "digests": [
+        "quay.io/debezium/connect@sha256:18ad5f606365b69133fec658d63b37483a54af171b4c9561e00e87c0303ea443"
+      ]
+    },
+    {
+      "service": "es",
+      "image": "docker.elastic.co/elasticsearch/elasticsearch:9.4.0",
+      "image_id": "sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84",
+      "digests": [
+        "docker.elastic.co/elasticsearch/elasticsearch@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84"
+      ]
+    }
+  ],
+  "unrelated_container": {
+    "Id": "7123a12e4dda100566b6f4b9d4eb567640de1293cdfb76c8feac14b73c31306b",
+    "Name": "/es-study-secure",
+    "started_at": "2026-10-28T02:38:17.764941298Z",
+    "status": "running"
+  }
+}
