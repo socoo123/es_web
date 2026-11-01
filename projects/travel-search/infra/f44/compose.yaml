@@ -1,0 +1,18 @@
+name: es-framework-f44
+services:
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.0@sha256:754c3d8ca6f74acba58eb0610b8479a13c36df09ac1a4e0f2667dc167d377b84
+    mem_limit: 768m
+    cpus: 1.0
+    environment:
+      cluster.name: travel-f44-lab
+      node.name: f44-es
+      node.processors: 1
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms256m -Xmx256m
+    ports: ["127.0.0.1:20844:9200"]
+    volumes: [es-data:/usr/share/elasticsearch/data]
+volumes:
+  es-data:

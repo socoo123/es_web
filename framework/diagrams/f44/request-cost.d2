@@ -1,0 +1,9 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+query: "找出候选\nmatch / filter\n分片分别执行" {class: card}
+collect: "收集与排序\nfrom + size 候选\n聚合另建桶" {class: card}
+fetch: "取回本页内容\n_source / doc values\n高亮；只取回本页正文" {class: card}
+response: "协调与返回\n合并 / 序列化 / 网络\n客户端解析" {class: card}
+query -> collect: "profile 看 query / collector\n与 aggregation"
+collect -> fetch: "fetch 子阶段可观测"
+fetch -> response: "profile 不覆盖完整端到端"

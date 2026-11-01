@@ -1,0 +1,55 @@
+{
+  "request": {
+    "aggregations": {
+      "places": {
+        "terms": {
+          "field": "attraction_id",
+          "size": 1000
+        }
+      }
+    },
+    "profile": false,
+    "query": {
+      "term": {
+        "city_code": {
+          "value": "HZ"
+        }
+      }
+    },
+    "size": 0,
+    "track_total_hits": true
+  },
+  "status": 429,
+  "type": "search_phase_execution_exception",
+  "reason": "all shards failed",
+  "error": {
+    "phase": "query",
+    "failed_shards": [
+      {
+        "shard": 0,
+        "index": "tut-f44-attractions",
+        "node": "Kgi6REVhSHSLmsJirdYXGA",
+        "reason": {
+          "type": "circuit_breaking_exception",
+          "reason": "[request] Data too large, data for [preallocate[aggregations]] would be [6144/6kb], which is larger than the limit of [1024/1kb]; for more information, see https://www.elastic.co/docs/troubleshoot/elasticsearch/circuit-breaker-errors?version=9.4",
+          "bytes_wanted": 6144,
+          "bytes_limit": 1024,
+          "durability": "TRANSIENT"
+        }
+      }
+    ],
+    "grouped": true,
+    "type": "search_phase_execution_exception",
+    "reason": "all shards failed",
+    "root_cause": [
+      {
+        "bytes_wanted": 6144,
+        "durability": "TRANSIENT",
+        "bytes_limit": 1024,
+        "type": "circuit_breaking_exception",
+        "reason": "[request] Data too large, data for [preallocate[aggregations]] would be [6144/6kb], which is larger than the limit of [1024/1kb]; for more information, see https://www.elastic.co/docs/troubleshoot/elasticsearch/circuit-breaker-errors?version=9.4"
+      }
+    ]
+  },
+  "client_ms": 52.704875
+}

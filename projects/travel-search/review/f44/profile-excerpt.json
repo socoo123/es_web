@@ -1,0 +1,51 @@
+{
+  "profile": {
+    "shards": [
+      {
+        "index": "tut-f44-attractions",
+        "searches": [
+          {
+            "query": [
+              {
+                "type": "ConstantScoreQuery",
+                "breakdown": {
+                  "score_count": 0
+                }
+              }
+            ],
+            "collector": [
+              {
+                "name": "QueryPhaseCollector",
+                "children": [
+                  {
+                    "name": "SimpleFieldCollector"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "fetch": {
+          "type": "fetch",
+          "debug": {
+            "stored_fields": [
+              "_id",
+              "_routing"
+            ]
+          },
+          "children": [
+            {
+              "type": "FetchDocValuesPhase"
+            },
+            {
+              "type": "FetchFieldsPhase"
+            },
+            {
+              "type": "StoredFieldsPhase"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
