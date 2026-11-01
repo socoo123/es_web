@@ -75,7 +75,7 @@
 - 双节点均master/data/ingest，同一UUID，两个索引各1P1R且主副分居两个实际节点；首次bootstrap只给es1，形成后移除。独立回环端口15445/29345/18345/20945–20946/18095；秘密本机生成/忽略/FileConfigProvider，不入URL或提交。旧F07观察窗按自身契约5→4条且60→45元，新增完整DSL为2→1条，严格区分；两轮观察窗均真实浏览器→Java→ES，Java已退出。
 - [图解/HTTP/视觉](docs/framework-review/20261101-f45-capstone/README.md)：D2v0.9.0/dagre/themes4+201，2源4SVG的fmt/check/validate/render与哈希通过；HTTP12视口主题组合、880px/390下362px/边界差≤1/零整页溢出，初稿19段真实复制、最终20段片段一致性，目录/折叠/主题/进度/前后导航/file/reduced-motion/焦点通过；参考区展开后桌面/320px局部滚动补验及8张教程/图解＋2张观察窗实际查看范围单列。5个固定v9.4.0目标源码HTTP200、与本地字节一致，问题→方法→源码课入口可追溯。
 - 预验收Connect192MiB插件扫描Java堆OOM改回256MiB/容器640MiB；启动非JSON、过早run、Java规范化简写、作者浏览器Python环境/重放旧索引地址与目录card类问题修正后才计正式两轮。首次交付，无旧已发布F45勘误；明确SQL/ES职责、同offer范围、写入/搜索可见性、逻辑删除与消费位置。保留失败记录，不冒称部分通过。
-- 已cleanup03/04与down，点名资源不存在、秘密/卷/Connect内部topic保留。冻结来源/单topic单分区/单本机worker/同VM/酒店固定快照限制明确，未重测所有中文/相关性/安全/多表/在线重建/容量能力，未测任意崩溃/HA/保留耗尽，不以双票green推断单点可用。F04–F06历史待验收保留。根入口无法设置或读回最新gpt-6.1-sol/max与历史xhigh，自行写作/内容自审，无子代理；不声称已切换。最终检查与推送在提交后按实际记录。
+- 已cleanup03/04与down，点名资源不存在、秘密/卷/Connect内部topic保留。冻结来源/单topic单分区/单本机worker/同VM/酒店固定快照限制明确，未重测所有中文/相关性/安全/多表/在线重建/容量能力，未测任意崩溃/HA/保留耗尽，不以双票green推断单点可用。F04–F06历史待验收保留。根入口无法设置或读回最新gpt-6.1-sol/max与历史xhigh，自行写作/内容自审，无子代理；不声称已切换。最终站点/20段片段一致性/Python/Bash语法与图哈希检查通过；实现65cf3a7已推送origin/main、远端SHA相同，Pages构建成功且公开F45页面HTTP200/字节一致，[发布收据](docs/framework-review/20261101-f45-capstone/publication.json)单列。
 
 ## 2026-11-01 · F44 请求成本与故障诊断两轮通过
 

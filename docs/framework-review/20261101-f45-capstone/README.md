@@ -12,4 +12,4 @@
 
 正式两轮[结果与数量](results.json)均通过；[初次HTTP阅读](reading.json)覆盖1920/1440/1024/768/390/320×浅深12组合、880px/390下362px/边界差≤1/零整页溢出、19段真实复制与既有控件。最终新增逐晚候选片段后20段源文件一致性另检查，[参考区展开补验](supplement.json)覆盖1440浅色/320深色、全部折叠打开和两张结果表左右滚动。用[reading.py](reading.py)/[supplement.py](supplement.py)复现；原临时venv跨日后丢失pyvenv.cfg，补验使用新本机venv的Playwright1.64.1，浏览器Chromium156.0.8078.4，未安装测试工具到项目依赖。
 
-[实际查看](visual-review.json)明确列出8张教程/图解＋2张真实观察窗截图，其他截图只作为生成证据，不冒称逐张审阅。[内容自审](content-review.json)、[图与代码数量](inventory.json)、[推理限制](reasoning.json)和[最终资源](workspace-state.json)分列；F45六端口关闭，五容器已停/网络已移除，四具名卷保留，原9201安全节点仍running/healthy。当前提交与GitHub发布核对在实际推送后记录。
+[实际查看](visual-review.json)明确列出8张教程/图解＋2张真实观察窗截图，其他截图只作为生成证据，不冒称逐张审阅。[内容自审](content-review.json)、[图与代码数量](inventory.json)、[推理限制](reasoning.json)和[最终资源](workspace-state.json)分列；F45六端口关闭，五容器已停/网络已移除，四具名卷保留，原9201安全节点仍running/healthy。实现[65cf3a7](https://github.com/socoo123/es_web/commit/65cf3a730c61eecad6c8a0da99eec904f42a5f44)已推送origin/main；[Pages构建](https://github.com/socoo123/es_web/actions/runs/41324567528)成功，公开F45页面HTTP200且与本机HTML字节相同，[发布收据](publication.json)单列。
