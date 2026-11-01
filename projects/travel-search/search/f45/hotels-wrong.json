@@ -1,0 +1,104 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "nested": {
+            "path": "offers",
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "term": {
+                      "offers.currency": {
+                        "value": "CNY"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.check_in": {
+                        "value": "2027-04-03"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.check_out": {
+                        "value": "2027-04-05"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.accessible": {
+                        "value": true
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.refundable": {
+                        "value": true
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.capacity": {
+                        "gte": 2
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.total_price_fen": {
+                        "gte": 0,
+                        "lte": 65000
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "nested": {
+            "path": "offers",
+            "query": {
+              "term": {
+                "offers.breakfast": {
+                  "value": true
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "hotel_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}

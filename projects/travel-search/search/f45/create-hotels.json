@@ -1,0 +1,58 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "hotel_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "offers": {
+        "type": "nested",
+        "dynamic": "strict",
+        "properties": {
+          "offer_id": {
+            "type": "keyword"
+          },
+          "currency": {
+            "type": "keyword"
+          },
+          "check_in": {
+            "type": "keyword"
+          },
+          "check_out": {
+            "type": "keyword"
+          },
+          "accessible": {
+            "type": "boolean"
+          },
+          "breakfast": {
+            "type": "boolean"
+          },
+          "refundable": {
+            "type": "boolean"
+          },
+          "capacity": {
+            "type": "integer"
+          },
+          "total_price_fen": {
+            "type": "long",
+            "coerce": false
+          }
+        }
+      }
+    }
+  }
+}

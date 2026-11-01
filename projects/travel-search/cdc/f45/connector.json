@@ -1,0 +1,27 @@
+{
+  "name": "f45-pg",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "f45_cdc",
+    "database.password": "${file:/run/secrets/cdc-properties:password}",
+    "database.dbname": "travel_f45",
+    "topic.prefix": "travel_f45",
+    "plugin.name": "pgoutput",
+    "slot.name": "f45_slot",
+    "slot.drop.on.stop": "false",
+    "publication.name": "f45_publication",
+    "publication.autocreate.mode": "disabled",
+    "table.include.list": "f45.projection_event",
+    "snapshot.mode": "initial",
+    "tombstones.on.delete": "true",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "poll.interval.ms": "200",
+    "status.update.interval.ms": "1000"
+  }
+}

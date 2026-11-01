@@ -1,0 +1,535 @@
+{
+  "stage": "initial",
+  "js_errors": [],
+  "direct_es": [],
+  "observations": [
+    {
+      "width": 1440,
+      "theme": "light",
+      "java": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 7,
+        "conditions": {
+          "q": "江岸",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "match": {
+                    "name": {
+                      "operator": "or",
+                      "query": "江岸"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "n01",
+            "name": "江岸 夜游 花园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 6000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.056159534
+          },
+          {
+            "id": "n02",
+            "name": "江岸 夜游 码头",
+            "cityCode": "HZ",
+            "ticketPriceFen": 4000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.056159534
+          },
+          {
+            "id": "n03",
+            "name": "江岸 夜游 台阶",
+            "cityCode": "HZ",
+            "ticketPriceFen": 2000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.056159534
+          },
+          {
+            "id": "n06",
+            "name": "江岸 夜游 长线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 3500,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.056159534
+          },
+          {
+            "id": "n08",
+            "name": "江岸 公园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 2500,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.06528704
+          }
+        ]
+      },
+      "rest": {
+        "took": 27,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 5,
+            "relation": "eq"
+          },
+          "max_score": 0.06528704,
+          "hits": [
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n01",
+              "_score": 0.056159534,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 6000,
+                "attraction_id": "n01",
+                "name": "江岸 夜游 花园",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n01"
+              ]
+            },
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n02",
+              "_score": 0.056159534,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 4000,
+                "attraction_id": "n02",
+                "name": "江岸 夜游 码头",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n02"
+              ]
+            },
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n03",
+              "_score": 0.056159534,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 2000,
+                "attraction_id": "n03",
+                "name": "江岸 夜游 台阶",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n03"
+              ]
+            },
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n06",
+              "_score": 0.056159534,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 3500,
+                "attraction_id": "n06",
+                "name": "江岸 夜游 长线",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n06"
+              ]
+            },
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n08",
+              "_score": 0.06528704,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 2500,
+                "attraction_id": "n08",
+                "name": "江岸 公园",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n08"
+              ]
+            }
+          ]
+        }
+      },
+      "screenshot": "observer-initial-1440-light.png"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "java": {
+        "total": 5,
+        "totalRelation": "eq",
+        "esTookMs": 20,
+        "conditions": {
+          "q": "江岸",
+          "cityCode": "HZ",
+          "maxPriceFen": 20000,
+          "latitude": 30.25,
+          "longitude": 120.15,
+          "radiusKm": 3.0
+        },
+        "esRequest": {
+          "_source": {
+            "includes": [
+              "attraction_id",
+              "name",
+              "city_code",
+              "ticket_price_fen",
+              "currency",
+              "status",
+              "location"
+            ]
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "city_code": {
+                      "value": "HZ"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "ticket_price_fen": {
+                      "gte": 0.0,
+                      "lte": 20000.0
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "status": {
+                      "value": "open"
+                    }
+                  }
+                },
+                {
+                  "geo_distance": {
+                    "location": {
+                      "lat": 30.25,
+                      "lon": 120.15
+                    },
+                    "distance": "3.0km",
+                    "distance_type": "arc"
+                  }
+                }
+              ],
+              "must": [
+                {
+                  "match": {
+                    "name": {
+                      "operator": "or",
+                      "query": "江岸"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 20,
+          "sort": [
+            {
+              "attraction_id": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_scores": true,
+          "track_total_hits": true
+        },
+        "items": [
+          {
+            "id": "n01",
+            "name": "江岸 夜游 花园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 6000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.056159534
+          },
+          {
+            "id": "n02",
+            "name": "江岸 夜游 码头",
+            "cityCode": "HZ",
+            "ticketPriceFen": 4000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.056159534
+          },
+          {
+            "id": "n03",
+            "name": "江岸 夜游 台阶",
+            "cityCode": "HZ",
+            "ticketPriceFen": 2000,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.056159534
+          },
+          {
+            "id": "n06",
+            "name": "江岸 夜游 长线",
+            "cityCode": "HZ",
+            "ticketPriceFen": 3500,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.056159534
+          },
+          {
+            "id": "n08",
+            "name": "江岸 公园",
+            "cityCode": "HZ",
+            "ticketPriceFen": 2500,
+            "currency": "CNY",
+            "status": "open",
+            "score": 0.06528704
+          }
+        ]
+      },
+      "rest": {
+        "took": 12,
+        "timed_out": false,
+        "_shards": {
+          "total": 1,
+          "successful": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "hits": {
+          "total": {
+            "value": 5,
+            "relation": "eq"
+          },
+          "max_score": 0.06528704,
+          "hits": [
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n01",
+              "_score": 0.056159534,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 6000,
+                "attraction_id": "n01",
+                "name": "江岸 夜游 花园",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n01"
+              ]
+            },
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n02",
+              "_score": 0.056159534,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 4000,
+                "attraction_id": "n02",
+                "name": "江岸 夜游 码头",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n02"
+              ]
+            },
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n03",
+              "_score": 0.056159534,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 2000,
+                "attraction_id": "n03",
+                "name": "江岸 夜游 台阶",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n03"
+              ]
+            },
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n06",
+              "_score": 0.056159534,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 3500,
+                "attraction_id": "n06",
+                "name": "江岸 夜游 长线",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n06"
+              ]
+            },
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n08",
+              "_score": 0.06528704,
+              "_source": {
+                "city_code": "HZ",
+                "ticket_price_fen": 2500,
+                "attraction_id": "n08",
+                "name": "江岸 公园",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                "n08"
+              ]
+            }
+          ]
+        }
+      },
+      "screenshot": "observer-initial-390-dark.png"
+    }
+  ],
+  "browser": "156.0.8078.4",
+  "passed": true,
+  "java_pid": 47390,
+  "java_stopped": true
+}

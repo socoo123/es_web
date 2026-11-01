@@ -1,0 +1,10 @@
+if (ctx.op == 'create' || params.document.sync_revision > ctx._source.sync_revision) {
+  ctx._source = params.document;
+} else if (params.document.sync_revision == ctx._source.sync_revision) {
+  if (params.document.sync_hash != ctx._source.sync_hash) {
+    throw new IllegalArgumentException('same revision with different content');
+  }
+  ctx.op = 'noop';
+} else {
+  ctx.op = 'noop';
+}

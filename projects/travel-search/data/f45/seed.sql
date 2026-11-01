@@ -1,0 +1,11 @@
+BEGIN;
+INSERT INTO f45.attractions SELECT * FROM jsonb_populate_recordset(NULL::f45.attractions, $f45$[{"city_code": "HZ", "currency": "CNY", "status": "open", "accessible": true, "visit_minutes": 60, "location": {"lat": 30.25, "lon": 120.15}, "sync_revision": 1, "sync_deleted": false, "attraction_id": "n01", "name": "江岸 夜游 花园", "ticket_price_fen": 6000}, {"city_code": "HZ", "currency": "CNY", "status": "open", "accessible": true, "visit_minutes": 90, "location": {"lat": 30.25, "lon": 120.15}, "sync_revision": 1, "sync_deleted": false, "attraction_id": "n02", "name": "江岸 夜游 码头", "ticket_price_fen": 4000}, {"city_code": "HZ", "currency": "CNY", "status": "open", "accessible": false, "visit_minutes": 45, "location": {"lat": 30.25, "lon": 120.15}, "sync_revision": 1, "sync_deleted": false, "attraction_id": "n03", "name": "江岸 夜游 台阶", "ticket_price_fen": 2000}, {"city_code": "HZ", "currency": "CNY", "status": "closed", "accessible": true, "visit_minutes": 60, "location": {"lat": 30.25, "lon": 120.15}, "sync_revision": 1, "sync_deleted": false, "attraction_id": "n04", "name": "江岸 夜游 旧馆", "ticket_price_fen": 1000}, {"city_code": "HZ", "currency": "CNY", "status": "open", "accessible": true, "visit_minutes": 60, "location": {"lat": 30.4, "lon": 120.15}, "sync_revision": 1, "sync_deleted": false, "attraction_id": "n05", "name": "江岸 夜游 远郊", "ticket_price_fen": 3000}, {"city_code": "HZ", "currency": "CNY", "status": "open", "accessible": true, "visit_minutes": 120, "location": {"lat": 30.25, "lon": 120.15}, "sync_revision": 1, "sync_deleted": false, "attraction_id": "n06", "name": "江岸 夜游 长线", "ticket_price_fen": 3500}, {"city_code": "FZ", "currency": "CNY", "status": "open", "accessible": true, "visit_minutes": 60, "location": {"lat": 30.25, "lon": 120.15}, "sync_revision": 1, "sync_deleted": false, "attraction_id": "n07", "name": "江岸 夜游 外城", "ticket_price_fen": 3000}, {"city_code": "HZ", "currency": "CNY", "status": "open", "accessible": true, "visit_minutes": 60, "location": {"lat": 30.25, "lon": 120.15}, "sync_revision": 1, "sync_deleted": false, "attraction_id": "n08", "name": "江岸 公园", "ticket_price_fen": 2500}]$f45$::jsonb);
+SELECT f45.emit('n01');
+SELECT f45.emit('n02');
+SELECT f45.emit('n03');
+SELECT f45.emit('n04');
+SELECT f45.emit('n05');
+SELECT f45.emit('n06');
+SELECT f45.emit('n07');
+SELECT f45.emit('n08');
+COMMIT;

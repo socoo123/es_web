@@ -1,0 +1,11 @@
+direction: down
+classes: {card: {style: {font-size: 21; border-radius: 10}}}
+source: "SQL 事务\n业务行 + 完整 outbox" {class: card}
+log: "Debezium → Kafka\n初始快照 / WAL 增量" {class: card}
+worker: "Java 投影消费者\n修订号保护 / 逐项验收" {class: card}
+es: "双节点 Elasticsearch\n1 主 1 副 / refresh = -1" {class: card}
+read: "Java 搜索\n显式 refresh 后核对结果" {class: card}
+source -> log: "提交后的来源变化"
+log -> worker: "固定来源边界 H"
+worker -> es: "Bulk 成功才提交 next"
+es -> read: "写入成功 ≠ 已可搜索"

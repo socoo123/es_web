@@ -1,0 +1,146 @@
+{
+  "args": [
+    "search",
+    "attractions"
+  ],
+  "code": 0,
+  "records": [
+    {
+      "reply": {
+        "took": 3,
+        "timed_out": false,
+        "_shards": {
+          "failed": 0.0,
+          "successful": 1.0,
+          "total": 1.0,
+          "skipped": 0.0
+        },
+        "hits": {
+          "total": {
+            "relation": "eq",
+            "value": 1
+          },
+          "hits": [
+            {
+              "_index": "tut-f45-attractions-v001",
+              "_id": "n01",
+              "_source": {
+                "accessible": true,
+                "visit_minutes": 60,
+                "sync_hash": "8ce2571f2aea4ec01377af3931514a4e12caa9b8e64983c21e8e8adb828ac07f",
+                "sync_revision": 2,
+                "city_code": "HZ",
+                "ticket_price_fen": 4500,
+                "sync_deleted": false,
+                "attraction_id": "n01",
+                "name": "江岸 夜游 花园",
+                "currency": "CNY",
+                "location": {
+                  "lon": 120.15,
+                  "lat": 30.25
+                },
+                "status": "open"
+              },
+              "sort": [
+                4500,
+                "n01"
+              ]
+            }
+          ]
+        }
+      },
+      "request": {
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "term": {
+                  "city_code": {
+                    "value": "HZ"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "currency": {
+                    "value": "CNY"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "status": {
+                    "value": "open"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "sync_deleted": {
+                    "value": false
+                  }
+                }
+              },
+              {
+                "term": {
+                  "accessible": {
+                    "value": true
+                  }
+                }
+              },
+              {
+                "range": {
+                  "visit_minutes": {
+                    "lte": 90
+                  }
+                }
+              },
+              {
+                "range": {
+                  "ticket_price_fen": {
+                    "gte": 0,
+                    "lte": 6500
+                  }
+                }
+              },
+              {
+                "geo_distance": {
+                  "location": {
+                    "lat": 30.25,
+                    "lon": 120.15
+                  },
+                  "distance": "3km"
+                }
+              }
+            ],
+            "must": [
+              {
+                "match": {
+                  "name": {
+                    "operator": "and",
+                    "query": "江岸 夜游"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "size": 20,
+        "sort": [
+          {
+            "ticket_price_fen": {
+              "order": "asc"
+            }
+          },
+          {
+            "attraction_id": {
+              "order": "asc"
+            }
+          }
+        ],
+        "track_total_hits": true
+      },
+      "kind": "search"
+    }
+  ]
+}

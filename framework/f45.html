@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>F45 · 独立复现与源码入口 — ES 学习站</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/chapter-diagrams.css"><link rel="stylesheet" href="assets/course.css"><style>#f45 .d2-view img{min-width:0;max-width:450px;margin-inline:auto}#f45 .ktable th,#f45 .ktable td{min-width:100px}#f45 .ktable th:last-child,#f45 .ktable td:last-child{min-width:170px}#f45 .table-scroll-note{font-size:13px;color:rgb(var(--fg-muted))}</style></head><body class="framework-page chapter-visual-page"><header class="topbar"><a class="brand" href="../index.html"><span class="brand-logo">ES</span>ES 学习站</a><nav class="tnav"><a class="here" href="index.html">框架篇</a><a href="../index.html#source-courses">源码篇</a></nav><span class="spacer"></span><button class="theme-toggle" type="button">🌙 深色</button></header><main class="wrap chapter-visual"><article class="chapter" id="f45" data-ch="f45">
+<header class="ch-header"><div class="ch-kicker">FRAMEWORK 45 · 完整结业与源码入口</div><h1>不看逐步答案，<br>你能完成一个新搜索需求吗？</h1><p class="meta-line">前置：基础搜索、F23–F29、F36–F42 · 约120分钟 · 3案例 / 每轮35条留档REST（Java与就绪轮询另列） / 2静态D2 / 0机制播放器</p><p>游客带着行动不便的家人去“江岸夜游”，希望行程不超过90分钟，晚上住进有早餐、可取消的无障碍房。运营又刚改了票价、撤下一个景点，搜索却仍显示旧资料。前44课分别练过这些能力；现在要由你决定哪些是硬条件、哪些决定排序，酒店条件是否属于同一报价，更新又停在链路哪一段。本课从独立空资源开始，把景点、酒店、双节点与真实同步接起来，并用一次故障恢复证明结果可信。</p></header>
+<section class="goal"><h2>学完能用输出证明什么</h2><ul><li>面对新样本，独立给出景点组合查询、稳定排序与酒店同报价条件，并用REST和官方Java核对ID、次序与金额。</li><li>从新建SQL来源经过真实快照/WAL、Kafka与Java写入双节点ES，定位写入拒绝并从原位置恢复，解释价格、删除和搜索可见性。</li><li>提交两轮可重做证据与未验证项，把一个现象缩成机制问题，选到固定v9.4.0文件与方法。</li></ul></section>
+<section class="lesson"><details class="chapter-outline"><summary>本课目录</summary><nav><a href="#task">1. 先独立做任务</a><a href="#boundary">2. 完整复现的边界</a><a href="#data">3. 新样本与预测</a><a href="#setup">4. 空资源与运行入口</a><a href="#attractions">5. c01：景点参考</a><a href="#hotels">6. c02：酒店参考</a><a href="#sync">7. c03：同步、故障与恢复</a><a href="#java">8. Java与版本保护</a><a href="#evidence">9. 交付与重做</a><a href="#source">10. 带着问题读源码</a><a href="#drills">能力检查</a><a href="#pitfalls">实际陷阱</a><a href="#recap">速记</a></nav></details><p class="diagram-jumps">图解跳转：<a href="#fig-sync-boundary">01 · 事实到搜索</a> · <a href="#fig-source-question">02 · 现象到源码</a></p>
+<h2 id="task">1. 先写自己的方案，再打开参考答案</h2><p>结业任务考察的是把问题拆对。先阅读<a href="../projects/travel-search/labs/f45/TASK.md">独立任务单</a>和原始样本，按<a href="../projects/travel-search/labs/f45/SUBMISSION.md">提交模板</a>记下预测、文档边界、DSL、Java入口和恢复思路。基础设施与已学工程可以复用；下面的参考实现默认折叠。它用于对照和复现，运行成功本身不能证明你能独立解决新需求。</p><p class="table-scroll-note">窄屏可左右滑动表格。</p><table class="ktable"><thead><tr><th>案例</th><th>游客或运营需求</th><th>你的交付</th></tr></thead><tbody><tr><td>f45-c01 · 景点</td><td>“江岸 夜游”两词都满足；HZ/CNY/open/未删除、无障碍、≤90分钟、0–65元、圆心3km；价格升序，ID打破同价</td><td>全部合格ID、价格、次序、每个排除原因；REST↔Java</td></tr><tr><td>f45-c02 · 酒店</td><td>指定两晚、2成人1间；同offer满足无障碍/早餐/可取消，逐晚有库存、价格完整，总价≤650元</td><td>酒店只出现一次；合格offer最低总价、房型证据和错误组合反例</td></tr><tr><td>f45-c03 · 更新</td><td>改价并删除；ES暂时拒绝写入，恢复后不能漏数据、退价或复活</td><td>SQL→事件→next→条级结果→GET/search，完整字段对账与清理后重做</td></tr></tbody></table>
+<h2 id="boundary">2. “完整”是连通职责与证据，不是重测所有课</h2><p>Elasticsearch在这里提供搜索投影：按条件找候选、排序并返回内容。SQL保留来源事实，酒店逐晚表提供固定快照；搜索结果不承担订单确认或扣库存。投影的含义是把来源整理成适合查询的文档，它可以延迟，也可能保留逻辑删除标记。因此“数据库改了”“消费者到末端”“游客已经看到新价”是三个需要分别证明的事实。</p><p>本课的空环境指没有任何F45业务schema、索引、topic和消费位置，可以在保留前课环境的同一台电脑上开始。完整链路选择一条PG景点投影与一份酒店快照来验收；不要求同时启动MySQL，不把中文插件、搜索质量评估、安全、在线重建和容量测量的历史通过记录搬成本课结果。</p>
+<figure class="fig d2-figure" id="fig-sync-boundary"><div class="d2-shell"><div class="d2-tools"><span>01 · SQL改动怎样成为可搜索事实</span><a data-expand-d2 href="diagrams/f45/sync-boundary-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f45/sync-boundary-light.svg" data-d2-light="diagrams/f45/sync-boundary-light.svg" data-d2-dark="diagrams/f45/sync-boundary-dark.svg" alt="SQL改动怎样成为可搜索事实"></div></div><figcaption>箭头表示本课景点投影的数据方向；只有事务提交的outbox会进入日志链。消费者的next是下次读取位置，条级失败时保持原值。酒店另从固定逐晚表生成候选投影，不经过这条CDC链；省略内部复制、线程与选举细节。静态图可局部滚动或展开；<a href="diagrams/f45/README.md">图源与生成记录</a>。</figcaption></figure>
+<p>验收时只有本次实验写入SQL，执行完两笔变更后暂停新的业务写入。我们确认实际event_id、实体与修订号，再将Kafka的固定末端作为本轮H。这个<strong>冻结来源边界</strong>使SQL与ES可以逐字段比较；它不能证明持续并发来源已实时追平。持续写入下的来源fence、双版本与切换条件仍按F41处理。</p>
+<h2 id="data">3. 先用八份景点和五家酒店预测</h2><p>所有地点、名字与报价都是合成资料。HZ只是课程城市代码，圆心30.25/120.15；n01等资料放在圆心，n05移到30.4/120.15。价格单位CNY分，时长单位分钟，距离是geo_distance球面直线范围。名称使用显式whitespace分析器，空格分开的“江岸”“夜游”是本课固定token；这不代替F13–F17的中文分词方案。</p><table class="ktable"><thead><tr><th>ID与名称</th><th>价格 / 时长</th><th>需要你判断的条件</th></tr></thead><tbody><tr><td>n01 江岸 夜游 花园</td><td>60元 / 60分钟</td><td>HZ、open、无障碍、圆心</td></tr><tr><td>n02 江岸 夜游 码头</td><td>40元 / 90分钟</td><td>HZ、open、无障碍、圆心</td></tr><tr><td>n03 江岸 夜游 台阶</td><td>20元 / 45分钟</td><td>无障碍=false</td></tr><tr><td>n04 江岸 夜游 旧馆</td><td>10元 / 60分钟</td><td>status=closed</td></tr><tr><td>n05 江岸 夜游 远郊</td><td>30元 / 60分钟</td><td>纬度30.4</td></tr><tr><td>n06 江岸 夜游 长线</td><td>35元 / 120分钟</td><td>长于游客愿意投入的时长</td></tr><tr><td>n07 江岸 夜游 外城</td><td>30元 / 60分钟</td><td>city_code=FZ</td></tr><tr><td>n08 江岸 公园</td><td>25元 / 60分钟</td><td>名称少了一个查询词</td></tr></tbody></table><p>初始全部sync_revision=1、sync_deleted=false。新增需求中的无障碍与时长都是硬条件：不能通过提高价格或名称权重，把不合格资料排到前面来替代过滤。显式价格排序后，主要比较的是票价，不应再用_score解释次序。</p><p>酒店入住2027-04-03、离店2027-04-05，共两个住宿晚。原始表快照时间为2027-03-01，不随今天改变。h01有一份无障碍但无早餐的o11，另一份有早餐但非无障碍的o12；h02的o21逐晚280＋320元，o22为320＋340元；h03的o31为250＋270元。h04第二晚库存为0，h05第二晚价格缺失。请先写出合格酒店和offer，再看下面结果。</p><details><summary>固定原始文件与来源SQL</summary><p><a href="../projects/travel-search/data/f45/attractions.json">八份景点JSON</a> · <a href="../projects/travel-search/data/f45/stay-table.json">逐晚原表</a> · <a href="../projects/travel-search/data/f45/seed.sql">初始导入SQL</a>。SQL列保留业务类型，outbox保存同事务生成的完整不可变文本。</p>
+<pre class="code-block" data-label="SQL · 完整来源结构" data-source="projects/travel-search/data/f45/schema.sql"><code>CREATE SCHEMA f45;
+CREATE TABLE f45.attractions (
+  attraction_id text PRIMARY KEY, name text NOT NULL, city_code text NOT NULL,
+  currency text NOT NULL, status text NOT NULL, accessible boolean NOT NULL,
+  visit_minutes integer NOT NULL, location jsonb NOT NULL,
+  sync_revision bigint NOT NULL, sync_deleted boolean NOT NULL,
+  ticket_price_fen bigint NOT NULL
+);
+CREATE TABLE f45.projection_event (
+  event_id bigserial PRIMARY KEY, attraction_id text NOT NULL,
+  revision bigint NOT NULL, document text NOT NULL
+);
+CREATE FUNCTION f45.emit(id text) RETURNS void LANGUAGE sql AS $$
+  INSERT INTO f45.projection_event(attraction_id, revision, document)
+  SELECT attraction_id, sync_revision, row_to_json(a)::text
+  FROM f45.attractions a WHERE attraction_id = id;
+$$;
+CREATE PUBLICATION f45_publication FOR TABLE f45.projection_event;
+GRANT USAGE ON SCHEMA f45 TO f45_cdc;
+GRANT SELECT ON f45.projection_event TO f45_cdc;</code></pre>
+</details><h2 id="setup">4. 独立启动，再选择自己的实现或参考搭建</h2><p>ES9.4.0/Lucene10.4.0；应用Boot4.0.8/JDK25.0.4.1+1，官方Java与Rest5 Client9.4.8；PG17.5、Kafka4.0.1、Debezium3.3.1.Final。ES bundled JVM单独从节点记录读取，不使用应用JDK版本代替。需要Docker Compose、Python3.9+、curl与完整JDK25，先设置JAVA_HOME/PATH。</p><p>独立Compose项目es-framework-f45：PG15445、Kafka29345、Connect18345、ES20945/20946，全部绑定回环。两个ES节点均有master/data/ingest角色，业务索引各1主1副、refresh=-1、strict mapping。观察窗18095由读者本机Java启动，Pages无需访问这些端口。本机合成实验的ES/Kafka/Connect无认证、明文；部署安全仍需F35方案。本次不以双节点宣称高可用：两票多数需要两票，而且都在同一个Docker VM。</p>
+<pre class="code-block" data-label="Shell · 从仓库根开始；每个out使用新目录"><code>cd projects/travel-search
+python3 labs/f45/lab.py init --out /tmp/f45-init
+python3 labs/f45/lab.py start --out /tmp/f45-start
+cd backend
+./mvnw -B -ntp clean package dependency:build-classpath -Dmdep.outputFile=target/f45-classpath.txt
+cd ..
+backend/mvnw -B -ntp -f labs/f45/pom.xml dependency:build-classpath -Dmdep.outputFile=target/projection-classpath.txt
+bash labs/f45/java.sh compile</code></pre>
+<p>等待start成功退出。init生成本课.local随机口令，文件0600，不写入URL或提交；已有本课卷或秘密时拒绝覆盖。首次启动由单独bootstrap.yaml临时给es1首启名单，形成UUID后移除并等待两节点。完整配置与重启方式见<a href="../projects/travel-search/labs/f45/README.md">实验说明</a>。独立挑战先自行创建模型；<code>prepare</code>会直接采用参考mapping/alias/连接器，查看自己的答案后再用。</p><details><summary>参考搭建、映射与只读观察窗</summary>
+<pre class="code-block" data-label="Shell · 建立参考初始状态；与run自动流程二选一"><code>python3 labs/f45/lab.py prepare --out /tmp/f45-prepare</code></pre>
+<pre class="code-block" data-label="JSON · PUT /tut-f45-attractions-v001" data-source="projects/travel-search/search/f45/create-attractions.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "attraction_id": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "whitespace"
+      },
+      "ticket_price_fen": {
+        "type": "long",
+        "coerce": false
+      },
+      "visit_minutes": {
+        "type": "integer",
+        "coerce": false
+      },
+      "accessible": {
+        "type": "boolean"
+      },
+      "location": {
+        "type": "geo_point"
+      },
+      "sync_revision": {
+        "type": "long"
+      },
+      "sync_deleted": {
+        "type": "boolean"
+      },
+      "sync_hash": {
+        "type": "keyword"
+      }
+    }
+  }
+}</code></pre>
+<pre class="code-block" data-label="JSON · POST /_aliases；读过滤删除标记，写目标固定" data-source="projects/travel-search/search/f45/aliases.json"><code>{
+  "actions": [
+    {
+      "add": {
+        "index": "tut-f45-attractions-v001",
+        "alias": "tut-f45-attractions-read",
+        "filter": {
+          "term": {
+            "sync_deleted": false
+          }
+        }
+      }
+    },
+    {
+      "add": {
+        "index": "tut-f45-attractions-v001",
+        "alias": "tut-f45-attractions-write",
+        "is_write_index": true
+      }
+    }
+  ]
+}</code></pre>
+<p>具名卷、节点和服务配置见<a href="../projects/travel-search/infra/f45/compose.yaml">compose.yaml</a>；<a href="../projects/travel-search/cdc/f45/connector.json">连接器</a>只读f45.projection_event，使用受限CDC账号与FileConfigProvider。read alias用于搜索；直接按ID GET不应依赖alias过滤来隐藏删除。</p><p>另一个终端启动已有F07观察窗，名称输入“江岸”，保持HZ/200元/3km。旧壳的查询仍是match OR、按ID排序，没有无障碍/时长控件。它初始显示5条n01/n02/n03/n06/n08，恢复后4条且n01从60变45元；新增完整需求在下面的REST/Java路径核对2→1条。这两套实际契约不能混为同一结果。</p>
+<pre class="code-block" data-label="Shell · 浏览器打开http://127.0.0.1:18095/"><code>ES_URL=http://127.0.0.1:20945 ES_INDEX=tut-f45-attractions-read ES_CA_FILE= ES_API_KEY_FILE= APP_PORT=18095 java -Xms32m -Xmx160m -jar backend/target/travel-search-0.7.0.jar</code></pre>
+<p>观察窗实际调用浏览器→Java→ES，凭据留在服务端配置。本课没有新增Controller或前端；酒店由REST/Java观察。Ctrl-C停止Java，清理前先保存结果。</p></details>
+<h2 id="attractions">5. c01：先决定资格，再决定顺序</h2><p>“两个词都满足”属于名称匹配；开放、城市、币种、预算、距离、无障碍和时长决定资格。将它们写成一个bool：名称在must里用AND，硬条件在filter里。sort先价格，再ID，为同价提供确定次序。这个需求不需要重新设计业务评分函数。</p><details><summary>景点参考：完整DSL、Java调用与结果</summary>
+<pre class="code-block" data-label="JSON · POST /tut-f45-attractions-read/_search?allow_partial_search_results=false" data-source="projects/travel-search/search/f45/attractions.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name": {
+              "query": "江岸 夜游",
+              "operator": "and"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "term": {
+            "sync_deleted": {
+              "value": false
+            }
+          }
+        },
+        {
+          "term": {
+            "accessible": {
+              "value": true
+            }
+          }
+        },
+        {
+          "range": {
+            "visit_minutes": {
+              "lte": 90
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 6500
+            }
+          }
+        },
+        {
+          "geo_distance": {
+            "distance": "3km",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "ticket_price_fen": {
+        "order": "asc"
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre>
+<pre class="code-block" data-label="Shell · 相同搜索契约"><code>curl -sS -H &#x27;Content-Type: application/json&#x27; &#x27;http://127.0.0.1:20945/tut-f45-attractions-read/_search?allow_partial_search_results=false&#x27; -d @search/f45/attractions.json
+bash labs/f45/java.sh search attractions</code></pre>
+<p>参考结果为n02/4000分、n01/6000分，共2条。n03无障碍不合格，n04已关闭，n05超半径，n06超时长，n07不在HZ，n08缺“夜游”。n08票价更低也不能入选；若把名称改成OR，它就可能成为错误候选。Java入口实际发送同一完整JSON，核对序列化DSL、ID与_source；仅编译成功不算实连通过。</p></details>
+<h2 id="hotels">6. c02：最低价必须来自同一份合格报价</h2><p>一份酒店文档包含offers数组，能自然保证一酒店只返回一次；每个报价用nested保留自己的属性关联。候选生成先查完整两晚、各晚库存≥1、价格非缺失、最短入住≤2，再用整数分相加。查询仍检查指定日期、币种、容量、无障碍、早餐、可取消和总价。日期相同不代表库存自动成立，这部分证据必须回到原始逐晚表。</p><p>inner_hits告诉你哪份offer合格；nested sort必须复用同一完整filter，才会按合格offer的最低总价比较酒店。如果排序省略早餐条件，h02一类酒店的展示价格就可能来自游客根本不能选择的报价。<a href="https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-nested-query">官方nested说明</a>解释了子文档匹配与父文档返回的关系。</p><details><summary>酒店参考：完整mapping、DSL、总价与错误查询</summary>
+<pre class="code-block" data-label="JSON · PUT /tut-f45-hotels" data-source="projects/travel-search/search/f45/create-hotels.json"><code>{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1,
+    "refresh_interval": "-1"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "hotel_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "keyword"
+      },
+      "city_code": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "offers": {
+        "type": "nested",
+        "dynamic": "strict",
+        "properties": {
+          "offer_id": {
+            "type": "keyword"
+          },
+          "currency": {
+            "type": "keyword"
+          },
+          "check_in": {
+            "type": "keyword"
+          },
+          "check_out": {
+            "type": "keyword"
+          },
+          "accessible": {
+            "type": "boolean"
+          },
+          "breakfast": {
+            "type": "boolean"
+          },
+          "refundable": {
+            "type": "boolean"
+          },
+          "capacity": {
+            "type": "integer"
+          },
+          "total_price_fen": {
+            "type": "long",
+            "coerce": false
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+<pre class="code-block" data-label="JSON · POST /tut-f45-hotels/_search?allow_partial_search_results=false" data-source="projects/travel-search/search/f45/hotels.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "nested": {
+            "path": "offers",
+            "score_mode": "none",
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "term": {
+                      "offers.currency": {
+                        "value": "CNY"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.check_in": {
+                        "value": "2027-04-03"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.check_out": {
+                        "value": "2027-04-05"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.accessible": {
+                        "value": true
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.breakfast": {
+                        "value": true
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.refundable": {
+                        "value": true
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.capacity": {
+                        "gte": 2
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.total_price_fen": {
+                        "gte": 0,
+                        "lte": 65000
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "inner_hits": {
+              "name": "eligible",
+              "size": 10,
+              "sort": [
+                {
+                  "offers.total_price_fen": {
+                    "order": "asc"
+                  }
+                },
+                {
+                  "offers.offer_id": {
+                    "order": "asc"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "offers.total_price_fen": {
+        "order": "asc",
+        "mode": "min",
+        "nested": {
+          "path": "offers",
+          "filter": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "offers.currency": {
+                      "value": "CNY"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "offers.check_in": {
+                      "value": "2027-04-03"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "offers.check_out": {
+                      "value": "2027-04-05"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "offers.accessible": {
+                      "value": true
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "offers.breakfast": {
+                      "value": true
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "offers.refundable": {
+                      "value": true
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "offers.capacity": {
+                      "gte": 2
+                    }
+                  }
+                },
+                {
+                  "range": {
+                    "offers.total_price_fen": {
+                      "gte": 0,
+                      "lte": 65000
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "hotel_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre>
+<pre class="code-block" data-label="Shell · 自动run已导入酒店投影后执行"><code>curl -sS -H &#x27;Content-Type: application/json&#x27; &#x27;http://127.0.0.1:20945/tut-f45-hotels/_search?allow_partial_search_results=false&#x27; -d @search/f45/hotels.json
+bash labs/f45/java.sh search hotels</code></pre>
+<table class="ktable" id="hotel-results"><thead><tr><th>结果顺序</th><th>完整逐晚核对</th><th>排除与范围</th></tr></thead><tbody><tr><td>h03 / o31</td><td>25000＋27000＝52000分</td><td>两晚各1库存；同offer满足全部条件</td></tr><tr><td>h02 / o21</td><td>28000＋32000＝60000分</td><td>o22总价66000分，超过65000</td></tr><tr><td>h01不合格</td><td>o11无早餐；o12非无障碍</td><td>不能从两个offer拼成一个合格offer</td></tr><tr><td>h04 / h05不合格</td><td>第二晚0库存 / 缺价</td><td>候选投影直接排除对应offer</td></tr></tbody></table><p>下面是从逐晚原表生成完整候选并导入ES的实现；日期覆盖、缺价、库存和最短入住先判断，只有完整两晚才能相加。</p><pre class="code-block" data-label="Python · 固定逐晚表到nested候选；hotels方法前半段" data-source="projects/travel-search/labs/f45/lab.py" data-lines="198-218"><code>    def hotels(self):
+        table = read('data/f45/stay-table.json')
+        projected, omitted = [], []
+        expected = []
+        for h in table['hotels']:
+            offers = []
+            for o in h['offers']:
+                nights = o['nights']
+                if [n['date'] for n in nights] != ['2027-04-03', '2027-04-04'] or any(n['stock'] &lt; 1 or n['price_fen'] is None for n in nights) or o['min_nights'] &gt; 2:
+                    omitted.append({'hotel_id': h['hotel_id'], 'offer_id': o['offer_id'], 'reason': 'night coverage, stock, price or minimum stay'})
+                    continue
+                doc = {k: o[k] for k in ['offer_id', 'capacity', 'accessible', 'breakfast', 'refundable', 'currency']}
+                doc.update(check_in=table['check_in'], check_out=table['check_out'], total_price_fen=sum(n['price_fen'] for n in nights))
+                offers.append(doc)
+                if o['capacity'] &gt;= 2 and o['accessible'] and o['breakfast'] and o['refundable'] and o['currency'] == 'CNY' and doc['total_price_fen'] &lt;= 65000:
+                    expected.append((h['hotel_id'], o['offer_id'], doc['total_price_fen']))
+            projected.append({'hotel_id': h['hotel_id'], 'name': h['name'], 'city_code': 'HZ', 'status': 'open', 'offers': offers})
+        ndjson = ''.join(json.dumps({'index': {'_index': HOTELS, '_id': h['hotel_id']}}) + '\n' + json.dumps(h, ensure_ascii=False) + '\n' for h in projected)
+        bulk = self.req('POST', '/_bulk', ndjson)
+        check(not bulk['errors'], bulk)
+        self.refresh()</code></pre><p>每酒店最多2个offer，inner_hits size10在本课覆盖完整合格范围；结果不能外推到无限房型。完整候选生成在<a href="../projects/travel-search/labs/f45/lab.py">lab.py的hotels方法</a>，保留原表、被排除原因与投影，Java复用同一DSL。金额不估算、不把缺价当0，不承诺游客此刻能下单。</p><p>错误版本把“无障碍及其他条件”和“有早餐”拆成两个nested查询。它得到h01/h02/h03，因为h01的两份offer分别完成一半要求；这个结果证明为什么条件必须属于同一条目。</p>
+<pre class="code-block" data-label="JSON · 错误对照；两个nested可以匹配不同offer" data-source="projects/travel-search/search/f45/hotels-wrong.json"><code>{
+  "size": 20,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "nested": {
+            "path": "offers",
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "term": {
+                      "offers.currency": {
+                        "value": "CNY"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.check_in": {
+                        "value": "2027-04-03"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.check_out": {
+                        "value": "2027-04-05"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.accessible": {
+                        "value": true
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "offers.refundable": {
+                        "value": true
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.capacity": {
+                        "gte": 2
+                      }
+                    }
+                  },
+                  {
+                    "range": {
+                      "offers.total_price_fen": {
+                        "gte": 0,
+                        "lte": 65000
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "nested": {
+            "path": "offers",
+            "query": {
+              "term": {
+                "offers.breakfast": {
+                  "value": true
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "hotel_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}</code></pre>
+</details>
+<h2 id="sync">7. c03：来源变了，先找出停在哪里</h2><p>初始8个完整outbox事件由Debezium快照进入Kafka；Java读到每个事件，按稳定ID与业务sync_revision写入ES。随后SQL同事务改n01价格为4500分、将n02置为逻辑删除并关闭，各增加修订号到2，再追加完整事件。此后冻结来源，核对实际event_id=1..10和来源实体，才使用固定H=10；Kafka offset本身不是跨分区业务版本。</p>
+<pre class="code-block" data-label="SQL · 来源行与事件同事务，不直接修改ES" data-source="projects/travel-search/data/f45/changes.sql"><code>BEGIN;
+UPDATE f45.attractions
+SET ticket_price_fen = 4500, sync_revision = 2 WHERE attraction_id = 'n01';
+SELECT f45.emit('n01');
+UPDATE f45.attractions
+SET status = 'closed', sync_deleted = true, sync_revision = 2
+WHERE attraction_id = 'n02';
+SELECT f45.emit('n02');
+COMMIT;</code></pre>
+<p>临时write block只让目标拒绝更新；PG、连接器和Kafka仍能推进。故障时应看见SQL新事实和Kafka末端10，而组next仍8。HTTP层200的Bulk可能带条级403；如果只看HTTP成功就提交next，资料会静默漏写。恢复时只移除本课覆盖，从同一位置重读，完整成功后才提交到10。</p><details><summary>故障参考：完整命令、位置与GET/search对照</summary><p>从prepare初始状态开始；在另一个终端按段执行。预期失败的drain单独运行，不放进set -e一整段。</p>
+<pre class="code-block" data-label="Shell · 完成两笔业务变更，核对事件后注入故障"><code>docker compose -f infra/f45/compose.yaml exec -T postgres psql -X -v ON_ERROR_STOP=1 -U travel -d travel_f45 &lt; data/f45/changes.sql
+bash labs/f45/java.sh inspect
+bash labs/f45/java.sh events 10
+curl -sS -X PUT -H &#x27;Content-Type: application/json&#x27; http://127.0.0.1:20945/tut-f45-attractions-v001/_settings -d &#x27;{&quot;index.blocks.write&quot;:true}&#x27;
+bash labs/f45/java.sh drain 10</code></pre>
+<p>等待inspect.end=10，再核对events中的真实ID与修订号。drain应非零退出、两项403；再次inspect.next仍8。解除后：</p>
+<pre class="code-block" data-label="Shell · 恢复后先GET，再搜索，再refresh"><code>curl -sS -X PUT -H &#x27;Content-Type: application/json&#x27; http://127.0.0.1:20945/tut-f45-attractions-v001/_settings -d &#x27;{&quot;index.blocks.write&quot;:null}&#x27;
+bash labs/f45/java.sh drain 10
+curl -sS http://127.0.0.1:20945/tut-f45-attractions-v001/_doc/n01
+bash labs/f45/java.sh search attractions
+curl -sS -X POST http://127.0.0.1:20945/tut-f45-attractions-v001/_refresh
+bash labs/f45/java.sh search attractions
+bash labs/f45/java.sh replay /tmp/f45-prepare/initial-documents.json</code></pre>
+<table class="ktable" id="sync-results"><thead><tr><th>阶段</th><th>来源与位置</th><th>ES观察</th></tr></thead><tbody><tr><td>初始</td><td>8个事件；next=8</td><td>景点n02/40元、n01/60元</td></tr><tr><td>写入被拒</td><td>SQL已改；end=10、next=8</td><td>两项403；搜索仍旧结果</td></tr><tr><td>解除并成功重读</td><td>next=10</td><td>GET n01=45元；refresh前搜索仍60元、仍含n02</td></tr><tr><td>显式refresh</td><td>同一来源边界</td><td>新增需求仅n01/45元；n02不返回</td></tr><tr><td>重放原快照</td><td>next仍10</td><td>8项noop；新价与删除状态保留</td></tr></tbody></table><p>refresh=-1把可见性对照固定下来，不依赖操作速度。最终物理文档仍8份，其中n02保留sync_revision=2/sync_deleted=true；逻辑未删除共7份，不等于景点查询合格数1。按读alias或仅count无法检查删除标记，必须直接核对物理索引完整_source，再与同一冻结边界SQL比较。</p></details>
+<h2 id="java">8. Java怎样把判断落实到失败分支</h2><p>官方客户端的withJson允许复用已经解释清楚的完整DSL，避免景点/酒店在REST与Java各维护一份条件。搜索入口显式拒绝部分分片结果，并检查timed_out和失败分片。写入入口则逐项检查Bulk；检查通过后才执行Kafka commitSync。消费和写入没有成为跨系统原子事务，ES写成功而commit前中断仍可能重放。</p>
+<pre class="code-block" data-label="Java · 完整搜索实现" data-source="projects/travel-search/labs/f45/java/F45Lab.java" data-lines="132-141"><code>    static void search(ElasticsearchClient es, String name) throws Exception {
+        check(List.of("attractions", "hotels").contains(name), "Unknown search");
+        String index = name.equals("hotels") ? "tut-f45-hotels" : "tut-f45-attractions-read";
+        var request = new SearchRequest.Builder().index(index).allowPartialSearchResults(false)
+            .withJson(new java.io.StringReader(Files.readString(Path.of("search/f45/" + name + ".json")))).build();
+        var reply = es.search(request, JsonData.class);
+        check(!reply.timedOut() &amp;&amp; reply.shards().failed().intValue() == 0, "Incomplete search");
+        log(Map.of("kind", "search", "request", JSON.readTree(JsonpUtils.toJsonString(request, es._jsonpMapper())),
+            "reply", JSON.readTree(JsonpUtils.toJsonString(reply, es._jsonpMapper()))));
+    }</code></pre>
+<p>每个来源事件带不可变完整文档和修订号。更大修订号替换完整_source；相同修订号与相同原始文本哈希为noop，相同号不同内容报错；更旧版本为noop。删除也保留标记与版本，才能拒绝旧快照把资料重新写活。哈希来自同一原始SQL文本，不能把内容改了再沿用原修订号。</p>
+<pre class="code-block" data-label="Painless · 完整版本守卫" data-source="projects/travel-search/search/f45/guard.painless"><code>if (ctx.op == 'create' || params.document.sync_revision &gt; ctx._source.sync_revision) {
+  ctx._source = params.document;
+} else if (params.document.sync_revision == ctx._source.sync_revision) {
+  if (params.document.sync_hash != ctx._source.sync_hash) {
+    throw new IllegalArgumentException('same revision with different content');
+  }
+  ctx.op = 'noop';
+} else {
+  ctx.op = 'noop';
+}</code></pre>
+<details><summary>完整Bulk、条级失败判断与消费提交代码</summary>
+<pre class="code-block" data-label="Java · ES成功后才提交next；无DLQ豁免" data-source="projects/travel-search/labs/f45/java/F45Lab.java" data-lines="76-131"><code>    static void apply(ElasticsearchClient es, List&lt;ObjectNode&gt; docs) throws Exception {
+        if (docs.isEmpty()) return;
+        String script = Files.readString(Path.of("search/f45/guard.painless"));
+        var bulk = new BulkRequest.Builder().requireAlias(true);
+        for (var doc : docs) bulk.operations(o -&gt; o.update(u -&gt; u.index("tut-f45-attractions-write")
+            .id(doc.path("attraction_id").asString()).retryOnConflict(3)
+            .action(a -&gt; a.script(s -&gt; s.lang("painless").source(v -&gt; v.scriptString(script))
+                .params("document", JsonData.fromJson(JSON.writeValueAsString(doc))))
+                .scriptedUpsert(true).upsert(JsonData.fromJson("{}")))));
+        var reply = es.bulk(bulk.build());
+        check(reply.items().size() == docs.size(), "Wrong item count");
+        boolean failed = false;
+        for (int i = 0; i &lt; docs.size(); i++) {
+            var item = reply.items().get(i);
+            check(item.id().equals(docs.get(i).path("attraction_id").asString()), "Wrong item ID");
+            log(Map.of("kind", "item", "id", item.id(), "status", item.status(),
+                "result", item.result() == null ? "" : item.result(),
+                "error", item.error() == null ? "" : item.error().toString()));
+            failed |= item.error() != null || item.status() &gt;= 300;
+        }
+        check(!failed, "Unresolved ES items; checkpoint not committed");
+    }
+    static void consume(ElasticsearchClient es, String mode, long high) throws Exception {
+        try (var c = new KafkaConsumer&lt;String,String&gt;(properties())) {
+            c.assign(List.of(TP));
+            long begin = c.beginningOffsets(List.of(TP)).get(TP), end = c.endOffsets(List.of(TP)).get(TP);
+            var saved = c.committed(Set.of(TP)).get(TP);
+            if (mode.equals("seed")) {
+                check(saved == null &amp;&amp; high == begin &amp;&amp; begin == 0, "Seed only a fresh group/topic");
+                c.commitSync(Map.of(TP, new OffsetAndMetadata(high))); log(Map.of("kind", "seed", "next", high)); return;
+            }
+            long next = mode.equals("events") ? begin : saved == null ? -1 : saved.offset();
+            check(begin &lt;= next &amp;&amp; next &lt;= high &amp;&amp; high &lt;= end, "Outside retained/committed boundary");
+            c.seek(TP, next); long deadline = System.nanoTime() + Duration.ofSeconds(45).toNanos();
+            while (next &lt; high) {
+                var records = c.poll(Duration.ofMillis(200)).records(TP).stream().filter(r -&gt; r.offset() &lt; high).toList();
+                if (!records.isEmpty()) {
+                    var docs = new ArrayList&lt;ObjectNode&gt;();
+                    for (var r : records) {
+                        var row = envelope(r.key(), r.value());
+                        var d = document(row.path("document").asString());
+                        check(d.path("attraction_id").equals(row.path("attraction_id"))
+                            &amp;&amp; d.path("sync_revision").asLong() == row.path("revision").asLong(), "Revision/ID mismatch");
+                        if (mode.equals("events")) log(Map.of("kind", "event", "offset", r.offset(), "key", r.key(), "value", r.value()));
+                        else docs.add(d);
+                    }
+                    if (!mode.equals("events")) apply(es, docs);
+                    next = records.getLast().offset() + 1;
+                    // ES can succeed before this commit; the guard makes replay safe.
+                    if (!mode.equals("events")) c.commitSync(Map.of(TP, new OffsetAndMetadata(next)));
+                }
+                check(System.nanoTime() &lt; deadline, "Bounded consumer timed out");
+            }
+            log(Map.of("kind", mode, "next", next, "high", high));
+        }
+    }</code></pre>
+<p>完整<a href="../projects/travel-search/labs/f45/java/F45Lab.java">F45Lab.java</a>包含事件来源核对、显式初始位置、单分区保留范围和本机文件锁；<a href="../projects/travel-search/labs/f45/java.sh">java.sh</a>复用Boot工程的官方客户端依赖。worker是本机有界练习，不是生产常驻服务，也没有自动无限重试。</p></details>
+<h2 id="evidence">9. 提交可复查的结果，点名清理后再做一轮</h2><p>先解释自己的预测哪里对、哪里错，再附原始响应。三类证据分开保存：ES/SQL/Kafka/Java证明功能与恢复；图源生成证明图可重现；HTTP阅读与实际查看截图证明页面可读。主副分片的实际节点位置需核对，green不能证明价格或删除已同步。</p><p>自动参考流程保存全部显式REST请求/响应、SQL对应文档、真实事件、Java条级结果与完整字段对账。下面从空业务资源运行；已经prepare过就先cleanup。run不覆盖已有实验，第一次与第二次均重新创建来源schema、连接器、topic、组和索引，避免“新索引配旧offset”。</p>
+<pre class="code-block" data-label="Shell · 两轮参考复现；out目录不得已存在"><code>python3 labs/f45/lab.py run --out /tmp/f45-round1
+python3 labs/f45/lab.py cleanup --out /tmp/f45-cleanup1
+python3 labs/f45/lab.py run --out /tmp/f45-round2
+python3 labs/f45/lab.py cleanup --out /tmp/f45-cleanup2
+python3 labs/f45/lab.py down --out /tmp/f45-down</code></pre>
+<p>cleanup只点名本课两个索引/alias、连接器及其来源offset、一个业务topic/组、PG schema/publication/slot/CDC角色；保留秘密、具名卷与Connect内部topic。down不带-v。中断后先保留现场证据并解除write block，再清理，不能删除其他课或现有业务资源。</p><table class="ktable" id="acceptance"><thead><tr><th>验收层</th><th>本课应提交的证据</th><th>不能据此声称</th></tr></thead><tbody><tr><td>景点/酒店</td><td>完整ID、排序、同offer、逐晚总价、REST↔Java</td><td>全站中文质量、真实可订</td></tr><tr><td>集群</td><td>两个节点同UUID，两个索引的主副跨节点STARTED</td><td>跨机器容灾、双票任意单点失效可用</td></tr><tr><td>真实CDC与恢复</td><td>初始快照/WAL事件，next不前移，源/ES全文档一致</td><td>任意崩溃、跨分区事务、持续写入下实时一致</td></tr><tr><td>展示壳与阅读</td><td>原F07契约5→4条；新增DSL独立2→1条；页面双主题</td><td>旧壳已经新增无障碍/酒店控件</td></tr></tbody></table><p>作者实际执行状态与计数见<a href="../projects/travel-search/review/f45/README.md">本机两轮记录</a>，构建、真实观察窗与首次启动限制分别登记；<a href="../docs/framework-review/20261101-f45-capstone/README.md">页面/图解验收</a>单列。不要将前课F04–F06的待验收状态因F45交付而改成通过。</p>
+<h2 id="source">10. 从一个可复现现象，走到一个方法</h2><p>源码入口不是再背一张类名清单。先保存能重现的请求与响应：例如同一ID的GET已45元，搜索却仍60元。随后只改变refresh，确认搜索变化，再提问“GET与搜索分别使用哪种读取路径，谁在何时获得新的搜索视图？”这样进入源码时知道要找什么，也能回来检验解释。</p>
+<figure class="fig d2-figure" id="fig-source-question"><div class="d2-shell"><div class="d2-tools"><span>02 · 怎样把实验现象变成源码问题</span><a data-expand-d2 href="diagrams/f45/source-question-light.svg" target="_blank" rel="noopener">展开图解 ↗</a></div><div class="d2-view"><img src="diagrams/f45/source-question-light.svg" data-d2-light="diagrams/f45/source-question-light.svg" data-d2-dark="diagrams/f45/source-question-dark.svg" alt="怎样把实验现象变成源码问题"></div></div><figcaption>箭头表示学习步骤，不声称是ES运行调用链；一个现象先缩成一个可复现实验，再定位文件与方法。静态图可局部滚动或展开；<a href="diagrams/f45/README.md">图源与生成记录</a>。</figcaption></figure>
+<table class="ktable"><thead><tr><th>本课现象与机制问题</th><th>固定v9.4.0文件 → 方法</th><th>源码课入口</th></tr></thead><tbody><tr><td>同一DSL怎样从HTTP进入搜索调度？</td><td><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/rest/action/search/RestSearchAction.java#L107">RestSearchAction → prepareRequest</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/search/TransportSearchAction.java#L365">TransportSearchAction → doExecute</a></td><td><a href="../chapters/ch06.html">ch06 REST分发</a> → <a href="../chapters/ch16.html">ch16 搜索两阶段</a></td></tr><tr><td>GET新价、搜索旧价，读取视图从哪里来？</td><td><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/index/get/ShardGetService.java#L95">ShardGetService → get</a>；<a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/search/SearchService.java#L768">SearchService → executeQueryPhase</a></td><td><a href="../chapters/ch10.html">ch10 GET读取</a> → <a href="../chapters/ch14.html">ch14 写入与refresh</a></td></tr><tr><td>相同/更旧修订号为何变成noop？</td><td><a href="https://github.com/elastic/elasticsearch/blob/v9.4.0/server/src/main/java/org/elasticsearch/action/update/UpdateHelper.java#L63">UpdateHelper → prepare</a>，再看prepareUpdateScriptRequest；业务修订比较由本课guard.painless定义</td><td><a href="../chapters/ch13.html">ch13 Bulk分发</a> → <a href="../chapters/ch26.html">ch26 Painless</a></td></tr></tbody></table><p>以上目标文件已按固定tag核对，方法只是起点，不是完整调用证明。尤其业务sync_revision不是ES自动理解的来源版本；Kafka消费位置、SQL事务与提交策略也属于应用/CDC层，不能到ES源码里寻找跨系统原子保证。阅读每个入口只追踪与当前问题有关的相邻调用，不通读整个仓库。</p><p>框架篇到这里结束。你已经能从用途、查询和业务模型走到运行、来源更新与恢复；接下来的源码篇用于回答这些现象背后的机制。先挑一个自己仍解释不清的对照，带着请求、预测和证据进入对应章节。</p></section>
+<section class="drills" id="drills"><h2>能力检查：换一个条件，你还能自己判断吗？</h2><details><summary>1. 将景点预算从65元改为45元，初始和恢复后分别返回什么？</summary><p>初始只有n02/40元；恢复后n02删除，只有n01/45元。不能沿用旧排序结果；仍需满足无障碍、时长和全部其他硬条件。</p></details><details><summary>2. 给h01便宜报价增加一个“无障碍”奖励，能使它合格吗？</summary><p>不能。需求要求同一offer满足全部硬条件，奖励只影响排序，不能替代早餐或无障碍过滤。应修正来源事实或排除该offer。</p></details><details><summary>3. Bulk HTTP200、Kafka end=10，为什么next仍8是正确的？</summary><p>需要读条级结果。写block导致两项403，未全部应用，不能提交。end是可读末端，next是已完成工作后的下次位置，两者职责不同。</p></details><details><summary>4. next已10，为什么不能立即宣布游客已看到新价？</summary><p>本课refresh=-1，提交next只说明ES写入已成功；GET先见45元，搜索视图仍旧，显式refresh后再验证查询与删除状态。</p></details><details><summary>5. 物理count=8是否说明删除同步失败？重放旧n02会怎样？</summary><p>本课保留逻辑删除和修订号，因此物理8份中有1份删除标记。搜索排除它；旧n02的修订号1小于已保存的2，守卫noop。只查count或只看read alias都不足以验证这一点。</p></details><details><summary>6. 两节点green，是否可以停止任意一个节点继续写？</summary><p>不能据此判断。主副数据存在不等于选举多数存在；两投票节点多数为2，同VM也没有物理容灾。本课没有做节点故障可用性实验。</p></details></section>
+<section class="pitfalls" id="pitfalls"><h2>实际陷阱</h2><div class="callout warn"><strong>拼酒店条件、取全局便宜价</strong><p>多个nested查询可分别命中不同offer；排序过滤若少一个条件，展示最低价也会来自不合格报价。资格、inner_hits与nested sort需保持同一完整范围。</p></div><div class="callout warn"><strong>跳过失败位置，或者只重建索引</strong><p>条级失败不能提交next；新空索引沿用旧消费位置会漏掉历史数据。完整重做必须协调来源、连接器、topic、组和目标，不能只删一侧。</p></div><div class="callout warn"><strong>把本轮复现外推为生产保证</strong><p>固定小样本、单topic分区、冻结来源边界、同VM双节点和酒店快照分别限定证据范围。未测的质量、安全、持续并发与高可用要继续标明。</p></div></section>
+<section class="recap" id="recap"><h2>速记</h2><table class="ktable"><thead><tr><th>要证明的事</th><th>最直接的证据</th></tr></thead><tbody><tr><td>景点合格且顺序正确</td><td>全部硬条件 + 票价/ID排序；初始n02、n01</td></tr><tr><td>酒店真有合格报价</td><td>同offer完整条件 + 两晚逐项核对；h03/o31、h02/o21</td></tr><tr><td>失败没被跳过</td><td>条级403时next=8，恢复后next=10</td></tr><tr><td>更新已可搜索</td><td>显式refresh后n01/45元，n02排除；全文档对账</td></tr><tr><td>旧事件不会覆盖新事实</td><td>保留修订/删除标记，原快照8项noop</td></tr><tr><td>值得进入源码的问题</td><td>可复现现象 → 单条件对照 → 文件/方法 → 返回实验解释</td></tr></tbody></table><p>先把新问题变成能核对的结果，再用源码解释为什么会这样。</p></section>
+<footer class="ch-footer"><button class="read-toggle" type="button" data-ch="f45">标记为已读</button><nav class="pager"><a href="f44.html">← F44 请求成本与故障诊断</a><a href="../chapters/ch01.html">源码篇 ch01 →</a></nav></footer></article></main><script src="../assets/js/nav.js"></script><script src="../assets/js/progress.js"></script><script src="assets/course.js"></script></body></html>

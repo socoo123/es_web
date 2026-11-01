@@ -1,0 +1,91 @@
+{
+  "size": 20,
+  "track_total_hits": true,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "name": {
+              "query": "江岸 夜游",
+              "operator": "and"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "city_code": {
+              "value": "HZ"
+            }
+          }
+        },
+        {
+          "term": {
+            "currency": {
+              "value": "CNY"
+            }
+          }
+        },
+        {
+          "term": {
+            "status": {
+              "value": "open"
+            }
+          }
+        },
+        {
+          "term": {
+            "sync_deleted": {
+              "value": false
+            }
+          }
+        },
+        {
+          "term": {
+            "accessible": {
+              "value": true
+            }
+          }
+        },
+        {
+          "range": {
+            "visit_minutes": {
+              "lte": 90
+            }
+          }
+        },
+        {
+          "range": {
+            "ticket_price_fen": {
+              "gte": 0,
+              "lte": 6500
+            }
+          }
+        },
+        {
+          "geo_distance": {
+            "distance": "3km",
+            "location": {
+              "lat": 30.25,
+              "lon": 120.15
+            }
+          }
+        }
+      ]
+    }
+  },
+  "sort": [
+    {
+      "ticket_price_fen": {
+        "order": "asc"
+      }
+    },
+    {
+      "attraction_id": {
+        "order": "asc"
+      }
+    }
+  ]
+}
