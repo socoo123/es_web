@@ -3,63 +3,120 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ES 源码精读站</title>
+  <title>Elasticsearch 学习站 · 框架应用与源码精读</title>
+  <meta name="description" content="先用 45 课框架篇学会旅游搜索的实现与运行，再用 30 课源码篇理解 Elasticsearch 9.4.0 的内部机制。">
   <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/home.css">
 </head>
-<body>
+<body class="home-page">
   <header class="topbar">
-    <a class="brand" href="index.html"><span class="brand-logo">ES</span>ES 源码精读</a>
-    <nav class="tnav">
-      <a href="index.html" class="here">课程</a>
-      <a href="framework/index.html">框架篇</a>
-      <a href="architecture.html">架构</a>
-      <a href="console.html">控制台</a>
+    <a class="brand" href="index.html"><span class="brand-logo">ES</span>ES 学习站</a>
+    <nav class="tnav" aria-label="主导航">
+      <a href="#framework-courses">框架篇</a>
+      <a href="#source-courses">源码篇</a>
       <a href="cheatsheet.html">速查表</a>
     </nav>
     <span class="spacer"></span>
-    <button class="conn-badge" type="button"><span class="dot"></span><span class="conn-label">检查中…</span></button>
     <button class="theme-toggle" type="button">🌙 深色</button>
   </header>
 
   <main class="wrap">
-    <section class="hero">
-      <h1>Elasticsearch 源码精读</h1>
-      <p class="sub">30 课读完 ES 9.4.0 的骨架与血肉:请求链路、Lucene 存储、搜索聚合、分布式共识。每课配架构图、机制动画,以及跑在你本机真实 ES 上的动手实验。</p>
-      <div class="badges">
-        <span class="pill">源码版本 9.4.0</span>
-        <span class="pill">30 课 · 六篇</span>
-        <span class="pill">连真实 ES 动手</span>
-        <span class="pill">纯静态 · 双击即用</span>
+    <section class="home-hero" aria-labelledby="home-title">
+      <div class="home-eyebrow">ELASTICSEARCH · 从应用到原理</div>
+      <h1 id="home-title">先学会使用，<br><span>再读懂源码。</span></h1>
+      <p class="home-intro">用一个旅游搜索案例学会 Elasticsearch，<br class="desktop-break">再沿着真实请求，走进它的内部机制。</p>
+      <div class="hero-actions">
+        <a class="btn primary" href="framework/f01.html">从框架篇开始 <span aria-hidden="true">→</span></a>
+        <a class="hero-source-link" href="#source-courses">直接进入源码篇 <span aria-hidden="true">↓</span></a>
+      </div>
+      <div class="home-route" aria-label="推荐学习顺序">
+        <a href="#framework-courses"><span class="route-step">01</span>框架应用 <span class="route-count">45 课</span></a>
+        <span class="route-arrow" aria-hidden="true">→</span>
+        <a href="#source-courses"><span class="route-step">02</span>源码精读 <span class="route-count">30 课</span></a>
+        <span class="route-version">基于 ES 9.4.0</span>
       </div>
     </section>
 
-    <section class="console-cta">
-      <div class="cta-main">
-        <div class="cta-title">🕹 先把 ES 跑起来</div>
-        <div class="cta-sub">终端执行 <code>bash docker/start.sh</code> 启动本地 ES 9.4.0。端口只监听 127.0.0.1,CORS 只放行本机页面和 <code>file://</code>,不要把这台学习节点暴露到局域网。没起 ES 也不影响阅读。第 29 课另起 <code>bash docker/start-secure.sh</code>(9201)。</div>
+    <section class="course-group framework-group" id="framework-courses" aria-labelledby="framework-title">
+      <header class="course-heading">
+        <div class="course-label"><span>01</span> 第一部分 · 学会使用</div>
+        <div class="course-title-line"><h2 id="framework-title">框架学习篇</h2><span class="course-count">45 课 / 8 个阶段</span></div>
+        <p>从“为什么需要 ES”到独立完成搜索。围绕景点与酒店，逐步掌握查询、Java 接入、搜索质量、集群与数据同步。</p>
+        <div class="course-heading-links"><a href="framework/index.html">完整课程目录 <span aria-hidden="true">↗</span></a><span>F01–F45 全部可阅读</span></div>
+      </header>
+      <div class="stage-grid">
+        <a class="stage-card" href="framework/index.html#stage-1">
+          <div class="stage-meta"><span>阶段 01</span><span>F01–F04</span></div>
+          <h3>认识 ES，完成首搜</h3>
+          <p>先理解搜索的用途与数据模型，再启动 ES，准备第一批景点数据。</p>
+          <span class="stage-link">查看 4 课 <span aria-hidden="true">↗</span></span>
+        </a>
+        <a class="stage-card" href="framework/index.html#stage-2">
+          <div class="stage-meta"><span>阶段 02</span><span>F05–F12</span></div>
+          <h3>做出景点搜索服务</h3>
+          <p>关键词、筛选、聚合、排序与分页，接入 Java，验证更新后的结果。</p>
+          <span class="stage-link">查看 8 课 <span aria-hidden="true">↗</span></span>
+        </a>
+        <a class="stage-card" href="framework/index.html#stage-3">
+          <div class="stage-meta"><span>阶段 03</span><span>F13–F17</span></div>
+          <h3>改善中文召回</h3>
+          <p>从分词到词典、别名与同义词，解释为什么搜不到、为什么搜错。</p>
+          <span class="stage-link">查看 5 课 <span aria-hidden="true">↗</span></span>
+        </a>
+        <a class="stage-card" href="framework/index.html#stage-4">
+          <div class="stage-meta"><span>阶段 04</span><span>F18–F22</span></div>
+          <h3>让相关结果排在前面</h3>
+          <p>理解评分，组合名称、热度与距离，再用查询集检验搜索质量。</p>
+          <span class="stage-link">查看 5 课 <span aria-hidden="true">↗</span></span>
+        </a>
+        <a class="stage-card" href="framework/index.html#stage-5">
+          <div class="stage-meta"><span>阶段 05</span><span>F23–F27</span></div>
+          <h3>处理酒店与房型</h3>
+          <p>设计复杂文档，核对同房型条件、多晚库存与匹配范围内的价格。</p>
+          <span class="stage-link">查看 5 课 <span aria-hidden="true">↗</span></span>
+        </a>
+        <a class="stage-card" href="framework/index.html#stage-6">
+          <div class="stage-meta"><span>阶段 06</span><span>F28–F35</span></div>
+          <h3>运行与恢复集群</h3>
+          <p>从节点和分片出发，学习扩缩容、索引升级、快照恢复与安全连接。</p>
+          <span class="stage-link">查看 8 课 <span aria-hidden="true">↗</span></span>
+        </a>
+        <a class="stage-card" href="framework/index.html#stage-7">
+          <div class="stage-meta"><span>阶段 07</span><span>F36–F42</span></div>
+          <h3>打通数据同步</h3>
+          <p>跟踪数据库变更，处理重放、乱序与延迟，完成对账、补偿和切换。</p>
+          <span class="stage-link">查看 7 课 <span aria-hidden="true">↗</span></span>
+        </a>
+        <a class="stage-card" href="framework/index.html#stage-8">
+          <div class="stage-meta"><span>阶段 08</span><span>F43–F45</span></div>
+          <h3>独立实现与诊断</h3>
+          <p>测量负载，沿证据排查故障，独立完成新需求，再带着问题读源码。</p>
+          <span class="stage-link">查看 3 课 <span aria-hidden="true">↗</span></span>
+        </a>
       </div>
-      <div class="cta-actions">
-        <a class="btn primary" href="console.html">打开控制台</a>
-        <a class="btn" href="architecture.html">看架构总览</a>
-        <a class="btn" href="chapters/ch01.html">从第 1 课开始</a>
+      <div class="milestone-strip" aria-label="三个阶段结业点">
+        <span class="milestone-label">沿途检验</span>
+        <a href="framework/f12.html"><strong>F12</strong> 基础搜索 <span aria-hidden="true">↗</span></a>
+        <a href="framework/f22.html"><strong>F22</strong> 搜索质量 <span aria-hidden="true">↗</span></a>
+        <a href="framework/f45.html"><strong>F45</strong> 独立复现 <span aria-hidden="true">↗</span></a>
       </div>
     </section>
 
-    <section class="console-cta">
-      <div class="cta-main">
-        <div class="cta-title">第一部分 · 用旅游搜索学会 Elasticsearch</div>
-        <div class="cta-sub">新版从 ES 的用途与旅游搜索问题讲起，八阶段贯穿同一个搜索网站；F12 基础搜索、F22 搜索质量、F45 完整复现。F01 导学、F02 概念推演与 F03 首搜已上线，后续课程逐课推进。</div>
-      </div>
-      <div class="cta-actions"><a class="btn primary" href="framework/index.html">查看新版框架篇路线</a><a class="btn" href="framework/f01.html">开始 F01</a></div>
-    </section>
+    <section class="course-group source-group" id="source-courses" aria-labelledby="source-title">
+      <header class="course-heading">
+        <div class="course-label"><span>02</span> 第二部分 · 理解原理</div>
+        <div class="course-title-line"><h2 id="source-title">源码精读篇</h2><span class="course-count">30 课 / 6 篇</span></div>
+        <p>带着使用中的问题，跟踪请求、写入与搜索的完整路径，理解 Lucene 存储和分布式机制。每课配图解、机制动画与本机实验。</p>
+        <div class="course-heading-links"><a href="chapters/ch01.html">从第 1 课开始 <span aria-hidden="true">→</span></a><a href="architecture.html">先看架构总览 <span aria-hidden="true">↗</span></a></div>
+      </header>
 
-    <div class="progress-panel" id="source-courses">
+    <div class="progress-panel" aria-label="源码篇阅读进度">
       <div class="progress-track"><div class="progress-fill"></div></div>
       <div class="progress-text">已读 0 / 30 课</div>
     </div>
 
     <section class="module">
-      <h2>第一篇 · 全局认知</h2>
+      <h3>第一篇 · 全局认知</h3>
       <p class="module-sub">ES 是什么、代码库长什么样、节点怎么启动、插件与配置怎么组织</p>
       <div class="cards">
         <a class="card" data-ch="ch01" href="chapters/ch01.html">
@@ -96,7 +153,7 @@
     </section>
 
     <section class="module">
-      <h2>第二篇 · 请求处理</h2>
+      <h3>第二篇 · 请求处理</h3>
       <p class="module-sub">一个请求从 HTTP 进来,经过哪些层,最后怎么拿到文档</p>
       <div class="cards">
         <a class="card" data-ch="ch06" href="chapters/ch06.html">
@@ -133,13 +190,13 @@
     </section>
 
     <section class="module">
-      <h2>第三篇 · 数据写入</h2>
+      <h3>第三篇 · 数据写入</h3>
       <p class="module-sub">文档进来后:定 schema、预处理、批量分发、落 Lucene、住进分片</p>
       <div class="cards">
         <a class="card" data-ch="ch11" href="chapters/ch11.html">
           <div class="ch-no">LESSON 11</div>
           <div class="ch-title">映射系统</div>
-          <div class="ch-desc">首篇文档写死 schema</div>
+          <div class="ch-desc">动态字段推断与映射边界</div>
           <div class="ch-meta"><span>📕 lesson11</span></div>
         </a>
         <a class="card" data-ch="ch12" href="chapters/ch12.html">
@@ -170,7 +227,7 @@
     </section>
 
     <section class="module">
-      <h2>第四篇 · 搜索查询</h2>
+      <h3>第四篇 · 搜索查询</h3>
       <p class="module-sub">Query Then Fetch 的两阶段舞步、DSL 到 Lucene 的翻译、聚合与打分</p>
       <div class="cards">
         <a class="card" data-ch="ch16" href="chapters/ch16.html">
@@ -207,7 +264,7 @@
     </section>
 
     <section class="module">
-      <h2>第五篇 · 分布式机制</h2>
+      <h3>第五篇 · 分布式机制</h3>
       <p class="module-sub">集群的真理之源、选主共识、分片分配与恢复、熔断背压</p>
       <div class="cards">
         <a class="card" data-ch="ch21" href="chapters/ch21.html">
@@ -244,7 +301,7 @@
     </section>
 
     <section class="module">
-      <h2>第六篇 · 高级专题</h2>
+      <h3>第六篇 · 高级专题</h3>
       <p class="module-sub">脚本引擎、ES|QL、索引生命周期、安全,以及把 30 课串起来的方法论</p>
       <div class="cards">
         <a class="card" data-ch="ch26" href="chapters/ch26.html">
@@ -280,14 +337,19 @@
       </div>
     </section>
 
-    <footer class="site-footer">
-      ES 源码精读站 · 内容基于本地 tutorial/(30 课,对齐 ES 9.4.0 源码)重新组织转写 ·
-      实验跑在 docker/start.sh 拉起的本机 ES 上
+      <aside class="home-toolbox" aria-labelledby="toolbox-title">
+        <h3 id="toolbox-title">动手与查阅</h3>
+        <p>需要实验时，在本机运行 <code>bash docker/start.sh</code> 启动 ES。阅读教程无需连接服务；各课的独立实验按课内步骤启动。</p>
+        <div class="tool-links"><a href="console.html">实验控制台 <span aria-hidden="true">↗</span></a><a href="architecture.html">架构总览 <span aria-hidden="true">↗</span></a><a href="cheatsheet.html">API 速查表 <span aria-hidden="true">↗</span></a></div>
+      </aside>
+    </section>
+
+    <footer class="site-footer home-footer">
+      <span>ES 学习站 · 先应用，再原理</span><span>Elasticsearch 9.4.0 · Lucene 10.4.0</span>
     </footer>
   </main>
 
   <script src="assets/js/nav.js"></script>
-  <script src="assets/js/es-client.js"></script>
   <script src="assets/js/progress.js"></script>
 </body>
 </html>
